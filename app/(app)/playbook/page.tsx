@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchServiceTiers, fetchPlaybookItems } from "@/lib/playbook/queries";
 import PlaybookLibrary from "@/components/playbook/playbook-library";
 
@@ -9,10 +10,12 @@ export default async function PlaybookPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
+  const admin = createAdminClient();
+
+  const { data: profile } = await admin
     .from("profiles")
     .select("role")
-    .eq("id", user?.id)
+    .eq("id", user?.id ?? "")
     .single();
 
   const isAdmin = profile?.role === "admin";

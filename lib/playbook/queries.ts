@@ -4,19 +4,24 @@ import type { PlaybookItem, ServiceTier } from "./types";
 export async function fetchServiceTiers(
   supabase: SupabaseClient,
 ): Promise<ServiceTier[]> {
+  const SERVICE_ORDER: Record<string, number> = { seo: 0, ppc: 1, social: 2, orm: 3, blog: 4 };
   const { data, error } = await supabase
     .from("strategy_mapper_service_tiers")
     .select("*")
     .eq("enabled", true)
-    .order("service")
     .order("tier_rank");
   if (error || !data) return [];
-  return data.map((row) => ({
+  const tiers = data.map((row) => ({
     ...row,
     tactics: Array.isArray(row.tactics)
       ? row.tactics
       : JSON.parse(row.tactics ?? "[]"),
   })) as ServiceTier[];
+  return tiers.sort(
+    (a, b) =>
+      (SERVICE_ORDER[a.service] ?? 99) - (SERVICE_ORDER[b.service] ?? 99) ||
+      a.tier_rank - b.tier_rank,
+  );
 }
 
 export async function fetchPlaybookItems(
