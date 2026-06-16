@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BookOpen,
   Building2,
   CheckSquare,
   ChevronDown,
@@ -35,6 +36,7 @@ const PRIMARY: NavItem[] = [
 ];
 
 const TOOLS: NavItem[] = [
+  { label: "Service Playbook", href: "/playbook", icon: BookOpen },
   { label: "SEO Ops", href: "/seo-ops", icon: ClipboardCheck },
   { label: "Site Audit", href: "/site-audit", icon: Globe },
   { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
