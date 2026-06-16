@@ -5,31 +5,25 @@ import { useMemo, useState } from "react";
 import {
   ArrowRight,
   ArrowUpDown,
-  Coins,
+  ChevronDown,
+  ChevronUp,
   ExternalLink,
-  Filter,
   LayoutGrid,
   Loader2,
   Megaphone,
   RefreshCw,
-  Target,
 } from "lucide-react";
 import AppHeaderActions from "@/components/layout/app-header-actions";
-import PlaybookGuidancePanel, {
-  PlaybookInlineTrigger,
-} from "@/components/dashboard/playbook-guidance-panel";
 import { buildGoogleAdsOptimizeTarget } from "@/lib/ads/google-ads-ui-links";
-import {
-  GLOBAL_ADS_PLAYBOOK_SECTIONS,
-  globalAdsIssueToPlaybook,
-} from "@/lib/playbooks/content";
 import type {
   GlobalAdsIssue,
   GlobalAdsIssueType,
   GlobalAdsOptimizationSummary,
 } from "@/lib/ads/global-optimization";
 import type { GlobalAdsCoverageStats } from "@/lib/dashboard/load-global-ads-optimization-data";
+
 type SortKey = "severity" | "account" | "category";
+
 type Props = {
   issues: GlobalAdsIssue[];
   summary: GlobalAdsOptimizationSummary;
@@ -38,31 +32,52 @@ type Props = {
   userEmail?: string;
   loadError?: string | null;
 };
+
 const FILTER_OPTIONS: Array<{ value: GlobalAdsIssueType; label: string }> = [
-  { value: "ad_relevance", label: "Ad Relevance Deficits" },
-  { value: "expected_ctr", label: "Expected CTR Deficits" },
-  { value: "low_quality_score", label: "Low Quality Scores" },
-  { value: "budget_capped", label: "Budget Limitations" },
+  { value: "ad_relevance", label: "Ad Relevance" },
+  { value: "expected_ctr", label: "Expected CTR" },
+  { value: "low_quality_score", label: "Quality Score" },
+  { value: "budget_capped", label: "Budget Limits" },
   { value: "rank_lost", label: "Ad Rank Loss" },
 ];
-const ALL_ISSUE_TYPES = FILTER_OPTIONS.map((option) => option.value);
+
+const ALL_ISSUE_TYPES = FILTER_OPTIONS.map((o) => o.value);
+
 const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2 } as const;
-function formatSyncTime(value: string | null) {
-  if (!value) return "No ads snapshots synced yet";
+
+const ISSUE_PLAIN_LABEL: Record<GlobalAdsIssueType, string> = {
+  ad_relevance: "Ad relevance gap",
+  expected_ctr: "Low expected CTR",
+  low_quality_score: "Low quality score",
+  budget_capped: "Budget capped",
+  rank_lost: "Ad rank loss",
+};
+
+function formatSyncAge(value: string | null) {
+  if (!value) return null;
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "Unknown sync time";
-  return `Last ads sync ${parsed.toLocaleString()}`;
+  if (Number.isNaN(parsed.getTime())) return null;
+  const hours = Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60));
+  if (hours < 1) return "synced less than 1 hour ago";
+  if (hours < 24) return `synced ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `synced ${days}d ago`;
 }
-function severityBadgeClass(severity: GlobalAdsIssue["severity"]) {
-  if (severity === "critical") {
-    return "bg-red-500/10 text-red-400 border-red-500/20";
-  }
-  if (severity === "high") {
-    return "bg-amber-500/10 text-amber-400 border-amber-500/20";
-  }
-  return "bg-slate-700/40 text-white/75 border-slate-600/40";
+
+function severityDotClass(severity: GlobalAdsIssue["severity"]) {
+  if (severity === "critical") return "bg-red-400";
+  if (severity === "high") return "bg-amber-400";
+  return "bg-slate-500";
 }
+
+function severityLabel(severity: GlobalAdsIssue["severity"]) {
+  if (severity === "critical") return "Critical";
+  if (severity === "high") return "High";
+  return "Medium";
+}
+
 type SyncAllMessage = { type: "success" | "error"; text: string };
+
 export default function GlobalAdsOptimizationCenter({
   issues,
   summary,
@@ -72,528 +87,355 @@ export default function GlobalAdsOptimizationCenter({
   loadError,
 }: Props) {
   const router = useRouter();
-  const [selectedFilters, setSelectedFilters] = useState<
-    Set<GlobalAdsIssueType>
-  >(() => new Set(ALL_ISSUE_TYPES));
-  const [sortKey, setSortKey] = useState<SortKey>("severity");
-  const [syncingAll, setSyncingAll] = useState(false);
-  const [syncAllMessage, setSyncAllMessage] = useState<SyncAllMessage | null>(
-    null,
+  const [selectedFilters, setSelectedFilters] = useState<Set<GlobalAdsIssueType>>(
+    () => new Set(ALL_ISSUE_TYPES),
   );
+  const [sortKey, setSortKey] = useState<SortKey>("severity");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncAllMessage, setSyncAllMessage] = useState<SyncAllMessage | null>(null);
+
   function toggleFilter(type: GlobalAdsIssueType) {
-    setSelectedFilters((current) => {
-      const next = new Set(current);
+    setSelectedFilters((prev) => {
+      const next = new Set(prev);
       if (next.has(type)) next.delete(type);
       else next.add(type);
       return next;
     });
   }
-  function selectAllFilters() {
-    setSelectedFilters(new Set(ALL_ISSUE_TYPES));
-  }
-  function clearAllFilters() {
-    setSelectedFilters(new Set());
-  }
+
   const filteredIssues = useMemo(() => {
-    const filtered = issues.filter((issue) =>
-      selectedFilters.has(issue.issueType),
-    );
-    return [...filtered].sort((left, right) => {
+    const filtered = issues.filter((i) => selectedFilters.has(i.issueType));
+    return [...filtered].sort((a, b) => {
       if (sortKey === "account") {
-        const byAccount = left.accountName.localeCompare(right.accountName);
-        if (byAccount !== 0) return byAccount;
-        return right.sortWeight - left.sortWeight;
+        const by = a.accountName.localeCompare(b.accountName);
+        return by !== 0 ? by : b.sortWeight - a.sortWeight;
       }
       if (sortKey === "category") {
-        const byCategory = left.issueLabel.localeCompare(right.issueLabel);
-        if (byCategory !== 0) return byCategory;
-        return right.sortWeight - left.sortWeight;
+        const by = a.issueLabel.localeCompare(b.issueLabel);
+        return by !== 0 ? by : b.sortWeight - a.sortWeight;
       }
-      const severityDelta =
-        SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity];
-      if (severityDelta !== 0) return severityDelta;
-      return right.sortWeight - left.sortWeight;
+      const sd = SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity];
+      return sd !== 0 ? sd : b.sortWeight - a.sortWeight;
     });
   }, [issues, selectedFilters, sortKey]);
+
   function cycleSortKey() {
-    setSortKey((current) => {
-      if (current === "severity") return "account";
-      if (current === "account") return "category";
-      return "severity";
-    });
+    setSortKey((k) => (k === "severity" ? "account" : k === "account" ? "category" : "severity"));
   }
+
   async function handleSyncAll() {
     setSyncingAll(true);
     setSyncAllMessage(null);
     try {
-      const response = await fetch("/api/ads/sync-all", { method: "POST" });
-      const payload = (await response.json()) as {
+      const res = await fetch("/api/ads/sync-all", { method: "POST" });
+      const payload = (await res.json()) as {
         error?: string;
         synced?: number;
         failed?: number;
         skipped?: number;
       };
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Sync all failed");
-      }
-      const synced = payload.synced ?? 0;
-      const failed = payload.failed ?? 0;
-      const skipped = payload.skipped ?? 0;
-      const skippedSuffix =
-        skipped > 0 ? `, ${skipped} skipped (no valid 10-digit Ads ID)` : "";
+      if (!res.ok) throw new Error(payload.error ?? "Sync failed");
+      const { synced = 0, failed = 0, skipped = 0 } = payload;
       setSyncAllMessage({
         type: failed > 0 ? "error" : "success",
-        text: `Ads sync complete: ${synced} synced, ${failed} failed${skippedSuffix}.`,
+        text: `Sync complete: ${synced} synced${failed > 0 ? `, ${failed} failed` : ""}${skipped > 0 ? `, ${skipped} skipped` : ""}.`,
       });
       router.refresh();
-    } catch (error) {
+    } catch (err) {
       setSyncAllMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Sync all failed",
+        text: err instanceof Error ? err.message : "Sync failed",
       });
     } finally {
       setSyncingAll(false);
     }
   }
-  const syncAllButton = (
-    <button
-      type="button"
-      onClick={() => void handleSyncAll()}
-      disabled={syncingAll || coverage.syncableAccountCount === 0}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-bip-accent/10 px-3 py-1.5 text-xs font-medium text-bip-accent transition hover:bg-bip-accent/20 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      
-      {syncingAll ? (
-        <>
-          
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Syncing
-          all accounts…
-        </>
-      ) : (
-        <>
-          
-          <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Sync all
-          accounts
-        </>
-      )}
-    </button>
-  );
+
+  const unsyncedCount = coverage.syncableAccountCount - coverage.syncedAccountCount;
+  const syncAgeLabel = formatSyncAge(lastAdsSyncAt);
+  const activeFilterCount = selectedFilters.size;
+
   return (
     <div className="flex min-h-screen flex-1 flex-col bg-bip-page font-sans text-white">
-      
+
+      {/* Header */}
       <header className="border-b border-white/[0.08] px-6 py-5">
-        
-        <div className="mx-auto flex max-w-7xl items-start justify-between gap-4">
-          
-          <div className="min-w-0">
-            
-            <div className="flex items-center gap-3">
-              
-              <Link
-                href="/dashboard"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-bip-card/50 text-white/75 transition hover:bg-bip-card/60"
-                title="Control panel"
-              >
-                
-                <LayoutGrid className="h-4 w-4" aria-hidden />
-              </Link>
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-bip-accent/15 text-bip-accent">
-                
-                <Megaphone className="h-5 w-5" aria-hidden />
-              </div>
-              <div>
-                
-                <h1 className="text-lg font-semibold tracking-tight text-white">
-                  
-                  Global Google Ads Optimization Center
-                </h1>
-                <p className="mt-0.5 text-xs text-white/50">
-                  
-                  Cross-account diagnostic radar ·
-                  {userEmail ?? "Signed in"}
-                </p>
-              </div>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link
+              href="/dashboard"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-bip-card/50 text-white/75 transition hover:bg-bip-card/60"
+              title="Dashboard"
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden />
+            </Link>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-bip-accent/15 text-bip-accent">
+              <Megaphone className="h-5 w-5" aria-hidden />
             </div>
-            <p className="mt-3 max-w-3xl text-sm text-white/50">
-              
-              Scanned {coverage.syncedAccountCount} of
-              {coverage.syncableAccountCount} syncable Google Ads accounts (
-              {coverage.totalClients} clients total).{""}
-              {formatSyncTime(lastAdsSyncAt)}.
-            </p>
+            <div className="min-w-0">
+              <h1 className="text-base font-semibold tracking-tight text-white">
+                Global Ads Optimization
+              </h1>
+              <p className="text-xs text-white/40">
+                {coverage.syncedAccountCount} of {coverage.syncableAccountCount} accounts synced
+                {syncAgeLabel ? ` · ${syncAgeLabel}` : ""}
+              </p>
+            </div>
           </div>
-          <div className="flex shrink-0 flex-col items-end gap-2">
-            
+          <div className="flex shrink-0 items-center gap-2">
             <Link
               href="/conversion-integrity"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
+              className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs font-medium text-white/60 transition hover:text-white"
             >
-              
               Conversion Radar
             </Link>
             <Link
               href="/ppc-defense"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 transition hover:bg-amber-500/20"
+              className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs font-medium text-white/60 transition hover:text-white"
             >
-              
               PPC Defense
             </Link>
-            {syncAllButton}
-            <PlaybookGuidancePanel
-              variant="drawer"
-              sections={GLOBAL_ADS_PLAYBOOK_SECTIONS}
-            />
+            <button
+              type="button"
+              onClick={() => void handleSyncAll()}
+              disabled={syncingAll || coverage.syncableAccountCount === 0}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-bip-accent/30 bg-bip-accent/10 px-3 py-1.5 text-xs font-medium text-bip-accent transition hover:bg-bip-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {syncingAll ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Syncing…</>
+              ) : (
+                <><RefreshCw className="h-3.5 w-3.5" /> Sync all</>
+              )}
+            </button>
             <AppHeaderActions />
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
-        
-        {loadError ? (
-          <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-            
+
+      <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-6">
+
+        {/* Error / status banners */}
+        {loadError && (
+          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
             {loadError}
           </div>
-        ) : null}
-        {syncAllMessage ? (
-          <div
-            className={`mb-6 rounded-xl border px-4 py-3 text-sm ${syncAllMessage.type === "success" ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200" : "border-red-500/20 bg-red-500/10 text-red-200"}`}
-          >
-            
+        )}
+        {syncAllMessage && (
+          <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${syncAllMessage.type === "success" ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200" : "border-red-500/20 bg-red-500/10 text-red-200"}`}>
             {syncAllMessage.text}
           </div>
-        ) : null}
-        {coverage.syncedAccountCount < coverage.syncableAccountCount ? (
-          <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-            
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              
-              <div className="min-w-0 flex-1">
-                
-                <p className="font-medium">Limited ads coverage</p>
-                <p className="mt-1 text-xs text-amber-200/80">
-                  
-                  {coverage.syncableAccountCount -
-                    coverage.syncedAccountCount}
-                  syncable account
-                  {coverage.syncableAccountCount -
-                    coverage.syncedAccountCount ===
-                  1
-                    ? ""
-                    : "s"}
-                  {""}
-                  {coverage.syncedAccountCount === 0 ? "have" : "still need"}
-                  never been ads-synced. Use Sync all accounts to pull every
-                  syncable client at once, or sync individually from a client
-                  workspace. Placeholder IDs like &ldquo;N&rdquo; are excluded (
-                  {coverage.totalClients - coverage.syncableAccountCount}
-                  clients without a valid 10-digit Ads customer ID).
-                </p>
-              </div>
-              {syncAllButton}
+        )}
+        {unsyncedCount > 0 && (
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm">
+            <p className="text-amber-200">
+              <span className="font-medium">{unsyncedCount} account{unsyncedCount !== 1 ? "s" : ""} not yet synced.</span>
+              {" "}Use <span className="font-medium">Sync all</span> to pull the latest data, or sync individually from each client.
+            </p>
+          </div>
+        )}
+        {coverage.syncFailedAccountCount > 0 && (
+          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <span className="font-medium">{coverage.syncFailedAccountCount} account{coverage.syncFailedAccountCount !== 1 ? "s" : ""} failed their last sync.</span>
+            {" "}Check the Ads customer ID and MCC access, then re-sync from the client workspace.
+          </div>
+        )}
+
+        {/* Stats row */}
+        <div className="mb-6 grid grid-cols-4 gap-3">
+          {[
+            { label: "Syncable", value: coverage.syncableAccountCount, color: "text-white" },
+            { label: "Synced", value: coverage.syncedAccountCount, color: "text-white" },
+            { label: "With issues", value: summary.accountsWithIssues, color: "text-amber-400" },
+            { label: "Healthy", value: coverage.healthySyncedAccountCount, color: "text-emerald-400" },
+          ].map((stat) => (
+            <div key={stat.label} className="rounded-xl border border-white/[0.08] bg-bip-card/40 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">{stat.label}</p>
+              <p className={`mt-1 text-2xl font-bold ${stat.color}`}>{stat.value}</p>
             </div>
-          </div>
-        ) : null}
-        {coverage.syncFailedAccountCount > 0 ? (
-          <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            
-            <p className="font-medium">
-              
-              {coverage.syncFailedAccountCount} synced account
-              {coverage.syncFailedAccountCount === 1 ? "" : "s"} with failed
-              latest sync
-            </p>
-            <p className="mt-1 text-xs text-red-200/80">
-              
-              These won&apos;t show optimization issues until sync succeeds.
-              Check the Ads customer ID and MCC access, then re-sync from the
-              client workspace.
-            </p>
-          </div>
-        ) : null}
-        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          
-          <div className="rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2">
-            
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
-              
-              Syncable
-            </p>
-            <p className="mt-1 text-xl font-bold text-white">
-              {coverage.syncableAccountCount}
-            </p>
-          </div>
-          <div className="rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2">
-            
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
-              
-              Synced
-            </p>
-            <p className="mt-1 text-xl font-bold text-white">
-              {coverage.syncedAccountCount}
-            </p>
-          </div>
-          <div className="rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2">
-            
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
-              
-              With issues
-            </p>
-            <p className="mt-1 text-xl font-bold text-amber-400">
-              {summary.accountsWithIssues}
-            </p>
-          </div>
-          <div className="rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2">
-            
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
-              
-              Healthy
-            </p>
-            <p className="mt-1 text-xl font-bold text-bip-accent">
-              
-              {coverage.healthySyncedAccountCount}
-            </p>
-          </div>
+          ))}
         </div>
-        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          
-          <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4">
-            
-            <div className="flex items-center justify-between">
-              
-              <span className="text-xs font-semibold uppercase tracking-wider text-red-400">
-                
-                Critical Budget / Rank Loss
-              </span>
-              <Coins size={16} className="text-red-400" />
-            </div>
-            <p className="mt-2 text-3xl font-bold text-white">
-              
-              {summary.budgetCappedAccountCount}
-              {""}
-              <span className="text-xs font-normal text-white/50">
-                accounts affected
-              </span>
-            </p>
-          </div>
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
-            
-            <div className="flex items-center justify-between">
-              
-              <span className="text-xs font-semibold uppercase tracking-wider text-amber-400">
-                
-                Relevance / CTR / QS Deficits
-              </span>
-              <Target size={16} className="text-amber-400" />
-            </div>
-            <p className="mt-2 text-3xl font-bold text-white">
-              
-              {summary.relevanceCtrAccountCount}
-              {""}
-              <span className="text-xs font-normal text-white/50">
-                accounts flagged
-              </span>
-            </p>
-          </div>
-        </div>
-        <div className="mb-8 rounded-xl border border-white/[0.08] bg-bip-card/50 p-4">
-          
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            
-            <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/50">
-              
-              <Filter size={12} /> Active View Filters
-            </span>
-            <div className="flex items-center gap-2">
-              
-              <button
-                type="button"
-                onClick={selectAllFilters}
-                className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/50 transition hover:bg-bip-card/60 hover:text-white/75"
-              >
-                
-                Select all
-              </button>
-              <button
-                type="button"
-                onClick={clearAllFilters}
-                className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/50 transition hover:bg-bip-card/60 hover:text-white/75"
-              >
-                
-                Clear all
-              </button>
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            
-            {FILTER_OPTIONS.map((option) => {
-              const checked = selectedFilters.has(option.value);
-              return (
-                <label
-                  key={option.value}
-                  className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-xs transition ${checked ? "border-indigo-500/30 bg-bip-accent/10 text-white/75" : "border-white/[0.08] bg-bip-card/40 text-white/50 hover:border-white/[0.12]"}`}
-                >
-                  
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleFilter(option.value)}
-                    className="h-3.5 w-3.5 rounded border-slate-600 bg-bip-card text-indigo-500 focus:ring-0 focus:ring-offset-0"
-                  />
-                  {option.label}
-                </label>
-              );
-            })}
-          </div>
-        </div>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          
-          <p className="text-xs text-white/50">
-            
-            {selectedFilters.size === 0 ? (
-              "Select at least one filter to view issues"
-            ) : (
-              <>
-                
-                {filteredIssues.length} issue
-                {filteredIssues.length === 1 ? "" : "s"} ·{""}
-                {summary.accountsWithIssues} account
-                {summary.accountsWithIssues === 1 ? "" : "s"} with active repair
-                points
-              </>
-            )}
-          </p>
+
+        {/* Filter + sort bar */}
+        <div className="mb-4 rounded-xl border border-white/[0.08] bg-bip-card/40">
           <button
             type="button"
-            onClick={cycleSortKey}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-xs font-medium text-white/50 transition hover:bg-bip-card/60 hover:text-white/75"
+            onClick={() => setFiltersOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-4 py-3 text-xs font-medium text-white/50 hover:text-white/75 transition-colors"
           >
-            
-            <ArrowUpDown size={12} /> Sort:
-            {sortKey === "severity"
-              ? "Severity"
-              : sortKey === "account"
-                ? "Account"
-                : "Category"}
+            <span>
+              Filters
+              {activeFilterCount < ALL_ISSUE_TYPES.length && (
+                <span className="ml-2 rounded-full border border-bip-accent/30 bg-bip-accent/10 px-1.5 py-0.5 text-[10px] text-bip-accent">
+                  {activeFilterCount} of {ALL_ISSUE_TYPES.length} active
+                </span>
+              )}
+            </span>
+            {filtersOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
+
+          {filtersOpen && (
+            <div className="border-t border-white/[0.06] px-4 pb-4 pt-3">
+              <div className="flex flex-wrap gap-2">
+                {FILTER_OPTIONS.map((opt) => {
+                  const active = selectedFilters.has(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => toggleFilter(opt.value)}
+                      className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                        active
+                          ? "border-bip-accent/30 bg-bip-accent/10 text-white/80"
+                          : "border-white/[0.08] bg-bip-card/30 text-white/35 hover:text-white/60"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setSelectedFilters(new Set(ALL_ISSUE_TYPES))}
+                  className="ml-auto rounded-lg border border-white/[0.06] px-3 py-1.5 text-xs text-white/35 hover:text-white/60 transition"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedFilters(new Set())}
+                  className="rounded-lg border border-white/[0.06] px-3 py-1.5 text-xs text-white/35 hover:text-white/60 transition"
+                >
+                  None
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-bip-card/40">
-          
+
+        {/* Issues table */}
+        <div className="rounded-xl border border-white/[0.08] bg-bip-card/40 overflow-hidden">
+
+          {/* Table header with count + sort */}
+          <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+            <p className="text-xs text-white/40">
+              {selectedFilters.size === 0
+                ? "No filters selected"
+                : `${filteredIssues.length} issue${filteredIssues.length !== 1 ? "s" : ""} across ${summary.accountsWithIssues} account${summary.accountsWithIssues !== 1 ? "s" : ""}`}
+            </p>
+            <button
+              type="button"
+              onClick={cycleSortKey}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-xs text-white/40 transition hover:text-white/70"
+            >
+              <ArrowUpDown size={11} />
+              Sort: {sortKey === "severity" ? "Severity" : sortKey === "account" ? "Client" : "Issue type"}
+            </button>
+          </div>
+
           {selectedFilters.size === 0 ? (
-            <div className="px-6 py-16 text-center">
-              
-              <p className="text-sm font-medium text-white/75">
-                No filters selected
-              </p>
-              <p className="mt-1 text-xs text-white/50">
-                
-                Tick one or more anomaly categories above to populate the repair
-                queue.
-              </p>
+            <div className="py-16 text-center">
+              <p className="text-sm text-white/40">Select at least one filter to see issues.</p>
             </div>
           ) : filteredIssues.length === 0 ? (
-            <div className="px-6 py-16 text-center">
-              
-              <p className="text-sm font-medium text-white/75">
-                No optimization gaps detected
-              </p>
-              <p className="mt-1 text-xs text-white/50">
-                
-                Connected accounts are clear for the selected filters, or no ads
-                snapshots are available yet.
+            <div className="py-16 text-center">
+              <p className="text-sm font-medium text-white/60">No issues found</p>
+              <p className="mt-1 text-xs text-white/35">
+                All synced accounts are clear for the selected filters.
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              
-              <table className="w-full text-left text-sm text-white/75"><thead className="border-b border-white/[0.08] bg-bip-card/40 text-xs font-semibold uppercase tracking-wider text-white/50"><tr><th className="p-4">Client Account Name</th><th className="p-4">Anomalous Category</th><th className="p-4">Impacted Metric Focus</th><th className="p-4">Projected Health Impact</th><th className="p-4 text-right">Action</th></tr></thead><tbody className="divide-y divide-slate-800/60">{filteredIssues.map((item) => {
-                    const optimizeTarget = buildGoogleAdsOptimizeTarget(item);
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-white/[0.06]">
+                  <tr className="text-[10px] font-semibold uppercase tracking-wider text-white/35">
+                    <th className="px-4 py-3">Client</th>
+                    <th className="px-4 py-3">Issue</th>
+                    <th className="px-4 py-3">What&apos;s affected</th>
+                    <th className="px-4 py-3">Why it matters</th>
+                    <th className="px-4 py-3 text-right">Fix</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {filteredIssues.map((item) => {
+                    const target = buildGoogleAdsOptimizeTarget(item);
                     return (
-                      <tr
-                        key={item.id}
-                        className="transition hover:bg-bip-card/20"
-                      ><td className="p-4 font-medium text-white/75">
-                          
+                      <tr key={item.id} className="transition hover:bg-white/[0.02]">
+
+                        {/* Client */}
+                        <td className="px-4 py-3">
                           <Link
-                            href={optimizeTarget.workspaceUrl}
-                            className="hover:text-bip-accent"
+                            href={target.workspaceUrl}
+                            className="font-medium text-white/80 hover:text-bip-accent transition-colors"
                           >
-                            
                             {item.accountName}
                           </Link>
-                          <div className="mt-0.5 font-mono text-[11px] text-white/50">
-                            
-                            {item.accountIdLabel}
-                            {optimizeTarget.formattedCustomerId
-                              ? ` · Ads ${optimizeTarget.formattedCustomerId}`
-                              : null}
+                          {target.formattedCustomerId && (
+                            <p className="mt-0.5 font-mono text-[10px] text-white/30">
+                              {target.formattedCustomerId}
+                            </p>
+                          )}
+                        </td>
+
+                        {/* Issue */}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${severityDotClass(item.severity)}`} />
+                            <span className="text-white/75 text-xs">
+                              {ISSUE_PLAIN_LABEL[item.issueType] ?? item.issueLabel}
+                            </span>
                           </div>
-                        </td><td className="p-4">
-                          
-                          <span
-                            className={`rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${severityBadgeClass(item.severity)}`}
-                          >
-                            
-                            {item.issueLabel}
-                          </span>
-                          {globalAdsIssueToPlaybook(item.issueType) ? (
-                            <PlaybookInlineTrigger
-                              issueType={
-                                globalAdsIssueToPlaybook(item.issueType)!
-                              }
-                            />
-                          ) : null}
-                        </td><td className="p-4 font-mono text-xs text-white/50">
+                          <p className="mt-0.5 pl-3.5 text-[10px] text-white/30">
+                            {severityLabel(item.severity)}
+                          </p>
+                        </td>
+
+                        {/* What's affected */}
+                        <td className="px-4 py-3 font-mono text-xs text-white/40">
                           {item.target}
-                        </td><td className="p-4 text-xs text-white/50">
+                        </td>
+
+                        {/* Why it matters */}
+                        <td className="px-4 py-3 text-xs text-white/40 max-w-[200px]">
                           {item.impact}
-                        </td><td className="p-4 text-right">
-                          
-                          <div className="flex flex-col items-end gap-1.5">
-                            
-                            {optimizeTarget.externalUrl ? (
+                        </td>
+
+                        {/* Fix */}
+                        <td className="px-4 py-3 text-right">
+                          {target.externalUrl ? (
+                            <div className="flex flex-col items-end gap-1">
                               <a
-                                href={optimizeTarget.externalUrl}
+                                href={target.externalUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                title={`Open ${optimizeTarget.destinationLabel} in Google Ads`}
-                                className="inline-flex items-center gap-1 rounded-md border border-indigo-500/10 bg-bip-accent/5 px-2.5 py-1.5 text-xs font-medium text-bip-accent transition hover:bg-bip-accent/10 hover:text-bip-accent"
+                                className="inline-flex items-center gap-1 rounded-lg border border-bip-accent/20 bg-bip-accent/8 px-2.5 py-1.5 text-xs font-medium text-bip-accent transition hover:bg-bip-accent/15"
                               >
-                                
-                                Optimize in Google Ads
-                                <ExternalLink size={12} />
+                                Fix in Google Ads <ExternalLink size={11} />
                               </a>
-                            ) : (
                               <Link
-                                href={optimizeTarget.workspaceUrl}
-                                className="inline-flex items-center gap-1 rounded-md border border-indigo-500/10 bg-bip-accent/5 px-2.5 py-1.5 text-xs font-medium text-bip-accent transition hover:bg-bip-accent/10 hover:text-bip-accent"
+                                href={target.workspaceUrl}
+                                className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
                               >
-                                
-                                Optimize in BIP <ArrowRight size={12} />
+                                Open client →
                               </Link>
-                            )}
-                            {optimizeTarget.externalUrl ? (
-                              <Link
-                                href={optimizeTarget.workspaceUrl}
-                                className="text-[10px] text-white/50 transition hover:text-white/75"
-                              >
-                                
-                                View in BIP workspace
-                              </Link>
-                            ) : null}
-                          </div>
-                        </td></tr>
+                            </div>
+                          ) : (
+                            <Link
+                              href={target.workspaceUrl}
+                              className="inline-flex items-center gap-1 rounded-lg border border-bip-accent/20 bg-bip-accent/8 px-2.5 py-1.5 text-xs font-medium text-bip-accent transition hover:bg-bip-accent/15"
+                            >
+                              Open client <ArrowRight size={11} />
+                            </Link>
+                          )}
+                        </td>
+                      </tr>
                     );
                   })}
-                </tbody></table>
+                </tbody>
+              </table>
             </div>
           )}
         </div>
-        <PlaybookGuidancePanel
-          variant="accordion"
-          sections={GLOBAL_ADS_PLAYBOOK_SECTIONS}
-          className="mt-8"
-        />
       </main>
     </div>
   );
