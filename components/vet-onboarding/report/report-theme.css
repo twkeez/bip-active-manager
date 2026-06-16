@@ -1,0 +1,98 @@
+.vet-report-document {
+  --report-navy: #2a52be;
+  --report-blue: #2a52be;
+  --report-purple: #b31b6b;
+  --report-magenta: #b31b6b;
+  --report-accent: #d91a7a;
+  --report-teal: #d91a7a;
+  --report-muted: #2d3748;
+  --report-border: #faf5f7;
+  --report-callout-bg: #faf5f7;
+  --report-row-alt: #faf5f7;
+  --report-footer: #c8d6e5;
+  --report-text: #2d3748;
+  --report-bg: #ffffff;
+
+  background: var(--report-bg);
+  color: var(--report-text);
+  color-scheme: light;
+}
+
+/* Override app-wide dark theme base styles inside report documents */
+.vet-report-document input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.vet-report-document select,
+.vet-report-document textarea {
+  color: var(--report-text);
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.vet-report-document input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,
+.vet-report-document select:focus,
+.vet-report-document textarea:focus {
+  color: var(--report-text);
+  background-color: var(--report-bg);
+  border-color: var(--report-border);
+  box-shadow: none;
+  outline: none;
+}
+
+.vet-report-document table {
+  background-color: transparent;
+  color: var(--report-text);
+}
+
+.vet-report-document thead {
+  color: inherit;
+}
+
+.vet-report-document tbody tr:hover {
+  background-color: inherit;
+}
+
+.vet-report-document th,
+.vet-report-document td {
+  color: var(--report-text);
+  border-color: var(--report-border);
+}
+
+.vet-report-document h1,
+.vet-report-document h2,
+.vet-report-document h3,
+.vet-report-document h4,
+.vet-report-document h5,
+.vet-report-document h6 {
+  color: inherit;
+}
+
+.vet-report-document ::placeholder {
+  color: #9ca3af;
+}
+
+.vet-report-document .report-gradient-rule {
+  height: 4px;
+  width: 100%;
+  max-width: 280px;
+  background: linear-gradient(to right, var(--report-accent), transparent);
+  border-radius: 2px;
+}
+
+.vet-report-document .report-section-break {
+  break-before: page;
+  page-break-before: always;
+}
+
+.vet-report-document .report-observation-callout {
+  background: var(--report-callout-bg);
+  border-left: 4px solid var(--report-purple);
+  color: #5d318c;
+  padding: 15px;
+}
+
+@media print {
+  .vet-report-document {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}

@@ -1,0 +1,124 @@
+import * as cheerio from "cheerio";
+import { runQuickSeoCrawl } from "@/lib/seo/crawl";
+import type { CrawlPageRecord, CrawlStageResult } from "@/lib/site-audit/types";
+import { fetchTextWithTimeout, normalizeAuditUrl } from "@/lib/site-audit/shared";
+
+const MAX_PAGES = 20;
+
+function text(value: string | null | undefined) {
+  return (value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function stripHash(url: string) {
+  return url.replace(/#.*$/, "");
+}
+
+function extractSchemaTypes(html: string) {
+  const $ = cheerio.load(html);
+  const types = new Set<string>();
+  $('script[type="application/ld+json"]').each((_, node) => {
+    const raw = text($(node).html());
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown> | Array<Record<string, unknown>>;
+      const items = Array.isArray(parsed) ? parsed : [parsed];
+      for (const item of items) {
+        const type = item["@type"];
+        if (typeof type === "string" && type.trim()) types.add(type.trim());
+        if (Array.isArray(type)) {
+          for (const entry of type) {
+            if (typeof entry === "string" && entry.trim()) types.add(entry.trim());
+          }
+        }
+      }
+    } catch {
+      // ignore invalid json-ld
+    }
+  });
+  return [...types];
+}
+
+function wordCountFromHtml(html: string) {
+  const $ = cheerio.load(html);
+  $("script,style,noscript").remove();
+  return text($("body").text()).split(/\s+/).filter(Boolean).length;
+}
+
+export async function runCrawlStage(startUrl: string): Promise<CrawlStageResult> {
+  const normalized = normalizeAuditUrl(startUrl);
+  if (!normalized) throw new Error("URL is required for crawl.");
+
+  const crawlResult = await runQuickSeoCrawl(normalized, MAX_PAGES);
+
+  const start = new URL(normalized);
+  const rootHost = start.host;
+  const queue: Array<{ url: string; depth: number }> = [
+    { url: stripHash(start.toString()), depth: 0 },
+  ];
+  const visited = new Set<string>();
+  const pages: CrawlPageRecord[] = [];
+
+  while (queue.length > 0 && pages.length < MAX_PAGES) {
+    const next = queue.shift();
+    if (!next || visited.has(next.url)) continue;
+    visited.add(next.url);
+
+    try {
+      const { response, text: html } = await fetchTextWithTimeout(next.url);
+      const title = cheerio.load(html)("title").first().text();
+      pages.push({
+        url: response.url,
+        depth: next.depth,
+        status: response.status,
+        title: text(title) || null,
+        wordCount: wordCountFromHtml(html),
+        schemaTypes: extractSchemaTypes(html),
+      });
+
+      if (!response.ok || !html.includes("<html")) continue;
+      const $ = cheerio.load(html);
+      const currentUrl = new URL(response.url);
+      $("a[href]").each((_, element) => {
+        const href = $(element).attr("href");
+        if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) {
+          return;
+        }
+        try {
+          const link = new URL(href, currentUrl);
+          if (link.host !== rootHost) return;
+          const normalizedLink = stripHash(link.toString());
+          if (visited.has(normalizedLink)) return;
+          if (queue.some((item) => item.url === normalizedLink)) return;
+          if (pages.length + queue.length >= MAX_PAGES) return;
+          queue.push({ url: normalizedLink, depth: next.depth + 1 });
+        } catch {
+          // skip bad href
+        }
+      });
+    } catch {
+      pages.push({
+        url: next.url,
+        depth: next.depth,
+        status: 0,
+        title: null,
+        wordCount: 0,
+        schemaTypes: [],
+      });
+    }
+  }
+
+  return {
+    baseUrl: crawlResult.baseUrl,
+    crawledUrls: pages.length,
+    pages,
+    issues: crawlResult.issues.map((issue) => ({
+      rule_id: issue.rule_id,
+      severity: issue.severity,
+      category: issue.category,
+      title: issue.title,
+      description: issue.description,
+      suggestion: issue.suggestion,
+      url: issue.url,
+    })),
+  };
+}

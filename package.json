@@ -6,21 +6,46 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "db:generate-clients-seed": "node scripts/generate-clients-seed-sql.mjs",
+    "db:seed-clients": "node --env-file=.env.local scripts/seed-clients-from-csv.mjs",
+    "social:list-meta-pages": "node --env-file=.env.local scripts/list-meta-pages.mjs",
+    "social:refresh-meta-token": "node --env-file=.env.local scripts/refresh-meta-token.mjs",
+    "ads:verify-accounts": "node --env-file=.env.local scripts/verify-google-ads-accounts.mjs",
+    "ads:check-scope": "node --env-file=.env.local scripts/check-google-oauth-scope.mjs",
+    "ads:google-refresh-token": "node --env-file=.env.local scripts/google-oauth-refresh-token.mjs",
+    "seo:google-refresh-token": "node --env-file=.env.local scripts/google-oauth-refresh-token.mjs",
+    "seo:list-search-console-sites": "node --env-file=.env.local scripts/list-search-console-sites.mjs",
+    "seo:reconcile-sc-properties": "node --env-file=.env.local scripts/reconcile-search-console-properties.mjs",
+    "gbp:list-locations": "node --env-file=.env.local scripts/list-gbp-locations.mjs",
+    "reporting:bq:sync": "node --env-file=.env.local scripts/run-bigquery-sync.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
+    "@google-cloud/bigquery": "^8.3.1",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.105.1",
+    "cheerio": "^1.2.0",
+    "google-auth-library": "^10.6.2",
+    "lucide-react": "^1.14.0",
+    "mammoth": "^1.12.0",
     "next": "16.2.4",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "csv-parse": "^6.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "googleapis": "^171.4.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.5"
   }
 }

@@ -1,26 +1,209 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bip-page: #0f1117;
+  --bip-card: #1a1f2e;
+  --bip-border: rgba(255, 255, 255, 0.08);
+  --bip-border-strong: rgba(255, 255, 255, 0.12);
+  --bip-text: #ffffff;
+  --bip-text-body: rgba(255, 255, 255, 0.75);
+  --bip-text-muted: rgba(255, 255, 255, 0.5);
+  --bip-text-label: rgba(255, 255, 255, 0.4);
+  --bip-accent: #00c9a7;
+  --bip-danger: #ff4d4f;
+  --bip-hover: rgba(255, 255, 255, 0.06);
+  --bip-overlay: rgba(0, 0, 0, 0.65);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bip-page: var(--bip-page);
+  --color-bip-card: var(--bip-card);
+  --color-bip-accent: var(--bip-accent);
+  --color-bip-danger: var(--bip-danger);
+  --color-bip-border: var(--bip-border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--bip-page);
+    color: var(--bip-text-body);
+    font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--bip-text);
+    font-weight: 500;
+  }
+
+  a:not([class]) {
+    color: var(--bip-accent);
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    background-color: var(--bip-page);
+    border: 1px solid var(--bip-border-strong);
+    color: var(--bip-text);
+    border-radius: 0.5rem;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--bip-accent);
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--bip-accent) 35%, transparent);
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--bip-accent);
+  }
+
+  table {
+    background-color: var(--bip-card);
+    color: var(--bip-text-body);
+    border-collapse: collapse;
+  }
+
+  thead {
+    color: var(--bip-text-label);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  tbody tr:hover {
+    background-color: var(--bip-hover);
+  }
+
+  th,
+  td {
+    border-bottom: 1px solid var(--bip-border);
+  }
+
+  option {
+    background-color: var(--bip-card);
+    color: var(--bip-text);
+  }
+
+  ::placeholder {
+    color: var(--bip-text-muted);
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--bip-accent) 35%, transparent);
+    color: var(--bip-text);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .bip-section-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--bip-text-label);
+  }
+
+  .bip-card {
+    border-radius: 0.75rem;
+    border: 1px solid var(--bip-border);
+    background-color: var(--bip-card);
+  }
+
+  .bip-btn-primary {
+    border-radius: 0.5rem;
+    background-color: var(--bip-accent);
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--bip-page);
+    transition: filter 150ms ease;
+  }
+
+  .bip-btn-primary:hover {
+    filter: brightness(1.08);
+  }
+
+  .bip-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .bip-btn-secondary {
+    border-radius: 0.5rem;
+    border: 1px solid var(--bip-border-strong);
+    background-color: transparent;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--bip-text);
+    transition: background-color 150ms ease;
+  }
+
+  .bip-btn-secondary:hover {
+    background-color: var(--bip-hover);
+  }
+
+  .bip-btn-danger {
+    border-radius: 0.5rem;
+    background-color: var(--bip-danger);
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--bip-text);
+  }
+
+  .bip-input {
+    border-radius: 0.5rem;
+    border: 1px solid var(--bip-border-strong);
+    background-color: var(--bip-page);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--bip-text);
+  }
+
+  .bip-input:focus {
+    border-color: var(--bip-accent);
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--bip-accent) 35%, transparent);
+  }
+
+  .bip-tab-active {
+    color: var(--bip-text);
+    border-bottom: 2px solid var(--bip-accent);
+  }
+
+  .bip-tab-inactive {
+    color: var(--bip-text-muted);
+  }
+
+  .bip-badge {
+    border-radius: 9999px;
+    border: 1px solid var(--bip-border);
+    background-color: color-mix(in srgb, var(--bip-card) 85%, white 15%);
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .bip-spinner {
+    color: var(--bip-accent);
+  }
 }

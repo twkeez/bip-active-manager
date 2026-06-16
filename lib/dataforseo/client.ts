@@ -1,0 +1,102 @@
+export const DEFAULT_LOCATION_CODE = 2840;
+export const DEFAULT_LANGUAGE_CODE = "en";
+
+export const DATAFORSEO_ENDPOINTS = {
+  domainIntersection:
+    "https://api.dataforseo.com/v3/dataforseo_labs/google/domain_intersection/live",
+  keywordIdeas:
+    "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_ideas/live",
+  serpOrganicAdvanced:
+    "https://api.dataforseo.com/v3/serp/google/organic/live/advanced",
+  localPackAdvanced:
+    "https://api.dataforseo.com/v3/serp/google/local_pack/live/advanced",
+  competitorsDomain:
+    "https://api.dataforseo.com/v3/dataforseo_labs/google/competitors_domain/live",
+  myBusinessInfo:
+    "https://api.dataforseo.com/v3/business_data/google/my_business_info/live",
+  domainRankOverview:
+    "https://api.dataforseo.com/v3/dataforseo_labs/google/domain_rank_overview/live",
+} as const;
+
+export function cleanDomain(input: string): string {
+  let domain = input.trim().toLowerCase();
+  domain = domain.replace(/^(https?:\/\/)?(www\.)?/, "");
+  domain = domain.split("/")[0] ?? domain;
+  return domain;
+}
+
+export function dataForSeoBasicAuthHeader(login: string, password: string): string {
+  return `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`;
+}
+
+export function extractTaskResultItems(apiData: unknown): unknown[] {
+  const data = apiData as {
+    tasks?: Array<{
+      result?: Array<{ items?: unknown[] }>;
+    }>;
+  };
+
+  return data?.tasks?.[0]?.result?.[0]?.items ?? [];
+}
+
+export function extractTaskResult(apiData: unknown): unknown {
+  const data = apiData as {
+    tasks?: Array<{
+      result?: unknown[];
+    }>;
+  };
+
+  return data?.tasks?.[0]?.result?.[0] ?? null;
+}
+
+export function dataForSeoTaskError(apiData: unknown): string | null {
+  const data = apiData as {
+    status_code?: number;
+    status_message?: string;
+    tasks?: Array<{ status_code?: number; status_message?: string }>;
+  };
+
+  if (data.status_code != null && data.status_code !== 20000) {
+    return data.status_message ?? "DataForSEO request failed.";
+  }
+
+  const task = data.tasks?.[0];
+  if (task?.status_code != null && task.status_code !== 20000) {
+    return task.status_message ?? "DataForSEO task failed.";
+  }
+
+  return null;
+}
+
+export async function postDataForSeoLive(
+  url: string,
+  login: string,
+  password: string,
+  payload: unknown[],
+): Promise<{ ok: boolean; status: number; data: unknown; error: string | null }> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: dataForSeoBasicAuthHeader(login, password),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      data,
+      error: "DataForSEO request failed.",
+    };
+  }
+
+  const taskError = dataForSeoTaskError(data);
+  if (taskError) {
+    return { ok: false, status: 502, data, error: taskError };
+  }
+
+  return { ok: true, status: 200, data, error: null };
+}
