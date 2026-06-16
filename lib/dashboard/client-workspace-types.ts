@@ -32,7 +32,8 @@ export type ClientDetailTab =
   | "ads"
   | "sitemaps"
   | "social"
-  | "actions";
+  | "actions"
+  | "playbook";
 
 export const CLIENT_DETAIL_TABS = new Set<string>([
   "profile",
@@ -46,6 +47,7 @@ export const CLIENT_DETAIL_TABS = new Set<string>([
   "sitemaps",
   "social",
   "actions",
+  "playbook",
 ]);
 
 export function parseClientDetailTab(value: string | undefined | null): ClientDetailTab | null {
