@@ -1,0 +1,323 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { ArrowLeft, ExternalLink, Pencil, Save, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  activeServiceLabels,
+  getClientActiveServices,
+  norm,
+} from "@/lib/clients/service-active";
+import {
+  CLIENT_LIST_PATH,
+  readStoredClientListHref,
+} from "@/lib/clients/client-list-view-state";
+import type {
+  ClientDetailTab,
+  ClientWorkspaceInitialData,
+} from "@/lib/dashboard/client-workspace-types";
+import ClientPlaybookView from "@/components/playbook/client-playbook-view";
+import ClientOnboardingView from "@/components/dashboard/client-onboarding-view";
+import ClientProfileView from "@/components/dashboard/client-profile-view";
+import type { StrategistContact } from "@/lib/team/strategist-roster";
+import { openableBasecampUrl, previewText } from "@/lib/basecamp/display";
+
+// Tabs handled by this clean shell (data-heavy tabs stay in legacy system)
+const SIMPLE_TABS = new Set<ClientDetailTab>([
+  "profile",
+  "onboarding",
+  "connections",
+  "comms",
+  "playbook",
+]);
+
+const ALL_TABS: Array<{ id: ClientDetailTab; label: string }> = [
+  { id: "reporting", label: "Reporting" },
+  { id: "seo_ops", label: "SEO Ops" },
+  { id: "onboarding", label: "Onboarding" },
+  { id: "comms", label: "Comms" },
+  { id: "seo", label: "SEO" },
+  { id: "ads", label: "Ads" },
+  { id: "social", label: "Social" },
+  { id: "sitemaps", label: "Sitemaps" },
+  { id: "actions", label: "Actions" },
+  { id: "playbook", label: "Playbook" },
+];
+
+function formatRelative(value: string | null | undefined) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
+}
+
+// ─── Tab content components ───────────────────────────────────────────────────
+
+function DataRow({ label, value, mono = false }: { label: string; value?: string | null; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-white/[0.05] py-2.5 last:border-0">
+      <dt className="text-xs text-white/40 shrink-0">{label}</dt>
+      <dd className={`text-xs text-right ${mono ? "font-mono text-white/60" : "text-white/70"} truncate max-w-[240px]`}>
+        {value || "—"}
+      </dd>
+    </div>
+  );
+}
+
+function ConnectionsTab({ data }: { data: ClientWorkspaceInitialData }) {
+  const { client, socialConnections } = data;
+  return (
+    <div className="space-y-5">
+      <div className="bip-card p-5">
+        <p className="bip-section-label mb-3">Google</p>
+        <dl>
+          <DataRow label="Search Console URL" value={norm(client.sc_url)} />
+          <DataRow label="GA4 Property ID" value={norm(client.ga4_property_id)} mono />
+          <DataRow label="GA4 ID" value={norm(client.ga4_id)} mono />
+          <DataRow label="Google Place ID (GBP)" value={norm(client.google_place_id)} mono />
+        </dl>
+      </div>
+      <div className="bip-card p-5">
+        <p className="bip-section-label mb-3">Ads</p>
+        <dl>
+          <DataRow label="Ads Customer ID" value={norm(client.ads_customer_id)} mono />
+          <DataRow label="Website" value={norm(client.website)} />
+        </dl>
+      </div>
+      <div className="bip-card p-5">
+        <p className="bip-section-label mb-3">Project Management</p>
+        <dl>
+          <DataRow label="Basecamp Project ID" value={norm(client.basecamp_project_id)} mono />
+          {norm(client.basecamp_project_id) && (
+            <div className="mt-2">
+              <a
+                href={`https://3.basecamp.com/2175055/projects/${client.basecamp_project_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-bip-accent hover:underline"
+              >
+                Open in Basecamp <ExternalLink size={11} />
+              </a>
+            </div>
+          )}
+          <DataRow label="Harvest Project ID" value={norm(client.harvest_project_id)} mono />
+          <DataRow label="Harvest Client ID" value={norm(client.harvest_client_id)} mono />
+        </dl>
+      </div>
+      {socialConnections.length > 0 && (
+        <div className="bip-card p-5">
+          <p className="bip-section-label mb-3">Social Connections</p>
+          <ul className="space-y-1.5">
+            {socialConnections.map((sc) => (
+              <li key={sc.id} className="text-xs text-white/60">
+                {sc.platform} — {sc.account_name ?? sc.account_username ?? sc.page_id ?? "connected"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CommsTab({ data }: { data: ClientWorkspaceInitialData }) {
+  const { client, threadEvents } = data;
+  const clientThreads = threadEvents.filter((e) => !e.is_internal);
+  const latestClient = clientThreads[0] ?? null;
+
+  return (
+    <div className="space-y-5">
+      {/* Status */}
+      <div className="bip-card p-5">
+        <p className="bip-section-label mb-3">Status</p>
+        <dl>
+          <DataRow
+            label="Awaiting reply"
+            value={client.needs_reply ? `Yes — client last responded ${formatRelative(client.last_communication_at)}` : "No"}
+          />
+          <DataRow label="Days since last communication" value={client.days_stale != null ? `${client.days_stale} day${client.days_stale !== 1 ? "s" : ""}` : undefined} />
+          <DataRow label="Last communication" value={formatRelative(client.last_communication_at)} />
+          <DataRow label="Last message from" value={client.last_event_is_internal == null ? undefined : client.last_event_is_internal ? "Internal" : "Client"} />
+        </dl>
+        {latestClient && openableBasecampUrl(latestClient.thread_url) && (
+          <a
+            href={openableBasecampUrl(latestClient.thread_url) ?? "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-white/60 hover:text-white transition-colors"
+          >
+            Open latest thread in Basecamp <ExternalLink size={11} />
+          </a>
+        )}
+      </div>
+
+      {/* Recent threads */}
+      {threadEvents.length > 0 && (
+        <div className="bip-card overflow-hidden">
+          <p className="bip-section-label px-5 pt-5 pb-3">Recent threads</p>
+          <ul className="divide-y divide-white/[0.05]">
+            {threadEvents.slice(0, 12).map((event) => (
+              <li key={event.id} className="flex items-start gap-3 px-5 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-medium uppercase tracking-wider ${event.is_internal ? "text-white/30" : "text-bip-accent/70"}`}>
+                      {event.is_internal ? "Internal" : "Client"}
+                    </span>
+                    <span className="text-[10px] text-white/25">{formatRelative(event.occurred_at)}</span>
+                  </div>
+                  <p className="mt-0.5 text-xs font-medium text-white/75 truncate">
+                    {norm(event.thread_title) || "Untitled thread"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-white/40 line-clamp-2">
+                    {previewText(event, 120)}
+                  </p>
+                </div>
+                {openableBasecampUrl(event.thread_url) && (
+                  <a
+                    href={openableBasecampUrl(event.thread_url) ?? "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 mt-0.5 text-white/20 hover:text-bip-accent transition-colors"
+                  >
+                    <ExternalLink size={12} />
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {threadEvents.length === 0 && (
+        <p className="text-sm text-white/40">No synced Basecamp threads in the last 30 days.</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Main shell ───────────────────────────────────────────────────────────────
+
+type Props = {
+  data: ClientWorkspaceInitialData;
+  activeTab: ClientDetailTab;
+  userEmail?: string;
+  strategistRoster?: StrategistContact[];
+  appUrl?: string;
+};
+
+export default function ClientSimpleTabView({
+  data,
+  activeTab,
+  userEmail,
+  strategistRoster = [],
+  appUrl,
+}: Props) {
+  const { client } = data;
+  const clientId = client.id;
+  const router = useRouter();
+  const [clientsListHref, setClientsListHref] = useState(CLIENT_LIST_PATH);
+  useEffect(() => { setClientsListHref(readStoredClientListHref()); }, []);
+
+  const services = activeServiceLabels(getClientActiveServices(client));
+  const tierLabel = norm(client.tier) || "Unassigned tier";
+
+  function renderContent() {
+    switch (activeTab) {
+      case "profile":
+        return (
+          <ClientProfileView
+            form={client}
+            recentThreads={data.threadEvents.filter((e) => !e.is_internal)}
+          />
+        );
+      case "onboarding":
+        return (
+          <ClientOnboardingView
+            clientId={client.id}
+            recentThreads={data.threadEvents.filter((e) => !e.is_internal)}
+            onOpenTab={(tab) => {
+              if (tab === "edit") return;
+              router.push(`/dashboard/clients/${clientId}?tab=${tab}`);
+            }}
+            onEditClient={() => router.push(`/dashboard/clients/${clientId}?tab=profile`)}
+            onGraduated={() => router.refresh()}
+          />
+        );
+      case "connections":
+        return <ConnectionsTab data={data} />;
+      case "comms":
+        return <CommsTab data={data} />;
+      case "playbook":
+        return <ClientPlaybookView client={client} />;
+      default:
+        return null;
+    }
+  }
+
+  const content = renderContent();
+
+  return (
+    <main className="flex-1 bg-bip-card p-6 font-sans text-white">
+      {/* Header */}
+      <header className="mb-6 flex flex-col items-start justify-between gap-4 border-b border-white/[0.08] pb-4 md:flex-row md:items-center">
+        <div>
+          <Link
+            href={clientsListHref}
+            className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-white/50 transition hover:text-white/75"
+          >
+            <ArrowLeft size={14} /> Back to clients
+          </Link>
+          <h1 className="text-2xl font-bold tracking-tight">{client.account_name}</h1>
+          <p className="mt-1 text-sm text-white/50">
+            #{client.id}
+            {norm(client.marketing_strategist) ? ` · ${client.marketing_strategist}` : ""}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-indigo-500/20 bg-bip-accent/10 px-3 py-1 text-xs font-semibold text-bip-accent">
+            {tierLabel}
+          </span>
+          {services.map((s) => (
+            <span key={s} className="rounded-full border border-white/[0.08] bg-bip-card/80 px-2.5 py-1 text-xs text-white/75">
+              {s}
+            </span>
+          ))}
+        </div>
+      </header>
+
+      {/* Tab nav */}
+      <nav className="mb-6 flex flex-wrap gap-2">
+        <Link
+          href={`/dashboard/clients/${clientId}`}
+          className="rounded-lg border border-white/[0.08] bg-bip-card/50 px-3 py-1.5 text-xs font-medium text-white/75 transition hover:text-white"
+        >
+          Overview
+        </Link>
+        {ALL_TABS.map((tab) => (
+          <Link
+            key={tab.id}
+            href={`/dashboard/clients/${clientId}?tab=${tab.id}`}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+              tab.id === activeTab
+                ? "border-bip-accent/40 bg-bip-accent/10 text-bip-accent"
+                : "border-white/[0.08] bg-bip-card/50 text-white/75 hover:text-white"
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
+
+      {/* Tab content */}
+      <div className="max-w-2xl">
+        {content}
+      </div>
+    </main>
+  );
+}
+
+export { SIMPLE_TABS };
