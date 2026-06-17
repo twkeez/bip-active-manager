@@ -59,6 +59,13 @@ function formatRelativeDays(value: string | null | undefined) {
   return `${days} days ago`;
 }
 
+type AffectedKeyword = {
+  keyword: string;
+  match_type: string;
+  campaign_name: string;
+  ad_group_name: string;
+};
+
 type AttentionItem = {
   id: string;
   area: string;
@@ -68,6 +75,7 @@ type AttentionItem = {
   description?: string | null;
   suggestion?: string | null;
   metricValue?: string | null;
+  affectedKeywords?: AffectedKeyword[];
 };
 
 function buildAttentionItems(
@@ -87,12 +95,33 @@ function buildAttentionItems(
     });
   }
 
+  const kq = data.adsSnapshot?.keyword_quality ?? [];
+
+  function affectedForSignal(signalId: string): AffectedKeyword[] {
+    let rows: typeof kq = [];
+    if (signalId === "ads_qs_landing_page_rollup") {
+      rows = kq.filter((r) => r.landing_page_experience === "BELOW_AVERAGE");
+    } else if (signalId === "ads_qs_ad_relevance_rollup") {
+      rows = kq.filter((r) => r.ad_relevance === "BELOW_AVERAGE");
+    } else if (signalId === "ads_qs_expected_ctr_rollup") {
+      rows = kq.filter((r) => r.expected_ctr === "BELOW_AVERAGE");
+    } else if (signalId === "ads_qs_overall_low_rollup") {
+      rows = kq.filter((r) => typeof r.quality_score === "number" && r.quality_score <= 5);
+    }
+    return rows
+      .sort((a, b) => b.cost_micros - a.cost_micros)
+      .slice(0, 8)
+      .map((r) => ({ keyword: r.keyword, match_type: r.match_type, campaign_name: r.campaign_name, ad_group_name: r.ad_group_name }));
+  }
+
   // Ads signals
   for (const s of data.adsSignals.filter((s) => s.severity === "critical").slice(0, 4)) {
-    items.push({ id: `ads-${s.id}`, area: "Ads", severity: "critical", title: s.title, tab: "ads", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
+    const affectedKeywords = affectedForSignal(s.signal_id);
+    items.push({ id: `ads-${s.id}`, area: "Ads", severity: "critical", title: s.title, tab: "ads", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value, affectedKeywords: affectedKeywords.length > 0 ? affectedKeywords : undefined });
   }
   for (const s of data.adsSignals.filter((s) => s.severity === "watch").slice(0, 2)) {
-    items.push({ id: `ads-watch-${s.id}`, area: "Ads", severity: "watch", title: s.title, tab: "ads", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
+    const affectedKeywords = affectedForSignal(s.signal_id);
+    items.push({ id: `ads-watch-${s.id}`, area: "Ads", severity: "watch", title: s.title, tab: "ads", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value, affectedKeywords: affectedKeywords.length > 0 ? affectedKeywords : undefined });
   }
 
   // GSC / SEO signals
@@ -511,6 +540,21 @@ export default function ClientWorkspaceDashboard({
                         <p className="mt-1 text-xs text-bip-accent/70">
                           <span className="font-medium text-bip-accent/50">Fix: </span>{item.suggestion}
                         </p>
+                      )}
+                      {item.affectedKeywords && item.affectedKeywords.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30 mb-1">Affected keywords</p>
+                          <div className="rounded border border-white/[0.06] bg-black/20 overflow-hidden">
+                            {item.affectedKeywords.map((kw, i) => (
+                              <div key={i} className="flex items-baseline gap-2 px-2 py-1 border-b border-white/[0.04] last:border-0 text-[11px]">
+                                <span className="font-mono text-white/70 truncate max-w-[180px] shrink-0">{kw.keyword}</span>
+                                <span className="text-white/25 shrink-0">{kw.match_type.toLowerCase()}</span>
+                                <span className="text-white/35 truncate min-w-0">{kw.campaign_name}</span>
+                                <span className="text-white/25 truncate min-w-0 hidden sm:block">{kw.ad_group_name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                     <Link
