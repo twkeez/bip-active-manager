@@ -10,6 +10,8 @@ import type {
   AdsSnapshot,
   BasecampThreadEvent,
   ClientRow,
+  Ga4Signal,
+  Ga4Snapshot,
   GbpReviewRow,
   GbpSnapshot,
   GscPageMetric,
@@ -205,6 +207,24 @@ export async function loadClientWorkspaceData(
     }
   }
 
+  let ga4Snapshot: Ga4Snapshot | null = null;
+  let ga4Signals: Ga4Signal[] = [];
+  ga4Snapshot = await fetchLatestSnapshotForClient<Ga4Snapshot>(
+    supabase,
+    "client_ga4_snapshots",
+    clientId,
+  );
+  if (ga4Snapshot) {
+    const ga4SignalsQuery = await supabase
+      .from("client_ga4_signals")
+      .select("*")
+      .eq("snapshot_id", ga4Snapshot.id)
+      .order("created_at", { ascending: false });
+    if (!ga4SignalsQuery.error) {
+      ga4Signals = (ga4SignalsQuery.data ?? []) as Ga4Signal[];
+    }
+  }
+
   let gbpSnapshot: GbpSnapshot | null = null;
   let gbpReviews: GbpReviewRow[] = [];
   gbpSnapshot = await fetchLatestSnapshotForClient<GbpSnapshot>(
@@ -253,6 +273,8 @@ export async function loadClientWorkspaceData(
     socialSignals,
     adsSnapshot,
     adsSignals,
+    ga4Snapshot,
+    ga4Signals,
     gbpSnapshot,
     gbpReviews,
     hasDuplicateBasecampProjectId,

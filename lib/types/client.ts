@@ -417,6 +417,69 @@ export type AdsSignal = {
   created_at: string;
 };
 
+export type Ga4ChannelRow = {
+  channel: string;
+  sessions: number;
+  users: number;
+  engagement_rate: number;
+};
+
+export type Ga4PageRow = {
+  page_path: string;
+  sessions: number;
+  engagement_rate: number;
+  avg_engagement_time_seconds: number;
+};
+
+export type Ga4Totals = {
+  sessions: number;
+  users: number;
+  new_users: number;
+  engagement_rate: number;
+  avg_engagement_time_seconds: number;
+  conversions: number;
+};
+
+export type Ga4Snapshot = {
+  id: number;
+  client_id: number;
+  property_id: string;
+  start_date: string;
+  end_date: string;
+  run_status: "running" | "completed" | "failed";
+  error_message: string | null;
+  totals: Ga4Totals;
+  previous_totals: Ga4Totals | null;
+  channel_breakdown: Ga4ChannelRow[];
+  top_pages: Ga4PageRow[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type Ga4Signal = {
+  id: number;
+  client_id: number;
+  snapshot_id: number;
+  signal_id: string;
+  severity: "critical" | "watch";
+  title: string;
+  description: string | null;
+  suggestion: string | null;
+  metric_value: string | null;
+  occurrence_key: string;
+  created_at: string;
+};
+
+export type Ga4SignalDraft = {
+  signal_id: string;
+  severity: "critical" | "watch";
+  title: string;
+  description: string | null;
+  suggestion: string | null;
+  metric_value: string | null;
+  occurrence_key: string;
+};
+
 export type AdsSnapshotSignalDraft = {
   signal_id: string;
   severity: "critical" | "watch";

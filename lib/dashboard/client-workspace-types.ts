@@ -3,6 +3,8 @@ import type {
   AdsSnapshot,
   BasecampThreadEvent,
   ClientRow,
+  Ga4Signal,
+  Ga4Snapshot,
   GbpReviewRow,
   GbpSnapshot,
   GscPageMetric,
@@ -74,6 +76,8 @@ export type ClientWorkspaceInitialData = {
   socialSignals: SocialSignal[];
   adsSnapshot: AdsSnapshot | null;
   adsSignals: AdsSignal[];
+  ga4Snapshot: Ga4Snapshot | null;
+  ga4Signals: Ga4Signal[];
   gbpSnapshot: GbpSnapshot | null;
   gbpReviews: GbpReviewRow[];
   hasDuplicateBasecampProjectId: boolean;

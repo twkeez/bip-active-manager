@@ -132,6 +132,14 @@ function buildAttentionItems(
     items.push({ id: `gsc-watch-${s.id}`, area: "SEO", severity: "watch", title: s.title, tab: "seo", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
   }
 
+  // GA4 signals
+  for (const s of data.ga4Signals.filter((s) => s.severity === "critical").slice(0, 3)) {
+    items.push({ id: `ga4-${s.id}`, area: "Analytics", severity: "critical", title: s.title, tab: "reporting", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
+  }
+  for (const s of data.ga4Signals.filter((s) => s.severity === "watch").slice(0, 2)) {
+    items.push({ id: `ga4-watch-${s.id}`, area: "Analytics", severity: "watch", title: s.title, tab: "reporting", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
+  }
+
   // Social signals
   for (const s of data.socialSignals.filter((s) => s.severity === "critical").slice(0, 2)) {
     items.push({ id: `social-${s.id}`, area: "Social", severity: "critical", title: s.title, tab: "social", description: s.description, suggestion: s.suggestion });
@@ -144,6 +152,7 @@ const AREA_COLORS: Record<string, string> = {
   Connections: "text-violet-400",
   Ads: "text-blue-400",
   SEO: "text-emerald-400",
+  Analytics: "text-orange-400",
   Social: "text-pink-400",
   Comms: "text-amber-400",
 };
