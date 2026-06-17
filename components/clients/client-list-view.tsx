@@ -6,6 +6,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  Eye,
+  EyeOff,
   MessageSquare,
   Plus,
   Search,
@@ -17,6 +19,8 @@ import type { ClientRow } from "@/lib/types/client";
 import type { SignalSummary } from "@/lib/dashboard/snapshot-queries";
 
 type Filter = "all" | "needs_reply" | "alerts" | "onboarding";
+
+const WEBSITE_ONLY_TIER = "Website Only";
 
 const SERVICE_LABELS: Record<string, string> = {
   seo: "SEO",
@@ -118,6 +122,13 @@ export default function ClientListView({
 }: ClientListInitialData) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [strategist, setStrategist] = useState<string>("all");
+  const [showWebsiteOnly, setShowWebsiteOnly] = useState(false);
+
+  const strategistOptions = useMemo(() => {
+    const vals = new Set(clients.map((c) => c.marketing_strategist ?? "").filter(Boolean));
+    return Array.from(vals).sort();
+  }, [clients]);
 
   const threadByProject = useMemo(() => {
     const map = new Map<string, (typeof threadPreviews)[0]>();
@@ -144,7 +155,10 @@ export default function ClientListView({
     const q = query.toLowerCase().trim();
     return enriched
       .filter(({ client, status }) => {
+        const isWebsiteOnly = client.tier === WEBSITE_ONLY_TIER;
+        if (!showWebsiteOnly && isWebsiteOnly) return false;
         if (q && !client.account_name?.toLowerCase().includes(q)) return false;
+        if (strategist !== "all" && (client.marketing_strategist ?? "") !== strategist) return false;
         if (filter === "needs_reply") return status === "needs_reply";
         if (filter === "alerts") return status === "alert";
         if (filter === "onboarding") return status === "onboarding";
@@ -157,11 +171,17 @@ export default function ClientListView({
       });
   }, [enriched, query, filter]);
 
+  const activeClients = useMemo(
+    () => enriched.filter((r) => r.client.tier !== WEBSITE_ONLY_TIER),
+    [enriched],
+  );
+
   const counts = useMemo(() => ({
-    needs_reply: enriched.filter((r) => r.status === "needs_reply").length,
-    alerts: enriched.filter((r) => r.status === "alert").length,
-    onboarding: enriched.filter((r) => r.status === "onboarding").length,
-  }), [enriched]);
+    needs_reply: activeClients.filter((r) => r.status === "needs_reply").length,
+    alerts: activeClients.filter((r) => r.status === "alert").length,
+    onboarding: activeClients.filter((r) => r.status === "onboarding").length,
+    website_only: enriched.filter((r) => r.client.tier === WEBSITE_ONLY_TIER).length,
+  }), [enriched, activeClients]);
 
   const FILTERS: Array<{ id: Filter; label: string; count?: number }> = [
     { id: "all", label: "All clients", count: clients.length },
@@ -177,7 +197,9 @@ export default function ClientListView({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white">Clients</h1>
-          <p className="text-xs text-white/40">{clients.length} accounts</p>
+          <p className="text-xs text-white/40">
+            {activeClients.length} active · {counts.website_only} website only
+          </p>
         </div>
         <Link
           href="/dashboard/clients/new"
@@ -188,17 +210,44 @@ export default function ClientListView({
       </div>
 
       {/* Search + filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
-          <input
-            type="text"
-            placeholder="Search clients…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full rounded-lg border border-white/[0.08] bg-bip-card/50 py-2 pl-8 pr-3 text-sm text-white placeholder-white/25 focus:border-white/20 focus:outline-none"
-          />
+      <div className="flex flex-col gap-3">
+        {/* Row 1: search + strategist dropdown + website-only toggle */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+            <input
+              type="text"
+              placeholder="Search clients…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full rounded-lg border border-white/[0.08] bg-bip-card/50 py-2 pl-8 pr-3 text-sm text-white placeholder-white/25 focus:border-white/20 focus:outline-none"
+            />
+          </div>
+          <select
+            value={strategist}
+            onChange={(e) => setStrategist(e.target.value)}
+            className="rounded-lg border border-white/[0.08] bg-bip-card/50 py-2 pl-3 pr-7 text-xs text-white/70 focus:border-white/20 focus:outline-none appearance-none cursor-pointer"
+          >
+            <option value="all">All strategists</option>
+            {strategistOptions.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowWebsiteOnly((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition whitespace-nowrap ${
+              showWebsiteOnly
+                ? "border-bip-accent/30 bg-bip-accent/10 text-bip-accent"
+                : "border-white/[0.08] text-white/40 hover:text-white/60"
+            }`}
+          >
+            {showWebsiteOnly ? <Eye size={12} /> : <EyeOff size={12} />}
+            Website only
+          </button>
         </div>
+
+        {/* Row 2: status filter chips */}
         <div className="flex gap-1.5">
           {FILTERS.map((f) => (
             <button
@@ -331,7 +380,8 @@ export default function ClientListView({
       {/* Footer count */}
       {filtered.length > 0 && (
         <p className="text-xs text-white/25">
-          {filtered.length} of {clients.length} clients
+          Showing {filtered.length} of {showWebsiteOnly ? clients.length : activeClients.length} clients
+          {strategist !== "all" && ` · ${strategist}`}
           {query && ` matching "${query}"`}
         </p>
       )}
