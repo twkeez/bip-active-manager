@@ -1,16 +1,20 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2 } from "lucide-react";
+import AuthCard, { AuthInput, AuthButton, AuthError } from "./auth-card";
+
 export default function LoginForm({ error }: { error?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const authCallbackError =
+
+  const callbackError =
     error === "auth" ? "Authentication failed. Try signing in again." : null;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
@@ -28,53 +32,52 @@ export default function LoginForm({ error }: { error?: string }) {
     router.push("/dashboard");
     router.refresh();
   }
+
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="mt-8 space-y-4">
-      
-      {(formError || authCallbackError) && (
-        <p className="rounded-lg border border-bip-danger/30 bg-bip-danger/10 px-3 py-2 text-sm text-bip-danger">
-          
-          {formError ?? authCallbackError}
-        </p>
-      )}
-      <label className="block">
-        
-        <span className="mb-1 block text-xs font-medium text-white/75">
-          
-          Email
-        </span>
-        <input
+    <AuthCard
+      title="Welcome back"
+      subtitle="Sign in to BIP Client Manager"
+      footer={
+        <>
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="font-medium underline" style={{ color: "#00c9a7" }}>
+            Create one
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4">
+        <AuthError message={formError ?? callbackError ?? null} />
+        <AuthInput
+          label="Email"
           type="email"
+          value={email}
+          onChange={setEmail}
           autoComplete="email"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full bip-input shadow-none"
+          placeholder="you@beyondindigo.com"
         />
-      </label>
-      <label className="block">
-        
-        <span className="mb-1 block text-xs font-medium text-white/75">
-          
-          Password
-        </span>
-        <input
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full bip-input shadow-none"
-        />
-      </label>
-      <button
-        type="submit"
-        disabled={loading}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-bip-card py-2.5 text-sm font-medium text-white disabled:opacity-60"
-      >
-        
-        {loading && <Loader2 className="h-4 w-4 animate-spin" />} Sign in
-      </button>
-    </form>
+        <div className="space-y-1.5">
+          <AuthInput
+            label="Password"
+            type="password"
+            value={password}
+            onChange={setPassword}
+            autoComplete="current-password"
+            required
+          />
+          <div className="flex justify-end">
+            <Link
+              href="/login/forgot-password"
+              className="text-xs"
+              style={{ color: "rgba(255,255,255,0.45)" }}
+            >
+              Forgot password?
+            </Link>
+          </div>
+        </div>
+        <AuthButton loading={loading}>Sign in</AuthButton>
+      </form>
+    </AuthCard>
   );
 }

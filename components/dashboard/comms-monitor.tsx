@@ -21,7 +21,7 @@ function daysAgoLabel(dateStr: string | null): string {
 
 function basecampProjectUrl(projectId: string | null): string {
   if (!projectId) return "";
-  return `https://3.basecamp.com/2175055/projects/${projectId}`;
+  return `https://basecamp.com/2175055/projects/${projectId}`;
 }
 
 function CommsRow({

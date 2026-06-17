@@ -623,9 +623,26 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
   let externalCount = 0;
   let unknownCount = 0;
 
-  for (const project of projects ?? []) {
+  // Track which Basecamp project IDs have already been synced this run.
+  // If two clients share the same project ID only the first (lowest id) is synced;
+  // the others are skipped with a logged warning so they don't corrupt each other's state.
+  const seenProjectIds = new Set<string>();
+  const sortedProjects = [...(projects ?? [])].sort((a, b) => a.id - b.id);
+
+  for (const project of sortedProjects) {
     const projectId = trimToNull(project.basecamp_project_id);
     if (!projectId) continue;
+
+    if (seenProjectIds.has(projectId)) {
+      projectErrors.push({
+        projectId,
+        clientId: project.id,
+        error: `Duplicate basecamp_project_id — another client already owns this project this sync run. Fix by assigning a unique project ID to this client.`,
+      });
+      skippedProjects += 1;
+      continue;
+    }
+    seenProjectIds.add(projectId);
 
     try {
       const events: CommunicationEvent[] = [];

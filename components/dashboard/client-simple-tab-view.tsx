@@ -240,7 +240,7 @@ function ConnectionsTab({ data }: { data: ClientWorkspaceInitialData }) {
           {!editing && norm(client.basecamp_project_id) && (
             <div className="mt-2 pb-2">
               <a
-                href={`https://3.basecamp.com/2175055/projects/${client.basecamp_project_id}`}
+                href={`https://basecamp.com/2175055/projects/${client.basecamp_project_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-xs text-bip-accent hover:underline"
