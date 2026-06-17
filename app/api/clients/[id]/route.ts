@@ -73,9 +73,12 @@ export async function PATCH(
     "ads_customer_id",
     "sc_url",
     "basecamp_project_id",
+    "harvest_project_id",
+    "harvest_client_id",
     "website",
     "google_place_id",
     "ga4_property_id",
+    "ga4_id",
   ] as const;
 
   const patch: Record<string, string | null> = {};

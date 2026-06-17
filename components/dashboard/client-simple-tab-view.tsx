@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ExternalLink, Pencil, Save, X } from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, Pencil, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   activeServiceLabels,
@@ -62,32 +62,183 @@ function DataRow({ label, value, mono = false }: { label: string; value?: string
   );
 }
 
+type ConnectionFields = {
+  sc_url: string;
+  ga4_property_id: string;
+  ga4_id: string;
+  google_place_id: string;
+  ads_customer_id: string;
+  website: string;
+  basecamp_project_id: string;
+  harvest_project_id: string;
+  harvest_client_id: string;
+};
+
+function EditableField({
+  label,
+  fieldKey,
+  value,
+  editing,
+  draft,
+  onChange,
+  mono,
+}: {
+  label: string;
+  fieldKey: keyof ConnectionFields;
+  value: string | null | undefined;
+  editing: boolean;
+  draft: ConnectionFields;
+  onChange: (k: keyof ConnectionFields, v: string) => void;
+  mono?: boolean;
+}) {
+  if (!editing) {
+    return <DataRow label={label} value={norm(value)} mono={mono} />;
+  }
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-white/[0.05] py-2 last:border-0">
+      <label className="text-xs text-white/40 shrink-0">{label}</label>
+      <input
+        type="text"
+        value={draft[fieldKey]}
+        onChange={(e) => onChange(fieldKey, e.target.value)}
+        placeholder="—"
+        className={`text-right text-xs bg-white/[0.05] border border-white/[0.12] rounded px-2 py-1 text-white/80 focus:outline-none focus:border-bip-accent/50 w-48 ${mono ? "font-mono" : ""}`}
+      />
+    </div>
+  );
+}
+
 function ConnectionsTab({ data }: { data: ClientWorkspaceInitialData }) {
   const { client, socialConnections } = data;
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const blankDraft = (): ConnectionFields => ({
+    sc_url: client.sc_url ?? "",
+    ga4_property_id: client.ga4_property_id ?? "",
+    ga4_id: client.ga4_id ?? "",
+    google_place_id: client.google_place_id ?? "",
+    ads_customer_id: client.ads_customer_id ?? "",
+    website: client.website ?? "",
+    basecamp_project_id: client.basecamp_project_id ?? "",
+    harvest_project_id: client.harvest_project_id ?? "",
+    harvest_client_id: client.harvest_client_id ?? "",
+  });
+
+  const [draft, setDraft] = useState<ConnectionFields>(blankDraft);
+
+  function startEdit() {
+    setDraft(blankDraft());
+    setSaveError(null);
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setSaveError(null);
+  }
+
+  function updateDraft(k: keyof ConnectionFields, v: string) {
+    setDraft((d) => ({ ...d, [k]: v }));
+  }
+
+  async function save() {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const body: Record<string, string | null> = {};
+      for (const [k, v] of Object.entries(draft)) {
+        body[k] = v.trim() || null;
+      }
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "Save failed");
+      }
+      setEditing(false);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const ef = (label: string, fieldKey: keyof ConnectionFields, mono = false) => (
+    <EditableField
+      label={label}
+      fieldKey={fieldKey}
+      value={(client as Record<string, unknown>)[fieldKey] as string | null}
+      editing={editing}
+      draft={draft}
+      onChange={updateDraft}
+      mono={mono}
+    />
+  );
+
   return (
     <div className="space-y-5">
+      {/* Edit / Save controls */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-white/30">Connection IDs used by integrations</p>
+        {editing ? (
+          <div className="flex items-center gap-2">
+            {saveError && <span className="text-xs text-red-400">{saveError}</span>}
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white/50 hover:text-white transition"
+            >
+              <X size={12} /> Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="inline-flex items-center gap-1 rounded-lg border border-bip-accent/40 bg-bip-accent/10 px-3 py-1.5 text-xs font-medium text-bip-accent hover:bg-bip-accent/20 transition disabled:opacity-50"
+            >
+              <Check size={12} /> {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={startEdit}
+            className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white/50 hover:text-white transition"
+          >
+            <Pencil size={12} /> Edit
+          </button>
+        )}
+      </div>
+
       <div className="bip-card p-5">
         <p className="bip-section-label mb-3">Google</p>
         <dl>
-          <DataRow label="Search Console URL" value={norm(client.sc_url)} />
-          <DataRow label="GA4 Property ID" value={norm(client.ga4_property_id)} mono />
-          <DataRow label="GA4 ID" value={norm(client.ga4_id)} mono />
-          <DataRow label="Google Place ID (GBP)" value={norm(client.google_place_id)} mono />
+          {ef("Search Console URL", "sc_url")}
+          {ef("GA4 Property ID", "ga4_property_id", true)}
+          {ef("GA4 ID", "ga4_id", true)}
+          {ef("Google Place ID (GBP)", "google_place_id", true)}
         </dl>
       </div>
+
       <div className="bip-card p-5">
         <p className="bip-section-label mb-3">Ads</p>
         <dl>
-          <DataRow label="Ads Customer ID" value={norm(client.ads_customer_id)} mono />
-          <DataRow label="Website" value={norm(client.website)} />
+          {ef("Ads Customer ID", "ads_customer_id", true)}
+          {ef("Website", "website")}
         </dl>
       </div>
+
       <div className="bip-card p-5">
         <p className="bip-section-label mb-3">Project Management</p>
         <dl>
-          <DataRow label="Basecamp Project ID" value={norm(client.basecamp_project_id)} mono />
-          {norm(client.basecamp_project_id) && (
-            <div className="mt-2">
+          {ef("Basecamp Project ID", "basecamp_project_id", true)}
+          {!editing && norm(client.basecamp_project_id) && (
+            <div className="mt-2 pb-2">
               <a
                 href={`https://3.basecamp.com/2175055/projects/${client.basecamp_project_id}`}
                 target="_blank"
@@ -98,10 +249,11 @@ function ConnectionsTab({ data }: { data: ClientWorkspaceInitialData }) {
               </a>
             </div>
           )}
-          <DataRow label="Harvest Project ID" value={norm(client.harvest_project_id)} mono />
-          <DataRow label="Harvest Client ID" value={norm(client.harvest_client_id)} mono />
+          {ef("Harvest Project ID", "harvest_project_id", true)}
+          {ef("Harvest Client ID", "harvest_client_id", true)}
         </dl>
       </div>
+
       {socialConnections.length > 0 && (
         <div className="bip-card p-5">
           <p className="bip-section-label mb-3">Social Connections</p>
