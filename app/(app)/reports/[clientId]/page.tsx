@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import ClientReportPage from "@/components/reports/client-report-page";
 import { loadClientWorkspaceData } from "@/lib/dashboard/load-client-workspace-data";
 import { createClient } from "@/lib/supabase/server";
+import type { ReportDraft } from "@/lib/reporting/draft-types";
 import type {
   AdsSnapshot,
   ClientKeywordTarget,
@@ -193,5 +194,13 @@ export default async function ReportClientPage({
     managedKeywords,
     strategistSummary: null as StrategistSummaryResult | null,
   });
-  return <ClientReportPage report={report} />;
+  // Load draft to apply overrides
+  const { data: draftRow } = await supabase
+    .from("report_drafts")
+    .select("*")
+    .eq("client_id", id)
+    .maybeSingle();
+  const draft: ReportDraft | null = draftRow ?? null;
+
+  return <ClientReportPage report={report} draft={draft} />;
 }

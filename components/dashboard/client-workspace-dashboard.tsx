@@ -431,7 +431,7 @@ export default function ClientWorkspaceDashboard({
           {/* Quick actions */}
           <div className="flex flex-col gap-2">
             <Link
-              href={`/dashboard/clients/${clientId}?tab=reporting`}
+              href={`/reports/${clientId}/draft`}
               className="inline-flex items-center gap-2 rounded-lg border border-bip-accent/20 bg-bip-accent/10 px-4 py-2.5 text-sm font-medium text-bip-accent transition hover:bg-bip-accent/20"
             >
               <BarChart3 size={15} /> Open reporting
