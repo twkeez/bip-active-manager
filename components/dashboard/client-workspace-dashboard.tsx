@@ -65,6 +65,9 @@ type AttentionItem = {
   severity: "critical" | "watch";
   title: string;
   tab: ClientDetailTab;
+  description?: string | null;
+  suggestion?: string | null;
+  metricValue?: string | null;
 };
 
 function buildAttentionItems(
@@ -86,23 +89,23 @@ function buildAttentionItems(
 
   // Ads signals
   for (const s of data.adsSignals.filter((s) => s.severity === "critical").slice(0, 4)) {
-    items.push({ id: `ads-${s.id}`, area: "Ads", severity: "critical", title: s.title, tab: "ads" });
+    items.push({ id: `ads-${s.id}`, area: "Ads", severity: "critical", title: s.title, tab: "ads", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
   }
   for (const s of data.adsSignals.filter((s) => s.severity === "watch").slice(0, 2)) {
-    items.push({ id: `ads-watch-${s.id}`, area: "Ads", severity: "watch", title: s.title, tab: "ads" });
+    items.push({ id: `ads-watch-${s.id}`, area: "Ads", severity: "watch", title: s.title, tab: "ads", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
   }
 
   // GSC / SEO signals
   for (const s of data.gscSignals.filter((s) => s.severity === "critical").slice(0, 3)) {
-    items.push({ id: `gsc-${s.id}`, area: "SEO", severity: "critical", title: s.title, tab: "seo" });
+    items.push({ id: `gsc-${s.id}`, area: "SEO", severity: "critical", title: s.title, tab: "seo", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
   }
   for (const s of data.gscSignals.filter((s) => s.severity === "watch").slice(0, 2)) {
-    items.push({ id: `gsc-watch-${s.id}`, area: "SEO", severity: "watch", title: s.title, tab: "seo" });
+    items.push({ id: `gsc-watch-${s.id}`, area: "SEO", severity: "watch", title: s.title, tab: "seo", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
   }
 
   // Social signals
   for (const s of data.socialSignals.filter((s) => s.severity === "critical").slice(0, 2)) {
-    items.push({ id: `social-${s.id}`, area: "Social", severity: "critical", title: s.title, tab: "social" });
+    items.push({ id: `social-${s.id}`, area: "Social", severity: "critical", title: s.title, tab: "social", description: s.description, suggestion: s.suggestion });
   }
 
   return items;
@@ -491,17 +494,28 @@ export default function ClientWorkspaceDashboard({
                     <SeverityDot severity={item.severity} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          className={`text-[10px] font-semibold uppercase tracking-wider ${AREA_COLORS[item.area] ?? "text-white/40"}`}
-                        >
+                        <span className={`text-[10px] font-semibold uppercase tracking-wider ${AREA_COLORS[item.area] ?? "text-white/40"}`}>
                           {item.area}
                         </span>
+                        {item.metricValue && (
+                          <span className="text-[10px] font-mono text-white/30 border border-white/[0.08] rounded px-1.5 py-0.5">
+                            {item.metricValue}
+                          </span>
+                        )}
                       </div>
                       <p className="mt-0.5 text-sm text-white/80">{item.title}</p>
+                      {item.description && (
+                        <p className="mt-0.5 text-xs text-white/40 leading-relaxed">{item.description}</p>
+                      )}
+                      {item.suggestion && (
+                        <p className="mt-1 text-xs text-bip-accent/70">
+                          <span className="font-medium text-bip-accent/50">Fix: </span>{item.suggestion}
+                        </p>
+                      )}
                     </div>
                     <Link
                       href={`/dashboard/clients/${clientId}?tab=${item.tab}`}
-                      className="shrink-0 text-[11px] text-white/30 hover:text-bip-accent transition-colors whitespace-nowrap"
+                      className="shrink-0 text-[11px] text-white/30 hover:text-bip-accent transition-colors whitespace-nowrap mt-0.5"
                     >
                       {item.tab} tab →
                     </Link>
