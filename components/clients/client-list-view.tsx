@@ -169,7 +169,7 @@ export default function ClientListView({
         if (sd !== 0) return sd;
         return (a.client.account_name ?? "").localeCompare(b.client.account_name ?? "");
       });
-  }, [enriched, query, filter]);
+  }, [enriched, query, filter, strategist, showWebsiteOnly]);
 
   const activeClients = useMemo(
     () => enriched.filter((r) => r.client.tier !== WEBSITE_ONLY_TIER),
