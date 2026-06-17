@@ -33,16 +33,10 @@ const SIMPLE_TABS = new Set<ClientDetailTab>([
 ]);
 
 const ALL_TABS: Array<{ id: ClientDetailTab; label: string }> = [
-  { id: "reporting", label: "Reporting" },
-  { id: "seo_ops", label: "SEO Ops" },
-  { id: "onboarding", label: "Onboarding" },
   { id: "comms", label: "Comms" },
-  { id: "seo", label: "SEO" },
-  { id: "ads", label: "Ads" },
-  { id: "social", label: "Social" },
-  { id: "sitemaps", label: "Sitemaps" },
-  { id: "actions", label: "Actions" },
+  { id: "onboarding", label: "Onboarding" },
   { id: "playbook", label: "Playbook" },
+  { id: "connections", label: "Connections" },
 ];
 
 function formatRelative(value: string | null | undefined) {
