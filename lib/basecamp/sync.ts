@@ -554,8 +554,24 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
     fallbackInternalEmails,
   );
   const nowIso = new Date().toISOString();
-  const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const cutoffIso = new Date(cutoffMs).toISOString();
+  const thirtyDaysMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const cutoffIso = new Date(thirtyDaysMs).toISOString(); // prune/aggregate window always 30 days
+
+  // Fetch window: use last sync time so we only pull new messages, not the full 30 days.
+  // Subtract 5 minutes as a safety buffer for clock skew or in-flight events.
+  // Fall back to 30 days on first run or if last sync was too long ago.
+  const { data: syncState } = await admin
+    .from("basecamp_sync_state")
+    .select("last_synced_at")
+    .eq("id", 1)
+    .maybeSingle<{ last_synced_at: string | null }>();
+  const lastSyncedAt = syncState?.last_synced_at ?? null;
+  const lastSyncMs = lastSyncedAt ? new Date(lastSyncedAt).getTime() - 5 * 60 * 1000 : null;
+  const fetchCutoffMs =
+    lastSyncMs && lastSyncMs > thirtyDaysMs ? lastSyncMs : thirtyDaysMs;
+  const fetchCutoffIso = new Date(fetchCutoffMs).toISOString();
+  const isIncremental = fetchCutoffMs > thirtyDaysMs;
+
   const oauth = mode === "oauth" ? await getActiveBasecampToken(admin) : null;
   const classic = mode === "classic" ? buildClassicAuthHeaders() : null;
 
@@ -637,7 +653,7 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
           `/message_boards/${boardId}/messages.json?sort=updated_at&direction=desc`,
           (message) => {
             const occurredAt = parseDateOrNow(message.updated_at ?? message.created_at);
-            return new Date(occurredAt).getTime() >= cutoffMs;
+            return new Date(occurredAt).getTime() >= fetchCutoffMs;
           },
         );
 
@@ -691,14 +707,14 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
             updated_at: nowIso,
           });
 
-          // Only fetch comments within the cutoff window — stop pagination early
+          // Only fetch comments within the fetch window — stop pagination early
           const comments = await fetchPaginatedRecent<BasecampComment>(
             oauth!.access_token,
             oauth!.account_id,
             `/messages/${message.id}/comments.json`,
             (comment) => {
               const t = parseDateOrNow(comment.updated_at ?? comment.created_at);
-              return new Date(t).getTime() >= cutoffMs;
+              return new Date(t).getTime() >= fetchCutoffMs;
             },
           );
 
@@ -760,7 +776,7 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
           classic!.headers,
         );
         for (const topic of snapshots) {
-          if (new Date(topic.occurred_at).getTime() < cutoffMs) {
+          if (new Date(topic.occurred_at).getTime() < fetchCutoffMs) {
             break;
           }
           const topicEmail =
@@ -859,6 +875,8 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
 
   return {
     mode,
+    isIncremental,
+    fetchSince: fetchCutoffIso,
     syncedProjects,
     skippedProjects,
     failedProjects,
