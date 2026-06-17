@@ -3,6 +3,9 @@ import { getBasecampOAuthConfig, getInternalEmailDomains } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { markBasecampSyncError, runBasecampSync } from "@/lib/basecamp/sync";
 
+// Allow up to 5 minutes on Vercel — syncing 89 clients makes hundreds of API calls
+export const maxDuration = 300;
+
 export async function POST() {
   const hasSupabaseUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim());
   const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim());

@@ -599,6 +599,9 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
   }
 
   let syncedProjects = 0;
+  let skippedProjects = 0;
+  let failedProjects = 0;
+  const projectErrors: Array<{ projectId: string; clientId: number; error: string }> = [];
   let eventsUpserted = 0;
   let internalCount = 0;
   let externalCount = 0;
@@ -608,211 +611,223 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
     const projectId = trimToNull(project.basecamp_project_id);
     if (!projectId) continue;
 
-    const events: CommunicationEvent[] = [];
-    if (mode === "oauth") {
-      const boardId = await getProjectMessageBoardId(
-        oauth!.access_token,
-        oauth!.account_id,
-        projectId,
-      );
-      if (!boardId) {
-        await updateClientCommsAggregate(
-          admin,
-          project.id,
-          project.reply_acknowledged_for_occurred_at,
-          cutoffIso,
-        );
-        syncedProjects += 1;
-        continue;
-      }
-      const oauthMessages = await fetchPaginatedRecent<BasecampMessage>(
-        oauth!.access_token,
-        oauth!.account_id,
-        `/message_boards/${boardId}/messages.json?sort=updated_at&direction=desc`,
-        (message) => {
-          const occurredAt = parseDateOrNow(message.updated_at ?? message.created_at);
-          return new Date(occurredAt).getTime() >= cutoffMs;
-        },
-      );
-
-      for (const message of oauthMessages) {
-        if (!message.id) continue;
-        const messageOccurredAt = parseDateOrNow(message.updated_at ?? message.created_at);
-        const messagePersonId = message.creator?.id ?? null;
-        const messageEmail =
-          trimToNull(message.creator?.email_address) ??
-          (await resolvePersonEmail(
-            admin,
-            oauth!.access_token,
-            oauth!.account_id,
-            messagePersonId,
-          ));
-        const messageClassification = classifyAuthor(
-          messagePersonId,
-          messageEmail,
-          internalLookup,
-        );
-        if (messageClassification.isInternal === true) internalCount += 1;
-        else if (messageClassification.isInternal === false) externalCount += 1;
-        else unknownCount += 1;
-
-        events.push({
-          client_id: project.id,
-          basecamp_project_id: projectId,
-          basecamp_recording_id: message.id,
-          parent_recording_id: null,
-          kind: "message",
-          occurred_at: messageOccurredAt,
-          author_person_id: messagePersonId,
-          author_email: messageEmail,
-          is_internal: storedAuthorIsInternal(
-            messageClassification.isInternal,
-            messageEmail,
-          ),
-          source_updated_at: trimToNull(message.updated_at),
-          thread_title:
-            normalizeContent(message.subject) ?? normalizeContent(message.title),
-          thread_body:
-            normalizeContent(message.content) ??
-            normalizeContent(message.description),
-          thread_excerpt: buildExcerpt(
-            normalizeContent(message.content) ??
-              normalizeContent(message.description),
-          ),
-          thread_url: normalizeBasecampThreadUrl(
-            trimToNull(message.app_url) ?? trimToNull(message.url),
-          ),
-          updated_at: nowIso,
-        });
-
-        const comments = await fetchPaginated<BasecampComment>(
+    try {
+      const events: CommunicationEvent[] = [];
+      if (mode === "oauth") {
+        const boardId = await getProjectMessageBoardId(
           oauth!.access_token,
           oauth!.account_id,
-          `/messages/${message.id}/comments.json`,
+          projectId,
+        );
+        if (!boardId) {
+          // No message board on this project — update aggregate from existing DB events
+          // without overwriting if we simply couldn't find the board.
+          skippedProjects += 1;
+          await updateClientCommsAggregate(
+            admin,
+            project.id,
+            project.reply_acknowledged_for_occurred_at,
+            cutoffIso,
+          );
+          continue;
+        }
+        const oauthMessages = await fetchPaginatedRecent<BasecampMessage>(
+          oauth!.access_token,
+          oauth!.account_id,
+          `/message_boards/${boardId}/messages.json?sort=updated_at&direction=desc`,
+          (message) => {
+            const occurredAt = parseDateOrNow(message.updated_at ?? message.created_at);
+            return new Date(occurredAt).getTime() >= cutoffMs;
+          },
         );
 
-        for (const comment of comments) {
-          if (!comment.id) continue;
-          const commentOccurredAt = parseDateOrNow(
-            comment.updated_at ?? comment.created_at,
-          );
-          if (new Date(commentOccurredAt).getTime() < cutoffMs) {
-            continue;
-          }
-          const commentPersonId = comment.creator?.id ?? null;
-          const commentEmail =
-            trimToNull(comment.creator?.email_address) ??
+        for (const message of oauthMessages) {
+          if (!message.id) continue;
+          const messageOccurredAt = parseDateOrNow(message.updated_at ?? message.created_at);
+          const messagePersonId = message.creator?.id ?? null;
+          const messageEmail =
+            trimToNull(message.creator?.email_address) ??
             (await resolvePersonEmail(
               admin,
               oauth!.access_token,
               oauth!.account_id,
-              commentPersonId,
+              messagePersonId,
             ));
-          const commentClassification = classifyAuthor(
-            commentPersonId,
-            commentEmail,
+          const messageClassification = classifyAuthor(
+            messagePersonId,
+            messageEmail,
             internalLookup,
           );
-          if (commentClassification.isInternal === true) internalCount += 1;
-          else if (commentClassification.isInternal === false) externalCount += 1;
+          if (messageClassification.isInternal === true) internalCount += 1;
+          else if (messageClassification.isInternal === false) externalCount += 1;
           else unknownCount += 1;
 
           events.push({
             client_id: project.id,
             basecamp_project_id: projectId,
-            basecamp_recording_id: comment.id,
-            parent_recording_id: message.id,
-            kind: "comment",
-            occurred_at: commentOccurredAt,
-            author_person_id: commentPersonId,
-            author_email: commentEmail,
+            basecamp_recording_id: message.id,
+            parent_recording_id: null,
+            kind: "message",
+            occurred_at: messageOccurredAt,
+            author_person_id: messagePersonId,
+            author_email: messageEmail,
             is_internal: storedAuthorIsInternal(
-              commentClassification.isInternal,
-              commentEmail,
+              messageClassification.isInternal,
+              messageEmail,
             ),
-            source_updated_at: trimToNull(comment.updated_at),
+            source_updated_at: trimToNull(message.updated_at),
             thread_title:
               normalizeContent(message.subject) ?? normalizeContent(message.title),
             thread_body:
-              normalizeContent(comment.content) ?? normalizeContent(comment.body),
+              normalizeContent(message.content) ??
+              normalizeContent(message.description),
             thread_excerpt: buildExcerpt(
-              normalizeContent(comment.content) ?? normalizeContent(comment.body),
+              normalizeContent(message.content) ??
+                normalizeContent(message.description),
             ),
             thread_url: normalizeBasecampThreadUrl(
-              trimToNull(comment.app_url) ?? trimToNull(comment.url),
+              trimToNull(message.app_url) ?? trimToNull(message.url),
             ),
+            updated_at: nowIso,
+          });
+
+          // Only fetch comments within the cutoff window — stop pagination early
+          const comments = await fetchPaginatedRecent<BasecampComment>(
+            oauth!.access_token,
+            oauth!.account_id,
+            `/messages/${message.id}/comments.json`,
+            (comment) => {
+              const t = parseDateOrNow(comment.updated_at ?? comment.created_at);
+              return new Date(t).getTime() >= cutoffMs;
+            },
+          );
+
+          for (const comment of comments) {
+            if (!comment.id) continue;
+            const commentOccurredAt = parseDateOrNow(
+              comment.updated_at ?? comment.created_at,
+            );
+            const commentPersonId = comment.creator?.id ?? null;
+            const commentEmail =
+              trimToNull(comment.creator?.email_address) ??
+              (await resolvePersonEmail(
+                admin,
+                oauth!.access_token,
+                oauth!.account_id,
+                commentPersonId,
+              ));
+            const commentClassification = classifyAuthor(
+              commentPersonId,
+              commentEmail,
+              internalLookup,
+            );
+            if (commentClassification.isInternal === true) internalCount += 1;
+            else if (commentClassification.isInternal === false) externalCount += 1;
+            else unknownCount += 1;
+
+            events.push({
+              client_id: project.id,
+              basecamp_project_id: projectId,
+              basecamp_recording_id: comment.id,
+              parent_recording_id: message.id,
+              kind: "comment",
+              occurred_at: commentOccurredAt,
+              author_person_id: commentPersonId,
+              author_email: commentEmail,
+              is_internal: storedAuthorIsInternal(
+                commentClassification.isInternal,
+                commentEmail,
+              ),
+              source_updated_at: trimToNull(comment.updated_at),
+              thread_title:
+                normalizeContent(message.subject) ?? normalizeContent(message.title),
+              thread_body:
+                normalizeContent(comment.content) ?? normalizeContent(comment.body),
+              thread_excerpt: buildExcerpt(
+                normalizeContent(comment.content) ?? normalizeContent(comment.body),
+              ),
+              thread_url: normalizeBasecampThreadUrl(
+                trimToNull(comment.app_url) ?? trimToNull(comment.url),
+              ),
+              updated_at: nowIso,
+            });
+          }
+        }
+      } else {
+        const snapshots = await fetchClassicMessageTopics(
+          classic!.accountId,
+          projectId,
+          classic!.headers,
+        );
+        for (const topic of snapshots) {
+          if (new Date(topic.occurred_at).getTime() < cutoffMs) {
+            break;
+          }
+          const topicEmail =
+            trimToNull(topic.author_email) ??
+            (await resolveClassicPersonEmail(
+              admin,
+              classic!.accountId,
+              classic!.headers,
+              topic.author_person_id,
+            ));
+          const classification = classifyAuthor(
+            topic.author_person_id,
+            topicEmail,
+            internalLookup,
+          );
+          if (classification.isInternal === true) internalCount += 1;
+          else if (classification.isInternal === false) externalCount += 1;
+          else unknownCount += 1;
+          events.push({
+            client_id: project.id,
+            basecamp_project_id: projectId,
+            basecamp_recording_id: topic.basecamp_recording_id,
+            parent_recording_id: null,
+            kind: "message",
+            occurred_at: topic.occurred_at,
+            author_person_id: topic.author_person_id,
+            author_email: topicEmail,
+            is_internal: storedAuthorIsInternal(classification.isInternal, topicEmail),
+            source_updated_at: topic.occurred_at,
+            thread_title: topic.thread_title,
+            thread_excerpt: topic.thread_excerpt,
+            thread_body: topic.thread_body,
+            thread_url: topic.thread_url,
             updated_at: nowIso,
           });
         }
       }
-    } else {
-      const snapshots = await fetchClassicMessageTopics(
-        classic!.accountId,
-        projectId,
-        classic!.headers,
+
+      if (events.length > 0) {
+        for (const chunk of splitChunks(events, 250)) {
+          const { error: upsertError } = await admin
+            .from("basecamp_communication_events")
+            .upsert(chunk, {
+              onConflict: "basecamp_project_id,basecamp_recording_id,kind",
+            });
+          if (upsertError) {
+            throw new Error(`Failed upserting events for project ${projectId}: ${upsertError.message}`);
+          }
+        }
+        eventsUpserted += events.length;
+      }
+
+      await updateClientCommsAggregate(
+        admin,
+        project.id,
+        project.reply_acknowledged_for_occurred_at,
+        cutoffIso,
       );
-      for (const topic of snapshots) {
-        if (new Date(topic.occurred_at).getTime() < cutoffMs) {
-          break;
-        }
-        const topicEmail =
-          trimToNull(topic.author_email) ??
-          (await resolveClassicPersonEmail(
-            admin,
-            classic!.accountId,
-            classic!.headers,
-            topic.author_person_id,
-          ));
-        const classification = classifyAuthor(
-          topic.author_person_id,
-          topicEmail,
-          internalLookup,
-        );
-        if (classification.isInternal === true) internalCount += 1;
-        else if (classification.isInternal === false) externalCount += 1;
-        else unknownCount += 1;
-        events.push({
-          client_id: project.id,
-          basecamp_project_id: projectId,
-          basecamp_recording_id: topic.basecamp_recording_id,
-          parent_recording_id: null,
-          kind: "message",
-          occurred_at: topic.occurred_at,
-          author_person_id: topic.author_person_id,
-          author_email: topicEmail,
-          is_internal: storedAuthorIsInternal(classification.isInternal, topicEmail),
-          source_updated_at: topic.occurred_at,
-          thread_title: topic.thread_title,
-          thread_excerpt: topic.thread_excerpt,
-          thread_body: topic.thread_body,
-          thread_url: topic.thread_url,
-          updated_at: nowIso,
-        });
-      }
+
+      syncedProjects += 1;
+    } catch (projectError) {
+      // Isolate per-project failures — log and continue so one bad project
+      // doesn't abort the entire sync for all remaining clients.
+      const message = projectError instanceof Error ? projectError.message : "Unknown error";
+      projectErrors.push({ projectId, clientId: project.id, error: message });
+      failedProjects += 1;
     }
-
-    if (events.length > 0) {
-      for (const chunk of splitChunks(events, 250)) {
-        const { error: upsertError } = await admin
-          .from("basecamp_communication_events")
-          .upsert(chunk, {
-            onConflict: "basecamp_project_id,basecamp_recording_id,kind",
-          });
-        if (upsertError) {
-          throw new Error(`Failed upserting events for project ${projectId}: ${upsertError.message}`);
-        }
-      }
-      eventsUpserted += events.length;
-    }
-
-    await updateClientCommsAggregate(
-      admin,
-      project.id,
-      project.reply_acknowledged_for_occurred_at,
-      cutoffIso,
-    );
-
-    syncedProjects += 1;
   }
 
   const { error: pruneError } = await admin
@@ -823,10 +838,19 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
     throw new Error(`Failed pruning old communication events: ${pruneError.message}`);
   }
 
+  const partialErrorSummary =
+    projectErrors.length > 0
+      ? `${projectErrors.length} project(s) failed: ` +
+        projectErrors
+          .slice(0, 5)
+          .map((e) => `project ${e.projectId} (client ${e.clientId}): ${e.error}`)
+          .join("; ")
+      : null;
+
   const { error: stateError } = await admin.from("basecamp_sync_state").upsert({
     id: 1,
     last_synced_at: nowIso,
-    last_error: null,
+    last_error: partialErrorSummary,
     updated_at: nowIso,
   });
   if (stateError) {
@@ -836,6 +860,9 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
   return {
     mode,
     syncedProjects,
+    skippedProjects,
+    failedProjects,
+    projectErrors,
     eventsUpserted,
     classifiedInternal: internalCount,
     classifiedExternal: externalCount,
