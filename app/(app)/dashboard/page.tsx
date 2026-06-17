@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchPriorityTasks } from "@/lib/tasks/priority-tasks";
 import { loadClientListData } from "@/lib/dashboard/load-client-list-data";
 import CommsMonitor from "@/components/dashboard/comms-monitor";
-import { Star, Calendar, RefreshCw } from "lucide-react";
+import { Star, Calendar } from "lucide-react";
+import BasecampSyncButton from "@/components/dashboard/basecamp-sync-button";
 
 function formatDueDate(dateStr: string | null) {
   if (!dateStr) return null;
@@ -30,13 +31,6 @@ export default async function DashboardPage() {
     fetchPriorityTasks(supabase, user.id).catch(() => []),
   ]);
 
-  const lastSync = syncState?.last_synced_at
-    ? new Date(syncState.last_synced_at).toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      })
-    : null;
-
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Page header */}
@@ -45,19 +39,7 @@ export default async function DashboardPage() {
           <h1 className="text-lg font-semibold text-white">Dashboard</h1>
           <p className="text-sm text-[rgba(255,255,255,0.4)]">{user.email}</p>
         </div>
-        <div className="flex items-center gap-2">
-          {lastSync && (
-            <span className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,0.35)]">
-              <RefreshCw size={11} />
-              Synced {lastSync}
-            </span>
-          )}
-          <form action="/api/basecamp/sync" method="POST">
-            <button type="submit" className="bip-btn-secondary py-1.5 px-3 text-xs">
-              Sync Basecamp
-            </button>
-          </form>
-        </div>
+        <BasecampSyncButton lastSyncedAt={syncState?.last_synced_at} />
       </div>
 
       {/* Comms Monitor */}
