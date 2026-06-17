@@ -12,6 +12,7 @@ import {
   FileText,
   Loader2,
   Save,
+  Sparkles,
 } from "lucide-react";
 import type { ClientReportModel } from "@/lib/reporting/types";
 import type { ReportDraft, SectionKey } from "@/lib/reporting/draft-types";
@@ -141,6 +142,8 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [generatingIntro, setGeneratingIntro] = useState(false);
+  const [introError, setIntroError] = useState<string | null>(null);
 
   const toggleSection = useCallback((key: SectionKey) => {
     setSectionVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -164,6 +167,43 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
     setKpiOverrides((prev) => ({ ...prev, [id]: { ...prev[id], value } }));
     setSaved(false);
   }, []);
+
+  async function generateIntro() {
+    setGeneratingIntro(true);
+    setIntroError(null);
+    try {
+      const gains = report.perfRows
+        .filter((r) => (r.deltaPercent ?? 0) > 0)
+        .sort((a, b) => (b.deltaPercent ?? 0) - (a.deltaPercent ?? 0));
+
+      const res = await fetch(`/api/reports/${clientId}/generate-intro`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientName: report.client.account_name,
+          strategist: report.client.marketing_strategist,
+          windowLabel,
+          kpis: realKpis.map((k) => ({ label: k.label, value: kpiOverrides[k.id]?.value ?? k.value })),
+          gains: gains.map((r) => ({ label: r.label, deltaPercent: r.deltaPercent ?? 0 })),
+          channels: [report.channels.ga4, report.channels.ads, report.channels.searchConsole]
+            .filter((c) => c.metrics.length > 0)
+            .map((c) => ({
+              title: c.title,
+              metrics: c.metrics.map((m) => ({ label: m.label, current: m.current, valueSuffix: m.valueSuffix })),
+            })),
+          recommendations: report.recommendations,
+        }),
+      });
+      const json = await res.json() as { intro?: string; error?: string };
+      if (!res.ok || !json.intro) throw new Error(json.error ?? "Generation failed");
+      setNarrative(json.intro);
+      setSaved(false);
+    } catch (e) {
+      setIntroError(e instanceof Error ? e.message : "Generation failed");
+    } finally {
+      setGeneratingIntro(false);
+    }
+  }
 
   async function saveDraft() {
     setSaving(true);
@@ -280,9 +320,30 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
 
         {/* Strategist narrative */}
         <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-white/30">
-            Strategist intro <span className="normal-case font-normal text-white/20">(appears at top of report)</span>
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/30">
+              Strategist intro <span className="normal-case font-normal text-white/20">(appears at top of report)</span>
+            </p>
+            <button
+              type="button"
+              onClick={generateIntro}
+              disabled={generatingIntro}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-bip-accent/30 bg-bip-accent/10 px-3 py-1.5 text-xs font-medium text-bip-accent hover:bg-bip-accent/20 transition disabled:opacity-50"
+            >
+              {generatingIntro
+                ? <Loader2 size={12} className="animate-spin" />
+                : <Sparkles size={12} />}
+              {generatingIntro ? "Generating…" : "Generate with AI"}
+            </button>
+          </div>
+          {introError && (
+            <p className="text-xs text-red-400">{introError}</p>
+          )}
+          {generatingIntro && (
+            <p className="text-xs text-white/30 animate-pulse">
+              Analyzing metrics and drafting your intro…
+            </p>
+          )}
           <textarea
             rows={5}
             value={narrative}
@@ -290,6 +351,7 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
             placeholder={`Hi [Client name],\n\nHere's a summary of your performance over the past 30 days…`}
             className="w-full rounded-lg border border-white/[0.08] bg-bip-page/50 px-3 py-2.5 text-sm text-white/80 placeholder-white/20 focus:border-bip-accent/30 focus:outline-none resize-none"
           />
+          <p className="text-[11px] text-white/20">AI draft based on this client&apos;s strongest metrics — edit freely before generating the report.</p>
         </div>
 
         {/* KPI Snapshot */}
