@@ -106,111 +106,123 @@ function keywordOccurrenceKey(row: AdsKeywordQualityRow) {
   return `${row.campaign_id}_${row.ad_group_id}_${row.criterion_id}`;
 }
 
+// When there are this many or fewer affected keywords, skip the rollup and let
+// per-keyword signals speak for themselves. Above this threshold, the rollup
+// is the primary signal and per-keyword signals are suppressed to avoid flood.
+const ROLLUP_THRESHOLD = 4;
+
 export function buildQualityScoreSignals(
   keywordQuality: AdsKeywordQualityRow[],
 ): AdsSnapshotSignalDraft[] {
   const signals: AdsSnapshotSignalDraft[] = [];
   const summary = summarizeQualityFlags(keywordQuality);
 
-  if (summary.landingPageBelowAverage > 0) {
+  const topBySpend = [...keywordQuality]
+    .filter((row) => row.cost_micros > 0)
+    .sort((left, right) => right.cost_micros - left.cost_micros);
+
+  // Landing page experience
+  if (summary.landingPageBelowAverage > ROLLUP_THRESHOLD) {
     signals.push({
       signal_id: "ads_qs_landing_page_rollup",
       severity: "critical",
       title: "Keywords with below-average landing page experience",
-      description: `${summary.landingPageBelowAverage} Search keyword(s) have below-average landing page experience.`,
+      description: `${summary.landingPageBelowAverage} keywords have below-average landing page experience.`,
       suggestion:
         "Review destination pages for message match, load speed, and mobile usability on high-spend keywords.",
       metric_value: `${summary.landingPageBelowAverage} keywords • ${formatCostMicros(summary.landingPageSpendMicros)} spend (30d)`,
       occurrence_key: "ads_qs_landing_page_rollup",
     });
+  } else {
+    for (const row of topBySpend.filter((r) => isBelowAverage(r.landing_page_experience))) {
+      signals.push({
+        signal_id: "ads_qs_landing_page_weak",
+        severity: "critical",
+        title: "Landing page experience below average",
+        description: `"${row.keyword}" (${row.ad_group_name}) has below-average landing page experience.`,
+        suggestion:
+          "Improve page relevance, speed, and mobile experience for this keyword's destination URL.",
+        metric_value: `${row.keyword} — LP below avg — ${formatCostMicros(row.cost_micros)} spend`,
+        occurrence_key: `ads_qs_lp_${keywordOccurrenceKey(row)}`,
+      });
+    }
   }
 
-  if (summary.adRelevanceBelowAverage > 0) {
+  // Ad relevance
+  if (summary.adRelevanceBelowAverage > ROLLUP_THRESHOLD) {
     signals.push({
       signal_id: "ads_qs_ad_relevance_rollup",
-      severity: summary.adRelevanceBelowAverage >= 5 ? "critical" : "watch",
+      severity: summary.adRelevanceBelowAverage >= 8 ? "critical" : "watch",
       title: "Keywords with below-average ad relevance",
-      description: `${summary.adRelevanceBelowAverage} Search keyword(s) have below-average ad relevance.`,
+      description: `${summary.adRelevanceBelowAverage} keywords have below-average ad relevance.`,
       suggestion:
         "Tighten ad groups, align headlines/descriptions to keyword intent, and split mixed themes.",
       metric_value: `${summary.adRelevanceBelowAverage} keywords • ${formatCostMicros(summary.adRelevanceSpendMicros)} spend (30d)`,
       occurrence_key: "ads_qs_ad_relevance_rollup",
     });
+  } else {
+    for (const row of topBySpend.filter((r) => isBelowAverage(r.ad_relevance))) {
+      signals.push({
+        signal_id: "ads_qs_ad_relevance_weak",
+        severity: row.cost_micros >= 500_000 ? "critical" : "watch",
+        title: "Ad relevance below average",
+        description: `"${row.keyword}" (${row.ad_group_name}) has below-average ad relevance.`,
+        suggestion: "Rewrite ads to match search intent and split unrelated keywords into new ad groups.",
+        metric_value: `${row.keyword} — ad relevance below avg — ${formatCostMicros(row.cost_micros)} spend`,
+        occurrence_key: `ads_qs_ar_${keywordOccurrenceKey(row)}`,
+      });
+    }
   }
 
-  if (summary.expectedCtrBelowAverage > 0) {
+  // Expected CTR
+  if (summary.expectedCtrBelowAverage > ROLLUP_THRESHOLD) {
     signals.push({
       signal_id: "ads_qs_expected_ctr_rollup",
       severity: "watch",
       title: "Keywords with below-average expected CTR",
-      description: `${summary.expectedCtrBelowAverage} Search keyword(s) have below-average expected CTR.`,
+      description: `${summary.expectedCtrBelowAverage} keywords have below-average expected CTR.`,
       suggestion: "Test stronger ad copy, extensions, and more specific keyword/ad pairings.",
       metric_value: `${summary.expectedCtrBelowAverage} keywords • ${formatCostMicros(summary.expectedCtrSpendMicros)} spend (30d)`,
       occurrence_key: "ads_qs_expected_ctr_rollup",
     });
+  } else {
+    for (const row of topBySpend.filter((r) => isBelowAverage(r.expected_ctr))) {
+      signals.push({
+        signal_id: "ads_qs_expected_ctr_weak",
+        severity: "watch",
+        title: "Expected CTR below average",
+        description: `"${row.keyword}" (${row.ad_group_name}) has below-average expected CTR.`,
+        suggestion: "Test new headlines, descriptions, and callouts for this keyword.",
+        metric_value: `${row.keyword} — expected CTR below avg — ${formatCostMicros(row.cost_micros)} spend`,
+        occurrence_key: `ads_qs_ctr_${keywordOccurrenceKey(row)}`,
+      });
+    }
   }
 
-  if (summary.qualityScoreLow > 0) {
+  // Low Quality Score
+  if (summary.qualityScoreLow > ROLLUP_THRESHOLD) {
     signals.push({
       signal_id: "ads_qs_overall_low_rollup",
       severity: "watch",
       title: "Keywords with low Quality Score",
-      description: `${summary.qualityScoreLow} Search keyword(s) have Quality Score 5 or lower.`,
+      description: `${summary.qualityScoreLow} keywords have Quality Score 5 or lower.`,
       suggestion:
         "Prioritize QS improvements on high-spend keywords across ad relevance, CTR, and landing pages.",
       metric_value: `${summary.qualityScoreLow} keywords at QS ≤ 5`,
       occurrence_key: "ads_qs_overall_low_rollup",
     });
-  }
-
-  const topBySpend = [...keywordQuality]
-    .filter((row) => row.cost_micros > 0)
-    .sort((left, right) => right.cost_micros - left.cost_micros);
-
-  for (const row of topBySpend) {
-    if (isBelowAverage(row.landing_page_experience)) {
-      signals.push({
-        signal_id: "ads_qs_landing_page_weak",
-        severity: "critical",
-        title: "Landing page experience below average",
-        description: `"${row.keyword}" in ${row.ad_group_name} has below-average landing page experience.`,
-        suggestion:
-          "Improve page relevance, speed, and mobile experience for this keyword's destination URL.",
-        metric_value: `${row.keyword} — LP below average — ${formatCostMicros(row.cost_micros)} spend (30d)`,
-        occurrence_key: `ads_qs_lp_${keywordOccurrenceKey(row)}`,
-      });
-    }
-    if (isBelowAverage(row.ad_relevance)) {
-      signals.push({
-        signal_id: "ads_qs_ad_relevance_weak",
-        severity: row.cost_micros >= 500_000 ? "critical" : "watch",
-        title: "Ad relevance below average",
-        description: `"${row.keyword}" in ${row.ad_group_name} has below-average ad relevance.`,
-        suggestion: "Rewrite ads to match search intent and split unrelated keywords into new ad groups.",
-        metric_value: `${row.keyword} — ad relevance below average — ${formatCostMicros(row.cost_micros)} spend (30d)`,
-        occurrence_key: `ads_qs_ar_${keywordOccurrenceKey(row)}`,
-      });
-    }
-    if (isBelowAverage(row.expected_ctr)) {
-      signals.push({
-        signal_id: "ads_qs_expected_ctr_weak",
-        severity: "watch",
-        title: "Expected CTR below average",
-        description: `"${row.keyword}" in ${row.ad_group_name} has below-average expected CTR.`,
-        suggestion: "Test new headlines, descriptions, and callouts for this keyword.",
-        metric_value: `${row.keyword} — expected CTR below average — ${formatCostMicros(row.cost_micros)} spend (30d)`,
-        occurrence_key: `ads_qs_ctr_${keywordOccurrenceKey(row)}`,
-      });
-    }
-    if (typeof row.quality_score === "number" && row.quality_score <= 5) {
+  } else {
+    for (const row of topBySpend.filter(
+      (r) => typeof r.quality_score === "number" && r.quality_score <= 5,
+    )) {
       signals.push({
         signal_id: "ads_qs_overall_low",
         severity: "watch",
         title: "Low Quality Score keyword",
-        description: `"${row.keyword}" in ${row.ad_group_name} has Quality Score ${row.quality_score}/10.`,
+        description: `"${row.keyword}" (${row.ad_group_name}) has Quality Score ${row.quality_score}/10.`,
         suggestion:
           "Review ad relevance, expected CTR, and landing page experience for this keyword.",
-        metric_value: `${row.keyword} — QS ${row.quality_score}/10 — ${formatCostMicros(row.cost_micros)} spend (30d)`,
+        metric_value: `${row.keyword} — QS ${row.quality_score}/10 — ${formatCostMicros(row.cost_micros)} spend`,
         occurrence_key: `ads_qs_low_${keywordOccurrenceKey(row)}`,
       });
     }
