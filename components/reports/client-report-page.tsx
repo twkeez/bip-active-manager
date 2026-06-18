@@ -161,8 +161,8 @@ export default function ClientReportPage({ report, draft }: Props) {
     <div className="min-h-screen bg-white">
       <style>{`body { background: white; }`}</style>
 
-      {/* Back link — screen only */}
-      <div className="no-print px-8 pt-4">
+      {/* Back link + data status — screen only */}
+      <div className="no-print px-8 pt-4 space-y-3">
         <Link
           href={`/reports/${report.client.id}/draft`}
           className="inline-flex items-center gap-1 text-xs hover:underline"
@@ -170,6 +170,54 @@ export default function ClientReportPage({ report, draft }: Props) {
         >
           ← Edit draft
         </Link>
+
+        {/* Data status panel */}
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Data in this report</p>
+          <div className="flex flex-wrap gap-3">
+            {[
+              {
+                label: "Organic Search",
+                ok: hasGsc,
+                detail: hasGsc ? `${gscMetrics.length} metrics · ${report.gscTopPages.length} top pages` : "No GSC data synced",
+              },
+              {
+                label: "Google Ads",
+                ok: hasAds,
+                detail: hasAds ? `${adsMetrics.length} metrics` : "No Ads data synced",
+              },
+              {
+                label: "GA4",
+                ok: hasGa4,
+                detail: hasGa4 ? `${ga4Metrics.length} metrics` : "Not connected / no data",
+              },
+              {
+                label: "Social",
+                ok: hasSocialData,
+                detail: report.socialDailyRows.length === 0
+                  ? "No social rows in DB — run sync"
+                  : socialTotals.reach + socialTotals.impressions === 0
+                  ? `${report.socialDailyRows.length} rows synced but 0 reach/impressions (page insights may be restricted)`
+                  : `${socialWindow.length} days · ${socialTotals.reach.toLocaleString()} reach · ${socialTotals.engagement.toLocaleString()} engagements`,
+              },
+              {
+                label: "Keywords",
+                ok: hasKeywords,
+                detail: hasKeywords ? `${keywords.rows.length} tracked` : "No keywords added yet",
+              },
+            ].map((item) => (
+              <div key={item.label} className="flex items-start gap-1.5 min-w-0">
+                <span className={`mt-0.5 shrink-0 text-[10px] font-bold ${item.ok ? "text-emerald-500" : "text-gray-300"}`}>
+                  {item.ok ? "●" : "○"}
+                </span>
+                <div>
+                  <p className={`text-xs font-medium ${item.ok ? "text-gray-700" : "text-gray-400"}`}>{item.label}</p>
+                  <p className="text-[10px] text-gray-400">{item.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <main ref={mainRef} className="mx-auto max-w-4xl space-y-8 px-8 py-6 text-gray-800">
