@@ -1,27 +1,181 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Beyond Indigo Pets — Brand Tokens
+   Primary: Indigo #3350a2 · Highlight: Pink #ce2084
+   Neutral-first UI, brand as accent. Light + dark via data-theme.
+   ============================================================ */
+
 :root {
-  --bip-page: #0f1117;
-  --bip-card: #1a1f2e;
-  --bip-border: rgba(255, 255, 255, 0.08);
-  --bip-border-strong: rgba(255, 255, 255, 0.12);
-  --bip-text: #ffffff;
-  --bip-text-body: rgba(255, 255, 255, 0.75);
-  --bip-text-muted: rgba(255, 255, 255, 0.5);
-  --bip-text-label: rgba(255, 255, 255, 0.4);
-  --bip-accent: #00c9a7;
-  --bip-danger: #ff4d4f;
-  --bip-hover: rgba(255, 255, 255, 0.06);
-  --bip-overlay: rgba(0, 0, 0, 0.65);
+  /* --- Brand palette --- */
+  --bip-indigo:  #3350a2;
+  --bip-purple:  #603894;
+  --bip-magenta: #962583;
+  --bip-pink:    #ce2084;
+
+  /* --- Indigo scale --- */
+  --indigo-50:  #eef1f9;
+  --indigo-100: #d9e0f2;
+  --indigo-200: #b3c1e6;
+  --indigo-300: #8da1d8;
+  --indigo-400: #6075bf;
+  --indigo-500: #3350a2;
+  --indigo-600: #2b4488;
+  --indigo-700: #23376e;
+  --indigo-800: #1b2a54;
+  --indigo-900: #141f3e;
+
+  /* --- Pink scale --- */
+  --pink-50:  #fbe9f4;
+  --pink-100: #f6cce4;
+  --pink-200: #ef9fcd;
+  --pink-300: #e571b3;
+  --pink-400: #db4a9c;
+  --pink-500: #ce2084;
+  --pink-600: #b01970;
+  --pink-700: #8d1459;
+
+  /* --- Neutral ramp (cool/indigo tint) --- */
+  --neutral-0:   #ffffff;
+  --neutral-50:  #f7f8fb;
+  --neutral-100: #eef0f5;
+  --neutral-200: #e0e3ec;
+  --neutral-300: #cbd0dd;
+  --neutral-400: #9aa1b4;
+  --neutral-500: #6c7488;
+  --neutral-600: #4d5466;
+  --neutral-700: #373d4d;
+  --neutral-800: #252a37;
+  --neutral-900: #161a24;
+  --neutral-950: #0e1118;
+
+  /* --- Status colors --- */
+  --success: #1f8a5b;  --success-bg: #e7f4ee;  --success-fg: #14633f;
+  --warning: #c77d10;  --warning-bg: #fbf0db;  --warning-fg: #855208;
+  --danger:  #c8323b;  --danger-bg:  #fbe7e8;  --danger-fg:  #8f2129;
+  --info:    #3350a2;  --info-bg:    #eef1f9;  --info-fg:    #23376e;
+
+  /* --- Brand gradient (hero/marketing only) --- */
+  --brand-gradient: linear-gradient(90deg, #3350a2 0%, #603894 38%, #962583 70%, #ce2084 100%);
+
+  /* --- Typography --- */
+  --font-heading: var(--font-poppins), "Poppins", system-ui, sans-serif;
+  --font-body:    var(--font-source-sans), "Source Sans 3", system-ui, sans-serif;
+
+  /* --- Radii --- */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-xl:   20px;
+  --radius-pill: 999px;
+
+  /* --- Spacing (4px base) --- */
+  --space-1: 4px;  --space-2: 8px;   --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px;  --space-8: 32px; --space-10: 40px;
+  --space-12: 48px; --space-16: 64px;
+}
+
+/* ============================================================
+   DARK THEME (default — applied to :root since app is dark-first)
+   ============================================================ */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:            var(--neutral-950);
+  --surface:       var(--neutral-900);
+  --surface-2:     #1d2230;
+  --surface-hover: #1d2230;
+  --border:        #2a3040;
+  --border-strong: #3a4357;
+
+  --text:          var(--neutral-100);
+  --text-muted:    var(--neutral-400);
+  --text-subtle:   #6c7488;
+  --text-on-brand: #ffffff;
+
+  --primary:        var(--indigo-400);
+  --primary-hover:  #7488cc;
+  --primary-active: #94a4d8;
+  --primary-soft:   rgba(96, 117, 191, 0.16);
+  --primary-border: rgba(96, 117, 191, 0.40);
+
+  --accent:       var(--pink-400);
+  --accent-hover: var(--pink-300);
+  --accent-soft:  rgba(219, 74, 156, 0.16);
+
+  --success-bg: rgba(31, 138, 91, 0.18);  --success-fg: #5fd39c;
+  --warning-bg: rgba(199, 125, 16, 0.20); --warning-fg: #e7b35e;
+  --danger-bg:  rgba(200, 50, 59, 0.20);  --danger-fg:  #ef7e85;
+  --info-bg:    rgba(96, 117, 191, 0.18); --info-fg:    #9fb1e6;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --ring:      0 0 0 3px rgba(96, 117, 191, 0.45);
+}
+
+/* ============================================================
+   LIGHT THEME
+   ============================================================ */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg:            var(--neutral-50);
+  --surface:       var(--neutral-0);
+  --surface-2:     var(--neutral-100);
+  --surface-hover: var(--neutral-100);
+  --border:        var(--neutral-200);
+  --border-strong: var(--neutral-300);
+
+  --text:          var(--neutral-900);
+  --text-muted:    var(--neutral-500);
+  --text-subtle:   var(--neutral-400);
+  --text-on-brand: #ffffff;
+
+  --primary:        var(--indigo-500);
+  --primary-hover:  var(--indigo-600);
+  --primary-active: var(--indigo-700);
+  --primary-soft:   var(--indigo-50);
+  --primary-border: var(--indigo-200);
+
+  --accent:       var(--pink-500);
+  --accent-hover: var(--pink-600);
+  --accent-soft:  var(--pink-50);
+
+  --shadow-sm: 0 1px 2px rgba(20, 31, 62, 0.06);
+  --shadow-md: 0 4px 14px rgba(20, 31, 62, 0.08);
+  --shadow-lg: 0 12px 32px rgba(20, 31, 62, 0.12);
+  --ring:      0 0 0 3px rgba(51, 80, 162, 0.35);
+}
+
+/* ============================================================
+   BIP ALIAS VARIABLES
+   Components reference these — they now resolve via brand tokens.
+   ============================================================ */
+:root {
+  --bip-page:         var(--bg);
+  --bip-card:         var(--surface);
+  --bip-border:       var(--border);
+  --bip-border-strong:var(--border-strong);
+  --bip-text:         var(--text);
+  --bip-text-body:    var(--text-muted);
+  --bip-text-muted:   var(--text-muted);
+  --bip-text-label:   var(--text-subtle);
+  --bip-accent:       var(--primary);
+  --bip-highlight:    var(--accent);
+  --bip-danger:       var(--danger-fg);
+  --bip-hover:        var(--surface-hover);
+  --bip-overlay:      rgba(0, 0, 0, 0.65);
 }
 
 @theme inline {
-  --color-bip-page: var(--bip-page);
-  --color-bip-card: var(--bip-card);
-  --color-bip-accent: var(--bip-accent);
-  --color-bip-danger: var(--bip-danger);
-  --color-bip-border: var(--bip-border);
-  --font-sans: var(--font-geist-sans);
+  --color-bip-page:    var(--bip-page);
+  --color-bip-card:    var(--bip-card);
+  --color-bip-accent:  var(--bip-accent);
+  --color-bip-danger:  var(--bip-danger);
+  --color-bip-border:  var(--bip-border);
+  --font-sans: var(--font-source-sans);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -31,55 +185,56 @@
   }
 
   body {
-    background-color: var(--bip-page);
-    color: var(--bip-text-body);
-    font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+    background-color: var(--bg);
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    color: var(--bip-text);
-    font-weight: 500;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--text);
+    margin: 0;
   }
 
   a:not([class]) {
-    color: var(--bip-accent);
+    color: var(--primary);
   }
 
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
   select,
   textarea {
-    background-color: var(--bip-page);
-    border: 1px solid var(--bip-border-strong);
-    color: var(--bip-text);
-    border-radius: 0.5rem;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    border-radius: var(--radius-md);
   }
 
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,
   select:focus,
   textarea:focus {
-    border-color: var(--bip-accent);
+    border-color: var(--primary);
     outline: none;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--bip-accent) 35%, transparent);
+    box-shadow: var(--ring);
   }
 
   input[type="checkbox"],
   input[type="radio"] {
-    accent-color: var(--bip-accent);
+    accent-color: var(--primary);
   }
 
   table {
-    background-color: var(--bip-card);
-    color: var(--bip-text-body);
+    background-color: var(--surface);
+    color: var(--text-muted);
     border-collapse: collapse;
   }
 
   thead {
-    color: var(--bip-text-label);
+    color: var(--text-subtle);
     font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.12em;
@@ -87,56 +242,58 @@
   }
 
   tbody tr:hover {
-    background-color: var(--bip-hover);
+    background-color: var(--surface-hover);
   }
 
-  th,
-  td {
-    border-bottom: 1px solid var(--bip-border);
+  th, td {
+    border-bottom: 1px solid var(--border);
   }
 
   option {
-    background-color: var(--bip-card);
-    color: var(--bip-text);
+    background-color: var(--surface);
+    color: var(--text);
   }
 
   ::placeholder {
-    color: var(--bip-text-muted);
+    color: var(--text-subtle);
   }
 
   ::selection {
-    background-color: color-mix(in srgb, var(--bip-accent) 35%, transparent);
-    color: var(--bip-text);
+    background-color: var(--primary-soft);
+    color: var(--text);
   }
 }
 
 @layer components {
   .bip-section-label {
+    font-family: var(--font-heading);
     font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--bip-text-label);
+    color: var(--text-subtle);
   }
 
   .bip-card {
-    border-radius: 0.75rem;
-    border: 1px solid var(--bip-border);
-    background-color: var(--bip-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background-color: var(--surface);
+    box-shadow: var(--shadow-sm);
   }
 
   .bip-btn-primary {
-    border-radius: 0.5rem;
-    background-color: var(--bip-accent);
+    border-radius: var(--radius-md);
+    background-color: var(--primary);
     padding: 0.625rem 1rem;
+    font-family: var(--font-body);
     font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--bip-page);
-    transition: filter 150ms ease;
+    font-weight: 600;
+    color: var(--text-on-brand);
+    transition: background-color 150ms ease;
   }
 
   .bip-btn-primary:hover {
-    filter: brightness(1.08);
+    background-color: var(--primary-hover);
   }
 
   .bip-btn-primary:disabled {
@@ -145,65 +302,75 @@
   }
 
   .bip-btn-secondary {
-    border-radius: 0.5rem;
-    border: 1px solid var(--bip-border-strong);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-strong);
     background-color: transparent;
     padding: 0.625rem 1rem;
+    font-family: var(--font-body);
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--bip-text);
+    color: var(--text);
     transition: background-color 150ms ease;
   }
 
   .bip-btn-secondary:hover {
-    background-color: var(--bip-hover);
+    background-color: var(--surface-hover);
   }
 
   .bip-btn-danger {
-    border-radius: 0.5rem;
-    background-color: var(--bip-danger);
+    border-radius: var(--radius-md);
+    background-color: var(--danger-fg);
     padding: 0.625rem 1rem;
+    font-family: var(--font-body);
     font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--bip-text);
+    font-weight: 600;
+    color: #ffffff;
   }
 
   .bip-input {
-    border-radius: 0.5rem;
-    border: 1px solid var(--bip-border-strong);
-    background-color: var(--bip-page);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-strong);
+    background-color: var(--surface-2);
     padding: 0.5rem 0.75rem;
+    font-family: var(--font-body);
     font-size: 0.875rem;
-    color: var(--bip-text);
+    color: var(--text);
   }
 
   .bip-input:focus {
-    border-color: var(--bip-accent);
+    border-color: var(--primary);
     outline: none;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--bip-accent) 35%, transparent);
+    box-shadow: var(--ring);
   }
 
   .bip-tab-active {
-    color: var(--bip-text);
-    border-bottom: 2px solid var(--bip-accent);
+    color: var(--text);
+    border-bottom: 2px solid var(--primary);
   }
 
   .bip-tab-inactive {
-    color: var(--bip-text-muted);
+    color: var(--text-muted);
   }
 
   .bip-badge {
-    border-radius: 9999px;
-    border: 1px solid var(--bip-border);
-    background-color: color-mix(in srgb, var(--bip-card) 85%, white 15%);
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background-color: var(--surface-2);
     padding: 0.125rem 0.5rem;
     font-size: 0.625rem;
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    color: var(--text-muted);
   }
 
+  /* Status badge variants */
+  .bip-badge-success { background-color: var(--success-bg); color: var(--success-fg); border-color: transparent; }
+  .bip-badge-warning { background-color: var(--warning-bg); color: var(--warning-fg); border-color: transparent; }
+  .bip-badge-danger  { background-color: var(--danger-bg);  color: var(--danger-fg);  border-color: transparent; }
+  .bip-badge-info    { background-color: var(--info-bg);    color: var(--info-fg);    border-color: transparent; }
+
   .bip-spinner {
-    color: var(--bip-accent);
+    color: var(--primary);
   }
 }
