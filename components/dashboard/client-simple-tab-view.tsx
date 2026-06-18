@@ -108,6 +108,61 @@ function EditableField({
   );
 }
 
+function MapsUrlLookup({ clientId, onFound }: { clientId: number; onFound: (placeId: string) => void }) {
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [found, setFound] = useState<string | null>(null);
+
+  async function lookup() {
+    if (!url.trim()) return;
+    setLoading(true);
+    setError(null);
+    setFound(null);
+    try {
+      const res = await fetch("/api/places/from-maps-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mapsUrl: url.trim(), clientId }),
+      });
+      const json = await res.json() as { place_id?: string; name?: string; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Lookup failed");
+      if (json.place_id) {
+        setFound(json.place_id);
+        onFound(json.place_id);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Lookup failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/[0.05]">
+      <p className="text-[0.65rem] text-white/30 mb-2">Or paste a Google Maps URL to look up the Place ID</p>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={url}
+          onChange={(e) => { setUrl(e.target.value); setFound(null); setError(null); }}
+          placeholder="https://www.google.com/maps/place/..."
+          className="flex-1 text-xs bg-white/[0.05] border border-white/[0.12] rounded px-2 py-1.5 text-white/70 placeholder-white/20 focus:outline-none focus:border-bip-accent/50 font-mono"
+        />
+        <button
+          onClick={() => void lookup()}
+          disabled={loading || !url.trim()}
+          className="text-xs px-3 py-1.5 rounded bg-bip-accent/20 text-bip-accent hover:bg-bip-accent/30 disabled:opacity-40 transition-colors whitespace-nowrap"
+        >
+          {loading ? "Looking up…" : "Get Place ID"}
+        </button>
+      </div>
+      {found && <p className="mt-1.5 text-xs text-green-400">Found: <span className="font-mono">{found}</span> — pre-filled above</p>}
+      {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
+    </div>
+  );
+}
+
 function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; onSaved?: () => void }) {
   const { client, socialConnections } = data;
   const [editing, setEditing] = useState(false);
@@ -299,6 +354,12 @@ function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; o
           {ef("GA4 ID", "ga4_id", true)}
           {ef("Google Place ID (GBP)", "google_place_id", true)}
         </dl>
+        {editing && (
+          <MapsUrlLookup
+            clientId={client.id}
+            onFound={(placeId) => updateDraft("google_place_id", placeId)}
+          />
+        )}
       </div>
 
       <div className="bip-card p-5">
