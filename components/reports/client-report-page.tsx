@@ -55,6 +55,33 @@ export default function ClientReportPage({ report, draft }: Props) {
   const hasKeywords = report.channels.keywords.rows.length > 0;
   const hasGscTopPages = report.gscTopPages.length > 0;
   const gscMaxClicks = Math.max(...report.gscTopPages.map((p) => p.clicks), 1);
+
+  const cutoff30 = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const socialWindow = report.socialDailyRows.filter(
+    (r) => new Date(r.snapshot_date).getTime() >= cutoff30,
+  );
+  const socialTotals = socialWindow.reduce(
+    (acc, r) => ({
+      reach: acc.reach + (r.reach ?? 0),
+      engagement: acc.engagement + (r.engagement ?? 0),
+      impressions: acc.impressions + (r.impressions ?? 0),
+      linkClicks: acc.linkClicks + (r.link_clicks ?? 0),
+      follows: acc.follows + (r.follows ?? 0),
+    }),
+    { reach: 0, engagement: 0, impressions: 0, linkClicks: 0, follows: 0 },
+  );
+  const hasSocialData = socialWindow.length > 0 && socialTotals.reach + socialTotals.impressions > 0;
+
+  const bcEvents = report.basecampEvents;
+  const hasBasecampEvents = bcEvents.length > 0;
+  function bcInitials(email: string | null) {
+    if (!email) return "?";
+    const name = email.split("@")[0] ?? "";
+    const parts = name.split(/[._-]/);
+    return parts.length >= 2
+      ? (parts[0]![0] ?? "") + (parts[1]![0] ?? "")
+      : name.slice(0, 2);
+  }
   const hasTrendData = report.charts.trendData.some((d) => d.engagement > 0 || d.reach > 0);
   const hasChannelData = report.charts.channelData.some((d) => d.value > 0);
   const hasWaterfallData = report.charts.waterfallData.some((d) => Math.abs(d.value) > 0);
@@ -493,6 +520,83 @@ export default function ClientReportPage({ report, draft }: Props) {
               </table>
             </div>
             <SectionComment sectionKey="keywords" />
+          </section>
+        )}
+
+        {/* Social Media */}
+        {isVisible("social") && hasSocialData && (
+          <section className="rounded-2xl border border-gray-200 px-6 py-5">
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: BI_BLUE }}>
+              Social Media
+            </h2>
+            <p className="text-xs text-gray-400 mb-4">30-day aggregate across all connected platforms</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                { label: "Reach", value: socialTotals.reach },
+                { label: "Impressions", value: socialTotals.impressions },
+                { label: "Engagements", value: socialTotals.engagement },
+                { label: "Link clicks", value: socialTotals.linkClicks },
+                { label: "New follows", value: socialTotals.follows },
+                { label: "Days with data", value: socialWindow.length },
+              ]
+                .filter((s) => s.value > 0)
+                .map((stat) => (
+                  <div key={stat.label} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                    <p className="text-xs text-gray-500">{stat.label}</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">{stat.value.toLocaleString()}</p>
+                  </div>
+                ))}
+            </div>
+            <SectionComment sectionKey="social" />
+          </section>
+        )}
+
+        {/* Basecamp Activity */}
+        {isVisible("basecamp") && hasBasecampEvents && (
+          <section className="rounded-2xl border border-gray-200 px-6 py-5">
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: BI_BLUE }}>
+              Basecamp Activity
+            </h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Recent messages &amp; comments from this client's project · last 30 days ({bcEvents.length} events)
+            </p>
+            <ul className="space-y-3">
+              {bcEvents.slice(0, 10).map((ev) => {
+                const initials = bcInitials(ev.author_email).toUpperCase();
+                const date = new Date(ev.occurred_at).toLocaleDateString(undefined, {
+                  month: "short", day: "numeric",
+                });
+                const isClient = !ev.is_internal;
+                return (
+                  <li key={ev.id} className="flex items-start gap-3">
+                    <div
+                      className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                      style={{
+                        background: isClient ? "#EEF2FF" : "#F3F4F6",
+                        color: isClient ? BI_BLUE : "#6B7280",
+                      }}
+                    >
+                      {initials}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="text-xs font-medium text-gray-700">
+                          {ev.author_email?.split("@")[0] ?? "Unknown"}
+                        </span>
+                        <span className="text-[10px] text-gray-400">{date} · {ev.kind}</span>
+                        {ev.thread_title && (
+                          <span className="text-[10px] text-gray-400 truncate">· {ev.thread_title}</span>
+                        )}
+                      </div>
+                      {ev.thread_excerpt && (
+                        <p className="mt-0.5 text-xs text-gray-600 line-clamp-2">{ev.thread_excerpt}</p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <SectionComment sectionKey="basecamp" />
           </section>
         )}
 

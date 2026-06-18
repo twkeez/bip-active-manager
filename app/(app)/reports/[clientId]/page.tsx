@@ -69,6 +69,7 @@ export default async function ReportClientPage({
     sitemapSnapshot,
     gbpSnapshot,
     gbpReviews,
+    threadEvents,
   } = workspace;
   const technicalFindings = buildBaselineTechnicalFindings(client);
   const freshness = buildReportingFreshness({
@@ -193,6 +194,16 @@ export default async function ReportClientPage({
     gscQueryMetrics: queryRows,
     managedKeywords,
     strategistSummary: null as StrategistSummaryResult | null,
+    basecampEvents: threadEvents.map((e) => ({
+      id: e.id,
+      kind: e.kind,
+      occurred_at: e.occurred_at,
+      author_email: e.author_email,
+      is_internal: e.is_internal,
+      thread_title: e.thread_title,
+      thread_excerpt: e.thread_excerpt,
+      thread_url: e.thread_url,
+    })),
   });
   // Load draft to apply overrides
   const { data: draftRow } = await supabase

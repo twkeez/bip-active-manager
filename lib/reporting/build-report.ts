@@ -1074,6 +1074,16 @@ export function buildClientReportModel(params: {
   }>;
   managedKeywords?: ManagedKeyword[];
   strategistSummary: StrategistSummaryResult | null;
+  basecampEvents?: Array<{
+    id: number;
+    kind: "message" | "comment";
+    occurred_at: string;
+    author_email: string | null;
+    is_internal: boolean;
+    thread_title: string | null;
+    thread_excerpt: string | null;
+    thread_url: string | null;
+  }>;
 }): ClientReportModel {
   const staleSources = params.freshness.filter(
     (item) => item.source !== "ga4" && (item.status === "stale" || item.status === "missing"),
@@ -1175,6 +1185,7 @@ export function buildClientReportModel(params: {
     summaryText,
     recommendations,
     gscTopPages,
+    basecampEvents: params.basecampEvents ?? [],
     channels: {
       ga4,
       ads,
