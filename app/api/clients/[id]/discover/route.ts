@@ -61,9 +61,8 @@ export async function GET(
 
   const { data: clientRow } = await supabase
     .from("clients")
-    .select("id,website,owner_user_id")
+    .select("id,website")
     .eq("id", clientId)
-    .eq("owner_user_id", user.id)
     .maybeSingle();
 
   if (!clientRow) {
