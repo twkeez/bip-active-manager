@@ -7,7 +7,7 @@ type ContentPart = TextPart | InlineDataPart;
 type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
 const client = new Anthropic();
-const MODEL = "claude-opus-4-8";
+const MODEL = "claude-haiku-4-5";
 
 function toClaudeContent(
   parts: ContentPart[],

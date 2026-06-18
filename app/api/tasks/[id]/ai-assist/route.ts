@@ -6,7 +6,7 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 type Body = { message?: string; history?: ChatMessage[] };
 
 const client = new Anthropic();
-const MODEL = "claude-opus-4-8";
+const MODEL = "claude-haiku-4-5";
 
 export async function POST(
   request: Request,
