@@ -63,6 +63,38 @@ function extractPlaceId(html: string): { value: string; source: string } | null 
   return null;
 }
 
+function extractMapsCid(html: string): string | null {
+  // Maps embed pb= param contains !1s0x<low>:<high> — the hex CID
+  // Convert the low hex part to a decimal CID for Places API lookup
+  const m = html.match(/!1s(0x[0-9a-f]+)(?:%3A|:)(0x[0-9a-f]+)/i);
+  if (!m?.[1]) return null;
+  try {
+    return BigInt(m[1]).toString(10);
+  } catch {
+    return null;
+  }
+}
+
+async function lookupPlaceIdByCid(cid: string): Promise<{ value: string; source: string } | null> {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const apiUrl = `https://maps.googleapis.com/maps/api/place/details/json?cid=${cid}&fields=place_id,name&key=${apiKey}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(apiUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const data = await res.json() as { status: string; result?: { place_id?: string; name?: string } };
+    if (data.status === "OK" && data.result?.place_id) {
+      return { value: data.result.place_id, source: "Maps embed (CID lookup)" };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 function extractMapsShortlinks(html: string): string[] {
   const links: string[] = [];
   const re = /https:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps)\/([A-Za-z0-9_-]{6,30})/g;
@@ -226,7 +258,15 @@ export async function GET(
     }
   }
 
-  // If Place ID not found directly, try following Maps short links
+  // Try CID from Maps embed → Places API details lookup
+  if (!placeId) {
+    const cid = extractMapsCid(html);
+    if (cid) {
+      placeId = await lookupPlaceIdByCid(cid);
+    }
+  }
+
+  // Try following Maps short links
   if (!placeId) {
     const shortlinks = extractMapsShortlinks(html);
     for (const link of shortlinks) {
@@ -235,7 +275,7 @@ export async function GET(
     }
   }
 
-  // Last resort: Google Places API text search using business name + city/state from schema
+  // Last resort: Places API text search using business name + city/state from schema
   if (!placeId) {
     const { name, city, state } = extractBusinessInfo(html);
     if (name) {
