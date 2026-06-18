@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -11,8 +11,10 @@ import {
   EyeOff,
   FileText,
   Loader2,
+  Plus,
   Save,
   Sparkles,
+  X,
 } from "lucide-react";
 import type { ClientReportModel } from "@/lib/reporting/types";
 import type { ReportDraft, SectionKey } from "@/lib/reporting/draft-types";
@@ -144,6 +146,55 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
   const [saved, setSaved] = useState(false);
   const [generatingIntro, setGeneratingIntro] = useState(false);
   const [introError, setIntroError] = useState<string | null>(null);
+
+  // ── Keyword management ──────────────────────────────────────────────────────
+  type KwRow = { id?: number; keyword: string; tag: string };
+  const [keywords, setKeywords] = useState<KwRow[]>([]);
+  const [kwLoading, setKwLoading] = useState(true);
+  const [kwInput, setKwInput] = useState("");
+  const [kwTag, setKwTag] = useState("");
+  const [kwSaving, setKwSaving] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/reporting/keywords?clientId=${clientId}`)
+      .then((r) => r.json())
+      .then((d: { rows?: { id: number; keyword: string; tag: string | null }[] }) => {
+        setKeywords((d.rows ?? []).map((r) => ({ id: r.id, keyword: r.keyword, tag: r.tag ?? "" })));
+      })
+      .catch(() => {})
+      .finally(() => setKwLoading(false));
+  }, [clientId]);
+
+  async function addKeyword() {
+    const kw = kwInput.trim();
+    if (!kw || kwSaving) return;
+    setKwSaving(true);
+    try {
+      const res = await fetch("/api/reporting/keywords", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, upserts: [{ keyword: kw, tag: kwTag.trim() || null, priority: 50, isActive: true }] }),
+      });
+      const d = await res.json() as { rows?: { id: number; keyword: string; tag: string | null }[] };
+      setKeywords((d.rows ?? []).map((r) => ({ id: r.id, keyword: r.keyword, tag: r.tag ?? "" })));
+      setKwInput("");
+      setKwTag("");
+    } catch { /* noop */ } finally { setKwSaving(false); }
+  }
+
+  async function removeKeyword(id: number | undefined, keyword: string) {
+    if (id == null) return;
+    setKwSaving(true);
+    try {
+      const res = await fetch("/api/reporting/keywords", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, deleteIds: [id] }),
+      });
+      const d = await res.json() as { rows?: { id: number; keyword: string; tag: string | null }[] };
+      setKeywords((d.rows ?? []).map((r) => ({ id: r.id, keyword: r.keyword, tag: r.tag ?? "" })));
+    } catch { /* noop */ } finally { setKwSaving(false); }
+  }
 
   const toggleSection = useCallback((key: SectionKey) => {
     setSectionVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -491,20 +542,67 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
         )}
 
         {/* Keywords */}
-        {report.channels.keywords.rows.length > 0 && (
-          <CollapsibleSection
-            title={SECTION_LABELS.keywords}
-            sectionKey="keywords"
-            visible={sectionVisibility.keywords}
-            onToggle={() => toggleSection("keywords")}
-            comment={sectionComments.keywords ?? ""}
-            onCommentChange={(v) => updateComment("keywords", v)}
-          >
-            <p className="text-xs text-white/30">
-              {report.channels.keywords.rows.length} tracked keywords.
-            </p>
-          </CollapsibleSection>
-        )}
+        <CollapsibleSection
+          title={SECTION_LABELS.keywords}
+          sectionKey="keywords"
+          visible={sectionVisibility.keywords}
+          onToggle={() => toggleSection("keywords")}
+          comment={sectionComments.keywords ?? ""}
+          onCommentChange={(v) => updateComment("keywords", v)}
+        >
+          <div className="space-y-3">
+            {kwLoading ? (
+              <p className="text-xs text-white/30">Loading…</p>
+            ) : keywords.length === 0 ? (
+              <p className="text-xs text-white/30">No keywords tracked yet — add some below.</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {keywords.map((kw) => (
+                  <li key={kw.id ?? kw.keyword} className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                    <span className="text-sm text-white/75">{kw.keyword}</span>
+                    {kw.tag && <span className="text-[10px] text-white/30 font-mono">{kw.tag}</span>}
+                    <button
+                      type="button"
+                      onClick={() => void removeKeyword(kw.id, kw.keyword)}
+                      disabled={kwSaving}
+                      className="ml-auto shrink-0 text-white/20 hover:text-red-400 transition disabled:opacity-40"
+                    >
+                      <X size={12} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* Add keyword */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={kwInput}
+                onChange={(e) => setKwInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void addKeyword(); } }}
+                placeholder="Add keyword…"
+                className="flex-1 rounded-lg border border-white/[0.08] bg-bip-page/50 px-3 py-1.5 text-sm text-white/75 placeholder-white/20 focus:border-bip-accent/30 focus:outline-none"
+              />
+              <input
+                type="text"
+                value={kwTag}
+                onChange={(e) => setKwTag(e.target.value)}
+                placeholder="Tag (optional)"
+                className="w-28 rounded-lg border border-white/[0.08] bg-bip-page/50 px-3 py-1.5 text-sm text-white/75 placeholder-white/20 focus:border-bip-accent/30 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => void addKeyword()}
+                disabled={!kwInput.trim() || kwSaving}
+                className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white/50 hover:text-white transition disabled:opacity-40"
+              >
+                {kwSaving ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+                Add
+              </button>
+            </div>
+          </div>
+        </CollapsibleSection>
 
         {/* Bottom CTA */}
         <div className="flex justify-end gap-3 pt-2 pb-8">
