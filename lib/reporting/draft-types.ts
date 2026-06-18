@@ -11,20 +11,14 @@ export type ReportDraft = {
 };
 
 export type SectionKey =
-  | "recommendations"
-  | "executive_summary"
   | "kpis"
-  | "gains_dips"
-  | "breakdown"
-  | "channels"
-  | "keywords";
+  | "gsc_top_pages"
+  | "keywords"
+  | "social";
 
 export const SECTION_LABELS: Record<SectionKey, string> = {
-  recommendations: "Recommendations & Actions",
-  executive_summary: "Executive Summary",
-  kpis: "KPI Snapshot",
-  gains_dips: "Gains & Dips",
-  breakdown: "Detailed Breakdown",
-  channels: "Channel Detail",
+  kpis: "Performance Overview",
+  gsc_top_pages: "Search Traffic",
   keywords: "Keyword Tracking",
+  social: "Social Media",
 };

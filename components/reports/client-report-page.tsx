@@ -151,7 +151,9 @@ export default function ClientReportPage({ report, draft }: Props) {
     }),
     { reach: 0, engagement: 0, impressions: 0, linkClicks: 0, follows: 0 },
   );
-  const hasSocialData = socialWindow.length > 0 && socialTotals.reach + socialTotals.impressions > 0;
+  const hasSocialData = socialWindow.length > 0 && (
+    socialTotals.reach + socialTotals.impressions + socialTotals.engagement + socialTotals.follows + socialTotals.linkClicks > 0
+  );
 
   const hasAnyData = hasAds || hasGsc || hasGa4 || hasGscTopPages || hasKeywords || hasSocialData;
 

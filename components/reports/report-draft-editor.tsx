@@ -119,10 +119,7 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
   const [narrative, setNarrative] = useState(existingDraft?.narrative ?? "");
   const [windowLabel, setWindowLabel] = useState(existingDraft?.window_label ?? "Last 30 days");
 
-  const allSections: SectionKey[] = [
-    "recommendations", "executive_summary", "kpis",
-    "gains_dips", "breakdown", "channels", "keywords",
-  ];
+  const allSections: SectionKey[] = ["kpis", "gsc_top_pages", "keywords", "social"];
 
   const defaultVisibility = Object.fromEntries(
     allSections.map((k) => [k, existingDraft?.section_visibility[k] ?? true]),
@@ -288,11 +285,19 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
     router.push(`/reports/${clientId}`);
   }
 
-  const gains = report.perfRows.filter((r) => (r.deltaPercent ?? 0) > 0);
-  const dips = report.perfRows.filter((r) => (r.deltaPercent ?? 0) < 0);
-  const comparableRows = report.perfRows.filter((r) => r.previous != null);
-  const visibleChannels = [report.channels.ga4, report.channels.ads, report.channels.searchConsole]
-    .filter((c) => c.metrics.length > 0);
+  const cutoff30 = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const socialWindow = report.socialDailyRows.filter(
+    (r) => new Date(r.snapshot_date).getTime() >= cutoff30,
+  );
+  const socialTotals = socialWindow.reduce(
+    (acc, r) => ({
+      reach: acc.reach + (r.reach ?? 0),
+      engagement: acc.engagement + (r.engagement ?? 0),
+      impressions: acc.impressions + (r.impressions ?? 0),
+      follows: acc.follows + (r.follows ?? 0),
+    }),
+    { reach: 0, engagement: 0, impressions: 0, follows: 0 },
+  );
 
   return (
     <div className="min-h-screen bg-bip-page">
@@ -405,7 +410,7 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
           <p className="text-[11px] text-white/20">AI draft based on this client&apos;s strongest metrics — edit freely before generating the report.</p>
         </div>
 
-        {/* KPI Snapshot */}
+        {/* Performance Overview */}
         <CollapsibleSection
           title={SECTION_LABELS.kpis}
           sectionKey="kpis"
@@ -414,132 +419,51 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
           comment={sectionComments.kpis ?? ""}
           onCommentChange={(v) => updateComment("kpis", v)}
         >
-          <div className="space-y-1.5">
-            <p className="text-[11px] text-white/30 uppercase tracking-wider mb-2">
-              Toggle or override individual KPIs
-            </p>
-            {realKpis.length === 0 && (
-              <p className="text-xs text-white/30">No KPIs with real data for this client yet.</p>
-            )}
-            {realKpis.map((kpi) => {
-              const override = kpiOverrides[kpi.id] ?? {};
-              const isHidden = override.hidden ?? false;
-              return (
-                <div
-                  key={kpi.id}
-                  className={`flex items-center gap-3 rounded-lg border px-3 py-2 transition ${
-                    isHidden
-                      ? "border-white/[0.04] bg-white/[0.02] opacity-50"
-                      : "border-white/[0.06] bg-bip-page/30"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleKpi(kpi.id)}
-                    className="shrink-0 text-white/30 hover:text-white/70 transition"
-                  >
-                    {isHidden ? <EyeOff size={13} /> : <Eye size={13} />}
-                  </button>
-                  <span className="flex-1 text-xs text-white/60 truncate">{kpi.label}</span>
-                  <input
-                    type="text"
-                    value={override.value ?? kpi.value}
-                    onChange={(e) => overrideKpiValue(kpi.id, e.target.value)}
-                    className="w-28 rounded border border-white/[0.08] bg-bip-page/50 px-2 py-1 text-right text-xs font-medium text-white/80 focus:border-bip-accent/30 focus:outline-none"
-                  />
+          <div className="space-y-1">
+            {[report.channels.ads, report.channels.searchConsole, report.channels.ga4]
+              .filter((c) => c.metrics.length > 0)
+              .map((c) => (
+                <div key={c.source} className="rounded border border-white/[0.06] px-2 py-1.5 text-xs text-white/40">
+                  {c.title} — {c.metrics.length} metrics
                 </div>
-              );
-            })}
+              ))}
+            {report.channels.ads.metrics.length === 0 && report.channels.searchConsole.metrics.length === 0 && (
+              <p className="text-xs text-white/30">No channel data synced yet.</p>
+            )}
           </div>
         </CollapsibleSection>
 
-        {/* Recommendations */}
+        {/* Search Traffic */}
         <CollapsibleSection
-          title={SECTION_LABELS.recommendations}
-          sectionKey="recommendations"
-          visible={sectionVisibility.recommendations}
-          onToggle={() => toggleSection("recommendations")}
-          comment={sectionComments.recommendations ?? ""}
-          onCommentChange={(v) => updateComment("recommendations", v)}
+          title={SECTION_LABELS.gsc_top_pages}
+          sectionKey="gsc_top_pages"
+          visible={sectionVisibility.gsc_top_pages}
+          onToggle={() => toggleSection("gsc_top_pages")}
+          comment={sectionComments.gsc_top_pages ?? ""}
+          onCommentChange={(v) => updateComment("gsc_top_pages", v)}
         >
-          {report.recommendations.length === 0 && report.actions.length === 0 ? (
-            <p className="text-xs text-white/30">No recommendations generated for this client.</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {report.recommendations.map((r, i) => (
-                <li key={i} className="text-xs text-white/60 flex gap-2">
-                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                    r.priority === "high" ? "bg-red-500/10 text-red-400"
-                    : r.priority === "medium" ? "bg-amber-500/10 text-amber-400"
-                    : "bg-white/[0.06] text-white/30"
-                  }`}>{r.priority}</span>
-                  {r.text}
-                </li>
-              ))}
-            </ul>
-          )}
+          <p className="text-xs text-white/30">
+            {report.gscTopPages.length > 0
+              ? `${report.gscTopPages.length} top pages · ${report.gscTopPages.reduce((s, p) => s + p.clicks, 0).toLocaleString()} total clicks`
+              : "No GSC top-page data synced yet."}
+          </p>
         </CollapsibleSection>
 
-        {/* Gains & Dips */}
-        {(gains.length > 0 || dips.length > 0) && (
-          <CollapsibleSection
-            title={SECTION_LABELS.gains_dips}
-            sectionKey="gains_dips"
-            visible={sectionVisibility.gains_dips}
-            onToggle={() => toggleSection("gains_dips")}
-            comment={sectionComments.gains_dips ?? ""}
-            onCommentChange={(v) => updateComment("gains_dips", v)}
-          >
-            <div className="grid grid-cols-2 gap-3 text-xs text-white/50">
-              <div>
-                <p className="text-emerald-500/60 font-medium mb-1">Gains</p>
-                {gains.slice(0, 3).map((r) => (
-                  <p key={r.label}>{r.label}: +{r.deltaPercent?.toFixed(1)}%</p>
-                ))}
-              </div>
-              <div>
-                <p className="text-red-400/60 font-medium mb-1">Dips</p>
-                {dips.slice(0, 3).map((r) => (
-                  <p key={r.label}>{r.label}: {r.deltaPercent?.toFixed(1)}%</p>
-                ))}
-              </div>
-            </div>
-          </CollapsibleSection>
-        )}
-
-        {/* Detailed Breakdown */}
-        {comparableRows.length > 0 && (
-          <CollapsibleSection
-            title={SECTION_LABELS.breakdown}
-            sectionKey="breakdown"
-            visible={sectionVisibility.breakdown}
-            onToggle={() => toggleSection("breakdown")}
-            comment={sectionComments.breakdown ?? ""}
-            onCommentChange={(v) => updateComment("breakdown", v)}
-          >
-            <p className="text-xs text-white/30">{comparableRows.length} rows with prior-period data.</p>
-          </CollapsibleSection>
-        )}
-
-        {/* Channel Detail */}
-        {visibleChannels.length > 0 && (
-          <CollapsibleSection
-            title={SECTION_LABELS.channels}
-            sectionKey="channels"
-            visible={sectionVisibility.channels}
-            onToggle={() => toggleSection("channels")}
-            comment={sectionComments.channels ?? ""}
-            onCommentChange={(v) => updateComment("channels", v)}
-          >
-            <div className="flex gap-2 text-xs text-white/40">
-              {visibleChannels.map((c) => (
-                <span key={c.source} className="rounded border border-white/[0.06] px-2 py-1">
-                  {c.title} — {c.metrics.length} metrics
-                </span>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )}
+        {/* Social Media */}
+        <CollapsibleSection
+          title={SECTION_LABELS.social}
+          sectionKey="social"
+          visible={sectionVisibility.social}
+          onToggle={() => toggleSection("social")}
+          comment={sectionComments.social ?? ""}
+          onCommentChange={(v) => updateComment("social", v)}
+        >
+          <p className="text-xs text-white/30">
+            {socialWindow.length > 0
+              ? `${socialWindow.length} days · ${socialTotals.reach.toLocaleString()} reach · ${socialTotals.engagement.toLocaleString()} engagements · ${socialTotals.follows.toLocaleString()} follows`
+              : "No social data synced yet — run Social sync from the Connections tab."}
+          </p>
+        </CollapsibleSection>
 
         {/* Keywords */}
         <CollapsibleSection
