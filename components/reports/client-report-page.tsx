@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRef, useState } from "react";
 import {
   Bar, BarChart, CartesianGrid, Cell, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -24,6 +25,45 @@ function hasRealData(v: string) {
 type Props = { report: ClientReportModel; draft?: ReportDraft | null };
 
 export default function ClientReportPage({ report, draft }: Props) {
+  const mainRef = useRef<HTMLElement>(null);
+  const [exporting, setExporting] = useState(false);
+
+  async function downloadPdf() {
+    if (!mainRef.current || exporting) return;
+    setExporting(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(mainRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        ignoreElements: (el) => el.classList.contains("no-print"),
+      });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgH = (canvas.height * pageW) / canvas.width;
+      let remaining = imgH;
+      let offset = 0;
+      pdf.addImage(imgData, "JPEG", 0, offset, pageW, imgH);
+      remaining -= pageH;
+      while (remaining > 0) {
+        offset -= pageH;
+        pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, offset, pageW, imgH);
+        remaining -= pageH;
+      }
+      const slug = report.client.account_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      pdf.save(`bip-report-${slug}.pdf`);
+    } finally {
+      setExporting(false);
+    }
+  }
   const vis = draft?.section_visibility ?? {};
   const kpiOverrides = draft?.kpi_overrides ?? {};
   const comments = draft?.section_comments ?? {};
@@ -110,14 +150,7 @@ export default function ClientReportPage({ report, draft }: Props) {
 
   return (
     <div className="min-h-screen bg-white">
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          .page-break { break-before: page; page-break-before: always; }
-          body { background: white !important; }
-        }
-        body { background: white; }
-      `}</style>
+      <style>{`body { background: white; }`}</style>
 
       {/* Back link — screen only */}
       <div className="no-print px-8 pt-4">
@@ -130,7 +163,7 @@ export default function ClientReportPage({ report, draft }: Props) {
         </Link>
       </div>
 
-      <main className="mx-auto max-w-4xl space-y-6 px-8 py-6 print:max-w-none print:px-10 print:py-8 text-gray-800">
+      <main ref={mainRef} className="mx-auto max-w-4xl space-y-6 px-8 py-6 text-gray-800">
 
         {/* Header — BI branded */}
         <header className="rounded-2xl overflow-hidden shadow-sm">
@@ -169,11 +202,12 @@ export default function ClientReportPage({ report, draft }: Props) {
             <div className="no-print mt-4 flex justify-end">
               <button
                 type="button"
-                onClick={() => window.print()}
-                className="rounded-lg border px-3 py-2 text-sm font-medium transition hover:bg-gray-50"
+                onClick={() => void downloadPdf()}
+                disabled={exporting}
+                className="rounded-lg border px-3 py-2 text-sm font-medium transition hover:bg-gray-50 disabled:opacity-50"
                 style={{ borderColor: BI_BLUE, color: BI_BLUE }}
               >
-                Print / Save as PDF
+                {exporting ? "Generating PDF…" : "Download PDF"}
               </button>
             </div>
           </div>
