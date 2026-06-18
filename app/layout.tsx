@@ -1,13 +1,6 @@
 import type { Metadata } from "next";
-import { Caveat, Poppins, Source_Sans_3, Geist_Mono } from "next/font/google";
+import { Poppins, Source_Sans_3, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const caveat = Caveat({
-  variable: "--font-caveat",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -42,7 +35,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="dark"
-      className={`${caveat.variable} ${poppins.variable} ${sourceSans3.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${poppins.variable} ${sourceSans3.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-bip-page text-[var(--text-muted)]">
         {children}

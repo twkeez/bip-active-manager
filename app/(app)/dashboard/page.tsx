@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchPriorityTasks } from "@/lib/tasks/priority-tasks";
 import { loadClientListData } from "@/lib/dashboard/load-client-list-data";
 import CommsMonitor from "@/components/dashboard/comms-monitor";
-import MiniPad from "@/components/dashboard/mini-pad";
 import { Star, Calendar } from "lucide-react";
 import BasecampSyncButton from "@/components/dashboard/basecamp-sync-button";
 
@@ -27,17 +26,9 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login");
 
-  const [{ clients, syncState }, priorityTasks, openTasksRaw] = await Promise.all([
+  const [{ clients, syncState }, priorityTasks] = await Promise.all([
     loadClientListData(supabase),
     fetchPriorityTasks(supabase, user.id).catch(() => []),
-    supabase
-      .from("user_tasks")
-      .select("id,title,status,is_starred")
-      .eq("owner_user_id", user.id)
-      .neq("status", "done")
-      .order("updated_at", { ascending: false })
-      .limit(20)
-      .then((r) => r.data ?? []),
   ]);
 
   return (
@@ -50,11 +41,6 @@ export default async function DashboardPage() {
         </div>
         <BasecampSyncButton lastSyncedAt={syncState?.last_synced_at} />
       </div>
-
-      {/* Today's List — quick capture pad */}
-      <section>
-        <MiniPad initialTasks={openTasksRaw as { id: number; title: string; status: string; is_starred: boolean }[]} />
-      </section>
 
       {/* Comms Monitor */}
       <section>
