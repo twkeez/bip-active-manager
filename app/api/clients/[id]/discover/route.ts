@@ -97,33 +97,55 @@ async function resolvePlaceIdFromShortlink(url: string): Promise<{ value: string
   return null;
 }
 
-function extractBusinessName(html: string): string | null {
-  // JSON-LD name field
-  const jsonLdMatch = html.match(/"name"\s*:\s*"([^"]{3,80})"/);
-  if (jsonLdMatch?.[1]) return jsonLdMatch[1];
-  // og:site_name
-  const ogMatch = html.match(/property=["']og:site_name["'][^>]*content=["']([^"']{3,80})["']/);
-  if (ogMatch?.[1]) return ogMatch[1];
-  const ogMatch2 = html.match(/content=["']([^"']{3,80})["'][^>]*property=["']og:site_name["']/);
-  if (ogMatch2?.[1]) return ogMatch2[1];
-  // <title> tag (first word group before | or -)
-  const titleMatch = html.match(/<title[^>]*>([^<]{3,80})<\/title>/i);
-  if (titleMatch?.[1]) return titleMatch[1].split(/[|\-–]/)[0].trim();
-  return null;
+function extractBusinessInfo(html: string): { name: string | null; city: string | null; state: string | null } {
+  let name: string | null = null;
+  let city: string | null = null;
+  let state: string | null = null;
+
+  // JSON-LD: name, addressLocality, addressRegion
+  const jsonLdBlock = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (jsonLdBlock?.[1]) {
+    const block = jsonLdBlock[1];
+    const nameMatch = block.match(/"name"\s*:\s*"([^"]{3,100})"/);
+    if (nameMatch?.[1]) name = nameMatch[1];
+    const cityMatch = block.match(/"addressLocality"\s*:\s*"([^"]{2,60})"/);
+    if (cityMatch?.[1]) city = cityMatch[1];
+    const stateMatch = block.match(/"addressRegion"\s*:\s*"([^"]{2,10})"/);
+    if (stateMatch?.[1]) state = stateMatch[1];
+  }
+
+  // og:site_name fallback
+  if (!name) {
+    const ogMatch = html.match(/property=["']og:site_name["'][^>]*content=["']([^"']{3,80})["']/);
+    if (ogMatch?.[1]) name = ogMatch[1];
+  }
+  if (!name) {
+    const ogMatch2 = html.match(/content=["']([^"']{3,80})["'][^>]*property=["']og:site_name["']/);
+    if (ogMatch2?.[1]) name = ogMatch2[1];
+  }
+
+  // <title> fallback
+  if (!name) {
+    const titleMatch = html.match(/<title[^>]*>([^<]{3,80})<\/title>/i);
+    if (titleMatch?.[1]) name = titleMatch[1].split(/[|\-–]/)[0].trim();
+  }
+
+  return { name, city, state };
 }
 
-async function lookupPlaceId(businessName: string, websiteUrl: string): Promise<{ value: string; source: string } | null> {
+async function lookupPlaceId(name: string, city: string | null, state: string | null, websiteUrl: string): Promise<{ value: string; source: string } | null> {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) return null;
   try {
-    // Extract domain as location hint
     const domain = new URL(websiteUrl).hostname.replace(/^www\./, "");
-    const query = encodeURIComponent(`${businessName}`);
+    // Include city/state in the query so Vercel's IP doesn't bias to the wrong location
+    const queryParts = [name, city, state].filter(Boolean);
+    const query = encodeURIComponent(queryParts.join(", "));
     const fields = "place_id,name";
-    const url = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&fields=${fields}&locationbias=ipbias&key=${apiKey}`;
+    const apiUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&fields=${fields}&key=${apiKey}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(apiUrl, { signal: controller.signal });
     clearTimeout(timeout);
     if (!res.ok) return null;
     const data = await res.json() as { status: string; candidates?: Array<{ place_id?: string; name?: string }> };
@@ -213,11 +235,11 @@ export async function GET(
     }
   }
 
-  // Last resort: Google Places API text search using the business name
+  // Last resort: Google Places API text search using business name + city/state from schema
   if (!placeId) {
-    const businessName = extractBusinessName(html);
-    if (businessName) {
-      placeId = await lookupPlaceId(businessName, url);
+    const { name, city, state } = extractBusinessInfo(html);
+    if (name) {
+      placeId = await lookupPlaceId(name, city, state, url);
     }
   }
 
