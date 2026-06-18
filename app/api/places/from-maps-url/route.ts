@@ -28,6 +28,50 @@ function parseMapsUrl(input: string): { name: string | null; lat: number | null;
   return { name, lat, lng };
 }
 
+type PlacesV1Response = {
+  places?: Array<{ id?: string; displayName?: { text?: string } }>;
+  error?: { message?: string; status?: string };
+};
+
+async function searchPlacesV1(
+  query: string,
+  lat: number | null,
+  lng: number | null,
+  apiKey: string,
+): Promise<{ place_id: string; name: string } | null> {
+  const body: Record<string, unknown> = { textQuery: query, pageSize: 1 };
+  if (lat !== null && lng !== null) {
+    body.locationBias = {
+      circle: {
+        center: { latitude: lat, longitude: lng },
+        radius: 200.0,
+      },
+    };
+  }
+
+  const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": "places.id,places.displayName",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json() as PlacesV1Response;
+
+  if (!res.ok) {
+    throw new Error(data.error?.message ?? `Places API error: ${res.status}`);
+  }
+
+  const place = data.places?.[0];
+  if (place?.id) {
+    return { place_id: place.id, name: place.displayName?.text ?? query };
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -43,39 +87,21 @@ export async function POST(request: Request) {
   const { name, lat, lng } = parseMapsUrl(mapsUrl);
 
   if (!name) {
-    return NextResponse.json({ error: "Could not extract a business name from that URL — make sure it's a Google Maps place URL" }, { status: 422 });
-  }
-
-  // Strategy 1: Text search with tight location bias using coordinates from the URL
-  if (lat !== null && lng !== null) {
-    try {
-      const query = encodeURIComponent(name);
-      const bias = `circle:200@${lat},${lng}`;
-      const res = await fetch(
-        `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&locationbias=${bias}&fields=place_id,name&key=${apiKey}`,
-      );
-      const data = await res.json() as { status: string; candidates?: Array<{ place_id?: string; name?: string }> };
-      if (data.status === "OK" && data.candidates?.[0]?.place_id) {
-        return NextResponse.json({ place_id: data.candidates[0].place_id, name: data.candidates[0].name, method: "text+coords" });
-      }
-    } catch { /* fall through */ }
-  }
-
-  // Strategy 2: Text search without bias (just name)
-  try {
-    const query = encodeURIComponent(name);
-    const res = await fetch(
-      `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&fields=place_id,name&key=${apiKey}`,
-    );
-    const data = await res.json() as { status: string; candidates?: Array<{ place_id?: string; name?: string }> };
-    if (data.status === "OK" && data.candidates?.[0]?.place_id) {
-      return NextResponse.json({ place_id: data.candidates[0].place_id, name: data.candidates[0].name, method: "text" });
-    }
-    // Return the actual API status so we can see what went wrong
     return NextResponse.json(
-      { error: `Places API returned: ${data.status} — check that the Places API is enabled for this key` },
+      { error: "Could not extract a business name from that URL — make sure it's a Google Maps place URL" },
       { status: 422 },
     );
+  }
+
+  try {
+    // Try with coordinates first (tight location bias), then without
+    const result = await searchPlacesV1(name, lat, lng, apiKey)
+      ?? await searchPlacesV1(name, null, null, apiKey);
+
+    if (result) {
+      return NextResponse.json({ place_id: result.place_id, name: result.name, method: "places-v1" });
+    }
+    return NextResponse.json({ error: "No matching place found" }, { status: 422 });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Places API request failed" },
