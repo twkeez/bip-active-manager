@@ -60,6 +60,7 @@ export type ClientReportModel = {
   charts: DetailedBreakdownChartData;
   summaryText: string;
   recommendations: ReportRecommendationItem[];
+  gscTopPages: Array<{ page_url: string; clicks: number; impressions: number; position: number; ctr: number }>;
   channels: {
     ga4: ReportChannelBlock;
     ads: ReportChannelBlock;

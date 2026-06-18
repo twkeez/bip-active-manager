@@ -53,6 +53,8 @@ export default function ClientReportPage({ report, draft }: Props) {
   const visibleChannels = [report.channels.ga4, report.channels.ads, report.channels.searchConsole]
     .filter((c) => c.metrics.length > 0);
   const hasKeywords = report.channels.keywords.rows.length > 0;
+  const hasGscTopPages = report.gscTopPages.length > 0;
+  const gscMaxClicks = Math.max(...report.gscTopPages.map((p) => p.clicks), 1);
   const hasTrendData = report.charts.trendData.some((d) => d.engagement > 0 || d.reach > 0);
   const hasChannelData = report.charts.channelData.some((d) => d.value > 0);
   const hasWaterfallData = report.charts.waterfallData.some((d) => Math.abs(d.value) > 0);
@@ -390,48 +392,103 @@ export default function ClientReportPage({ report, draft }: Props) {
           </section>
         )}
 
+        {/* Search Console — Top Pages */}
+        {isVisible("gsc_top_pages") && hasGscTopPages && (
+          <section className="rounded-2xl border border-gray-200 px-6 py-5">
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: BI_BLUE }}>
+              Search Console — Top Pages
+            </h2>
+            <p className="text-xs text-gray-400 mb-4">Ranked by clicks in the current reporting window</p>
+            <div className="space-y-2">
+              {report.gscTopPages.map((page) => {
+                const pct = Math.round((page.clicks / gscMaxClicks) * 100);
+                const label = page.page_url.replace(/^https?:\/\/[^/]+/, "") || "/";
+                return (
+                  <div key={page.page_url} className="grid items-center gap-2" style={{ gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr) 48px" }}>
+                    <span className="truncate text-xs text-gray-700" title={page.page_url}>{label}</span>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: BI_BLUE }} />
+                    </div>
+                    <span className="text-right text-xs text-gray-500">{page.clicks.toLocaleString()}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-3 border-t border-gray-100 pt-4">
+              {[
+                { label: "Total clicks", value: report.gscTopPages.reduce((s, p) => s + p.clicks, 0).toLocaleString() },
+                { label: "Total impressions", value: report.gscTopPages.reduce((s, p) => s + p.impressions, 0).toLocaleString() },
+                { label: "Avg position", value: (report.gscTopPages.reduce((s, p) => s + p.position, 0) / report.gscTopPages.length).toFixed(1) },
+              ].map((stat) => (
+                <div key={stat.label} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                  <p className="text-xs text-gray-400">{stat.label}</p>
+                  <p className="mt-1 text-xl font-bold text-gray-900">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+            <SectionComment sectionKey="gsc_top_pages" />
+          </section>
+        )}
+
         {/* Keywords */}
         {isVisible("keywords") && hasKeywords && (
           <section className="rounded-2xl border border-gray-200 px-6 py-5">
-            <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: BI_BLUE }}>
-              Keyword Tracking
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: BI_BLUE }}>
+              Keyword Rankings
             </h2>
+            <p className="text-xs text-gray-400 mb-4">{report.channels.keywords.summary}</p>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[600px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-left text-[10px] uppercase tracking-wider text-gray-400">
                     <th className="pb-2 pr-4">Keyword</th>
                     <th className="pb-2 pr-4">Tag</th>
-                    <th className="pb-2 pr-4 text-right">Current</th>
-                    <th className="pb-2 pr-4 text-right">Previous</th>
-                    <th className="pb-2 pr-4 text-right">Delta</th>
-                    <th className="pb-2 text-right">Clicks</th>
+                    <th className="pb-2 pr-4 text-right">Position</th>
+                    <th className="pb-2 pr-4 text-right">Change</th>
+                    <th className="pb-2 text-right">Clicks (cur / prev)</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {report.channels.keywords.rows.map((row) => (
-                    <tr key={row.keyword} className="border-b border-gray-100">
-                      <td className="py-2 pr-4 text-gray-700">{row.keyword}</td>
-                      <td className="py-2 pr-4 text-gray-400">{row.tag ?? "—"}</td>
-                      <td className="py-2 pr-4 text-right text-gray-700">
-                        {row.currentPosition == null ? "—" : row.currentPosition.toFixed(1)}
-                      </td>
-                      <td className="py-2 pr-4 text-right text-gray-400">
-                        {row.previousPosition == null ? "—" : row.previousPosition.toFixed(1)}
-                      </td>
-                      <td className={`py-2 pr-4 text-right text-xs font-semibold ${
-                        (row.positionDelta ?? 0) < 0 ? "text-emerald-600"
-                        : (row.positionDelta ?? 0) > 0 ? "text-red-500"
-                        : "text-gray-400"
-                      }`}>
-                        {row.positionDelta == null ? "—"
-                          : `${row.positionDelta > 0 ? "+" : ""}${row.positionDelta.toFixed(1)}`}
-                      </td>
-                      <td className="py-2 text-right text-gray-500">
-                        {row.currentClicks.toLocaleString()} / {row.previousClicks.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
+                  {report.channels.keywords.rows.map((row) => {
+                    const delta = row.positionDelta;
+                    const improved = delta != null && delta < 0;
+                    const worsened = delta != null && delta > 0;
+                    return (
+                      <tr key={row.keyword} className="border-b border-gray-100">
+                        <td className="py-2 pr-4 font-medium text-gray-800">{row.keyword}</td>
+                        <td className="py-2 pr-4 text-gray-400 text-xs">{row.tag ?? "—"}</td>
+                        <td className="py-2 pr-4 text-right text-gray-700">
+                          {row.currentPosition == null ? "—" : row.currentPosition.toFixed(1)}
+                          {row.previousPosition != null && (
+                            <span className="ml-1 text-gray-400 text-xs">
+                              (was {row.previousPosition.toFixed(1)})
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-4 text-right">
+                          {delta == null ? (
+                            <span className="text-gray-400 text-xs">—</span>
+                          ) : (
+                            <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              improved
+                                ? "bg-emerald-50 text-emerald-700"
+                                : worsened
+                                ? "bg-red-50 text-red-600"
+                                : "bg-gray-100 text-gray-500"
+                            }`}>
+                              {improved ? "▲" : worsened ? "▼" : "—"}
+                              {Math.abs(delta).toFixed(1)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 text-right text-gray-500 text-xs">
+                          <span className="font-medium text-gray-800">{row.currentClicks.toLocaleString()}</span>
+                          {" / "}
+                          {row.previousClicks.toLocaleString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

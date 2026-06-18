@@ -1139,6 +1139,18 @@ export function buildClientReportModel(params: {
     managedKeywords: params.managedKeywords ?? [],
     gscQueryMetrics: params.gscQueryMetrics ?? [],
   });
+  const gscTopPages = (params.gscPageMetrics ?? [])
+    .slice()
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, 10)
+    .map((row) => ({
+      page_url: row.page_url,
+      clicks: row.clicks,
+      impressions: row.impressions,
+      position: row.position,
+      ctr: row.ctr,
+    }));
+
   return {
     client: params.client,
     generatedAt: params.generatedAt,
@@ -1162,6 +1174,7 @@ export function buildClientReportModel(params: {
     charts,
     summaryText,
     recommendations,
+    gscTopPages,
     channels: {
       ga4,
       ads,
