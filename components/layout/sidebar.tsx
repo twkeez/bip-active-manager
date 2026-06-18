@@ -17,6 +17,7 @@ import {
   Megaphone,
   MessageSquare,
   Moon,
+  ScanSearch,
   ShieldAlert,
   Sparkles,
   Stethoscope,
@@ -39,6 +40,7 @@ const PRIMARY: NavItem[] = [
 
 const TOOLS: NavItem[] = [
   { label: "Service Playbook", href: "/playbook", icon: BookOpen },
+  { label: "Bulk Auto-Discover", href: "/bulk-discover", icon: ScanSearch },
   { label: "SEO Ops", href: "/seo-ops", icon: ClipboardCheck },
   { label: "Site Audit", href: "/site-audit", icon: Globe },
   { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
