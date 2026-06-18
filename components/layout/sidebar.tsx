@@ -168,6 +168,13 @@ export default function Sidebar() {
       <div className="border-t border-[var(--bip-border)] p-3">
         <ThemeToggle />
       </div>
+
+      {/* Build stamp */}
+      {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA && (
+        <div className="px-4 pb-3 text-[0.6rem] text-[var(--text-subtle)] font-mono">
+          {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0, 7)}
+        </div>
+      )}
     </aside>
   );
 }
