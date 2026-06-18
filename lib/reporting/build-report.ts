@@ -1084,6 +1084,15 @@ export function buildClientReportModel(params: {
     thread_excerpt: string | null;
     thread_url: string | null;
   }>;
+  playbookChecklist?: Array<{
+    id: number;
+    title: string;
+    category: string;
+    tier_key: string;
+    type: "checklist" | "deliverable" | "guideline";
+    status: "pass" | "fail" | "manual";
+    verify_label: string | null;
+  }>;
 }): ClientReportModel {
   const staleSources = params.freshness.filter(
     (item) => item.source !== "ga4" && (item.status === "stale" || item.status === "missing"),
@@ -1186,6 +1195,7 @@ export function buildClientReportModel(params: {
     recommendations,
     gscTopPages,
     basecampEvents: params.basecampEvents ?? [],
+    playbookChecklist: params.playbookChecklist ?? [],
     channels: {
       ga4,
       ads,

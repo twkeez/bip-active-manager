@@ -10,6 +10,8 @@ import type {
   KeywordHealthRow,
   StrategistSummaryResult,
 } from "@/lib/types/client";
+import type { PlaybookItem } from "@/lib/playbook/types";
+import { runVerifications } from "@/lib/playbook/verify";
 import {
   buildBaselineTechnicalFindings,
   buildClientReportModel,
@@ -55,6 +57,38 @@ export default async function ReportClientPage({
     priority: row.priority,
     isActive: row.is_active,
   }));
+
+  // Fetch playbook items for this client's active service tiers
+  const activeTierKeys = [client.seo, client.ppc, client.smm, client.orm, client.blog]
+    .filter((v): v is string => Boolean(v?.trim()));
+  const { data: playbookRaw } = activeTierKeys.length > 0
+    ? await supabase
+        .from("playbook_items")
+        .select("id,title,category,tier_key,type,auto_verify_key,sort_order,is_active")
+        .in("tier_key", activeTierKeys)
+        .eq("is_active", true)
+        .order("sort_order")
+        .order("id")
+    : { data: [] as PlaybookItem[] };
+  const playbookItems = (playbookRaw ?? []) as PlaybookItem[];
+  const playbookChecklist = playbookItems.map((item) => {
+    const verifications = item.auto_verify_key
+      ? runVerifications([item.auto_verify_key], client)
+      : [];
+    const verifyResult = verifications[0] ?? null;
+    return {
+      id: item.id,
+      title: item.title,
+      category: item.category,
+      tier_key: item.tier_key,
+      type: item.type,
+      status: verifyResult
+        ? (verifyResult.pass ? "pass" : "fail") as "pass" | "fail"
+        : "manual" as "manual",
+      verify_label: verifyResult?.label ?? null,
+    };
+  });
+
   const {
     adsSnapshot,
     adsSignals,
@@ -194,6 +228,7 @@ export default async function ReportClientPage({
     gscQueryMetrics: queryRows,
     managedKeywords,
     strategistSummary: null as StrategistSummaryResult | null,
+    playbookChecklist,
     basecampEvents: threadEvents.map((e) => ({
       id: e.id,
       kind: e.kind,

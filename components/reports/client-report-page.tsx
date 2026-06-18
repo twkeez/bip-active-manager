@@ -72,6 +72,14 @@ export default function ClientReportPage({ report, draft }: Props) {
   );
   const hasSocialData = socialWindow.length > 0 && socialTotals.reach + socialTotals.impressions > 0;
 
+  const checklist = report.playbookChecklist;
+  const hasChecklist = checklist.length > 0;
+  const checklistByCategory = checklist.reduce<Record<string, typeof checklist>>((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category]!.push(item);
+    return acc;
+  }, {});
+
   const bcEvents = report.basecampEvents;
   const hasBasecampEvents = bcEvents.length > 0;
   function bcInitials(email: string | null) {
@@ -520,6 +528,61 @@ export default function ClientReportPage({ report, draft }: Props) {
               </table>
             </div>
             <SectionComment sectionKey="keywords" />
+          </section>
+        )}
+
+        {/* Playbook Checklist */}
+        {isVisible("playbook") && hasChecklist && (
+          <section className="rounded-2xl border border-gray-200 px-6 py-5">
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: BI_BLUE }}>
+              Playbook checklist
+            </h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Deliverables and setup items for this client's active service tiers ·{" "}
+              <span className="text-emerald-600 font-medium">{checklist.filter((i) => i.status === "pass").length} auto-verified</span>
+              {checklist.filter((i) => i.status === "fail").length > 0 && (
+                <>, <span className="text-red-500 font-medium">{checklist.filter((i) => i.status === "fail").length} flagged</span></>
+              )}
+              {checklist.filter((i) => i.status === "manual").length > 0 && (
+                <>, <span className="text-gray-500">{checklist.filter((i) => i.status === "manual").length} manual</span></>
+              )}
+            </p>
+            <div className="space-y-5">
+              {Object.entries(checklistByCategory).map(([category, items]) => (
+                <div key={category}>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{category}</p>
+                  <ul className="space-y-1.5">
+                    {items.map((item) => (
+                      <li key={item.id} className="flex items-start gap-2.5">
+                        <span className={`mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
+                          item.status === "pass"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : item.status === "fail"
+                            ? "bg-red-100 text-red-600"
+                            : "bg-gray-100 text-gray-400"
+                        }`}
+                          style={{ width: 18, height: 18 }}
+                        >
+                          {item.status === "pass" ? "✓" : item.status === "fail" ? "✗" : "·"}
+                        </span>
+                        <div className="min-w-0">
+                          <span className={`text-sm ${item.status === "fail" ? "text-red-700" : "text-gray-700"}`}>
+                            {item.title}
+                          </span>
+                          {item.verify_label && (
+                            <span className="ml-1.5 text-[10px] text-gray-400">({item.verify_label})</span>
+                          )}
+                          {item.status === "manual" && (
+                            <span className="ml-1.5 text-[10px] text-gray-400">— manual check</span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <SectionComment sectionKey="playbook" />
           </section>
         )}
 

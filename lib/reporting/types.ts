@@ -62,6 +62,7 @@ export type ClientReportModel = {
   recommendations: ReportRecommendationItem[];
   gscTopPages: Array<{ page_url: string; clicks: number; impressions: number; position: number; ctr: number }>;
   basecampEvents: Array<{ id: number; kind: "message" | "comment"; occurred_at: string; author_email: string | null; is_internal: boolean; thread_title: string | null; thread_excerpt: string | null; thread_url: string | null }>;
+  playbookChecklist: Array<{ id: number; title: string; category: string; tier_key: string; type: "checklist" | "deliverable" | "guideline"; status: "pass" | "fail" | "manual"; verify_label: string | null }>;
   channels: {
     ga4: ReportChannelBlock;
     ads: ReportChannelBlock;
