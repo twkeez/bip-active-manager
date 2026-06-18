@@ -170,19 +170,25 @@ async function lookupPlaceId(name: string, city: string | null, state: string | 
   if (!apiKey) return null;
   try {
     const domain = new URL(websiteUrl).hostname.replace(/^www\./, "");
-    // Include city/state in the query so Vercel's IP doesn't bias to the wrong location
     const queryParts = [name, city, state].filter(Boolean);
-    const query = encodeURIComponent(queryParts.join(", "));
-    const fields = "place_id,name";
-    const apiUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&fields=${fields}&key=${apiKey}`;
+    const query = queryParts.join(", ");
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(apiUrl, { signal: controller.signal });
+    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "places.id",
+      },
+      body: JSON.stringify({ textQuery: query, pageSize: 1 }),
+    });
     clearTimeout(timeout);
     if (!res.ok) return null;
-    const data = await res.json() as { status: string; candidates?: Array<{ place_id?: string; name?: string }> };
-    if (data.status === "OK" && data.candidates?.[0]?.place_id) {
-      return { value: data.candidates[0].place_id, source: `Places API (${domain})` };
+    const data = await res.json() as { places?: Array<{ id?: string }> };
+    if (data.places?.[0]?.id) {
+      return { value: data.places[0].id, source: `Places API (${domain})` };
     }
   } catch {
     // ignore — Places API failure is non-fatal
