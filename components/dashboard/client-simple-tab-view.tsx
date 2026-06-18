@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, ExternalLink, Pencil, ScanSearch, X } from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, Loader, Pencil, RefreshCw, ScanSearch, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   activeServiceLabels,
@@ -104,6 +104,72 @@ function EditableField({
         placeholder="—"
         className={`text-right text-xs bg-white/[0.05] border border-white/[0.12] rounded px-2 py-1 text-white/80 focus:outline-none focus:border-bip-accent/50 w-48 ${mono ? "font-mono" : ""}`}
       />
+    </div>
+  );
+}
+
+type SyncJob = { label: string; endpoint: string; requiredField: string | null };
+
+function DataSyncPanel({ clientId, client }: { clientId: number; client: Record<string, unknown> }) {
+  const jobs: SyncJob[] = [
+    { label: "Search Console", endpoint: "/api/seo/search-console/sync", requiredField: "sc_url" },
+    { label: "GA4", endpoint: "/api/ga4/sync", requiredField: "ga4_property_id" },
+  ];
+  const [statuses, setStatuses] = useState<Record<string, "idle" | "running" | "done" | "error">>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  async function runSync(job: SyncJob) {
+    setStatuses((s) => ({ ...s, [job.label]: "running" }));
+    setErrors((e) => { const n = { ...e }; delete n[job.label]; return n; });
+    try {
+      const res = await fetch(job.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Sync failed");
+      setStatuses((s) => ({ ...s, [job.label]: "done" }));
+    } catch (e) {
+      setStatuses((s) => ({ ...s, [job.label]: "error" }));
+      setErrors((prev) => ({ ...prev, [job.label]: e instanceof Error ? e.message : "Sync failed" }));
+    }
+  }
+
+  return (
+    <div className="bip-card p-5">
+      <p className="bip-section-label mb-3">Data Sync</p>
+      <div className="flex flex-col gap-2">
+        {jobs.map((job) => {
+          const hasConfig = job.requiredField ? Boolean((client[job.requiredField] as string | null)?.trim()) : true;
+          const status = statuses[job.label] ?? "idle";
+          return (
+            <div key={job.label} className="flex items-center justify-between gap-4 py-1">
+              <div>
+                <span className="text-xs text-white/70">{job.label}</span>
+                {errors[job.label] && (
+                  <p className="text-[10px] text-red-400 mt-0.5">{errors[job.label]}</p>
+                )}
+                {status === "done" && (
+                  <p className="text-[10px] text-green-400 mt-0.5">Synced just now</p>
+                )}
+              </div>
+              <button
+                onClick={() => void runSync(job)}
+                disabled={!hasConfig || status === "running"}
+                title={!hasConfig ? `Set ${job.requiredField} in Connections first` : undefined}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.10] px-3 py-1.5 text-xs text-white/60 hover:text-white hover:border-white/20 disabled:opacity-30 transition-colors"
+              >
+                {status === "running" ? (
+                  <><Loader size={11} className="animate-spin" /> Syncing…</>
+                ) : (
+                  <><RefreshCw size={11} /> Sync</>
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -361,6 +427,8 @@ function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; o
           />
         )}
       </div>
+
+      {!editing && <DataSyncPanel clientId={client.id} client={client as unknown as Record<string, unknown>} />}
 
       <div className="bip-card p-5">
         <p className="bip-section-label mb-3">Ads</p>

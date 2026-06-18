@@ -7,6 +7,7 @@ import CommsMonitor from "@/components/dashboard/comms-monitor";
 import MiniPad from "@/components/dashboard/mini-pad";
 import { Star, Calendar } from "lucide-react";
 import BasecampSyncButton from "@/components/dashboard/basecamp-sync-button";
+import DataSyncAllButton from "@/components/dashboard/data-sync-all-button";
 
 function formatDueDate(dateStr: string | null) {
   if (!dateStr) return null;
@@ -48,7 +49,10 @@ export default async function DashboardPage() {
           <h1 className="text-lg font-semibold text-[var(--text)]">Dashboard</h1>
           <p className="text-sm text-[var(--text-muted)]">{user.email}</p>
         </div>
-        <BasecampSyncButton lastSyncedAt={syncState?.last_synced_at} />
+        <div className="flex items-center gap-3">
+          <DataSyncAllButton />
+          <BasecampSyncButton lastSyncedAt={syncState?.last_synced_at} />
+        </div>
       </div>
 
       {/* My Tasks quick widget */}
