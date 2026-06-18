@@ -108,7 +108,7 @@ function EditableField({
   );
 }
 
-function ConnectionsTab({ data }: { data: ClientWorkspaceInitialData }) {
+function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; onSaved?: () => void }) {
   const { client, socialConnections } = data;
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -193,6 +193,7 @@ function ConnectionsTab({ data }: { data: ClientWorkspaceInitialData }) {
         throw new Error((err as { error?: string }).error ?? "Save failed");
       }
       setEditing(false);
+      onSaved?.();
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -469,7 +470,7 @@ export default function ClientSimpleTabView({
           />
         );
       case "connections":
-        return <ConnectionsTab data={data} />;
+        return <ConnectionsTab data={data} onSaved={() => router.refresh()} />;
       case "comms":
         return <CommsTab data={data} />;
       case "playbook":
