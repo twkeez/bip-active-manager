@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, ExternalLink, Pencil, X } from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, Pencil, ScanSearch, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   activeServiceLabels,
@@ -113,6 +113,38 @@ function ConnectionsTab({ data }: { data: ClientWorkspaceInitialData }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [discovering, setDiscovering] = useState(false);
+  const [discovered, setDiscovered] = useState<{
+    ga4_id: string | null;
+    google_place_id: string | null;
+    sources: Record<string, string>;
+  } | null>(null);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
+
+  async function discover() {
+    setDiscovering(true);
+    setDiscoverError(null);
+    setDiscovered(null);
+    try {
+      const res = await fetch(`/api/clients/${client.id}/discover`);
+      const json = await res.json() as { ga4_id?: string | null; google_place_id?: string | null; sources?: Record<string, string>; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Discovery failed");
+      const result = { ga4_id: json.ga4_id ?? null, google_place_id: json.google_place_id ?? null, sources: json.sources ?? {} };
+      setDiscovered(result);
+      if (result.ga4_id || result.google_place_id) {
+        setDraft((d) => ({
+          ...d,
+          ...(result.ga4_id ? { ga4_id: result.ga4_id } : {}),
+          ...(result.google_place_id ? { google_place_id: result.google_place_id } : {}),
+        }));
+        setEditing(true);
+      }
+    } catch (e) {
+      setDiscoverError(e instanceof Error ? e.message : "Discovery failed");
+    } finally {
+      setDiscovering(false);
+    }
+  }
 
   const blankDraft = (): ConnectionFields => ({
     sc_url: client.sc_url ?? "",
@@ -205,15 +237,58 @@ function ConnectionsTab({ data }: { data: ClientWorkspaceInitialData }) {
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={startEdit}
-            className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white/50 hover:text-white transition"
-          >
-            <Pencil size={12} /> Edit
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void discover()}
+              disabled={discovering || !client.website}
+              title={!client.website ? "Set a website URL in the Ads section first" : "Scan website for GA4 ID and Place ID"}
+              className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white/50 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ScanSearch size={12} /> {discovering ? "Scanning…" : "Auto-discover"}
+            </button>
+            <button
+              type="button"
+              onClick={startEdit}
+              className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white/50 hover:text-white transition"
+            >
+              <Pencil size={12} /> Edit
+            </button>
+          </div>
         )}
       </div>
+
+      {discoverError && (
+        <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+          {discoverError}
+        </p>
+      )}
+
+      {discovered && !discoverError && (
+        <div className="rounded-lg border border-bip-accent/20 bg-bip-accent/5 px-3 py-2.5 text-xs space-y-1">
+          {discovered.ga4_id ? (
+            <p className="text-white/70">
+              <span className="text-bip-accent font-medium">GA4 ID found:</span> {discovered.ga4_id}
+              <span className="ml-2 text-white/30">via {discovered.sources.ga4_id}</span>
+            </p>
+          ) : (
+            <p className="text-white/40">GA4 ID — not found on page</p>
+          )}
+          {discovered.google_place_id ? (
+            <p className="text-white/70">
+              <span className="text-bip-accent font-medium">Place ID found:</span> {discovered.google_place_id}
+              <span className="ml-2 text-white/30">via {discovered.sources.google_place_id}</span>
+            </p>
+          ) : (
+            <p className="text-white/40">Place ID — not found on page</p>
+          )}
+          {discovered.ga4_id || discovered.google_place_id ? (
+            <p className="text-white/30 pt-0.5">Fields pre-filled below — review and save.</p>
+          ) : (
+            <p className="text-white/40">Nothing discoverable found on the website.</p>
+          )}
+        </div>
+      )}
 
       <div className="bip-card p-5">
         <p className="bip-section-label mb-3">Google</p>
