@@ -16,7 +16,7 @@ export default function AuthCard({
     <div className="flex min-h-screen flex-col items-center justify-center px-4" style={{ background: "linear-gradient(135deg, #0f1117 0%, #131929 100%)" }}>
       {/* Logo mark */}
       <div className="mb-6 flex flex-col items-center gap-2">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl" style={{ background: "#00c9a7" }}>
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl" style={{ background: "var(--primary, #3350a2)" }}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <path d="M12 2L3 7v10l9 5 9-5V7L12 2z" fill="white" fillOpacity="0.9" />
           </svg>
@@ -92,8 +92,8 @@ export function AuthInput({
           color: "#ffffff",
         }}
         onFocus={(e) => {
-          e.currentTarget.style.border = "1px solid #00c9a7";
-          e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,201,167,0.15)";
+          e.currentTarget.style.border = "1px solid var(--primary, #6075bf)";
+          e.currentTarget.style.boxShadow = "0 0 0 3px rgba(96,117,191,0.2)";
         }}
         onBlur={(e) => {
           e.currentTarget.style.border = "1px solid rgba(255,255,255,0.15)";
@@ -116,7 +116,7 @@ export function AuthButton({
       type="submit"
       disabled={loading}
       className="flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all disabled:opacity-60"
-      style={{ background: "#00c9a7", color: "#0f1117" }}
+      style={{ background: "var(--primary, #3350a2)", color: "#ffffff" }}
     >
       {loading && (
         <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">

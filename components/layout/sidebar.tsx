@@ -16,11 +16,13 @@ import {
   MapPinned,
   Megaphone,
   MessageSquare,
+  Moon,
   ShieldAlert,
   Sparkles,
   Stethoscope,
+  Sun,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type NavItem = {
   label: string;
@@ -108,6 +110,31 @@ function SectionGroup({
   );
 }
 
+function ThemeToggle() {
+  const [dark, setDark] = useState(true);
+
+  useEffect(() => {
+    const current = document.documentElement.dataset.theme;
+    setDark(current !== "light");
+  }, []);
+
+  function toggle() {
+    const next = dark ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    setDark(!dark);
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors text-[rgba(255,255,255,0.4)] hover:bg-[var(--bip-hover)] hover:text-white"
+    >
+      {dark ? <Sun size={15} /> : <Moon size={15} />}
+      {dark ? "Light mode" : "Dark mode"}
+    </button>
+  );
+}
+
 export default function Sidebar() {
   return (
     <aside className="flex h-screen w-56 flex-shrink-0 flex-col border-r border-[var(--bip-border)] bg-[var(--bip-card)]">
@@ -136,6 +163,11 @@ export default function Sidebar() {
 
         <SectionGroup label="Sales" items={SALES} defaultOpen={false} />
       </nav>
+
+      {/* Theme toggle */}
+      <div className="border-t border-[var(--bip-border)] p-3">
+        <ThemeToggle />
+      </div>
     </aside>
   );
 }
