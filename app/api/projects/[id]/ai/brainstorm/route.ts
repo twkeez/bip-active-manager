@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateGeminiText } from "@/lib/ai/gemini";
+import { generateClaudeText } from "@/lib/ai/claude";
 import { getOwnedProjectOrThrow } from "@/lib/projects/access";
 import { buildProjectAiContext } from "@/lib/projects/context";
 import { buildBrainstormPrompt } from "@/lib/projects/prompts";
@@ -35,7 +35,7 @@ export async function POST(
 
   try {
     const ctx = await buildProjectAiContext(supabase, user.id, owned.project);
-    const text = await generateGeminiText(buildBrainstormPrompt(ctx, body.prompt));
+    const text = await generateClaudeText(buildBrainstormPrompt(ctx, body.prompt));
 
     const title = `Brainstorm — ${new Date().toISOString().slice(0, 10)}`;
     const { data: artifact, error } = await supabase

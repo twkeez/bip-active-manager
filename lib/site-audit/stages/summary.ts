@@ -1,4 +1,4 @@
-import { generateGeminiContent } from "@/lib/ai/gemini";
+import { generateClaudeContent } from "@/lib/ai/claude";
 import { jsonBlockToObject } from "@/lib/site-audit/parse-json";
 import type { AuditReportJson, SummaryStageResult } from "@/lib/site-audit/types";
 
@@ -41,7 +41,7 @@ export async function runSummaryStage(report: AuditReportJson): Promise<SummaryS
     JSON.stringify(report, null, 2).slice(0, 12000),
   ].join("\n");
 
-  const text = await generateGeminiContent([{ text: prompt }], {
+  const text = await generateClaudeContent([{ text: prompt }], {
     maxOutputTokens: 2048,
     temperature: 0.35,
   });

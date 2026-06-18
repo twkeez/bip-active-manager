@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { generateGeminiText } from "@/lib/ai/gemini";
+import { generateClaudeText } from "@/lib/ai/claude";
 
 type Params = Promise<{ clientId: string }>;
 
@@ -84,7 +84,7 @@ Write a 2–4 sentence strategist intro in first-person ("I" or "we") that:
 Do not use the phrase "I hope this email finds you well." Do not list every metric. Do not add a subject line or greeting. Just the paragraph text.`;
 
   try {
-    const text = await generateGeminiText(prompt);
+    const text = await generateClaudeText(prompt);
     if (!text?.trim()) throw new Error("Empty response from AI");
     return NextResponse.json({ intro: text.trim() });
   } catch (e) {

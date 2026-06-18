@@ -1,4 +1,4 @@
-import { generateGeminiContent } from "@/lib/ai/gemini";
+import { generateClaudeContent } from "@/lib/ai/claude";
 import { runSearchConsoleSync } from "@/lib/seo/search-console";
 import { jsonBlockToObject } from "@/lib/site-audit/parse-json";
 import type { CrawlStageResult, KeywordsStageResult } from "@/lib/site-audit/types";
@@ -79,7 +79,7 @@ async function runAiKeywords(crawl: CrawlStageResult): Promise<KeywordsStageResu
 
   let text: string;
   try {
-    text = await generateGeminiContent([{ text: prompt }], {
+    text = await generateClaudeContent([{ text: prompt }], {
       maxOutputTokens: 2048,
       temperature: 0.35,
     });

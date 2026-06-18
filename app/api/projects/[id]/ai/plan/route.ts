@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateGeminiContent } from "@/lib/ai/gemini";
+import { generateClaudeContent } from "@/lib/ai/claude";
 import { getOwnedProjectOrThrow } from "@/lib/projects/access";
 import { buildProjectAiContext } from "@/lib/projects/context";
 import { parseProjectPlanJson } from "@/lib/projects/parse";
@@ -36,7 +36,7 @@ export async function POST(
 
   try {
     const ctx = await buildProjectAiContext(supabase, user.id, owned.project);
-    const text = await generateGeminiContent(
+    const text = await generateClaudeContent(
       [{ text: buildPlanPrompt(ctx, body.prompt) }],
       { maxOutputTokens: 4096, temperature: 0.35 },
     );

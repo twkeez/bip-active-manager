@@ -1,4 +1,4 @@
-import { generateGeminiContent } from "@/lib/ai/gemini";
+import { generateClaudeContent } from "@/lib/ai/claude";
 import { jsonBlockToObject } from "@/lib/site-audit/parse-json";
 import type { KeywordMatrixRow, WebsiteSeoKeywordCoverage } from "@/types/strategy-mapper";
 
@@ -114,7 +114,7 @@ export async function runAiKeywordGapAnalysis(input: {
   ].join("\n");
 
   try {
-    const text = await generateGeminiContent([{ text: prompt }], {
+    const text = await generateClaudeContent([{ text: prompt }], {
       maxOutputTokens: 2048,
       temperature: 0.35,
     });

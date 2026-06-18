@@ -1,4 +1,4 @@
-import { generateGeminiContent } from "@/lib/ai/gemini";
+import { generateClaudeContent } from "@/lib/ai/claude";
 import { formatCostMicros } from "@/lib/ads/quality-score";
 import type { AdsAuditReport } from "@/lib/types/client";
 
@@ -96,7 +96,7 @@ ${JSON.stringify(payload, null, 2)}`;
 
 export async function generateAdsAuditNarrative(report: AdsAuditReport) {
   const prompt = buildAuditPrompt(report);
-  const text = await generateGeminiContent([{ text: prompt }], {
+  const text = await generateClaudeContent([{ text: prompt }], {
     maxOutputTokens: 4096,
     temperature: 0.35,
   });

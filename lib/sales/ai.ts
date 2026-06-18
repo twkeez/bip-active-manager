@@ -1,4 +1,4 @@
-import { generateGeminiContent, generateGeminiText } from "@/lib/ai/gemini";
+import { generateClaudeContent, generateClaudeText } from "@/lib/ai/claude";
 import type {
   SalesLighthouseFinding,
   SalesLogoAnalysis,
@@ -42,7 +42,7 @@ export async function analyzeLogoBrandProfile(input: {
     "- brandPersonality should be a concise one-sentence descriptor.",
     "- designCues should be 3-5 short bullet-like phrases.",
   ].join("\n");
-  const text = await generateGeminiContent([
+  const text = await generateClaudeContent([
     { text: prompt },
     {
       inlineData: {
@@ -119,7 +119,7 @@ export async function buildStrategicSummary(input: {
     "- followupEmailDraft should be 5-8 sentences, persuasive but professional.",
   ].join("\n");
 
-  const text = await generateGeminiText(prompt);
+  const text = await generateClaudeText(prompt);
   const parsed = jsonBlockToObject<{
     summary?: Partial<StrategistSummaryResult>;
     followupEmailDraft?: string;

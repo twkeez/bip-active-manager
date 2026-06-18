@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateGeminiText } from "@/lib/ai/gemini";
+import { generateClaudeText } from "@/lib/ai/claude";
 
 type KeywordDropTheoryRequestBody = {
   clientId?: number;
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   ].join("\n");
 
   try {
-    const text = await generateGeminiText(prompt);
+    const text = await generateClaudeText(prompt);
     const parsed = parseTheoryResponse(text);
     if (!parsed) {
       throw new Error("Gemini did not return valid theory JSON.");

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateGeminiContent } from "@/lib/ai/gemini";
+import { generateClaudeContent } from "@/lib/ai/claude";
 import {
   buildMarketingUpdateContext,
   summarizeMarketingUpdateContext,
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   try {
     const admin = createAdminClient();
     const context = await buildMarketingUpdateContext(admin, clientId, userInput);
-    const markdown = await generateGeminiContent(
+    const markdown = await generateClaudeContent(
       [{ text: buildMarketingUpdatePrompt(context) }],
       { maxOutputTokens: 1500, temperature: 0.4 },
     );
