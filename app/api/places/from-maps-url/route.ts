@@ -1,46 +1,31 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-type ParsedMapsUrl = {
-  name: string | null;
-  lat: number | null;
-  lng: number | null;
-  cid: string | null; // decimal string
-};
-
-function parseMapsUrl(input: string): ParsedMapsUrl {
+function parseMapsUrl(input: string): { name: string | null; lat: number | null; lng: number | null } {
   let name: string | null = null;
   let lat: number | null = null;
   let lng: number | null = null;
-  let cid: string | null = null;
 
   try {
     const url = new URL(input);
 
-    // Business name from path: /maps/place/<name>/...
-    const pathMatch = url.pathname.match(/\/place\/([^/]+)/);
+    // Business name from /maps/place/<name>/...
+    const pathMatch = url.pathname.match(/\/place\/([^/@]+)/);
     if (pathMatch?.[1]) {
       name = decodeURIComponent(pathMatch[1].replace(/\+/g, " "));
     }
 
     // Coordinates from @lat,lng in path
-    const coordMatch = url.pathname.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    const coordMatch = (url.pathname + url.search).match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
     if (coordMatch) {
       lat = parseFloat(coordMatch[1]);
       lng = parseFloat(coordMatch[2]);
     }
-
-    // CID from !1s0x<low>:<high> in the data param
-    const dataStr = decodeURIComponent(url.pathname + url.search);
-    const cidMatch = dataStr.match(/!1s(0x[0-9a-f]+)(?::)(0x[0-9a-f]+)/i);
-    if (cidMatch?.[1]) {
-      cid = BigInt(cidMatch[1]).toString(10);
-    }
   } catch {
-    // ignore parse errors
+    // invalid URL
   }
 
-  return { name, lat, lng, cid };
+  return { name, lat, lng };
 }
 
 export async function POST(request: Request) {
@@ -55,26 +40,17 @@ export async function POST(request: Request) {
   const mapsUrl = (body.mapsUrl ?? "").trim();
   if (!mapsUrl) return NextResponse.json({ error: "No URL provided" }, { status: 400 });
 
-  const { name, lat, lng, cid } = parseMapsUrl(mapsUrl);
+  const { name, lat, lng } = parseMapsUrl(mapsUrl);
 
-  // Strategy 1: CID lookup via Places Details API
-  if (cid) {
-    try {
-      const res = await fetch(
-        `https://maps.googleapis.com/maps/api/place/details/json?cid=${cid}&fields=place_id,name&key=${apiKey}`,
-      );
-      const data = await res.json() as { status: string; result?: { place_id?: string; name?: string } };
-      if (data.status === "OK" && data.result?.place_id) {
-        return NextResponse.json({ place_id: data.result.place_id, name: data.result.name, method: "cid" });
-      }
-    } catch { /* fall through */ }
+  if (!name) {
+    return NextResponse.json({ error: "Could not extract a business name from that URL — make sure it's a Google Maps place URL" }, { status: 422 });
   }
 
-  // Strategy 2: Find Place from Text with tight location bias
-  if (name && lat !== null && lng !== null) {
+  // Strategy 1: Text search with tight location bias using coordinates from the URL
+  if (lat !== null && lng !== null) {
     try {
       const query = encodeURIComponent(name);
-      const bias = `circle:300@${lat},${lng}`;
+      const bias = `circle:200@${lat},${lng}`;
       const res = await fetch(
         `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&locationbias=${bias}&fields=place_id,name&key=${apiKey}`,
       );
@@ -85,5 +61,25 @@ export async function POST(request: Request) {
     } catch { /* fall through */ }
   }
 
-  return NextResponse.json({ error: "Could not resolve a Place ID from that URL" }, { status: 422 });
+  // Strategy 2: Text search without bias (just name)
+  try {
+    const query = encodeURIComponent(name);
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&fields=place_id,name&key=${apiKey}`,
+    );
+    const data = await res.json() as { status: string; candidates?: Array<{ place_id?: string; name?: string }> };
+    if (data.status === "OK" && data.candidates?.[0]?.place_id) {
+      return NextResponse.json({ place_id: data.candidates[0].place_id, name: data.candidates[0].name, method: "text" });
+    }
+    // Return the actual API status so we can see what went wrong
+    return NextResponse.json(
+      { error: `Places API returned: ${data.status} — check that the Places API is enabled for this key` },
+      { status: 422 },
+    );
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Places API request failed" },
+      { status: 500 },
+    );
+  }
 }
