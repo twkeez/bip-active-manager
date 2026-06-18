@@ -97,6 +97,7 @@ export type ReportPeriodMetric = {
   deltaAbsolute: number | null;
   deltaPercent: number | null;
   valueSuffix?: string;
+  valuePrefix?: string;
 };
 
 export type ReportChannelBlock = {

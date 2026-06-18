@@ -32,11 +32,11 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   );
 }
 
-function MetricCard({ metric, accent }: { metric: ReportPeriodMetric; accent?: string }) {
+function MetricCard({ metric }: { metric: ReportPeriodMetric }) {
   const val =
     metric.current == null
       ? "—"
-      : `${metric.current.toLocaleString(undefined, { maximumFractionDigits: 2 })}${metric.valueSuffix ?? ""}`;
+      : `${metric.valuePrefix ?? ""}${metric.current.toLocaleString(undefined, { maximumFractionDigits: 2 })}${metric.valueSuffix ?? ""}`;
   return (
     <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 flex flex-col gap-2">
       <p className="text-xs text-gray-500">{metric.label}</p>

@@ -838,13 +838,14 @@ function toPeriodMetric(
   current: number | null,
   previous: number | null,
   valueSuffix?: string,
+  valuePrefix?: string,
 ): ReportPeriodMetric {
   const deltaAbsolute = current == null || previous == null ? null : current - previous;
   const deltaPercent =
     current == null || previous == null || previous === 0
       ? null
       : ((current - previous) / previous) * 100;
-  return { label, current, previous, deltaAbsolute, deltaPercent, valueSuffix };
+  return { label, current, previous, deltaAbsolute, deltaPercent, valueSuffix, valuePrefix };
 }
 
 function avg(values: number[]) {
@@ -920,8 +921,12 @@ function buildAdsChannelBlock(params: {
       ),
       toPeriodMetric(
         "Avg CPC",
-        totals.average_cpc,
-        params.previousAdsSnapshot?.totals.average_cpc ?? null,
+        totals.average_cpc / 1_000_000,
+        params.previousAdsSnapshot?.totals.average_cpc != null
+          ? params.previousAdsSnapshot.totals.average_cpc / 1_000_000
+          : null,
+        undefined,
+        "$",
       ),
     ],
   };
