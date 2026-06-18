@@ -5,7 +5,7 @@ import { RefreshCw, Loader, ChevronDown, ChevronUp } from "lucide-react";
 
 type SyncClient = { id: number; account_name: string; sc_url: string | null; ga4_property_id: string | null };
 
-type ClientResult = { gsc: "skip" | "ok" | "error"; ga4: "skip" | "ok" | "error"; social: "skip" | "ok" | "error" };
+type ClientResult = { gsc: "skip" | "ok" | "error"; ga4: "skip" | "ok" | "error"; social: "skip" | "ok" | "error"; gbp: "skip" | "ok" | "error" };
 
 export default function DataSyncAllButton() {
   const [state, setState] = useState<"idle" | "running" | "done">("idle");
@@ -31,7 +31,7 @@ export default function DataSyncAllButton() {
     setProgress({ done: 0, total: clients.length });
 
     for (const client of clients) {
-      const result: ClientResult = { gsc: "skip", ga4: "skip", social: "skip" };
+      const result: ClientResult = { gsc: "skip", ga4: "skip", social: "skip", gbp: "skip" };
 
       if ((client.sc_url ?? "").trim()) {
         try {
@@ -63,6 +63,15 @@ export default function DataSyncAllButton() {
         });
         result.social = r.ok ? "ok" : "error";
       } catch { result.social = "error"; }
+
+      try {
+        const r = await fetch("/api/gbp/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId: client.id }),
+        });
+        result.gbp = r.ok ? "ok" : "error";
+      } catch { result.gbp = "error"; }
 
       setResults((prev) => ({ ...prev, [client.id]: result }));
       setProgress((p) => ({ ...p, done: p.done + 1 }));
@@ -118,6 +127,7 @@ export default function DataSyncAllButton() {
                 {r.gsc !== "skip" && <span className={r.gsc === "ok" ? "text-green-400" : "text-red-400"}>GSC {r.gsc}</span>}
                 {r.ga4 !== "skip" && <span className={r.ga4 === "ok" ? "text-green-400" : "text-red-400"}>GA4 {r.ga4}</span>}
                 {r.social !== "skip" && <span className={r.social === "ok" ? "text-green-400" : "text-red-400"}>Social {r.social}</span>}
+                {r.gbp !== "skip" && <span className={r.gbp === "ok" ? "text-green-400" : "text-red-400"}>GBP {r.gbp}</span>}
               </span>
             </div>
           ))}
