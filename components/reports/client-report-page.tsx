@@ -59,7 +59,19 @@ export default function ClientReportPage({ report, draft }: Props) {
         remaining -= pageH;
       }
       const slug = report.client.account_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-      pdf.save(`bip-report-${slug}.pdf`);
+      const fileName = `bip-report-${slug}.pdf`;
+      if ("showSaveFilePicker" in window) {
+        const blob = pdf.output("blob");
+        const handle = await (window as unknown as { showSaveFilePicker: (o: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: "PDF Document", accept: { "application/pdf": [".pdf"] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } else {
+        pdf.save(fileName);
+      }
     } finally {
       setExporting(false);
     }
