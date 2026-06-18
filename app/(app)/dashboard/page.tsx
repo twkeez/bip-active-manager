@@ -36,8 +36,8 @@ export default async function DashboardPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-white">Dashboard</h1>
-          <p className="text-sm text-[rgba(255,255,255,0.4)]">{user.email}</p>
+          <h1 className="text-lg font-semibold text-[var(--text)]">Dashboard</h1>
+          <p className="text-sm text-[var(--text-muted)]">{user.email}</p>
         </div>
         <BasecampSyncButton lastSyncedAt={syncState?.last_synced_at} />
       </div>
@@ -58,7 +58,7 @@ export default async function DashboardPage() {
         </div>
         <div className="bip-card divide-y divide-[var(--bip-border)]">
           {priorityTasks.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-[rgba(255,255,255,0.3)]">
+            <p className="px-4 py-6 text-center text-sm text-[var(--text-subtle)]">
               No starred or upcoming tasks.
             </p>
           ) : (
@@ -71,9 +71,9 @@ export default async function DashboardPage() {
                   <Star size={13} className="shrink-0 fill-amber-400 text-amber-400" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-white">{task.title}</p>
+                  <p className="truncate text-sm text-[var(--text)]">{task.title}</p>
                   {task.client_name && (
-                    <p className="text-xs text-[rgba(255,255,255,0.4)]">{task.client_name}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{task.client_name}</p>
                   )}
                 </div>
                 {task.due_date && (
@@ -81,7 +81,7 @@ export default async function DashboardPage() {
                     className={`flex items-center gap-1 text-xs ${
                       isOverdue(task.due_date)
                         ? "text-[var(--bip-danger)]"
-                        : "text-[rgba(255,255,255,0.4)]"
+                        : "text-[var(--text-subtle)]"
                     }`}
                   >
                     <Calendar size={11} />

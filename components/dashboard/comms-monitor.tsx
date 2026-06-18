@@ -48,15 +48,15 @@ function CommsRow({
     <div className="flex items-center gap-4 border-b border-[var(--bip-border)] px-4 py-3 last:border-0 hover:bg-[var(--bip-hover)] transition-colors">
       {/* Client name + strategist */}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-white">{client.account_name}</p>
+        <p className="truncate text-sm font-medium text-[var(--text)]">{client.account_name}</p>
         {client.marketing_strategist && (
-          <p className="text-xs text-[rgba(255,255,255,0.4)]">{client.marketing_strategist}</p>
+          <p className="text-xs text-[var(--text-muted)]">{client.marketing_strategist}</p>
         )}
       </div>
 
       {/* Last comms */}
       <div className="w-28 text-right">
-        <p className="text-xs text-[rgba(255,255,255,0.5)]">
+        <p className="text-xs text-[var(--text-muted)]">
           {daysAgoLabel(client.last_communication_at)}
         </p>
       </div>
@@ -68,7 +68,7 @@ function CommsRow({
             href={bcUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 rounded-md border border-[var(--bip-border)] px-2 py-1 text-xs text-[rgba(255,255,255,0.5)] hover:border-[var(--bip-border-strong)] hover:text-white transition-colors"
+            className="flex items-center gap-1 rounded-md border border-[var(--bip-border)] px-2 py-1 text-xs text-[var(--text-muted)] hover:border-[var(--bip-border-strong)] hover:text-[var(--text)] transition-colors"
           >
             <ExternalLink size={11} />
             Basecamp
@@ -78,7 +78,7 @@ function CommsRow({
           <button
             onClick={handleAck}
             disabled={loading}
-            className="flex items-center gap-1 rounded-md border border-[var(--bip-border)] px-2 py-1 text-xs text-[rgba(255,255,255,0.5)] hover:border-[var(--bip-accent)] hover:text-[var(--bip-accent)] transition-colors disabled:opacity-40"
+            className="flex items-center gap-1 rounded-md border border-[var(--bip-border)] px-2 py-1 text-xs text-[var(--text-muted)] hover:border-[var(--bip-accent)] hover:text-[var(--bip-accent)] transition-colors disabled:opacity-40"
           >
             <CheckCircle size={11} />
             {loading ? "…" : "Dismiss"}
@@ -109,7 +109,7 @@ function Panel({
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-[var(--bip-border)] px-4 py-3">
         <Icon size={14} style={{ color }} />
-        <span className="text-sm font-medium text-white">{title}</span>
+        <span className="text-sm font-medium text-[var(--text)]">{title}</span>
         <span
           className="ml-auto rounded-full px-2 py-0.5 text-xs font-semibold"
           style={{
@@ -124,7 +124,7 @@ function Panel({
       {/* Rows */}
       <div className="divide-y divide-[var(--bip-border)]">
         {clients.length === 0 ? (
-          <p className="px-4 py-6 text-center text-sm text-[rgba(255,255,255,0.3)]">
+          <p className="px-4 py-6 text-center text-sm text-[var(--text-subtle)]">
             {emptyText}
           </p>
         ) : (

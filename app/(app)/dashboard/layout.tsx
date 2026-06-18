@@ -13,7 +13,7 @@ export default async function DashboardLayout({
     redirect("/login");
   }
   return (
-    <div className="flex min-h-screen flex-col bg-bip-page font-sans text-white/75">
+    <div className="flex min-h-screen flex-col bg-bip-page font-sans text-[var(--text-muted)]">
       {children}
     </div>
   );

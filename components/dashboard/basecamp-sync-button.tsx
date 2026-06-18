@@ -19,7 +19,7 @@ function KittScanner() {
   return (
     <div
       className="w-full overflow-hidden rounded-sm"
-      style={{ height: 3, background: "rgba(255,255,255,0.06)" }}
+      style={{ height: 3, background: "var(--border)" }}
     >
       <style>{`
         @keyframes kitt {
@@ -72,13 +72,13 @@ export default function BasecampSyncButton({
     <div className="flex flex-col items-end gap-1.5">
       <div className="flex items-center gap-2">
         {syncedAt && !syncing && (
-          <span className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,0.35)]">
+          <span className="flex items-center gap-1.5 text-xs text-[var(--text-subtle)]">
             <RefreshCw size={11} />
             {formatSyncTime(syncedAt)}
           </span>
         )}
         {syncing && (
-          <span className="text-xs text-[rgba(255,255,255,0.35)]">Syncing…</span>
+          <span className="text-xs text-[var(--text-subtle)]">Syncing…</span>
         )}
         <button
           onClick={() => void handleSync()}

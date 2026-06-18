@@ -37,7 +37,7 @@ export default function RootLayout({
       data-theme="dark"
       className={`${poppins.variable} ${sourceSans3.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-bip-page text-white/75">
+      <body className="min-h-full flex flex-col bg-bip-page text-[var(--text-muted)]">
         {children}
       </body>
     </html>

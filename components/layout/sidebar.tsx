@@ -67,8 +67,8 @@ function NavLink({ item }: { item: NavItem }) {
       href={item.href}
       className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
         active
-          ? "bg-[var(--bip-hover)] text-white"
-          : "text-[rgba(255,255,255,0.5)] hover:bg-[var(--bip-hover)] hover:text-white"
+          ? "bg-[var(--bip-hover)] text-[var(--text)]"
+          : "text-[var(--text-muted)] hover:bg-[var(--bip-hover)] hover:text-[var(--text)]"
       }`}
     >
       <Icon size={15} className={active ? "text-[var(--bip-accent)]" : ""} />
@@ -91,7 +91,7 @@ function SectionGroup({
     <div>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-[rgba(255,255,255,0.3)] hover:text-[rgba(255,255,255,0.5)] transition-colors"
+        className="flex w-full items-center justify-between px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-[var(--text-subtle)] hover:text-[var(--text-muted)] transition-colors"
       >
         {label}
         <ChevronDown
@@ -127,7 +127,7 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors text-[rgba(255,255,255,0.4)] hover:bg-[var(--bip-hover)] hover:text-white"
+      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors text-[var(--text-muted)] hover:bg-[var(--bip-hover)] hover:text-[var(--text)]"
     >
       {dark ? <Sun size={15} /> : <Moon size={15} />}
       {dark ? "Light mode" : "Dark mode"}
@@ -141,9 +141,9 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="flex h-14 items-center gap-2.5 border-b border-[var(--bip-border)] px-4">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--bip-accent)]">
-          <span className="text-xs font-bold text-[#0f1117]">B</span>
+          <span className="text-xs font-bold text-white">B</span>
         </div>
-        <span className="text-sm font-semibold text-white">BIP Control</span>
+        <span className="text-sm font-semibold text-[var(--text)]">BIP Control</span>
       </div>
 
       {/* Nav */}
