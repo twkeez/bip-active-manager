@@ -97,6 +97,45 @@ async function resolvePlaceIdFromShortlink(url: string): Promise<{ value: string
   return null;
 }
 
+function extractBusinessName(html: string): string | null {
+  // JSON-LD name field
+  const jsonLdMatch = html.match(/"name"\s*:\s*"([^"]{3,80})"/);
+  if (jsonLdMatch?.[1]) return jsonLdMatch[1];
+  // og:site_name
+  const ogMatch = html.match(/property=["']og:site_name["'][^>]*content=["']([^"']{3,80})["']/);
+  if (ogMatch?.[1]) return ogMatch[1];
+  const ogMatch2 = html.match(/content=["']([^"']{3,80})["'][^>]*property=["']og:site_name["']/);
+  if (ogMatch2?.[1]) return ogMatch2[1];
+  // <title> tag (first word group before | or -)
+  const titleMatch = html.match(/<title[^>]*>([^<]{3,80})<\/title>/i);
+  if (titleMatch?.[1]) return titleMatch[1].split(/[|\-–]/)[0].trim();
+  return null;
+}
+
+async function lookupPlaceId(businessName: string, websiteUrl: string): Promise<{ value: string; source: string } | null> {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) return null;
+  try {
+    // Extract domain as location hint
+    const domain = new URL(websiteUrl).hostname.replace(/^www\./, "");
+    const query = encodeURIComponent(`${businessName}`);
+    const fields = "place_id,name";
+    const url = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&fields=${fields}&locationbias=ipbias&key=${apiKey}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const data = await res.json() as { status: string; candidates?: Array<{ place_id?: string; name?: string }> };
+    if (data.status === "OK" && data.candidates?.[0]?.place_id) {
+      return { value: data.candidates[0].place_id, source: `Places API (${domain})` };
+    }
+  } catch {
+    // ignore — Places API failure is non-fatal
+  }
+  return null;
+}
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
@@ -171,6 +210,14 @@ export async function GET(
     for (const link of shortlinks) {
       placeId = await resolvePlaceIdFromShortlink(link);
       if (placeId) break;
+    }
+  }
+
+  // Last resort: Google Places API text search using the business name
+  if (!placeId) {
+    const businessName = extractBusinessName(html);
+    if (businessName) {
+      placeId = await lookupPlaceId(businessName, url);
     }
   }
 
