@@ -14,12 +14,18 @@ export type AdsCampaignRow = {
   campaign_name: string;
   impressions: number;
   clicks: number;
+  interactions: number;
   cost_micros: number;
   conversions: number;
+  all_conversions: number;
+  view_through_conversions: number;
+  conversions_value: number;
   ctr: number;
   search_impression_share: number | null;
   search_rank_lost_impression_share: number | null;
   search_budget_lost_impression_share: number | null;
+  search_top_impression_share: number | null;
+  search_absolute_top_impression_share: number | null;
 };
 
 export type AdsAuctionInsightRow = {
@@ -33,21 +39,32 @@ export type AdsAuctionInsightRow = {
   outranking_share: number | null;
 };
 
+export type AdsTotals = {
+  impressions: number;
+  clicks: number;
+  interactions: number;
+  cost_micros: number;
+  conversions: number;
+  all_conversions: number;
+  view_through_conversions: number;
+  conversions_value: number;
+  ctr: number;
+  average_cpc: number;
+  conversion_rate: number | null;
+  cost_per_conversion: number | null;
+  roas: number | null;
+  search_impression_share: number | null;
+  search_rank_lost_impression_share: number | null;
+  search_budget_lost_impression_share: number | null;
+  search_top_impression_share: number | null;
+  search_absolute_top_impression_share: number | null;
+};
+
 export type AdsSyncResult = {
   customerId: string;
   startDate: string;
   endDate: string;
-  totals: {
-    impressions: number;
-    clicks: number;
-    cost_micros: number;
-    conversions: number;
-    ctr: number;
-    average_cpc: number;
-    search_impression_share: number | null;
-    search_rank_lost_impression_share: number | null;
-    search_budget_lost_impression_share: number | null;
-  };
+  totals: AdsTotals;
   campaigns: AdsCampaignRow[];
   auctionInsights: AdsAuctionInsightRow[];
   keywordQuality: AdsKeywordQualityRow[];
@@ -127,13 +144,19 @@ export async function runGoogleAdsSync(
       campaign.name,
       metrics.impressions,
       metrics.clicks,
+      metrics.interactions,
       metrics.cost_micros,
       metrics.conversions,
+      metrics.all_conversions,
+      metrics.view_through_conversions,
+      metrics.conversions_value,
       metrics.ctr,
       metrics.average_cpc,
       metrics.search_impression_share,
       metrics.search_rank_lost_impression_share,
-      metrics.search_budget_lost_impression_share
+      metrics.search_budget_lost_impression_share,
+      metrics.search_top_impression_share,
+      metrics.search_absolute_top_impression_share
     FROM campaign
     WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
     ORDER BY metrics.impressions DESC
@@ -143,31 +166,33 @@ export async function runGoogleAdsSync(
   let campaigns: AdsCampaignRow[];
   try {
     campaigns = await searchStream(ctx, query, (row) => {
-      const impressions = Number(row.metrics?.impressions ?? 0);
-      const clicks = Number(row.metrics?.clicks ?? 0);
-      const costMicros = Number(row.metrics?.costMicros ?? 0);
-      const conversions = Number(row.metrics?.conversions ?? 0);
-      const ctr = Number(row.metrics?.ctr ?? 0);
       return {
         campaign_id: String(row.campaign?.id ?? ""),
         campaign_name: row.campaign?.name ?? "Unnamed campaign",
-        impressions,
-        clicks,
-        cost_micros: costMicros,
-        conversions,
-        ctr,
+        impressions: Number(row.metrics?.impressions ?? 0),
+        clicks: Number(row.metrics?.clicks ?? 0),
+        interactions: Number(row.metrics?.interactions ?? 0),
+        cost_micros: Number(row.metrics?.costMicros ?? 0),
+        conversions: Number(row.metrics?.conversions ?? 0),
+        all_conversions: Number(row.metrics?.allConversions ?? 0),
+        view_through_conversions: Number(row.metrics?.viewThroughConversions ?? 0),
+        conversions_value: Number(row.metrics?.conversionsValue ?? 0),
+        ctr: Number(row.metrics?.ctr ?? 0),
         search_impression_share:
           typeof row.metrics?.searchImpressionShare === "number"
-            ? row.metrics.searchImpressionShare
-            : null,
+            ? row.metrics.searchImpressionShare : null,
         search_rank_lost_impression_share:
           typeof row.metrics?.searchRankLostImpressionShare === "number"
-            ? row.metrics.searchRankLostImpressionShare
-            : null,
+            ? row.metrics.searchRankLostImpressionShare : null,
         search_budget_lost_impression_share:
           typeof row.metrics?.searchBudgetLostImpressionShare === "number"
-            ? row.metrics.searchBudgetLostImpressionShare
-            : null,
+            ? row.metrics.searchBudgetLostImpressionShare : null,
+        search_top_impression_share:
+          typeof row.metrics?.searchTopImpressionShare === "number"
+            ? row.metrics.searchTopImpressionShare : null,
+        search_absolute_top_impression_share:
+          typeof row.metrics?.searchAbsoluteTopImpressionShare === "number"
+            ? row.metrics.searchAbsoluteTopImpressionShare : null,
       };
     });
   } catch (error) {
@@ -180,50 +205,61 @@ export async function runGoogleAdsSync(
     throw error;
   }
 
-  const totals = campaigns.reduce(
+  const rawTotals = campaigns.reduce(
     (acc, row) => {
       acc.impressions += row.impressions;
       acc.clicks += row.clicks;
+      acc.interactions += row.interactions;
       acc.cost_micros += row.cost_micros;
       acc.conversions += row.conversions;
+      acc.all_conversions += row.all_conversions;
+      acc.view_through_conversions += row.view_through_conversions;
+      acc.conversions_value += row.conversions_value;
       return acc;
     },
     {
       impressions: 0,
       clicks: 0,
+      interactions: 0,
       cost_micros: 0,
       conversions: 0,
-      ctr: 0,
-      average_cpc: 0,
-      search_impression_share: null as number | null,
-      search_rank_lost_impression_share: null as number | null,
-      search_budget_lost_impression_share: null as number | null,
+      all_conversions: 0,
+      view_through_conversions: 0,
+      conversions_value: 0,
     },
   );
-  totals.ctr = totals.impressions > 0 ? totals.clicks / totals.impressions : 0;
-  totals.average_cpc = totals.clicks > 0 ? totals.cost_micros / totals.clicks : 0;
-  const weightedImpressionShareNumerator = campaigns.reduce((sum, row) => {
-    if (row.search_impression_share == null) return sum;
-    return sum + row.search_impression_share * Math.max(1, row.impressions);
-  }, 0);
-  const weightedRankLostNumerator = campaigns.reduce((sum, row) => {
-    if (row.search_rank_lost_impression_share == null) return sum;
-    return sum + row.search_rank_lost_impression_share * Math.max(1, row.impressions);
-  }, 0);
-  const weightedBudgetLostNumerator = campaigns.reduce((sum, row) => {
-    if (row.search_budget_lost_impression_share == null) return sum;
-    return sum + row.search_budget_lost_impression_share * Math.max(1, row.impressions);
-  }, 0);
+
   const weightedDenominator = campaigns.reduce(
-    (sum, row) => sum + Math.max(1, row.impressions),
-    0,
+    (sum, row) => sum + Math.max(1, row.impressions), 0,
   );
-  totals.search_impression_share =
-    weightedDenominator > 0 ? weightedImpressionShareNumerator / weightedDenominator : null;
-  totals.search_rank_lost_impression_share =
-    weightedDenominator > 0 ? weightedRankLostNumerator / weightedDenominator : null;
-  totals.search_budget_lost_impression_share =
-    weightedDenominator > 0 ? weightedBudgetLostNumerator / weightedDenominator : null;
+
+  function weightedShare(field: keyof Pick<AdsCampaignRow,
+    "search_impression_share" | "search_rank_lost_impression_share" |
+    "search_budget_lost_impression_share" | "search_top_impression_share" |
+    "search_absolute_top_impression_share"
+  >): number | null {
+    const numerator = campaigns.reduce((sum, row) => {
+      const v = row[field];
+      return v == null ? sum : sum + v * Math.max(1, row.impressions);
+    }, 0);
+    return weightedDenominator > 0 ? numerator / weightedDenominator : null;
+  }
+
+  const spendUsd = rawTotals.cost_micros / 1_000_000;
+  const totals: AdsTotals = {
+    ...rawTotals,
+    ctr: rawTotals.impressions > 0 ? rawTotals.clicks / rawTotals.impressions : 0,
+    average_cpc: rawTotals.clicks > 0 ? rawTotals.cost_micros / rawTotals.clicks : 0,
+    conversion_rate: rawTotals.clicks > 0 ? rawTotals.conversions / rawTotals.clicks : null,
+    cost_per_conversion: rawTotals.conversions > 0 ? spendUsd / rawTotals.conversions : null,
+    roas: spendUsd > 0 && rawTotals.conversions_value > 0
+      ? rawTotals.conversions_value / spendUsd : null,
+    search_impression_share: weightedShare("search_impression_share"),
+    search_rank_lost_impression_share: weightedShare("search_rank_lost_impression_share"),
+    search_budget_lost_impression_share: weightedShare("search_budget_lost_impression_share"),
+    search_top_impression_share: weightedShare("search_top_impression_share"),
+    search_absolute_top_impression_share: weightedShare("search_absolute_top_impression_share"),
+  };
 
   const auctionInsights: AdsAuctionInsightRow[] = [];
   try {

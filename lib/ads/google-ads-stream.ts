@@ -36,13 +36,19 @@ export type GoogleAdsStreamRow = {
   metrics?: {
     impressions?: string;
     clicks?: string;
+    interactions?: string;
     costMicros?: string;
     conversions?: number;
+    allConversions?: number;
+    viewThroughConversions?: number;
+    conversionsValue?: number;
     ctr?: number;
     averageCpc?: string;
     searchImpressionShare?: number;
     searchRankLostImpressionShare?: number;
     searchBudgetLostImpressionShare?: number;
+    searchTopImpressionShare?: number;
+    searchAbsoluteTopImpressionShare?: number;
     auctionInsightSearchImpressionShare?: number;
     auctionInsightSearchOverlapRate?: number;
     auctionInsightSearchPositionAboveRate?: number;

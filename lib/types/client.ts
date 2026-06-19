@@ -333,12 +333,18 @@ export type AdsCampaignMetric = {
   campaign_name: string;
   impressions: number;
   clicks: number;
+  interactions?: number;
   cost_micros: number;
   conversions: number;
+  all_conversions?: number;
+  view_through_conversions?: number;
+  conversions_value?: number;
   ctr: number;
   search_impression_share?: number | null;
   search_rank_lost_impression_share?: number | null;
   search_budget_lost_impression_share?: number | null;
+  search_top_impression_share?: number | null;
+  search_absolute_top_impression_share?: number | null;
 };
 
 export type AdsAuctionInsightRow = {
@@ -388,13 +394,22 @@ export type AdsSnapshot = {
   totals: {
     impressions: number;
     clicks: number;
+    interactions?: number;
     cost_micros: number;
     conversions: number;
+    all_conversions?: number;
+    view_through_conversions?: number;
+    conversions_value?: number;
     ctr: number;
     average_cpc: number;
+    conversion_rate?: number | null;
+    cost_per_conversion?: number | null;
+    roas?: number | null;
     search_impression_share?: number | null;
     search_rank_lost_impression_share?: number | null;
     search_budget_lost_impression_share?: number | null;
+    search_top_impression_share?: number | null;
+    search_absolute_top_impression_share?: number | null;
   };
   campaigns: AdsCampaignMetric[];
   auction_insights?: AdsAuctionInsightRow[];
