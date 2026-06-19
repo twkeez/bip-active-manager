@@ -186,34 +186,44 @@ export default function ClientReportWorkspace({
   const [newTag, setNewTag] = useState("");
   const [addingKeyword, setAddingKeyword] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const [keywordError, setKeywordError] = useState<string | null>(null);
+
+  type KeywordRow = { id: number; keyword: string; tag: string | null; priority: number; is_active?: boolean; isActive?: boolean };
+
+  function mapKeywordRows(rows: KeywordRow[]): ManagedKeyword[] {
+    return rows.map((r) => ({
+      id: r.id,
+      keyword: r.keyword,
+      tag: r.tag,
+      priority: r.priority,
+      isActive: r.is_active ?? r.isActive ?? true,
+    }));
+  }
 
   async function addKeyword() {
     const kw = newKeyword.trim();
     if (!kw) return;
     setAddingKeyword(true);
+    setKeywordError(null);
     try {
       const res = await fetch("/api/reporting/keywords", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId,
-          upserts: [{ keyword: kw, tag: newTag.trim() || null, priority: 50 }],
+          upserts: [{ keyword: kw, tag: newTag.trim() || null, priority: 50, isActive: true }],
         }),
       });
-      const json = (await res.json()) as { rows?: ManagedKeyword[] };
-      if (json.rows) {
-        setKeywords(
-          json.rows.map((r) => ({
-            id: r.id,
-            keyword: r.keyword,
-            tag: r.tag,
-            priority: r.priority,
-            isActive: r.isActive ?? true,
-          })),
-        );
+      const json = (await res.json()) as { rows?: KeywordRow[]; error?: string };
+      if (!res.ok || json.error) {
+        setKeywordError(json.error ?? "Failed to add keyword");
+        return;
       }
+      if (json.rows) setKeywords(mapKeywordRows(json.rows));
       setNewKeyword("");
       setNewTag("");
+    } catch {
+      setKeywordError("Network error — please try again");
     } finally {
       setAddingKeyword(false);
     }
@@ -221,24 +231,21 @@ export default function ClientReportWorkspace({
 
   async function removeKeyword(id: number) {
     setRemovingId(id);
+    setKeywordError(null);
     try {
       const res = await fetch("/api/reporting/keywords", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId, deleteIds: [id] }),
       });
-      const json = (await res.json()) as { rows?: ManagedKeyword[] };
-      if (json.rows) {
-        setKeywords(
-          json.rows.map((r) => ({
-            id: r.id,
-            keyword: r.keyword,
-            tag: r.tag,
-            priority: r.priority,
-            isActive: r.isActive ?? true,
-          })),
-        );
+      const json = (await res.json()) as { rows?: KeywordRow[]; error?: string };
+      if (!res.ok || json.error) {
+        setKeywordError(json.error ?? "Failed to remove keyword");
+        return;
       }
+      if (json.rows) setKeywords(mapKeywordRows(json.rows));
+    } catch {
+      setKeywordError("Network error — please try again");
     } finally {
       setRemovingId(null);
     }
@@ -343,6 +350,7 @@ export default function ClientReportWorkspace({
               newTag={newTag}
               addingKeyword={addingKeyword}
               removingId={removingId}
+              error={keywordError}
               onNewKeywordChange={setNewKeyword}
               onNewTagChange={setNewTag}
               onAdd={() => void addKeyword()}
@@ -457,6 +465,7 @@ function KeywordsPanel({
   newTag,
   addingKeyword,
   removingId,
+  error,
   onNewKeywordChange,
   onNewTagChange,
   onAdd,
@@ -467,6 +476,7 @@ function KeywordsPanel({
   newTag: string;
   addingKeyword: boolean;
   removingId: number | null;
+  error: string | null;
   onNewKeywordChange: (v: string) => void;
   onNewTagChange: (v: string) => void;
   onAdd: () => void;
@@ -477,6 +487,9 @@ function KeywordsPanel({
       <p className="text-xs text-gray-400">
         Track keyword rankings in the report. Data updates each time you sync Search Console.
       </p>
+      {error && (
+        <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>
+      )}
 
       {/* Add keyword form */}
       <div className="space-y-2">

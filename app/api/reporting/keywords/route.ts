@@ -85,27 +85,45 @@ export async function PUT(request: Request) {
   }
 
   if (Array.isArray(body.upserts) && body.upserts.length > 0) {
-    const rows = body.upserts
-      .map((item) => {
-        const keyword = normalizeKeyword(item.keyword);
-        if (!keyword) return null;
-        return {
-          id: Number.isInteger(item.id) && Number(item.id) > 0 ? Number(item.id) : undefined,
-          owner_user_id: user.id,
-          client_id: clientId,
-          keyword,
-          tag: item.tag == null ? null : String(item.tag).trim() || null,
-          priority: normalizePriority(item.priority),
-          is_active: item.isActive ?? true,
-          updated_at: new Date().toISOString(),
-        };
-      })
-      .filter((row): row is NonNullable<typeof row> => Boolean(row));
+    const newRows: Array<{
+      owner_user_id: string;
+      client_id: number;
+      keyword: string;
+      tag: string | null;
+      priority: number;
+      is_active: boolean;
+      updated_at: string;
+    }> = [];
+    const existingRows: Array<{ id: number; owner_user_id: string; client_id: number; keyword: string; tag: string | null; priority: number; is_active: boolean; updated_at: string }> = [];
 
-    if (rows.length > 0) {
+    for (const item of body.upserts) {
+      const keyword = normalizeKeyword(item.keyword);
+      if (!keyword) continue;
+      const base = {
+        owner_user_id: user.id,
+        client_id: clientId,
+        keyword,
+        tag: item.tag == null ? null : String(item.tag).trim() || null,
+        priority: normalizePriority(item.priority),
+        is_active: item.isActive ?? true,
+        updated_at: new Date().toISOString(),
+      };
+      const hasId = Number.isInteger(item.id) && Number(item.id) > 0;
+      if (hasId) {
+        existingRows.push({ id: Number(item.id), ...base });
+      } else {
+        newRows.push(base);
+      }
+    }
+
+    if (newRows.length > 0) {
+      const { error } = await supabase.from("client_keyword_targets").insert(newRows);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (existingRows.length > 0) {
       const { error } = await supabase
         .from("client_keyword_targets")
-        .upsert(rows, { onConflict: "id" });
+        .upsert(existingRows, { onConflict: "id" });
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
   }
