@@ -43,6 +43,17 @@ const ADS_METRICS: Metric[] = [
   { key: "ctr", label: "Click-Through Rate", value: "7.57%", delta: 9.6 },
   { key: "avg_cpc", label: "Avg Cost Per Click", value: "$3.12", delta: -4.2 },
   { key: "cost_per_conversion", label: "Cost Per Conversion", value: "$14.50", delta: -18.9 },
+  { key: "interactions", label: "Interactions", value: "318", delta: 6.8 },
+  { key: "all_conversions", label: "All Conversions", value: "74", delta: 15.2 },
+  { key: "view_through_conversions", label: "View-Through Conv.", value: "7", delta: null },
+  { key: "conversions_value", label: "Conversion Value", value: "$1,944", delta: 22.1 },
+  { key: "conversion_rate", label: "Conversion Rate", value: "21.5%", delta: 10.3 },
+  { key: "roas", label: "ROAS", value: "6.23x", delta: 14.8 },
+  { key: "search_impression_share", label: "Impression Share", value: "48.3%", delta: 3.1 },
+  { key: "search_top_impression_share", label: "Top Impression Share", value: "31.2%", delta: 5.4 },
+  { key: "search_absolute_top_impression_share", label: "Abs. Top IS", value: "18.7%", delta: 2.9 },
+  { key: "search_rank_lost_impression_share", label: "Lost IS (Rank)", value: "22.1%", delta: -4.3 },
+  { key: "search_budget_lost_impression_share", label: "Lost IS (Budget)", value: "11.4%", delta: -8.7 },
 ];
 
 const GA4_METRICS: Metric[] = [
