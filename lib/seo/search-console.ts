@@ -12,12 +12,34 @@ export type GscMetricRow = {
   position: number;
 };
 
+export type GscDailyRow = {
+  date: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+};
+
+export type GscSitemapEntry = {
+  sitemapUrl: string;
+  lastSubmitted: string | null;
+  lastDownloaded: string | null;
+  isPending: boolean;
+  isSitemapsIndex: boolean;
+  errors: number;
+  warnings: number;
+  urlsSubmitted: number;
+  urlsIndexed: number;
+};
+
 export type GscSyncResult = {
   propertyUrl: string;
   startDate: string;
   endDate: string;
   pageRows: GscMetricRow[];
   queryRows: GscMetricRow[];
+  dailyRows: GscDailyRow[];
+  sitemaps: GscSitemapEntry[];
 };
 
 export type GscKeywordPageRow = {
@@ -46,6 +68,23 @@ type SearchAnalyticsResponse = {
     impressions?: number;
     ctr?: number;
     position?: number;
+  }>;
+};
+
+type SitemapsListResponse = {
+  sitemap?: Array<{
+    path?: string;
+    lastSubmitted?: string;
+    lastDownloaded?: string;
+    isPending?: boolean;
+    isSitemapsIndex?: boolean;
+    errors?: string;
+    warnings?: string;
+    contents?: Array<{
+      type?: string;
+      submitted?: string;
+      indexed?: string;
+    }>;
   }>;
 };
 
@@ -182,6 +221,66 @@ async function fetchSearchAnalyticsByQueryAndPage(
     .filter((row): row is GscKeywordPageRow => row != null);
 }
 
+async function fetchDailyTrend(
+  accessToken: string,
+  propertyUrl: string,
+  startDate: string,
+  endDate: string,
+): Promise<GscDailyRow[]> {
+  const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(propertyUrl)}/searchAnalytics/query`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ startDate, endDate, dimensions: ["date"], rowLimit: 90 }),
+    cache: "no-store",
+  });
+  if (!response.ok) return [];
+  const payload = (await response.json()) as SearchAnalyticsResponse;
+  return (payload.rows ?? [])
+    .map((row) => {
+      const date = (row.keys?.[0] ?? "").trim();
+      if (!date) return null;
+      return {
+        date,
+        clicks: row.clicks ?? 0,
+        impressions: row.impressions ?? 0,
+        ctr: row.ctr ?? 0,
+        position: row.position ?? 0,
+      };
+    })
+    .filter((r): r is GscDailyRow => r != null)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+async function fetchSitemaps(
+  accessToken: string,
+  propertyUrl: string,
+): Promise<GscSitemapEntry[]> {
+  const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(propertyUrl)}/sitemaps`;
+  const response = await fetch(endpoint, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) return [];
+  const payload = (await response.json()) as SitemapsListResponse;
+  return (payload.sitemap ?? [])
+    .map((s) => {
+      const webContent = s.contents?.find((c) => c.type === "web") ?? s.contents?.[0];
+      return {
+        sitemapUrl: s.path ?? "",
+        lastSubmitted: s.lastSubmitted ?? null,
+        lastDownloaded: s.lastDownloaded ?? null,
+        isPending: s.isPending ?? false,
+        isSitemapsIndex: s.isSitemapsIndex ?? false,
+        errors: parseInt(s.errors ?? "0", 10) || 0,
+        warnings: parseInt(s.warnings ?? "0", 10) || 0,
+        urlsSubmitted: parseInt(webContent?.submitted ?? "0", 10) || 0,
+        urlsIndexed: parseInt(webContent?.indexed ?? "0", 10) || 0,
+      };
+    })
+    .filter((s) => s.sitemapUrl);
+}
+
 async function listAccessibleSites(accessToken: string) {
   const response = await fetch("https://www.googleapis.com/webmasters/v3/sites", {
     headers: {
@@ -266,9 +365,11 @@ export async function runSearchConsoleSync(
   const siteEntries = await listAccessibleSites(accessToken);
   const propertyUrl = resolvePreferredProperty(requestedPropertyUrl, siteEntries);
 
-  const [pageRows, queryRows] = await Promise.all([
+  const [pageRows, queryRows, dailyRows, sitemaps] = await Promise.all([
     fetchSearchAnalytics(accessToken, propertyUrl, startDate, endDate, "page"),
     fetchSearchAnalytics(accessToken, propertyUrl, startDate, endDate, "query"),
+    fetchDailyTrend(accessToken, propertyUrl, startDate, endDate),
+    fetchSitemaps(accessToken, propertyUrl).catch(() => [] as GscSitemapEntry[]),
   ]);
   return {
     propertyUrl,
@@ -276,6 +377,8 @@ export async function runSearchConsoleSync(
     endDate,
     pageRows,
     queryRows,
+    dailyRows,
+    sitemaps,
   };
 }
 

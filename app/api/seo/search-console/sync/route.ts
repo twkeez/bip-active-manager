@@ -9,6 +9,7 @@ import type {
   GscSignal,
   GscSnapshot,
 } from "@/lib/types/client";
+import type { GscDailyRow, GscSitemapEntry } from "@/lib/seo/search-console";
 
 type SearchConsoleRequestBody = {
   clientId?: number;
@@ -140,6 +141,46 @@ export async function POST(request: Request) {
         .insert(signalPayload);
       if (signalError) {
         throw new Error(`Failed to store Search Console signals: ${signalError.message}`);
+      }
+    }
+
+    if (syncResult.dailyRows.length > 0) {
+      const dailyPayload = syncResult.dailyRows.map((row) => ({
+        client_id: clientId,
+        snapshot_id: createdSnapshot.id,
+        metric_date: row.date,
+        clicks: row.clicks,
+        impressions: row.impressions,
+        ctr: row.ctr,
+        position: row.position,
+      }));
+      const { error: dailyError } = await admin
+        .from("client_gsc_daily_metrics")
+        .insert(dailyPayload);
+      if (dailyError) {
+        throw new Error(`Failed to store GSC daily metrics: ${dailyError.message}`);
+      }
+    }
+
+    if (syncResult.sitemaps.length > 0) {
+      const sitemapPayload = syncResult.sitemaps.map((s) => ({
+        client_id: clientId,
+        snapshot_id: createdSnapshot.id,
+        sitemap_url: s.sitemapUrl,
+        last_submitted: s.lastSubmitted,
+        last_downloaded: s.lastDownloaded,
+        is_pending: s.isPending,
+        is_sitemaps_index: s.isSitemapsIndex,
+        errors: s.errors,
+        warnings: s.warnings,
+        urls_submitted: s.urlsSubmitted,
+        urls_indexed: s.urlsIndexed,
+      }));
+      const { error: sitemapError } = await admin
+        .from("client_gsc_sitemaps")
+        .insert(sitemapPayload);
+      if (sitemapError) {
+        throw new Error(`Failed to store GSC sitemaps: ${sitemapError.message}`);
       }
     }
 
