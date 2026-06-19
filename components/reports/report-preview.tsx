@@ -61,6 +61,7 @@ type Props = {
 export default function ReportPreview({ report, config, draft }: Props) {
   const mainRef = useRef<HTMLElement>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   function sectionVisible(key: string): boolean {
     const s = config.sections.find((sec) => sec.key === key);
@@ -83,6 +84,7 @@ export default function ReportPreview({ report, config, draft }: Props) {
   async function downloadPdf() {
     if (!mainRef.current || exporting) return;
     setExporting(true);
+    setExportError(null);
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import("html2canvas"),
@@ -112,6 +114,8 @@ export default function ReportPreview({ report, config, draft }: Props) {
       }
       const slug = report.client.account_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
       pdf.save(`bip-report-${slug}.pdf`);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : String(err));
     } finally {
       setExporting(false);
     }
@@ -208,7 +212,7 @@ export default function ReportPreview({ report, config, draft }: Props) {
               <p>Strategist: {report.client.marketing_strategist || "Unassigned"}</p>
             </div>
           </div>
-          <div className="no-print mt-4 flex justify-end">
+          <div className="no-print mt-4 flex flex-col items-end gap-2">
             <button
               type="button"
               onClick={() => void downloadPdf()}
@@ -218,6 +222,9 @@ export default function ReportPreview({ report, config, draft }: Props) {
             >
               {exporting ? "Generating PDF…" : "Download PDF"}
             </button>
+            {exportError && (
+              <p className="text-xs text-red-600 max-w-xs text-right">{exportError}</p>
+            )}
           </div>
         </div>
       </header>
