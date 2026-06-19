@@ -2,6 +2,9 @@
 
 import { useRef, useState, useEffect } from "react";
 import { Lock, Unlock } from "lucide-react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
 import ReportConfigEditor from "./report-config-editor";
 import {
   DEFAULT_REPORT_CONFIG,
@@ -87,6 +90,37 @@ const SOCIAL_DATA: { key: string; label: string; value: number }[] = [
   { key: "impressions", label: "Impressions", value: 8920 },
   { key: "link_clicks", label: "Link clicks", value: 87 },
   { key: "new_followers", label: "New followers", value: 23 },
+];
+
+const DAILY_TREND = [
+  { date: "May 22", clicks: 8, impressions: 542 },
+  { date: "May 23", clicks: 11, impressions: 618 },
+  { date: "May 24", clicks: 6, impressions: 490 },
+  { date: "May 25", clicks: 4, impressions: 381 },
+  { date: "May 26", clicks: 13, impressions: 701 },
+  { date: "May 27", clicks: 15, impressions: 744 },
+  { date: "May 28", clicks: 14, impressions: 728 },
+  { date: "May 29", clicks: 9, impressions: 563 },
+  { date: "May 30", clicks: 7, impressions: 502 },
+  { date: "May 31", clicks: 5, impressions: 420 },
+  { date: "Jun 1",  clicks: 4, impressions: 398 },
+  { date: "Jun 2",  clicks: 12, impressions: 655 },
+  { date: "Jun 3",  clicks: 17, impressions: 791 },
+  { date: "Jun 4",  clicks: 16, impressions: 762 },
+  { date: "Jun 5",  clicks: 10, impressions: 589 },
+  { date: "Jun 6",  clicks: 8,  impressions: 531 },
+  { date: "Jun 7",  clicks: 5,  impressions: 444 },
+  { date: "Jun 8",  clicks: 4,  impressions: 402 },
+  { date: "Jun 9",  clicks: 14, impressions: 712 },
+  { date: "Jun 10", clicks: 18, impressions: 834 },
+  { date: "Jun 11", clicks: 19, impressions: 867 },
+  { date: "Jun 12", clicks: 13, impressions: 681 },
+  { date: "Jun 13", clicks: 9,  impressions: 557 },
+  { date: "Jun 14", clicks: 6,  impressions: 471 },
+  { date: "Jun 15", clicks: 5,  impressions: 438 },
+  { date: "Jun 16", clicks: 16, impressions: 776 },
+  { date: "Jun 17", clicks: 20, impressions: 891 },
+  { date: "Jun 18", clicks: 18, impressions: 843 },
 ];
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -428,6 +462,68 @@ export default function ReportTemplate() {
                 </div>
               </div>
             )}
+          </section>
+        )}
+
+        {/* ── Search Performance Trend ── */}
+        {sectionVisible("gsc_trend") && (
+          <section>
+            <SectionLabel>Search Performance Trend</SectionLabel>
+            <p className="text-xs text-gray-400 mb-4">Daily clicks and impressions over the past 28 days</p>
+            <div className="rounded-2xl border border-gray-200 px-6 py-5">
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={DAILY_TREND} margin={{ top: 5, right: 16, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={6}
+                  />
+                  <YAxis
+                    yAxisId="clicks"
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={28}
+                  />
+                  <YAxis
+                    yAxisId="impressions"
+                    orientation="right"
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={40}
+                  />
+                  <Tooltip
+                    contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                    itemStyle={{ padding: "1px 0" }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                  <Line
+                    yAxisId="clicks"
+                    type="monotone"
+                    dataKey="clicks"
+                    name="Clicks"
+                    stroke={BI_BLUE}
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                  <Line
+                    yAxisId="impressions"
+                    type="monotone"
+                    dataKey="impressions"
+                    name="Impressions"
+                    stroke={BI_MAGENTA}
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </section>
         )}
 
