@@ -300,27 +300,27 @@ export default function ReportTemplate() {
       )}
 
       {/* Top banner */}
-      <div className="no-print bg-amber-50 border-b border-amber-200 px-8 py-2 flex items-center justify-between">
+      <div className="no-print bg-amber-50 border-b border-amber-200 px-8 py-3 flex items-center justify-between gap-4">
         <p className="text-xs text-amber-700 font-medium">
-          ⚠ Master template — placeholder data. Changes here become the default layout for all clients.
+          ⚠ Master template — placeholder data only. Changes here become the default layout for all clients.
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 shrink-0">
           {editMode ? (
             <button
               type="button"
               onClick={() => { setDraftConfig(config); setEditMode(false); }}
-              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-800"
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition"
             >
-              <Lock size={12} /> Lock &amp; discard
+              <Lock size={12} /> Lock &amp; discard changes
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setShowPasswordModal(true)}
-              className="flex items-center gap-1.5 text-xs font-medium hover:opacity-80"
-              style={{ color: BI_BLUE }}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+              style={{ background: BI_BLUE }}
             >
-              <Unlock size={12} /> Edit master template
+              <Unlock size={12} /> Edit layout
             </button>
           )}
         </div>
