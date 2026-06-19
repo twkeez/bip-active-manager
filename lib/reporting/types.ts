@@ -6,6 +6,7 @@ import type {
   ReportingFreshnessItem,
   ReportingKpiCard,
   SocialDailySnapshot,
+  SocialPostSnapshot,
   StrategistSummaryResult,
 } from "@/lib/types/client";
 
@@ -54,6 +55,7 @@ export type ClientReportModel = {
   actions: ReportingActionItem[];
   keywordRows: KeywordHealthRow[];
   socialDailyRows: SocialDailySnapshot[];
+  topSocialPosts: SocialPostSnapshot[];
   adsSnapshot: AdsSnapshot | null;
   strategistSummary: StrategistSummaryResult | null;
   perfRows: WeeklyPerfRow[];

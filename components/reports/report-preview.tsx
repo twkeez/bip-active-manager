@@ -468,6 +468,53 @@ export default function ReportPreview({ report, config, draft }: Props) {
                 </div>
               ))}
           </div>
+
+          {report.topSocialPosts.length > 0 && (
+            <div className="mt-5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">
+                Recent top posts
+              </p>
+              <div className="rounded-2xl border border-gray-200 overflow-hidden">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50 text-left text-[10px] uppercase tracking-wider text-gray-400">
+                      <th className="px-4 py-2.5">Platform</th>
+                      <th className="px-4 py-2.5">Date</th>
+                      <th className="px-4 py-2.5">Caption</th>
+                      <th className="px-4 py-2.5 text-right">Impressions</th>
+                      <th className="px-4 py-2.5 text-right">Engagement</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.topSocialPosts.map((post) => (
+                      <tr key={post.id} className="border-b border-gray-100 last:border-0">
+                        <td className="px-4 py-2.5 capitalize text-gray-700 text-xs">{post.platform}</td>
+                        <td className="px-4 py-2.5 text-gray-500 text-xs whitespace-nowrap">
+                          {post.published_at ? new Date(post.published_at).toLocaleDateString() : "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-700 text-xs max-w-xs">
+                          {post.permalink ? (
+                            <a href={post.permalink} target="_blank" rel="noopener noreferrer" className="hover:underline line-clamp-2">
+                              {post.caption?.slice(0, 120) ?? "(no caption)"}
+                            </a>
+                          ) : (
+                            <span className="line-clamp-2">{post.caption?.slice(0, 120) ?? "(no caption)"}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-xs text-gray-700">
+                          {post.impressions?.toLocaleString() ?? "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-xs text-gray-700">
+                          {post.engagement?.toLocaleString() ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <SectionComment sectionKey="social" />
         </section>
       )}

@@ -239,6 +239,7 @@ export default async function ReportClientPage({
     actions,
     keywordRows,
     socialDailyRows,
+    socialPostSnapshots: workspace.socialPostSnapshots,
     adsSnapshot,
     gscPageMetrics: gscPageMetrics as GscPageMetric[],
     gscQueryMetrics: queryRows,

@@ -8,6 +8,7 @@ import type {
   ReportingFreshnessItem,
   ReportingKpiCard,
   SocialDailySnapshot,
+  SocialPostSnapshot,
   StrategistSummaryResult,
   GscPageMetric,
   GscSignal,
@@ -1078,6 +1079,7 @@ export function buildClientReportModel(params: {
     created_at: string;
   }>;
   managedKeywords?: ManagedKeyword[];
+  socialPostSnapshots?: SocialPostSnapshot[];
   strategistSummary: StrategistSummaryResult | null;
   basecampEvents?: Array<{
     id: number;
@@ -1175,6 +1177,12 @@ export function buildClientReportModel(params: {
       ctr: row.ctr,
     }));
 
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const topSocialPosts = (params.socialPostSnapshots ?? [])
+    .filter((p) => p.published_at && p.published_at >= cutoff)
+    .sort((a, b) => (b.impressions ?? 0) - (a.impressions ?? 0))
+    .slice(0, 6);
+
   return {
     client: params.client,
     generatedAt: params.generatedAt,
@@ -1192,6 +1200,7 @@ export function buildClientReportModel(params: {
     actions: params.actions,
     keywordRows: params.keywordRows,
     socialDailyRows: params.socialDailyRows,
+    topSocialPosts,
     adsSnapshot: params.adsSnapshot,
     strategistSummary: params.strategistSummary,
     perfRows,
