@@ -142,13 +142,13 @@ export default function StrategyMapperShell() {
   }
 
   return (
-    <div className="min-h-screen bg-bip-page font-sans text-white/75">
+    <div className="min-h-screen bg-bip-page font-sans text-bip-text">
       <BrandHeader />
       <div className="px-4 py-10 sm:px-6">
         <div className="mx-auto mb-8 flex max-w-4xl items-center justify-between print:hidden">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.06]"
+            className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text transition hover:bg-bip-fill"
           >
             <ArrowLeft className="h-4 w-4" />
             Dashboard
@@ -156,19 +156,19 @@ export default function StrategyMapperShell() {
           <div className="flex gap-2">
             <Link
               href="/onboarding-strategy-mapper/sample"
-              className="rounded-lg border border-white/[0.08] bg-bip-card px-4 py-2 text-sm text-white/75 transition hover:bg-white/[0.06]"
+              className="rounded-lg border border-bip-border bg-bip-card px-4 py-2 text-sm text-bip-text transition hover:bg-bip-fill"
             >
               Sample Output
             </Link>
             <Link
               href="/onboarding-strategy-mapper/content-library"
-              className="rounded-lg border border-white/[0.08] bg-bip-card px-4 py-2 text-sm text-white/75 transition hover:bg-white/[0.06]"
+              className="rounded-lg border border-bip-border bg-bip-card px-4 py-2 text-sm text-bip-text transition hover:bg-bip-fill"
             >
               Content Library
             </Link>
             <Link
               href="/onboarding-strategy-mapper/tier-library"
-              className="rounded-lg border border-white/[0.08] bg-bip-card px-4 py-2 text-sm text-white/75 transition hover:bg-white/[0.06]"
+              className="rounded-lg border border-bip-border bg-bip-card px-4 py-2 text-sm text-bip-text transition hover:bg-bip-fill"
             >
               Tier Library
             </Link>
@@ -176,7 +176,7 @@ export default function StrategyMapperShell() {
               <button
                 type="button"
                 onClick={handleStartOver}
-                className="rounded-lg border border-white/[0.08] bg-bip-card px-4 py-2 text-sm font-medium text-white transition hover:bg-white/[0.06]"
+                className="rounded-lg border border-bip-border bg-bip-card px-4 py-2 text-sm font-medium text-bip-text transition hover:bg-bip-fill"
               >
                 Start Over
               </button>
@@ -186,10 +186,10 @@ export default function StrategyMapperShell() {
 
         <div className="mx-auto max-w-4xl">
           <div className="mb-8 print:hidden">
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-bip-text">
               Onboarding Research and Strategy Mapper
             </h1>
-            <p className="mt-2 text-sm text-white/50">
+            <p className="mt-2 text-sm text-bip-muted">
               Local competitive audit, Phase 1 service strategy, and data-backed
               soft-upsell opportunities — ready to copy into Google Docs.
             </p>
@@ -207,12 +207,12 @@ export default function StrategyMapperShell() {
           ) : null}
 
           {view === "fetching" ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-white/[0.08] bg-bip-card py-20 text-center">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-bip-border bg-bip-card py-20 text-center">
               <span className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-2 border-bip-accent border-t-transparent" />
-              <p className="text-sm text-white/75">
+              <p className="text-sm text-bip-text">
                 Searching local market and competitors…
               </p>
-              <p className="mt-2 text-xs text-white/40">
+              <p className="mt-2 text-xs text-bip-muted">
                 This may take 30–60 seconds while we search the local market.
               </p>
             </div>
@@ -233,10 +233,10 @@ export default function StrategyMapperShell() {
           ) : null}
 
           {view === "generating" ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-white/[0.08] bg-bip-card py-20 text-center">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-bip-border bg-bip-card py-20 text-center">
               <span className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-2 border-bip-accent border-t-transparent" />
-              <p className="text-sm text-white/75">Assembling report from libraries…</p>
-              <p className="mt-2 text-xs text-white/40">
+              <p className="text-sm text-bip-text">Assembling report from libraries…</p>
+              <p className="mt-2 text-xs text-bip-muted">
                 Phase 1 tactics and report sections come from the tier and content
                 libraries — no AI narrative step.
               </p>

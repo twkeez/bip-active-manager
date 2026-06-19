@@ -29,39 +29,39 @@ export default function LocalRankManager({ clients, userEmail }: LocalRankManage
   );
 
   return (
-    <div className="min-h-screen bg-bip-page font-sans text-white/75">
+    <div className="min-h-screen bg-bip-page font-sans text-bip-text">
       <BrandHeader />
       <div className="px-4 py-10 sm:px-6">
         <div className="mx-auto mb-8 flex max-w-5xl items-center justify-between">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.06]"
+            className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text transition hover:bg-bip-fill"
           >
             <ArrowLeft className="h-4 w-4" />
             Control Panel
           </Link>
-          <p className="text-xs text-white/50">{userEmail ?? "Signed in"}</p>
+          <p className="text-xs text-bip-muted">{userEmail ?? "Signed in"}</p>
         </div>
 
         <div className="mx-auto max-w-5xl space-y-6">
           <div>
             <div className="mb-2 flex items-center gap-2">
               <LayoutGrid className="h-5 w-5 text-bip-accent" />
-              <h1 className="text-2xl font-bold text-white">Local Grid Rank Tracker</h1>
+              <h1 className="text-2xl font-bold text-bip-text">Local Grid Rank Tracker</h1>
             </div>
-            <p className="text-sm text-white/50">
+            <p className="text-sm text-bip-muted">
               Track local pack visibility across a 5×5 neighborhood grid for up to 3 keywords per
               scan.
             </p>
           </div>
 
-          <section className="rounded-xl border border-white/[0.08] bg-bip-card p-4">
-            <label className="block text-sm font-medium text-white/75">
+          <section className="rounded-xl border border-bip-border bg-bip-card p-4">
+            <label className="block text-sm font-medium text-bip-text">
               Client
               <select
                 value={selectedClientId ?? ""}
                 onChange={(event) => setSelectedClientId(Number(event.target.value))}
-                className="mt-1.5 w-full rounded-lg border border-white/[0.12] bg-bip-page px-3 py-2.5 text-sm text-white"
+                className="mt-1.5 w-full rounded-lg border border-bip-border bg-bip-page px-3 py-2.5 text-sm text-bip-text"
               >
                 {clients.map((client) => (
                   <option key={client.id} value={client.id}>
@@ -79,7 +79,7 @@ export default function LocalRankManager({ clients, userEmail }: LocalRankManage
               googlePlaceId={selectedClient.google_place_id}
             />
           ) : (
-            <p className="rounded-xl border border-white/[0.08] bg-bip-card p-6 text-sm text-white/50">
+            <p className="rounded-xl border border-bip-border bg-bip-card p-6 text-sm text-bip-muted">
               No clients available. Add a client from the dashboard first.
             </p>
           )}

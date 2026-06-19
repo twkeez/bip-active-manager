@@ -45,7 +45,7 @@ export default function AppHeaderActions({
       {showConnectBasecamp ? (
         <a
           href="/api/basecamp/oauth/start"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-medium text-white/75 transition hover:bg-bip-card/60"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-card/60"
         >
           
           <Link2 className="h-3.5 w-3.5" /> Connect Basecamp
@@ -56,7 +56,7 @@ export default function AppHeaderActions({
           type="button"
           onClick={() => void handleSyncBasecamp()}
           disabled={syncing}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-medium text-white/75 transition hover:bg-bip-card/60 disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-card/60 disabled:opacity-60"
         >
           
           {syncing ? (
@@ -71,7 +71,7 @@ export default function AppHeaderActions({
         <button
           type="button"
           onClick={() => void handleSignOut()}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-medium text-white/75 transition hover:bg-bip-card/60"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-card/60"
         >
           
           <LogOut className="h-3.5 w-3.5" /> Sign out
@@ -88,7 +88,7 @@ export function ModuleHeaderLinks() {
         <Link
           key={module.id}
           href={module.href}
-          className="rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-xs font-medium text-white/75 transition hover:bg-bip-page"
+          className="rounded-lg border border-bip-border px-2.5 py-1.5 text-xs font-medium text-bip-text transition hover:bg-bip-page"
         >
           
           {module.label}

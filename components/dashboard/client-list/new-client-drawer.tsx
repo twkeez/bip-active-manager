@@ -22,7 +22,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-white/75">
+      <span className="mb-1 block text-xs font-medium text-bip-text">
         {label}
         {required ? <span className="text-red-500"> *</span> : null}
       </span>
@@ -157,15 +157,15 @@ export default function NewClientDrawer({ open, onClose, onCreated }: NewClientD
         onClick={onClose}
       />
       <div className="fixed inset-y-0 right-0 z-50 flex items-stretch">
-        <aside className="flex w-full max-w-lg flex-col border-l border-white/[0.08] bg-bip-card shadow-2xl">
-          <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] px-5 py-4">
-            <h2 className="truncate text-base font-semibold text-white">
+        <aside className="flex w-full max-w-lg flex-col border-l border-bip-border bg-bip-card shadow-2xl">
+          <div className="flex items-start justify-between gap-3 border-b border-bip-border px-5 py-4">
+            <h2 className="truncate text-base font-semibold text-bip-text">
               New client
             </h2>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-2 text-white/50 hover:bg-white/[0.06] hover:text-white"
+              className="rounded-lg p-2 text-bip-muted hover:bg-bip-fill hover:text-bip-text"
             >
               <X className="h-5 w-5" />
             </button>
@@ -207,7 +207,7 @@ export default function NewClientDrawer({ open, onClose, onCreated }: NewClientD
                 <Field label="ORM" value={String(form.orm ?? "")} onChange={(v) => patchField("orm", v)} />
               </div>
               <Field label="Tier" value={String(form.tier ?? "")} onChange={(v) => patchField("tier", v)} />
-              <h3 className="mt-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+              <h3 className="mt-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
                 Technical
               </h3>
               <Field
@@ -257,7 +257,7 @@ export default function NewClientDrawer({ open, onClose, onCreated }: NewClientD
               />
             </div>
           </div>
-          <div className="flex flex-col gap-3 border-t border-white/[0.08]">
+          <div className="flex flex-col gap-3 border-t border-bip-border">
             {saveError ? (
               <p className="rounded-lg bg-bip-danger/15 px-3 py-2 text-sm text-bip-danger">
                 {saveError}
@@ -267,7 +267,7 @@ export default function NewClientDrawer({ open, onClose, onCreated }: NewClientD
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-lg border border-white/[0.08] py-2.5 text-sm font-medium text-white/75 hover:bg-bip-page"
+                className="flex-1 rounded-lg border border-bip-border py-2.5 text-sm font-medium text-bip-text hover:bg-bip-page"
               >
                 Cancel
               </button>
@@ -275,7 +275,7 @@ export default function NewClientDrawer({ open, onClose, onCreated }: NewClientD
                 type="button"
                 disabled={saving || !norm(form.account_name)}
                 onClick={() => void saveClient()}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-bip-accent py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-bip-accent py-2.5 text-sm font-medium text-bip-text disabled:opacity-50"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Create client

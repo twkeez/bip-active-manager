@@ -43,7 +43,7 @@ function ReportDataTable({
     <div className="overflow-hidden rounded-lg border border-[var(--report-border)] print:break-inside-avoid">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase tracking-wide text-white">
+          <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase tracking-wide text-bip-text">
             {headers.map((header) => (
               <th key={header} className="px-4 py-3">
                 {header}
@@ -415,7 +415,7 @@ export default function StrategyOutputView({
           {plan.roadmap.map((item, i) => (
             <div key={i}>
               <div className="flex items-center gap-3">
-                <span className="rounded-full bg-[var(--report-teal)] px-3 py-1 text-xs font-semibold text-white">
+                <span className="rounded-full bg-[var(--report-teal)] px-3 py-1 text-xs font-semibold text-bip-text">
                   {item.phase}
                 </span>
                 <h3 className="font-bold text-[var(--report-navy)]">
@@ -445,7 +445,7 @@ export default function StrategyOutputView({
           <button
             type="button"
             onClick={() => window.print()}
-            className="rounded-lg bg-[var(--report-teal)] px-6 py-2.5 text-sm font-medium text-white transition hover:brightness-110"
+            className="rounded-lg bg-[var(--report-teal)] px-6 py-2.5 text-sm font-medium text-bip-text transition hover:brightness-110"
           >
             Download Strategy PDF
           </button>

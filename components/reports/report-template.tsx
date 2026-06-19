@@ -379,7 +379,7 @@ export default function ReportTemplate() {
                 type="button"
                 onClick={() => void checkPassword()}
                 disabled={checkingPassword || !passwordInput}
-                className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                className="rounded-lg px-3 py-1.5 text-xs font-semibold text-bip-text disabled:opacity-50"
                 style={{ background: BI_BLUE }}
               >
                 {checkingPassword ? "Checking…" : "Unlock"}
@@ -407,7 +407,7 @@ export default function ReportTemplate() {
             <button
               type="button"
               onClick={() => setShowPasswordModal(true)}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-bip-text transition hover:opacity-90"
               style={{ background: BI_BLUE }}
             >
               <Unlock size={12} /> Edit layout
@@ -753,7 +753,7 @@ export default function ReportTemplate() {
                     return (
                       <tr key={i} className="hover:bg-gray-50">
                         <td className="px-4 py-3">
-                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-white" style={{ background: color }}>
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-bip-text" style={{ background: color }}>
                             {label}
                           </span>
                         </td>

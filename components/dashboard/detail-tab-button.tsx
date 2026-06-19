@@ -27,7 +27,7 @@ export default function DetailTabButton({
     <button
       type="button"
       onClick={() => onClick(tabId)}
-      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium ${activeTab === tabId ? "bg-bip-accent text-bip-page" : "text-white/75 hover:bg-white/[0.06]"}`}
+      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium ${activeTab === tabId ? "bg-bip-accent text-bip-page" : "text-bip-text hover:bg-bip-fill"}`}
     >
       
       <span>{label}</span>

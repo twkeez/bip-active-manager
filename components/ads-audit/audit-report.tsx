@@ -53,13 +53,13 @@ function KeywordTable({
 }) {
   if (!rows.length) {
     return (
-      <p className="text-sm text-white/50">No keyword rows for this section.</p>
+      <p className="text-sm text-bip-muted">No keyword rows for this section.</p>
     );
   }
   return (
-    <div className="overflow-x-auto rounded-lg border border-white/[0.08]">
+    <div className="overflow-x-auto rounded-lg border border-bip-border">
       
-      <table className="min-w-full text-left text-xs"><thead className="bg-bip-page text-white/75"><tr><th className="px-3 py-2">Keyword</th><th className="px-3 py-2">Match</th><th className="px-3 py-2">Spend</th><th className="px-3 py-2">Conv.</th><th className="px-3 py-2">CPA</th><th className="px-3 py-2">CVR</th><th className="px-3 py-2">QS</th>
+      <table className="min-w-full text-left text-xs"><thead className="bg-bip-page text-bip-text"><tr><th className="px-3 py-2">Keyword</th><th className="px-3 py-2">Match</th><th className="px-3 py-2">Spend</th><th className="px-3 py-2">Conv.</th><th className="px-3 py-2">CPA</th><th className="px-3 py-2">CVR</th><th className="px-3 py-2">QS</th>
             {showNotes && <th className="px-3 py-2">Notes</th>}
           </tr></thead><tbody>{rows.map((row, index) => (
             <tr
@@ -72,7 +72,7 @@ function KeywordTable({
                 {formatPercent(row.conversion_rate)}
               </td><td className="px-3 py-2">{row.quality_score ?? "—"}</td>
               {showNotes && (
-                <td className="px-3 py-2 text-white/75">{row.notes ?? "—"}</td>
+                <td className="px-3 py-2 text-bip-text">{row.notes ?? "—"}</td>
               )}
             </tr>
           ))}
@@ -158,7 +158,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
     );
   }
   return (
-    <div className="min-h-screen bg-bip-page text-white">
+    <div className="min-h-screen bg-bip-page text-bip-text">
       
       <div className="mx-auto max-w-6xl px-4 py-8">
         
@@ -166,7 +166,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
           
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1 text-sm text-white/75 hover:text-white"
+            className="inline-flex items-center gap-1 text-sm text-bip-text hover:text-bip-text"
           >
             
             <ArrowLeft className="h-4 w-4" /> Dashboard
@@ -177,7 +177,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
               type="button"
               onClick={() => void runAudit()}
               disabled={running}
-              className="inline-flex items-center gap-2 rounded-lg bg-bip-card px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-bip-card px-4 py-2 text-sm font-medium text-bip-text disabled:opacity-60"
             >
               
               {running ? (
@@ -193,7 +193,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                 <button
                   type="button"
                   onClick={() => void copyMarkdown()}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.12] px-3 py-2 text-sm"
+                  className="inline-flex items-center gap-2 rounded-lg border border-bip-border px-3 py-2 text-sm"
                 >
                   
                   <ClipboardCopy className="h-4 w-4" />
@@ -202,7 +202,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                 <button
                   type="button"
                   onClick={downloadMarkdown}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.12] px-3 py-2 text-sm"
+                  className="inline-flex items-center gap-2 rounded-lg border border-bip-border px-3 py-2 text-sm"
                 >
                   
                   <Download className="h-4 w-4" /> Download
@@ -213,19 +213,19 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
         </div>
         <div className="mb-6">
           
-          <p className="text-xs uppercase tracking-wide text-white/50">
+          <p className="text-xs uppercase tracking-wide text-bip-muted">
             Google Ads Audit
           </p>
           <h1 className="text-2xl font-semibold">{clientName}</h1>
           {audit && (
-            <p className="mt-1 text-sm text-white/75">
+            <p className="mt-1 text-sm text-bip-text">
               
               {audit.start_date} to {audit.end_date} • {audit.run_status}
             </p>
           )}
         </div>
         {loading && (
-          <p className="flex items-center gap-2 text-sm text-white/75">
+          <p className="flex items-center gap-2 text-sm text-bip-text">
             
             <Loader2 className="h-4 w-4 animate-spin" /> Loading audit…
           </p>
@@ -237,15 +237,15 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
           </p>
         )}
         {!loading && !report && !error && (
-          <div className="rounded-xl border border-white/[0.08] bg-bip-card p-6 shadow-none">
+          <div className="rounded-xl border border-bip-border bg-bip-card p-6 shadow-none">
             
             <div className="flex items-start gap-3">
               
-              <Megaphone className="mt-0.5 h-5 w-5 text-white/50" />
+              <Megaphone className="mt-0.5 h-5 w-5 text-bip-muted" />
               <div>
                 
                 <p className="font-medium">No audit yet</p>
-                <p className="mt-1 text-sm text-white/75">
+                <p className="mt-1 text-sm text-bip-text">
                   
                   Run an audit to sync Google Ads data, build structured
                   findings, and generate a narrative report.
@@ -258,16 +258,16 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
           <div className="space-y-6">
             
             {audit?.narrative_markdown && (
-              <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+              <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
                 
                 <h2 className="text-lg font-semibold">Narrative audit</h2>
-                <div className="prose prose-sm mt-4 max-w-none whitespace-pre-wrap text-white">
+                <div className="prose prose-sm mt-4 max-w-none whitespace-pre-wrap text-bip-text">
                   
                   {audit.narrative_markdown}
                 </div>
               </section>
             )}
-            <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+            <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
               
               <h2 className="text-lg font-semibold">Account snapshot</h2>
               <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -323,7 +323,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
               </div>
             </section>
             {report.priorities.length > 0 && (
-              <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+              <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
                 
                 <h2 className="text-lg font-semibold">
                   Priority recommendations
@@ -334,7 +334,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                     <li key={item.rank}>
                       
                       <span className="font-medium">{item.title}</span>
-                      <span className="text-white/75">
+                      <span className="text-bip-text">
                         
                         — {item.rationale}
                       </span>
@@ -343,7 +343,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                 </ol>
               </section>
             )}
-            <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+            <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
               
               <h2 className="text-lg font-semibold">Match type mix</h2>
               {report.match_type_mix.flag_broad_dominant && (
@@ -373,7 +373,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                 </p>
               </div>
             </section>
-            <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+            <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
               
               <h2 className="text-lg font-semibold">
                 Top performing keywords
@@ -383,7 +383,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                 <KeywordTable rows={report.top_keywords} />
               </div>
             </section>
-            <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+            <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
               
               <h2 className="text-lg font-semibold">
                 Keywords likely wasting budget
@@ -393,12 +393,12 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                 <KeywordTable rows={report.waste_keywords} showNotes />
               </div>
             </section>
-            <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+            <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
               
               <h2 className="text-lg font-semibold">
                 Quality Score problems
               </h2>
-              <p className="mt-2 text-sm text-white/75">
+              <p className="mt-2 text-sm text-bip-text">
                 
                 {report.quality_score.summary.flagged_keywords} flagged •{""}
                 {report.quality_score.summary.quality_score_low} at QS ≤ 5 •{""}
@@ -413,14 +413,14 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                 />
               </div>
             </section>
-            <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+            <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
               
               <h2 className="text-lg font-semibold">Search terms</h2>
               <div className="mt-4 grid gap-4 lg:grid-cols-3">
                 
                 <div>
                   
-                  <h3 className="text-sm font-semibold text-white/75">
+                  <h3 className="text-sm font-semibold text-bip-text">
                     Waste terms
                   </h3>
                   <ul className="mt-2 space-y-1 text-xs">
@@ -438,10 +438,10 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                 </div>
                 <div>
                   
-                  <h3 className="text-sm font-semibold text-white/75">
+                  <h3 className="text-sm font-semibold text-bip-text">
                     Negative candidates
                   </h3>
-                  <p className="mt-2 text-xs text-white/75">
+                  <p className="mt-2 text-xs text-bip-text">
                     
                     {report.search_terms.negative_candidates.join(",") ||
                       "None identified"}
@@ -449,7 +449,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                 </div>
                 <div>
                   
-                  <h3 className="text-sm font-semibold text-white/75">
+                  <h3 className="text-sm font-semibold text-bip-text">
                     Query drift
                   </h3>
                   <ul className="mt-2 space-y-1 text-xs">
@@ -462,7 +462,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                         </li>
                       ))}
                     {!report.search_terms.drift_terms.length && (
-                      <li className="text-white/50">None identified</li>
+                      <li className="text-bip-muted">None identified</li>
                     )}
                   </ul>
                 </div>
@@ -470,7 +470,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
             </section>
             {(report.geography.top_locations.length > 0 ||
               report.geography.waste_locations.length > 0) && (
-              <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+              <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
                 
                 <h2 className="text-lg font-semibold">
                   Geographic performance
@@ -479,7 +479,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                   
                   <div>
                     
-                    <h3 className="text-sm font-semibold text-white/75">
+                    <h3 className="text-sm font-semibold text-bip-text">
                       Top spend locations
                     </h3>
                     <ul className="mt-2 space-y-1 text-xs">
@@ -498,7 +498,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                   </div>
                   <div>
                     
-                    <h3 className="text-sm font-semibold text-white/75">
+                    <h3 className="text-sm font-semibold text-bip-text">
                       Geo waste
                     </h3>
                     <ul className="mt-2 space-y-1 text-xs">
@@ -513,7 +513,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                           </li>
                         ))}
                       {!report.geography.waste_locations.length && (
-                        <li className="text-white/50">None identified</li>
+                        <li className="text-bip-muted">None identified</li>
                       )}
                     </ul>
                   </div>
@@ -522,13 +522,13 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
             )}
             {(report.account_metadata.campaigns.length > 0 ||
               report.account_metadata.conversion_actions.length > 0) && (
-              <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+              <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
                 
                 <h2 className="text-lg font-semibold">Account metadata</h2>
                 {report.account_metadata.campaigns.length > 0 && (
                   <div className="mt-3">
                     
-                    <h3 className="text-sm font-semibold text-white/75">
+                    <h3 className="text-sm font-semibold text-bip-text">
                       Campaign bidding
                     </h3>
                     <ul className="mt-2 space-y-1 text-xs">
@@ -548,7 +548,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
                 {report.account_metadata.conversion_actions.length > 0 && (
                   <div className="mt-4">
                     
-                    <h3 className="text-sm font-semibold text-white/75">
+                    <h3 className="text-sm font-semibold text-bip-text">
                       Conversion actions
                     </h3>
                     <ul className="mt-2 space-y-1 text-xs">
@@ -565,7 +565,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
               </section>
             )}
             {report.devices.rows.length > 0 && (
-              <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+              <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
                 
                 <h2 className="text-lg font-semibold">Device breakdown</h2>
                 <ul className="mt-3 space-y-1 text-sm">
@@ -582,7 +582,7 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
               </section>
             )}
             {report.schedule.best_windows.length > 0 && (
-              <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 shadow-none">
+              <section className="rounded-xl border border-bip-border bg-bip-card p-5 shadow-none">
                 
                 <h2 className="text-lg font-semibold">Schedule windows</h2>
                 <div className="mt-3 grid gap-4 lg:grid-cols-2">
@@ -646,9 +646,9 @@ export default function AdsAuditReportView({ clientId, clientName }: Props) {
 }
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/[0.08] bg-bip-page px-3 py-2">
+    <div className="rounded-lg border border-bip-border bg-bip-page px-3 py-2">
       
-      <p className="text-xs uppercase tracking-wide text-white/50">
+      <p className="text-xs uppercase tracking-wide text-bip-muted">
         {label}
       </p>
       <p className="mt-1 text-lg font-semibold">{value}</p>

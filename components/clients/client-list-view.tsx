@@ -196,8 +196,8 @@ export default function ClientListView({
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-white">Clients</h1>
-          <p className="text-xs text-white/40">
+          <h1 className="text-lg font-semibold text-bip-text">Clients</h1>
+          <p className="text-xs text-bip-muted">
             {activeClients.length} active · {counts.website_only} website only
           </p>
         </div>
@@ -214,19 +214,19 @@ export default function ClientListView({
         {/* Row 1: search + strategist dropdown + website-only toggle */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-bip-subtle" />
             <input
               type="text"
               placeholder="Search clients…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full rounded-lg border border-white/[0.08] bg-bip-card/50 py-2 pl-8 pr-3 text-sm text-white placeholder-white/25 focus:border-white/20 focus:outline-none"
+              className="w-full rounded-lg border border-bip-border bg-bip-card/50 py-2 pl-8 pr-3 text-sm text-bip-text placeholder-bip-subtle focus:border-bip-border focus:outline-none"
             />
           </div>
           <select
             value={strategist}
             onChange={(e) => setStrategist(e.target.value)}
-            className="rounded-lg border border-white/[0.08] bg-bip-card/50 py-2 pl-3 pr-7 text-xs text-white/70 focus:border-white/20 focus:outline-none appearance-none cursor-pointer"
+            className="rounded-lg border border-bip-border bg-bip-card/50 py-2 pl-3 pr-7 text-xs text-bip-muted focus:border-bip-border focus:outline-none appearance-none cursor-pointer"
           >
             <option value="all">All strategists</option>
             {strategistOptions.map((s) => (
@@ -239,7 +239,7 @@ export default function ClientListView({
             className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition whitespace-nowrap ${
               showWebsiteOnly
                 ? "border-bip-accent/30 bg-bip-accent/10 text-bip-accent"
-                : "border-white/[0.08] text-white/40 hover:text-white/60"
+                : "border-bip-border text-bip-muted hover:text-bip-muted"
             }`}
           >
             {showWebsiteOnly ? <Eye size={12} /> : <EyeOff size={12} />}
@@ -257,7 +257,7 @@ export default function ClientListView({
               className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${
                 filter === f.id
                   ? "border-bip-accent/30 bg-bip-accent/10 text-bip-accent"
-                  : "border-white/[0.08] bg-transparent text-white/45 hover:text-white/70"
+                  : "border-bip-border bg-transparent text-bip-muted hover:text-bip-muted"
               }`}
             >
               {f.label}
@@ -266,7 +266,7 @@ export default function ClientListView({
                   className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${
                     filter === f.id
                       ? "bg-bip-accent/20 text-bip-accent"
-                      : "bg-white/[0.08] text-white/35"
+                      : "bg-bip-fill text-bip-subtle"
                   }`}
                 >
                   {f.count}
@@ -278,30 +278,30 @@ export default function ClientListView({
       </div>
 
       {/* Client table */}
-      <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-bip-card/40">
+      <div className="overflow-hidden rounded-xl border border-bip-border bg-bip-card/40">
         {filtered.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-sm text-white/40">
+            <p className="text-sm text-bip-muted">
               {query ? `No clients match "${query}"` : "No clients in this filter."}
             </p>
           </div>
         ) : (
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+              <tr className="border-b border-bip-border">
+                <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-bip-subtle">
                   Client
                 </th>
-                <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-white/30 sm:table-cell">
+                <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-bip-subtle sm:table-cell">
                   Services
                 </th>
-                <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+                <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-bip-subtle">
                   Status
                 </th>
-                <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-white/30 lg:table-cell">
+                <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-bip-subtle lg:table-cell">
                   Last comms
                 </th>
-                <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-white/30 md:table-cell">
+                <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-bip-subtle md:table-cell">
                   Strategist
                 </th>
               </tr>
@@ -310,7 +310,7 @@ export default function ClientListView({
               {filtered.map(({ client, status, services, lastThread }) => (
                 <tr
                   key={client.id}
-                  className="group transition hover:bg-white/[0.02]"
+                  className="group transition hover:bg-bip-hover"
                 >
                   {/* Client name */}
                   <td className="px-4 py-3">
@@ -319,7 +319,7 @@ export default function ClientListView({
                       className="flex items-center gap-2.5"
                     >
                       <StatusPip status={status} />
-                      <span className="font-medium text-white/85 group-hover:text-white transition-colors">
+                      <span className="font-medium text-bip-text group-hover:text-bip-text transition-colors">
                         {client.account_name ?? "—"}
                       </span>
                     </Link>
@@ -332,13 +332,13 @@ export default function ClientListView({
                         services.map((s) => (
                           <span
                             key={s}
-                            className="rounded border border-white/[0.08] px-1.5 py-0.5 text-[10px] text-white/40"
+                            className="rounded border border-bip-border px-1.5 py-0.5 text-[10px] text-bip-muted"
                           >
                             {s}
                           </span>
                         ))
                       ) : (
-                        <span className="text-xs text-white/20">—</span>
+                        <span className="text-xs text-bip-subtle">—</span>
                       )}
                     </div>
                   </td>
@@ -352,21 +352,21 @@ export default function ClientListView({
                   <td className="hidden px-4 py-3 lg:table-cell">
                     {lastThread ? (
                       <div>
-                        <p className="text-xs text-white/50 truncate max-w-[200px]">
+                        <p className="text-xs text-bip-muted truncate max-w-[200px]">
                           {norm(lastThread.thread_title) || "Untitled thread"}
                         </p>
-                        <p className="mt-0.5 text-[10px] text-white/25">
+                        <p className="mt-0.5 text-[10px] text-bip-subtle">
                           {daysAgoLabel(lastThread.occurred_at)}
                         </p>
                       </div>
                     ) : (
-                      <span className="text-xs text-white/20">No recent comms</span>
+                      <span className="text-xs text-bip-subtle">No recent comms</span>
                     )}
                   </td>
 
                   {/* Strategist */}
                   <td className="hidden px-4 py-3 md:table-cell">
-                    <span className="text-xs text-white/40">
+                    <span className="text-xs text-bip-muted">
                       {norm(client.marketing_strategist) || "—"}
                     </span>
                   </td>
@@ -379,7 +379,7 @@ export default function ClientListView({
 
       {/* Footer count */}
       {filtered.length > 0 && (
-        <p className="text-xs text-white/25">
+        <p className="text-xs text-bip-subtle">
           Showing {filtered.length} of {showWebsiteOnly ? clients.length : activeClients.length} clients
           {strategist !== "all" && ` · ${strategist}`}
           {query && ` matching "${query}"`}

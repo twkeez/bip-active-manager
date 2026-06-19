@@ -207,13 +207,13 @@ export default function LocalRankGridPanel({
   }, [activeRun, cells]);
 
   return (
-    <section className="rounded-lg border border-white/[0.08] bg-bip-card p-4">
+    <section className="rounded-lg border border-bip-border bg-bip-card p-4">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+          <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
             Local Grid Rank
           </p>
-          <p className="mt-1 text-xs text-white/50">
+          <p className="mt-1 text-xs text-bip-muted">
             5×5 neighborhood grid ({MAX_GRID_POINTS} points) · max {MAX_KEYWORDS} keywords ·{" "}
             {plannedCalls || 0} API calls planned
           </p>
@@ -228,7 +228,7 @@ export default function LocalRankGridPanel({
 
       <div className="space-y-3">
         <div>
-          <p className="mb-1.5 text-xs font-medium text-white/75">Keywords (max {MAX_KEYWORDS})</p>
+          <p className="mb-1.5 text-xs font-medium text-bip-text">Keywords (max {MAX_KEYWORDS})</p>
           <div className="flex flex-wrap gap-1.5">
             {suggestedKeywords.map((keyword) => {
               const selected = selectedKeywords.includes(keyword);
@@ -240,7 +240,7 @@ export default function LocalRankGridPanel({
                   className={`rounded-full border px-2.5 py-1 text-xs transition ${
                     selected
                       ? "border-bip-accent bg-bip-accent/15 text-bip-accent"
-                      : "border-white/[0.12] text-white/60 hover:border-white/25"
+                      : "border-bip-border text-bip-muted hover:border-bip-border"
                   }`}
                 >
                   {keyword}
@@ -253,7 +253,7 @@ export default function LocalRankGridPanel({
               value={customKeyword}
               onChange={(event) => setCustomKeyword(event.target.value)}
               placeholder='Custom keyword, e.g. "animal clinic Granite Bay"'
-              className="w-full rounded-md border border-white/[0.08] bg-bip-page px-2 py-1.5 text-xs text-white"
+              className="w-full rounded-md border border-bip-border bg-bip-page px-2 py-1.5 text-xs text-bip-text"
             />
             <button
               type="button"
@@ -261,7 +261,7 @@ export default function LocalRankGridPanel({
                 setSelectedKeywords(toggleKeywordSelection(selectedKeywords, customKeyword));
                 setCustomKeyword("");
               }}
-              className="shrink-0 rounded-md border border-white/[0.08] px-2 py-1 text-xs text-white/75 hover:bg-white/[0.06]"
+              className="shrink-0 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-text hover:bg-bip-fill"
             >
               Add
             </button>
@@ -269,12 +269,12 @@ export default function LocalRankGridPanel({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <label className="text-xs text-white/75">
+          <label className="text-xs text-bip-text">
             Radius
             <select
               value={radiusMiles}
               onChange={(event) => setRadiusMiles(Number(event.target.value))}
-              className="ml-2 rounded-md border border-white/[0.08] bg-bip-page px-2 py-1 text-xs text-white"
+              className="ml-2 rounded-md border border-bip-border bg-bip-page px-2 py-1 text-xs text-bip-text"
             >
               {ALLOWED_RADIUS_MILES.map((value) => (
                 <option key={value} value={value}>
@@ -298,19 +298,19 @@ export default function LocalRankGridPanel({
             type="button"
             onClick={() => void loadRuns()}
             disabled={loadingRuns}
-            className="rounded-md border border-white/[0.08] px-2 py-1.5 text-xs text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+            className="rounded-md border border-bip-border px-2 py-1.5 text-xs text-bip-text hover:bg-bip-fill disabled:opacity-60"
           >
             Refresh history
           </button>
         </div>
 
         {runs.length > 0 ? (
-          <label className="block text-xs text-white/75">
+          <label className="block text-xs text-bip-text">
             Previous runs
             <select
               value={activeRunId ?? ""}
               onChange={(event) => void loadRunDetail(Number(event.target.value))}
-              className="mt-1 w-full rounded-md border border-white/[0.08] bg-bip-page px-2 py-1.5 text-xs text-white"
+              className="mt-1 w-full rounded-md border border-bip-border bg-bip-page px-2 py-1.5 text-xs text-bip-text"
             >
               {runs.map((run) => (
                 <option key={run.id} value={run.id}>
@@ -329,12 +329,12 @@ export default function LocalRankGridPanel({
         ) : null}
 
         {activeRun && cells.length > 0 ? (
-          <div className="space-y-4 border-t border-white/[0.08] pt-4">
+          <div className="space-y-4 border-t border-bip-border pt-4">
             {keywordSummaries.map((summary) => (
               <div key={summary.keyword} className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-white">{summary.keyword}</p>
-                  <p className="text-xs text-white/50">
+                  <p className="text-sm font-medium text-bip-text">{summary.keyword}</p>
+                  <p className="text-xs text-bip-muted">
                     Avg rank {summary.avgRank ?? "—"} · Top 3 in {summary.topThreePct}% of cells ·{" "}
                     {summary.cellsInPack}/{MAX_GRID_POINTS} in pack
                   </p>

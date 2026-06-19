@@ -31,7 +31,7 @@ export default function ProjectPhasesEditor({
           value={newPhaseTitle}
           onChange={(event) => setNewPhaseTitle(event.target.value)}
           placeholder="New phase title"
-          className="flex-1 rounded-md border border-white/10 bg-bip-card px-2 py-1.5"
+          className="flex-1 rounded-md border border-bip-border bg-bip-card px-2 py-1.5"
         />
         <button
           type="button"
@@ -52,7 +52,7 @@ export default function ProjectPhasesEditor({
         {phases.map((phase, index) => (
           <li
             key={phase.id}
-            className="space-y-2 rounded-lg border border-white/10 bg-bip-page/60 px-3 py-2"
+            className="space-y-2 rounded-lg border border-bip-border bg-bip-page/60 px-3 py-2"
           >
             
             <div className="flex items-start gap-2">
@@ -63,7 +63,7 @@ export default function ProjectPhasesEditor({
                   type="button"
                   disabled={index === 0 || saving}
                   onClick={() => void onReorderPhase(phase.id, "up")}
-                  className="rounded p-0.5 text-white/50 hover:bg-bip-card/10 hover:text-white/75 disabled:opacity-30"
+                  className="rounded p-0.5 text-bip-muted hover:bg-bip-card/10 hover:text-bip-text disabled:opacity-30"
                   aria-label="Move phase up"
                 >
                   
@@ -73,7 +73,7 @@ export default function ProjectPhasesEditor({
                   type="button"
                   disabled={index === phases.length - 1 || saving}
                   onClick={() => void onReorderPhase(phase.id, "down")}
-                  className="rounded p-0.5 text-white/50 hover:bg-bip-card/10 hover:text-white/75 disabled:opacity-30"
+                  className="rounded p-0.5 text-bip-muted hover:bg-bip-card/10 hover:text-bip-text disabled:opacity-30"
                   aria-label="Move phase down"
                 >
                   
@@ -88,7 +88,7 @@ export default function ProjectPhasesEditor({
                     void onUpdatePhase(phase.id, { title });
                   }
                 }}
-                className="flex-1 rounded border border-white/10 bg-bip-card px-2 py-1 text-sm font-medium"
+                className="flex-1 rounded border border-bip-border bg-bip-card px-2 py-1 text-sm font-medium"
               />
               <select
                 value={phase.status}
@@ -97,7 +97,7 @@ export default function ProjectPhasesEditor({
                     status: event.target.value as ClientProjectPhase["status"],
                   })
                 }
-                className="rounded border border-white/10 bg-bip-card px-1.5 py-1 text-xs"
+                className="rounded border border-bip-border bg-bip-card px-1.5 py-1 text-xs"
               >
                 
                 <option value="not_started">Not started</option>
@@ -107,7 +107,7 @@ export default function ProjectPhasesEditor({
               <button
                 type="button"
                 onClick={() => void onDeletePhase(phase.id)}
-                className="text-white/50 hover:text-red-300"
+                className="text-bip-muted hover:text-red-300"
                 aria-label="Delete phase"
               >
                 
@@ -124,7 +124,7 @@ export default function ProjectPhasesEditor({
                   void onUpdatePhase(phase.id, { notes: notes || null });
                 }
               }}
-              className="w-full rounded border border-white/10 bg-bip-card px-2 py-1 text-xs text-white/75"
+              className="w-full rounded border border-bip-border bg-bip-card px-2 py-1 text-xs text-bip-text"
             />
           </li>
         ))}

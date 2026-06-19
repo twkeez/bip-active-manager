@@ -27,7 +27,7 @@ import type {
 } from "@/types/strategy-mapper";
 
 const inputClass =
-  "w-full rounded-lg border border-white/[0.12] bg-bip-page px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
+  "w-full rounded-lg border border-bip-border bg-bip-page px-3 py-2.5 text-sm text-bip-text placeholder:text-bip-muted focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
 
 function Field({
   label,
@@ -40,7 +40,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-white/75">
+      <span className="mb-1.5 block text-sm font-medium text-bip-text">
         {label}
         {required ? <span className="text-bip-danger"> *</span> : null}
       </span>
@@ -57,7 +57,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 sm:p-6">
+    <section className="rounded-xl border border-bip-border bg-bip-card p-5 sm:p-6">
       <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-bip-accent">
         {title}
       </h2>
@@ -320,7 +320,7 @@ export default function StrategyMapperForm({
               </option>
             ))}
           </select>
-          <p className="mt-1.5 text-xs text-white/45">
+          <p className="mt-1.5 text-xs text-bip-muted">
             Marketing scope only — BIP is framed as web development solely for brand
             new ground-up clinics; all other contexts use optimization or blueprint
             language.
@@ -337,7 +337,7 @@ export default function StrategyMapperForm({
             className={inputClass}
             placeholder="https://examplevet.com"
           />
-          <p className="mt-1.5 text-xs text-white/45">
+          <p className="mt-1.5 text-xs text-bip-muted">
             Used for the post-staging SEO audit (title, meta, crawl, keyword coverage).
           </p>
         </Field>
@@ -367,14 +367,14 @@ export default function StrategyMapperForm({
             type="file"
             accept="image/png,image/jpeg,image/jpg"
             onChange={(e) => void handleLogoChange(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-white/60 file:mr-3 file:rounded-md file:border-0 file:bg-bip-accent file:px-3 file:py-2 file:text-sm file:font-medium file:text-bip-page"
+            className="block w-full text-sm text-bip-muted file:mr-3 file:rounded-md file:border-0 file:bg-bip-accent file:px-3 file:py-2 file:text-sm file:font-medium file:text-bip-page"
           />
           {form.logoDataUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={form.logoDataUrl}
               alt="Practice logo preview"
-              className="mt-3 max-h-16 rounded border border-white/[0.08]"
+              className="mt-3 max-h-16 rounded border border-bip-border"
             />
           ) : null}
         </Field>
@@ -387,8 +387,8 @@ export default function StrategyMapperForm({
               key={option}
               className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm transition ${
                 form.specializations.includes(option)
-                  ? "border-bip-accent bg-bip-accent/10 text-white"
-                  : "border-white/[0.08] text-white/75 hover:border-bip-accent"
+                  ? "border-bip-accent bg-bip-accent/10 text-bip-text"
+                  : "border-bip-border text-bip-text hover:border-bip-accent"
               }`}
             >
               <input
@@ -413,7 +413,7 @@ export default function StrategyMapperForm({
       </Section>
 
       <Section title="C. Core Marketing Services">
-        <p className="text-xs text-white/50">
+        <p className="text-xs text-bip-muted">
           Select Phase 1 services manually. Tier overrides appear once services are selected.
         </p>
         <div className="grid grid-cols-1 gap-2">
@@ -422,8 +422,8 @@ export default function StrategyMapperForm({
               key={option.id}
               className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm transition ${
                 form.activeServices.includes(option.id)
-                  ? "border-bip-accent bg-bip-accent/10 text-white"
-                  : "border-white/[0.08] text-white/75 hover:border-bip-accent"
+                  ? "border-bip-accent bg-bip-accent/10 text-bip-text"
+                  : "border-bip-border text-bip-text hover:border-bip-accent"
               }`}
             >
               <input
@@ -437,8 +437,8 @@ export default function StrategyMapperForm({
           ))}
         </div>
         {resolvedTierSelections.length > 0 && tiers.length > 0 ? (
-          <div className="space-y-3 rounded-lg border border-white/[0.08] bg-bip-page/60 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-white/50">
+          <div className="space-y-3 rounded-lg border border-bip-border bg-bip-page/60 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-bip-muted">
               Resolved service tiers (override if needed)
             </p>
             {resolvedTierSelections.map(({ service, tierKey }) => {
@@ -449,7 +449,7 @@ export default function StrategyMapperForm({
                 CORE_SERVICE_OPTIONS.find((o) => o.id === service)?.label ?? service;
               return (
                 <label key={service} className="block text-sm">
-                  <span className="mb-1 block text-white/60">{label}</span>
+                  <span className="mb-1 block text-bip-muted">{label}</span>
                   <select
                     value={form.tierOverrides?.[service] ?? tierKey}
                     onChange={(e) => setTierOverride(service, e.target.value)}
@@ -496,7 +496,7 @@ export default function StrategyMapperForm({
       </Section>
 
       <Section title="E. Sales Document (reference)">
-        <p className="text-xs text-white/50">
+        <p className="text-xs text-bip-muted">
           Upload a sales PDF for reference only — it is stored securely and is not parsed
           automatically. Enter sales context manually below.
         </p>
@@ -506,30 +506,30 @@ export default function StrategyMapperForm({
             type="file"
             accept=".pdf,.docx,.txt,application/pdf"
             onChange={(e) => void handlePdfChange(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-white/60 file:mr-3 file:rounded-md file:border-0 file:bg-bip-accent file:px-3 file:py-2 file:text-sm file:font-medium file:text-bip-page"
+            className="block w-full text-sm text-bip-muted file:mr-3 file:rounded-md file:border-0 file:bg-bip-accent file:px-3 file:py-2 file:text-sm file:font-medium file:text-bip-page"
           />
         </Field>
         {pdfLoading ? (
-          <p className="text-sm text-white/50">Uploading document…</p>
+          <p className="text-sm text-bip-muted">Uploading document…</p>
         ) : null}
         {(pdfReference ?? form.salesPdfReference) ? (
-          <p className="rounded-lg border border-white/[0.08] bg-bip-page/60 px-4 py-3 text-sm text-white/70">
+          <p className="rounded-lg border border-bip-border bg-bip-page/60 px-4 py-3 text-sm text-bip-muted">
             Stored for reference:{" "}
-            <span className="font-medium text-white">
+            <span className="font-medium text-bip-text">
               {(pdfReference ?? form.salesPdfReference)!.fileName}
             </span>
           </p>
         ) : null}
       </Section>
 
-      <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 sm:p-6">
+      <section className="rounded-xl border border-bip-border bg-bip-card p-5 sm:p-6">
         <button
           type="button"
           onClick={() => setShowSalesContext((open) => !open)}
           className="flex w-full items-center justify-between text-left text-sm font-semibold uppercase tracking-wide text-bip-accent"
         >
           F. Sales Context (optional)
-          <span className="text-xs normal-case text-white/50">
+          <span className="text-xs normal-case text-bip-muted">
             {showSalesContext ? "Hide" : "Show"}
           </span>
         </button>
@@ -581,14 +581,14 @@ export default function StrategyMapperForm({
                 className={`${inputClass} min-h-[80px]`}
               />
             </Field>
-            <label className="flex cursor-pointer items-center gap-3 text-sm text-white/75">
+            <label className="flex cursor-pointer items-center gap-3 text-sm text-bip-text">
               <input
                 type="checkbox"
                 checked={sales.clientRunsOwnAds}
                 onChange={(e) =>
                   updateSalesExtract({ clientRunsOwnAds: e.target.checked })
                 }
-                className="h-4 w-4 rounded border-white/20 bg-bip-page text-bip-accent focus:ring-bip-accent"
+                className="h-4 w-4 rounded border-bip-border bg-bip-page text-bip-accent focus:ring-bip-accent"
               />
               Client runs own Google Ads
             </label>
@@ -617,38 +617,38 @@ export default function StrategyMapperForm({
       ) : null}
 
       <Section title="Competitor research source">
-        <p className="text-xs text-white/50">
+        <p className="text-xs text-bip-muted">
           Choose how competitor rows are populated before staging. Your choice is
           remembered in this browser.
         </p>
         <div className="space-y-2">
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/[0.08] bg-bip-page/40 px-3 py-3 text-sm text-white/75">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-bip-border bg-bip-page/40 px-3 py-3 text-sm text-bip-text">
             <input
               type="radio"
               name="research-source"
               checked={!useMockResearch}
               onChange={() => setUseMockResearchPersisted(false)}
-              className="mt-0.5 h-4 w-4 border-white/20 bg-bip-page text-bip-accent focus:ring-bip-accent"
+              className="mt-0.5 h-4 w-4 border-bip-border bg-bip-page text-bip-accent focus:ring-bip-accent"
             />
             <span>
-              <span className="font-medium text-white">Live research</span>
-              <span className="mt-0.5 block text-xs text-white/50">
+              <span className="font-medium text-bip-text">Live research</span>
+              <span className="mt-0.5 block text-xs text-bip-muted">
                 Anthropic web search for nearby competitors and GBP signals. Uses
                 API credits.
               </span>
             </span>
           </label>
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/[0.08] bg-bip-page/40 px-3 py-3 text-sm text-white/75">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-bip-border bg-bip-page/40 px-3 py-3 text-sm text-bip-text">
             <input
               type="radio"
               name="research-source"
               checked={useMockResearch}
               onChange={() => setUseMockResearchPersisted(true)}
-              className="mt-0.5 h-4 w-4 border-white/20 bg-bip-page text-bip-accent focus:ring-bip-accent"
+              className="mt-0.5 h-4 w-4 border-bip-border bg-bip-page text-bip-accent focus:ring-bip-accent"
             />
             <span>
-              <span className="font-medium text-white">Placeholder research</span>
-              <span className="mt-0.5 block text-xs text-white/50">
+              <span className="font-medium text-bip-text">Placeholder research</span>
+              <span className="mt-0.5 block text-xs text-bip-muted">
                 Skip Anthropic — load editable sample competitors on staging. Best
                 for testing without credits.
               </span>

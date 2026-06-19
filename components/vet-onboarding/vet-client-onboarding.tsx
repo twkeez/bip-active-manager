@@ -347,13 +347,13 @@ export default function VetClientOnboarding({ userEmail }: Props) {
 
   if (plan && discoveryReport) {
     return (
-      <div className="min-h-screen bg-bip-page font-sans text-white/75">
+      <div className="min-h-screen bg-bip-page font-sans text-bip-text">
         <BrandHeader />
         <div className="px-4 py-10 sm:px-6">
           <div className="mx-auto mb-8 flex max-w-4xl items-center justify-between print:hidden">
             <Link
               href="/sales-lab"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.06]"
+              className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text transition hover:bg-bip-fill"
             >
               <ArrowLeft className="h-4 w-4" />
               Sales Lab
@@ -361,7 +361,7 @@ export default function VetClientOnboarding({ userEmail }: Props) {
             <button
               type="button"
               onClick={handleStartOver}
-              className="rounded-lg border border-white/[0.08] bg-bip-card px-4 py-2 text-sm font-medium text-white transition hover:bg-white/[0.06]"
+              className="rounded-lg border border-bip-border bg-bip-card px-4 py-2 text-sm font-medium text-bip-text transition hover:bg-bip-fill"
             >
               Start Over
             </button>
@@ -396,13 +396,13 @@ export default function VetClientOnboarding({ userEmail }: Props) {
 
   if (plan) {
     return (
-      <div className="min-h-screen bg-bip-page font-sans text-white/75">
+      <div className="min-h-screen bg-bip-page font-sans text-bip-text">
         <BrandHeader />
         <div className="px-4 py-10 sm:px-6">
           <div className="mx-auto mb-8 flex max-w-4xl items-center justify-between print:hidden">
             <Link
               href="/sales-lab"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.06]"
+              className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text transition hover:bg-bip-fill"
             >
               <ArrowLeft className="h-4 w-4" />
               Sales Lab
@@ -410,7 +410,7 @@ export default function VetClientOnboarding({ userEmail }: Props) {
             <button
               type="button"
               onClick={handleStartOver}
-              className="rounded-lg border border-white/[0.08] bg-bip-card px-4 py-2 text-sm font-medium text-white transition hover:bg-white/[0.06]"
+              className="rounded-lg border border-bip-border bg-bip-card px-4 py-2 text-sm font-medium text-bip-text transition hover:bg-bip-fill"
             >
               Start Over
             </button>
@@ -428,42 +428,42 @@ export default function VetClientOnboarding({ userEmail }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-bip-page font-sans text-white/75">
+    <div className="min-h-screen bg-bip-page font-sans text-bip-text">
       <BrandHeader />
       <div className="px-4 py-10 sm:px-6">
         <div className="mx-auto max-w-2xl">
           <div className="mb-6 flex items-center justify-between">
             <Link
               href="/sales-lab"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.06]"
+              className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text transition hover:bg-bip-fill"
             >
               <ArrowLeft className="h-4 w-4" />
               Sales Lab
             </Link>
             {userEmail ? (
-              <p className="text-xs text-white/50">{userEmail}</p>
+              <p className="text-xs text-bip-muted">{userEmail}</p>
             ) : null}
           </div>
 
           <header className="mb-8 text-center">
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-bip-text">
               Veterinary Client Onboarding
             </h1>
-            <p className="mt-2 text-sm text-white/75">
+            <p className="mt-2 text-sm text-bip-text">
               Fill out the intake form or upload a PDF intake form — Beyond
               Indigo Pets will identify your goals and build a personalized
               marketing plan.
             </p>
           </header>
 
-          <div className="mb-6 flex rounded-lg border border-white/[0.08] bg-bip-card p-1">
+          <div className="mb-6 flex rounded-lg border border-bip-border bg-bip-card p-1">
             <button
               type="button"
               onClick={() => switchIntakeMode("form")}
               className={`flex-1 rounded-md py-2 text-sm font-medium transition ${
                 intakeMode === "form"
                   ? "bg-bip-accent text-bip-page shadow-sm"
-                  : "text-white/75 hover:text-white"
+                  : "text-bip-text hover:text-bip-text"
               }`}
             >
               Fill out form
@@ -474,7 +474,7 @@ export default function VetClientOnboarding({ userEmail }: Props) {
               className={`flex-1 rounded-md py-2 text-sm font-medium transition ${
                 intakeMode === "upload"
                   ? "bg-bip-accent text-bip-page shadow-sm"
-                  : "text-white/75 hover:text-white"
+                  : "text-bip-text hover:text-bip-text"
               }`}
             >
               Upload document
@@ -495,7 +495,7 @@ export default function VetClientOnboarding({ userEmail }: Props) {
                           ? "bg-bip-accent text-bip-page"
                           : done
                             ? "bg-bip-accent/20 text-bip-accent"
-                            : "bg-white/[0.06] text-white/40"
+                            : "bg-bip-fill text-bip-muted"
                       }`}
                     >
                       {stepNum}
@@ -503,8 +503,8 @@ export default function VetClientOnboarding({ userEmail }: Props) {
                     <span
                       className={`hidden text-sm sm:inline ${
                         active
-                          ? "font-medium text-white"
-                          : "text-white/50"
+                          ? "font-medium text-bip-text"
+                          : "text-bip-muted"
                       }`}
                     >
                       {label}
@@ -512,7 +512,7 @@ export default function VetClientOnboarding({ userEmail }: Props) {
                     {i < STEPS.length - 1 ? (
                       <div
                         className={`mx-1 h-px w-8 sm:w-12 ${
-                          done ? "bg-bip-accent" : "bg-white/[0.08]"
+                          done ? "bg-bip-accent" : "bg-bip-fill"
                         }`}
                       />
                     ) : null}
@@ -522,7 +522,7 @@ export default function VetClientOnboarding({ userEmail }: Props) {
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-white/[0.08] bg-bip-card p-6 shadow-none sm:p-8">
+          <div className="rounded-2xl border border-bip-border bg-bip-card p-6 shadow-none sm:p-8">
             {intakeMode === "upload" ? (
               <UploadIntakePanel
                 uploadFile={uploadFile}
@@ -559,7 +559,7 @@ export default function VetClientOnboarding({ userEmail }: Props) {
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="rounded-lg border border-white/[0.08] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/[0.06]"
+                    className="rounded-lg border border-bip-border px-5 py-2.5 text-sm font-medium text-bip-text transition hover:bg-bip-fill"
                   >
                     Back
                   </button>
@@ -600,7 +600,7 @@ export default function VetClientOnboarding({ userEmail }: Props) {
 }
 
 const inputClass =
-  "w-full rounded-lg border border-white/[0.12] bg-bip-page px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
+  "w-full rounded-lg border border-bip-border bg-bip-page px-3 py-2.5 text-sm text-bip-text placeholder:text-bip-muted focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
 
 function Field({
   label,
@@ -613,7 +613,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-white/75">
+      <span className="mb-1.5 block text-sm font-medium text-bip-text">
         {label}
         {required ? <span className="text-bip-danger"> *</span> : null}
       </span>
@@ -639,7 +639,7 @@ function FormIntakePanel({
   if (step === 1) {
     return (
       <div className="space-y-5">
-        <h2 className="text-lg font-semibold text-white">
+        <h2 className="text-lg font-semibold text-bip-text">
           Practice Information
         </h2>
         <Field label="Practice Name" required>
@@ -704,7 +704,7 @@ function FormIntakePanel({
   if (step === 2) {
     return (
       <div className="space-y-5">
-        <h2 className="text-lg font-semibold text-white">
+        <h2 className="text-lg font-semibold text-bip-text">
           Goals &amp; Services
         </h2>
         <Field label="Services of Interest" required>
@@ -718,8 +718,8 @@ function FormIntakePanel({
                   onClick={() => onToggleService(service)}
                   className={`rounded-lg border px-4 py-3 text-left text-sm transition ${
                     selected
-                      ? "border-bip-accent bg-bip-accent/10 text-white ring-1 ring-bip-accent"
-                      : "border-white/[0.08] bg-bip-page text-white/75 hover:border-bip-accent"
+                      ? "border-bip-accent bg-bip-accent/10 text-bip-text ring-1 ring-bip-accent"
+                      : "border-bip-border bg-bip-page text-bip-text hover:border-bip-accent"
                   }`}
                 >
                   <span className="mr-2">{selected ? "☑" : "☐"}</span>
@@ -758,7 +758,7 @@ function FormIntakePanel({
 
   return (
     <div className="space-y-5">
-      <h2 className="text-lg font-semibold text-white">
+      <h2 className="text-lg font-semibold text-bip-text">
         Budget, Timeline &amp; Digital Footprint
       </h2>
       <Field label="Monthly Marketing Budget" required>
@@ -852,22 +852,22 @@ function UploadIntakePanel({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">
+        <h2 className="text-lg font-semibold text-bip-text">
           Upload Sales Brief
         </h2>
-        <p className="mt-1 text-sm text-white/50">
+        <p className="mt-1 text-sm text-bip-muted">
           Upload a PDF intake form, Word document (.docx), or plain text file
           (.txt). AI reads your form, identifies client goals, and generates the
           same plan as the manual intake.
         </p>
       </div>
 
-      <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/[0.12] bg-bip-page px-6 py-10 transition hover:border-bip-accent/50 hover:bg-white/[0.04]">
+      <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-bip-border bg-bip-page px-6 py-10 transition hover:border-bip-accent/50 hover:bg-bip-hover">
         <Upload className="mb-3 h-8 w-8 text-bip-accent" />
-        <span className="text-sm font-medium text-white">
+        <span className="text-sm font-medium text-bip-text">
           {uploadFile ? uploadFile.name : "Choose .pdf, .docx, or .txt file"}
         </span>
-        <span className="mt-1 text-xs text-white/50">
+        <span className="mt-1 text-xs text-bip-muted">
           Max 4MB · PDF forms supported
         </span>
         <input
@@ -884,7 +884,7 @@ function UploadIntakePanel({
           type="button"
           onClick={onExtract}
           disabled={loading || !uploadFile}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/[0.06] disabled:opacity-60"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-bip-border bg-bip-card px-4 py-2.5 text-sm font-medium text-bip-text transition hover:bg-bip-fill disabled:opacity-60"
         >
           <FileUp className="h-4 w-4 text-bip-accent" />
           {loading && loadingMessage === "Reading document…"
@@ -898,14 +898,14 @@ function UploadIntakePanel({
           className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-bip-accent px-4 py-2.5 text-sm font-medium text-bip-page transition hover:brightness-110 disabled:opacity-60"
         >
           {loading ? (
-            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-bip-border border-t-transparent" />
           ) : null}
           {loading ? loadingMessage || "Working…" : "Upload & generate plan"}
         </button>
       </div>
 
       {documentExtracted ? (
-        <div className="space-y-4 border-t border-white/[0.08] pt-6">
+        <div className="space-y-4 border-t border-bip-border pt-6">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-bip-accent">
               Extracted fields — review &amp; edit
@@ -1024,7 +1024,7 @@ function ExtractedFieldsEditor({
                 className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
                   selected
                     ? "border-bip-accent bg-bip-accent/10 ring-1 ring-bip-accent"
-                    : "border-white/[0.08] hover:border-bip-accent"
+                    : "border-bip-border hover:border-bip-accent"
                 }`}
               >
                 {selected ? "☑" : "☐"} {service}
@@ -1042,17 +1042,17 @@ function ExtractedFieldsEditor({
         />
       </Field>
       {form.intakeGoals.length > 0 ? (
-        <div className="rounded-lg border border-white/[0.08] bg-bip-accent/10 p-4">
+        <div className="rounded-lg border border-bip-border bg-bip-accent/10 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-bip-accent">
             Goals identified from document
           </p>
-          <ul className="mt-2 space-y-1 text-sm text-white/75">
+          <ul className="mt-2 space-y-1 text-sm text-bip-text">
             {form.intakeGoals.map((goal) => (
               <li key={goal}>• {goal}</li>
             ))}
           </ul>
           {form.intakeSummary ? (
-            <p className="mt-2 text-xs leading-relaxed text-white/50">
+            <p className="mt-2 text-xs leading-relaxed text-bip-muted">
               {form.intakeSummary}
             </p>
           ) : null}

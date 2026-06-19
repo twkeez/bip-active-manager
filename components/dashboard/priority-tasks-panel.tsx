@@ -15,17 +15,17 @@ function isOverdue(value: string | null) {
 }
 export default function PriorityTasksPanel({ tasks }: Props) {
   return (
-    <section className="mb-5 rounded-xl border border-white/[0.08] bg-bip-card px-4 py-3 shadow-none shadow-black/20">
+    <section className="mb-5 rounded-xl border border-bip-border bg-bip-card px-4 py-3 shadow-none shadow-black/20">
       
       <div className="mb-3 flex items-center justify-between gap-3">
         
         <div>
           
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-bip-muted">
             
             Priority Tasks
           </h2>
-          <p className="mt-0.5 text-[11px] text-white/50">
+          <p className="mt-0.5 text-[11px] text-bip-muted">
             
             Starred or due within 7 days
           </p>
@@ -39,7 +39,7 @@ export default function PriorityTasksPanel({ tasks }: Props) {
         </Link>
       </div>
       {tasks.length === 0 ? (
-        <p className="py-2 text-sm text-white/50">No urgent tasks today</p>
+        <p className="py-2 text-sm text-bip-muted">No urgent tasks today</p>
       ) : (
         <div className="flex gap-2 overflow-x-auto pb-1">
           
@@ -50,7 +50,7 @@ export default function PriorityTasksPanel({ tasks }: Props) {
               <Link
                 key={task.id}
                 href="/my-tasks"
-                className="group inline-flex min-w-[220px] max-w-[280px] shrink-0 items-center gap-2.5 rounded-lg border border-white/[0.08] bg-bip-page px-3 py-2 transition hover:border-white/[0.12] hover:bg-bip-card"
+                className="group inline-flex min-w-[220px] max-w-[280px] shrink-0 items-center gap-2.5 rounded-lg border border-bip-border bg-bip-page px-3 py-2 transition hover:border-bip-border hover:bg-bip-card"
               >
                 
                 <Star
@@ -63,11 +63,11 @@ export default function PriorityTasksPanel({ tasks }: Props) {
                 />
                 <div className="min-w-0 flex-1">
                   
-                  <p className="truncate text-sm font-medium text-white group-hover:text-white">
+                  <p className="truncate text-sm font-medium text-bip-text group-hover:text-bip-text">
                     
                     {task.title}
                   </p>
-                  <div className="mt-0.5 flex items-center gap-2 text-[11px] text-white/50">
+                  <div className="mt-0.5 flex items-center gap-2 text-[11px] text-bip-muted">
                     
                     {task.client_name ? (
                       <span className="truncate">{task.client_name}</span>

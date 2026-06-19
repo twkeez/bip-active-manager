@@ -35,17 +35,17 @@ export function StrategyCoverPage({
 }: StrategyCoverPageProps) {
   return (
     <div className="report-strategy-cover hidden print:flex print:min-h-[100vh] print:flex-col print:items-center print:justify-center print:bg-[var(--report-navy)] print:p-12">
-      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/70">
+      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-bip-muted">
         Confidential — Internal Use Only
       </p>
-      <h1 className="mt-6 text-center text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">
+      <h1 className="mt-6 text-center text-3xl font-bold uppercase tracking-wide text-bip-text sm:text-4xl">
         Internal Strategy Brief
       </h1>
       <p className="mt-4 text-center text-xl text-[var(--report-teal)]">
         {practiceName}
       </p>
-      <p className="mt-2 text-sm text-white/60">{formattedDate}</p>
-      <p className="mt-12 text-xs text-white/50">Beyond Indigo Pets</p>
+      <p className="mt-2 text-sm text-bip-muted">{formattedDate}</p>
+      <p className="mt-12 text-xs text-bip-muted">Beyond Indigo Pets</p>
     </div>
   );
 }

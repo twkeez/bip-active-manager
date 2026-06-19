@@ -166,7 +166,7 @@ export default function ProjectResources({
   }
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-white/40">
+      <div className="flex items-center gap-2 text-sm text-bip-muted">
         
         <Loader2 className="h-4 w-4 animate-spin" /> Loading resources…
       </div>
@@ -177,7 +177,7 @@ export default function ProjectResources({
       
       <section className="space-y-3">
         
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+        <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
           
           Links (Google Docs, Sheets, etc.)
         </p>
@@ -187,13 +187,13 @@ export default function ProjectResources({
             value={linkLabel}
             onChange={(event) => setLinkLabel(event.target.value)}
             placeholder="Label (e.g. Project brief)"
-            className="min-w-[10rem] flex-1 rounded-md border border-white/10 bg-bip-card px-2 py-1.5 text-sm"
+            className="min-w-[10rem] flex-1 rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm"
           />
           <input
             value={linkUrl}
             onChange={(event) => setLinkUrl(event.target.value)}
             placeholder="https://docs.google.com/..."
-            className="min-w-[14rem] flex-[2] rounded-md border border-white/10 bg-bip-card px-2 py-1.5 text-sm"
+            className="min-w-[14rem] flex-[2] rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm"
           />
           <button
             type="button"
@@ -208,12 +208,12 @@ export default function ProjectResources({
         <ul className="space-y-1.5">
           
           {links.length === 0 ? (
-            <li className="text-xs text-white/50">No links yet.</li>
+            <li className="text-xs text-bip-muted">No links yet.</li>
           ) : (
             links.map((link) => (
               <li
                 key={link.id}
-                className="flex items-center gap-2 rounded-md border border-white/10 bg-bip-page/50 px-3 py-2"
+                className="flex items-center gap-2 rounded-md border border-bip-border bg-bip-page/50 px-3 py-2"
               >
                 
                 <a
@@ -229,7 +229,7 @@ export default function ProjectResources({
                 <button
                   type="button"
                   onClick={() => void handleDeleteLink(link.id)}
-                  className="text-white/50 hover:text-red-300"
+                  className="text-bip-muted hover:text-red-300"
                   aria-label="Remove link"
                 >
                   
@@ -242,11 +242,11 @@ export default function ProjectResources({
       </section>
       <section className="space-y-3">
         
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+        <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
           
           Uploaded files
         </p>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-white/20 px-3 py-2 text-xs text-white/75 hover:bg-bip-card/5">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-bip-border px-3 py-2 text-xs text-bip-text hover:bg-bip-card/5">
           
           {uploading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -268,12 +268,12 @@ export default function ProjectResources({
         <ul className="space-y-1.5">
           
           {attachments.length === 0 ? (
-            <li className="text-xs text-white/50">No files uploaded yet.</li>
+            <li className="text-xs text-bip-muted">No files uploaded yet.</li>
           ) : (
             attachments.map((attachment) => (
               <li
                 key={attachment.id}
-                className="flex items-center gap-2 rounded-md border border-white/10 bg-bip-page/50 px-3 py-2"
+                className="flex items-center gap-2 rounded-md border border-bip-border bg-bip-page/50 px-3 py-2"
               >
                 
                 <button
@@ -281,7 +281,7 @@ export default function ProjectResources({
                   onClick={() =>
                     void handleOpenAttachment(attachment.storage_path)
                   }
-                  className="min-w-0 flex-1 truncate text-left text-sm text-white hover:text-sky-200"
+                  className="min-w-0 flex-1 truncate text-left text-sm text-bip-text hover:text-sky-200"
                 >
                   
                   {attachment.file_name}
@@ -289,7 +289,7 @@ export default function ProjectResources({
                 <button
                   type="button"
                   onClick={() => void handleDeleteAttachment(attachment.id)}
-                  className="text-white/50 hover:text-red-300"
+                  className="text-bip-muted hover:text-red-300"
                   aria-label="Remove file"
                 >
                   

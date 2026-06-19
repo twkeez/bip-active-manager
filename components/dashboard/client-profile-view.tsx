@@ -56,7 +56,7 @@ function StrategistTile({ name }: { name: string }) {
   return (
     <div className="rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50 to-white p-3">
       
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
         
         Marketing strategist
       </p>
@@ -69,7 +69,7 @@ function StrategistTile({ name }: { name: string }) {
           
           {initial}
         </span>
-        <p className="text-sm font-semibold text-white">{displayName}</p>
+        <p className="text-sm font-semibold text-bip-text">{displayName}</p>
       </div>
     </div>
   );
@@ -86,15 +86,15 @@ function InfoTile({
   const accentClass =
     accent === "sky"
       ? "border-sky-100 bg-gradient-to-br from-sky-50 to-white"
-      : "border-white/[0.08] bg-gradient-to-br from-zinc-50 to-white";
+      : "border-bip-border bg-gradient-to-br from-zinc-50 to-white";
   return (
     <div className={`rounded-xl border p-3 ${accentClass}`}>
       
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
         
         {label}
       </p>
-      <p className="mt-1 text-sm font-semibold text-white">
+      <p className="mt-1 text-sm font-semibold text-bip-text">
         {value || "—"}
       </p>
     </div>
@@ -103,9 +103,9 @@ function InfoTile({
 function ActiveServicePill({ label, value }: { label: string; value: string }) {
   const tone = serviceTone(value);
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08]/80 bg-bip-card py-0.5 pl-2 pr-1">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-bip-border bg-bip-card py-0.5 pl-2 pr-1">
       
-      <span className="text-[11px] font-semibold text-white/75">
+      <span className="text-[11px] font-semibold text-bip-text">
         {label}
       </span>
       <span
@@ -120,34 +120,34 @@ function ActiveServicePill({ label, value }: { label: string; value: string }) {
 function BasecampThreadCard({ event }: { event: BasecampThreadEvent }) {
   const basecampUrl = openableBasecampUrl(event.thread_url);
   return (
-    <article className="rounded-xl border border-white/[0.08] bg-bip-card p-3">
+    <article className="rounded-xl border border-bip-border bg-bip-card p-3">
       
       <div className="mb-1.5 flex items-center justify-between gap-2">
         
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-white/75">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-bip-text">
           
           <MessageSquareText className="h-3.5 w-3.5" />
           {event.kind === "message" ? "Thread" : "Comment"}
         </span>
         <span
-          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${event.is_internal ? "bg-zinc-200 text-white/75" : "bg-amber-100 text-amber-800"}`}
+          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${event.is_internal ? "bg-zinc-200 text-white" : "bg-amber-100 text-amber-800"}`}
         >
           
           {event.is_internal ? "Internal" : "Client"}
         </span>
       </div>
-      <p className="text-xs text-white/50">
+      <p className="text-xs text-bip-muted">
         
         {formatDateTime(event.occurred_at)}
         {event.author_email ? ` · ${event.author_email}` : ""}
       </p>
       {norm(event.thread_title) && (
-        <p className="mt-2 text-sm font-semibold text-white">
+        <p className="mt-2 text-sm font-semibold text-bip-text">
           
           {event.thread_title}
         </p>
       )}
-      <p className="mt-1 text-sm leading-relaxed text-white/75">
+      <p className="mt-1 text-sm leading-relaxed text-bip-text">
         
         {previewText(event)}
       </p>
@@ -179,9 +179,9 @@ function DataRow({
       ? "font-semibold text-amber-800"
       : highlight === "emerald"
         ? "font-medium text-emerald-700"
-        : "font-medium text-white";
+        : "font-medium text-bip-text";
   return (
-    <tr className="border-b border-zinc-100 last:border-0"><th className="w-[44%] py-2.5 pr-3 text-left text-xs font-normal text-white/50">
+    <tr className="border-b border-zinc-100 last:border-0"><th className="w-[44%] py-2.5 pr-3 text-left text-xs font-normal text-bip-muted">
                   {label}
       </th><td className={`py-2.5 text-right text-sm ${valueClass}`}>
         {value}
@@ -223,7 +223,7 @@ export default function ClientProfileView({
   return (
     <div className="space-y-4">
       
-      <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-indigo-500 via-violet-600 to-fuchsia-600 p-[1px] shadow-none">
+      <div className="overflow-hidden rounded-2xl border border-bip-border bg-gradient-to-br from-indigo-500 via-violet-600 to-fuchsia-600 p-[1px] shadow-none">
         
         <div className="rounded-[15px] bg-bip-card p-4">
           
@@ -236,7 +236,7 @@ export default function ClientProfileView({
                 <Sparkles className="h-3 w-3" /> New client layout ·
                 preview
               </div>
-              <h2 className="text-lg font-semibold tracking-tight text-white">
+              <h2 className="text-lg font-semibold tracking-tight text-bip-text">
                 
                 {norm(form.account_name) || "Client profile"}
               </h2>
@@ -251,14 +251,14 @@ export default function ClientProfileView({
         <InfoTile label="Tier" value={norm(form.tier) || "—"} accent="sky" />
         <InfoTile label="Package hours" value={packageHours} />
       </div>
-      <section className="rounded-2xl border border-white/[0.08] bg-bip-card p-3">
+      <section className="rounded-2xl border border-bip-border bg-bip-card p-3">
         
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
           
           Active services
         </h3>
         {activeServices.length === 0 ? (
-          <p className="text-sm text-white/50">No active services on file.</p>
+          <p className="text-sm text-bip-muted">No active services on file.</p>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             
@@ -273,7 +273,7 @@ export default function ClientProfileView({
         )}
       </section>
       <section
-        className={`rounded-2xl border p-4 ${awaitingReply ? "border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50/40" : "border-white/[0.08] bg-bip-card"}`}
+        className={`rounded-2xl border p-4 ${awaitingReply ? "border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50/40" : "border-bip-border bg-bip-card"}`}
       >
         
         <div className="mb-3 flex items-center justify-between gap-2">
@@ -288,11 +288,11 @@ export default function ClientProfileView({
             </div>
             <div>
               
-              <h3 className="text-sm font-semibold text-white">
+              <h3 className="text-sm font-semibold text-bip-text">
                 
                 Communications
               </h3>
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-bip-muted">
                 
                 Reply state and recent thread activity
               </p>
@@ -305,7 +305,7 @@ export default function ClientProfileView({
             </span>
           )}
         </div>
-        <div className="overflow-hidden rounded-xl border border-white/60 bg-bip-card/80">
+        <div className="overflow-hidden rounded-xl border border-bip-border bg-bip-card/80">
           
           <table className="w-full px-1"><tbody>
               <DataRow
@@ -341,7 +341,7 @@ export default function ClientProfileView({
         {recentThreads.length > 0 && (
           <div className="mt-4 space-y-2">
             
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
               
               Latest Basecamp activity
             </p>

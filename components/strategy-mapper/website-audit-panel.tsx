@@ -16,7 +16,7 @@ import type {
 } from "@/types/strategy-mapper";
 
 const inputClass =
-  "w-full rounded-lg border border-white/[0.12] bg-bip-page px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
+  "w-full rounded-lg border border-bip-border bg-bip-page px-3 py-2.5 text-sm text-bip-text placeholder:text-bip-muted focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
 
 function IssueRow({ issue }: { issue: WebsiteSeoAuditIssue }) {
   const tone =
@@ -29,10 +29,10 @@ function IssueRow({ issue }: { issue: WebsiteSeoAuditIssue }) {
       <p className="font-medium">{issue.title}</p>
       <p className="mt-1 text-xs opacity-90">{issue.description}</p>
       {issue.recommendation ? (
-        <p className="mt-1 text-xs text-white/60">{issue.recommendation}</p>
+        <p className="mt-1 text-xs text-bip-muted">{issue.recommendation}</p>
       ) : null}
       {issue.url ? (
-        <p className="mt-1 truncate text-xs text-white/45">{issue.url}</p>
+        <p className="mt-1 truncate text-xs text-bip-muted">{issue.url}</p>
       ) : null}
     </li>
   );
@@ -92,13 +92,13 @@ export default function WebsiteAuditPanel({
         };
 
   return (
-    <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 sm:p-6">
+    <section className="rounded-xl border border-bip-border bg-bip-card p-5 sm:p-6">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-bip-accent">
             Website SEO Audit
           </h2>
-          <p className="mt-1 text-xs text-white/50">
+          <p className="mt-1 text-xs text-bip-muted">
             Crawl, Lighthouse, and keyword coverage vs the strategy matrix — run before
             building the report.
           </p>
@@ -113,7 +113,7 @@ export default function WebsiteAuditPanel({
       </div>
 
       <label className="block">
-        <span className="mb-1.5 block text-sm font-medium text-white/75">
+        <span className="mb-1.5 block text-sm font-medium text-bip-text">
           Current website URL
           {urlRequired ? <span className="text-bip-danger"> *</span> : null}
         </span>
@@ -124,7 +124,7 @@ export default function WebsiteAuditPanel({
           className={inputClass}
           placeholder="https://examplevet.com"
         />
-        <p className="mt-1 text-xs text-white/45">
+        <p className="mt-1 text-xs text-bip-muted">
           {urlRequired
             ? "Required for active or replacement sites."
             : "Optional — leave blank to skip audit for ground-up launches."}
@@ -150,7 +150,7 @@ export default function WebsiteAuditPanel({
           </span>
         ) : null}
         {audit?.skipped ? (
-          <span className="inline-flex items-center gap-1.5 self-center text-xs text-white/50">
+          <span className="inline-flex items-center gap-1.5 self-center text-xs text-bip-muted">
             Audit skipped (no URL)
           </span>
         ) : null}
@@ -165,19 +165,19 @@ export default function WebsiteAuditPanel({
       {audit && !audit.skipped ? (
         <div className="mt-5 space-y-5">
           <div className={`rounded-lg border px-4 py-3 text-sm ${modeBanner.className}`}>
-            <p className="font-medium text-white">{modeBanner.title}</p>
-            <p className="mt-1 text-xs text-white/60">{modeBanner.body}</p>
-            <p className="mt-2 truncate text-xs text-white/45">
+            <p className="font-medium text-bip-text">{modeBanner.title}</p>
+            <p className="mt-1 text-xs text-bip-muted">{modeBanner.body}</p>
+            <p className="mt-2 truncate text-xs text-bip-muted">
               Audited: {audit.finalUrl || audit.url}
             </p>
           </div>
 
           {audit.redFlagSummary.length > 0 ? (
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
                 Red flags
               </h3>
-              <ul className="space-y-1.5 text-sm text-white/75">
+              <ul className="space-y-1.5 text-sm text-bip-text">
                 {audit.redFlagSummary.map((item) => (
                   <li key={item} className="flex gap-2">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
@@ -190,20 +190,20 @@ export default function WebsiteAuditPanel({
 
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
                 Homepage
               </h3>
-              <dl className="space-y-1 text-xs text-white/60">
+              <dl className="space-y-1 text-xs text-bip-muted">
                 <div>
-                  <dt className="text-white/40">Title</dt>
+                  <dt className="text-bip-muted">Title</dt>
                   <dd>{audit.homepage.title ?? "Missing"}</dd>
                 </div>
                 <div>
-                  <dt className="text-white/40">Meta description</dt>
+                  <dt className="text-bip-muted">Meta description</dt>
                   <dd>{audit.homepage.metaDescription ?? "Missing"}</dd>
                 </div>
                 <div>
-                  <dt className="text-white/40">H1 count</dt>
+                  <dt className="text-bip-muted">H1 count</dt>
                   <dd>{audit.homepage.h1Count}</dd>
                 </div>
               </dl>
@@ -217,7 +217,7 @@ export default function WebsiteAuditPanel({
             </div>
 
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
                 Crawl ({audit.crawl.pagesScanned} pages, {audit.crawl.issueCount} issues)
               </h3>
               {audit.crawl.topIssues.length > 0 ? (
@@ -227,14 +227,14 @@ export default function WebsiteAuditPanel({
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-white/50">No crawl issues detected.</p>
+                <p className="text-xs text-bip-muted">No crawl issues detected.</p>
               )}
               {audit.lighthouse ? (
-                <p className="mt-3 text-xs text-white/60">
+                <p className="mt-3 text-xs text-bip-muted">
                   Lighthouse SEO score: {audit.lighthouse.scores.seo ?? "N/A"}
                 </p>
               ) : (
-                <p className="mt-3 text-xs text-white/45">
+                <p className="mt-3 text-xs text-bip-muted">
                   Lighthouse unavailable — homepage and crawl findings only.
                 </p>
               )}
@@ -243,12 +243,12 @@ export default function WebsiteAuditPanel({
 
           {audit.keywordAlignment.matrixRows.length > 0 ? (
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
                 Keyword coverage (not literal density)
               </h3>
-              <div className="overflow-x-auto rounded-lg border border-white/[0.08]">
+              <div className="overflow-x-auto rounded-lg border border-bip-border">
                 <table className="min-w-full text-left text-xs">
-                  <thead className="bg-bip-page/60 text-white/45">
+                  <thead className="bg-bip-page/60 text-bip-muted">
                     <tr>
                       <th className="px-3 py-2 font-medium">Target keyword</th>
                       <th className="px-3 py-2 font-medium">Found on</th>
@@ -256,9 +256,9 @@ export default function WebsiteAuditPanel({
                   </thead>
                   <tbody>
                     {audit.keywordAlignment.coverage.map((row) => (
-                      <tr key={row.keyword} className="border-t border-white/[0.06]">
-                        <td className="px-3 py-2 text-white/75">{row.keyword}</td>
-                        <td className="px-3 py-2 text-white/60">
+                      <tr key={row.keyword} className="border-t border-bip-border">
+                        <td className="px-3 py-2 text-bip-text">{row.keyword}</td>
+                        <td className="px-3 py-2 text-bip-muted">
                           {row.foundIn.length ? row.foundIn.join(", ") : "Not found"}
                         </td>
                       </tr>
@@ -267,7 +267,7 @@ export default function WebsiteAuditPanel({
                 </table>
               </div>
               {audit.keywordAlignment.aiSummary ? (
-                <p className="mt-2 text-xs text-white/50">{audit.keywordAlignment.aiSummary}</p>
+                <p className="mt-2 text-xs text-bip-muted">{audit.keywordAlignment.aiSummary}</p>
               ) : null}
             </div>
           ) : null}

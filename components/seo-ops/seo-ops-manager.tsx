@@ -62,11 +62,11 @@ export default function SeoOpsManager({ userEmail }: { userEmail?: string }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-bip-page">
-      <header className="flex shrink-0 items-center justify-between border-b border-white/[0.08] bg-bip-card px-6 py-4">
+      <header className="flex shrink-0 items-center justify-between border-b border-bip-border bg-bip-card px-6 py-4">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-bip-card text-white/75 transition hover:bg-bip-page"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-bip-border bg-bip-card text-bip-text transition hover:bg-bip-page"
             title="Control panel"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -75,8 +75,8 @@ export default function SeoOpsManager({ userEmail }: { userEmail?: string }) {
             <Building2 className="h-5 w-5" aria-hidden />
           </div>
           <div>
-            <h1 className="text-lg font-semibold tracking-tight text-white">SEO Ops</h1>
-            <p className="text-xs text-white/50">
+            <h1 className="text-lg font-semibold tracking-tight text-bip-text">SEO Ops</h1>
+            <p className="text-xs text-bip-muted">
               Weekly & monthly strategist checklist · {userEmail ?? "Signed in"}
             </p>
           </div>
@@ -90,41 +90,41 @@ export default function SeoOpsManager({ userEmail }: { userEmail?: string }) {
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-white">{headline}</p>
+            <p className="text-sm font-medium text-bip-text">{headline}</p>
             {summary && (
-              <p className="mt-1 text-xs text-white/50">
+              <p className="mt-1 text-xs text-bip-muted">
                 {summary.weeklyIncomplete} weekly incomplete ·{" "}
                 {summary.monthlyIncomplete} monthly incomplete
               </p>
             )}
           </div>
-          <label className="inline-flex items-center gap-2 text-xs text-white/75">
+          <label className="inline-flex items-center gap-2 text-xs text-bip-text">
             <input
               type="checkbox"
               checked={mineOnly}
               onChange={(event) => setMineOnly(event.target.checked)}
-              className="rounded border-white/20"
+              className="rounded border-bip-border"
             />
             My clients only
           </label>
         </div>
 
         {loading ? (
-          <div className="flex items-center gap-2 text-sm text-white/50">
+          <div className="flex items-center gap-2 text-sm text-bip-muted">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading queue…
           </div>
         ) : error ? (
           <p className="text-sm text-red-500">{error}</p>
         ) : clients.length === 0 ? (
-          <p className="rounded-lg border border-white/[0.08] bg-bip-card px-4 py-6 text-sm text-white/75">
+          <p className="rounded-lg border border-bip-border bg-bip-card px-4 py-6 text-sm text-bip-text">
             No SEO-active clients in the queue.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-bip-card">
+          <div className="overflow-hidden rounded-xl border border-bip-border bg-bip-card">
             <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-white/[0.08] bg-bip-page text-xs uppercase tracking-wide text-white/50">
+                <tr className="border-b border-bip-border bg-bip-page text-xs uppercase tracking-wide text-bip-muted">
                   <th className="px-4 py-3 font-semibold">Client</th>
                   <th className="px-4 py-3 font-semibold">Strategist</th>
                   <th className="px-4 py-3 font-semibold">Weekly</th>
@@ -137,17 +137,17 @@ export default function SeoOpsManager({ userEmail }: { userEmail?: string }) {
                 {clients.map((row) => (
                   <tr
                     key={row.clientId}
-                    className="border-b border-white/[0.08] last:border-0 hover:bg-white/[0.03]"
+                    className="border-b border-bip-border last:border-0 hover:bg-bip-hover"
                   >
                     <td className="px-4 py-3">
                       <Link
                         href={`/dashboard/clients/${row.clientId}?tab=seo_ops`}
-                        className="font-medium text-white hover:text-bip-accent"
+                        className="font-medium text-bip-text hover:text-bip-accent"
                       >
                         {row.accountName}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-white/75">
+                    <td className="px-4 py-3 text-bip-text">
                       {row.marketingStrategist ?? "—"}
                     </td>
                     <td className="px-4 py-3">
@@ -162,10 +162,10 @@ export default function SeoOpsManager({ userEmail }: { userEmail?: string }) {
                         total={row.monthlyTotalCount}
                       />
                     </td>
-                    <td className="max-w-xs truncate px-4 py-3 text-xs text-white/50">
+                    <td className="max-w-xs truncate px-4 py-3 text-xs text-bip-muted">
                       {row.topBlockerHint ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-xs text-white/50">
+                    <td className="px-4 py-3 text-xs text-bip-muted">
                       {row.gscSnapshotUpdatedAt
                         ? new Date(row.gscSnapshotUpdatedAt).toLocaleDateString()
                         : "Never"}

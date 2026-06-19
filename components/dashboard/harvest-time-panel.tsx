@@ -42,7 +42,7 @@ export default function HarvestTimePanel({
   }
   return (
     <section
-      className={`rounded-xl border border-white/[0.08] bg-bip-card/50 p-5 ${embedded ? "" : "mb-8"}`}
+      className={`rounded-xl border border-bip-border bg-bip-card/50 p-5 ${embedded ? "" : "mb-8"}`}
     >
       
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -52,12 +52,12 @@ export default function HarvestTimePanel({
           <div className="flex items-center gap-2">
             
             <Clock className="text-bip-accent" size={18} />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-white/75">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-bip-text">
               
               Harvest time check
             </h2>
           </div>
-          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-white/50">
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-bip-muted">
             
             Pull strategist hours and flag marketing clients with no Harvest
             time for the previous or current calendar month. Requires admin
@@ -72,7 +72,7 @@ export default function HarvestTimePanel({
           type="button"
           onClick={() => void loadReport()}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-white transition hover:brightness-110 disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-bip-text transition hover:brightness-110 disabled:opacity-60"
         >
           
           {loading ? (
@@ -92,7 +92,7 @@ export default function HarvestTimePanel({
       {report ? (
         <div className="mt-5 space-y-6">
           
-          <p className="text-[11px] text-white/50">
+          <p className="text-[11px] text-bip-muted">
             
             Pulled {new Date(report.fetchedAt).toLocaleString()} · Previous
             month:{""} {report.previousMonth.label} ({report.previousMonth.from}
@@ -102,20 +102,20 @@ export default function HarvestTimePanel({
           </p>
           <div>
             
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
               
               Marketing strategists
             </h3>
-            <div className="overflow-x-auto rounded-lg border border-white/[0.08]">
+            <div className="overflow-x-auto rounded-lg border border-bip-border">
               
-              <table className="min-w-full text-left text-xs"><thead className="bg-bip-card/60 text-white/50"><tr><th className="px-3 py-2 font-medium">Strategist</th><th className="px-3 py-2 font-medium">Harvest match</th><th className="px-3 py-2 font-medium">
+              <table className="min-w-full text-left text-xs"><thead className="bg-bip-card/60 text-bip-muted"><tr><th className="px-3 py-2 font-medium">Strategist</th><th className="px-3 py-2 font-medium">Harvest match</th><th className="px-3 py-2 font-medium">
                       {report.previousMonth.label}
                     </th><th className="px-3 py-2 font-medium">
                       {report.currentMonth.label}
                     </th></tr></thead><tbody>{report.strategists.map((row) => (
-                    <tr key={row.name} className="border-t border-white/[0.08]"><td className="px-3 py-2 text-white/75">
+                    <tr key={row.name} className="border-t border-bip-border"><td className="px-3 py-2 text-bip-text">
                         {row.name}
-                      </td><td className="px-3 py-2 text-white/50">
+                      </td><td className="px-3 py-2 text-bip-muted">
                         
                         {row.matched
                           ? row.harvestUserName
@@ -165,12 +165,12 @@ export default function HarvestTimePanel({
           {report.clientsWithoutHarvestProject.length > 0 ? (
             <div>
               
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
                 
                 Marketing clients missing Harvest project ID (
                 {report.clientsWithoutHarvestProject.length})
               </h3>
-              <ul className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-white/50">
+              <ul className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-bip-border px-3 py-2 text-xs text-bip-muted">
                 
                 {report.clientsWithoutHarvestProject.map((client) => (
                   <li key={client.clientId}>
@@ -207,7 +207,7 @@ function ClientGapList({
   return (
     <div>
       
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
         
         {title} ({count})
       </h3>
@@ -217,10 +217,10 @@ function ClientGapList({
           All linked marketing clients have hours logged.
         </p>
       ) : (
-        <ul className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-white/[0.08] px-3 py-2 text-xs">
+        <ul className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-bip-border px-3 py-2 text-xs">
           
           {rows.map((client) => (
-            <li key={client.clientId} className="text-white/75">
+            <li key={client.clientId} className="text-bip-text">
               
               <Link
                 href={"/dashboard/clients/" + String(client.clientId)}
@@ -230,7 +230,7 @@ function ClientGapList({
                 {client.accountName}
               </Link>
               {client.marketingStrategist ? (
-                <span className="text-white/50">
+                <span className="text-bip-muted">
                   
                   · {client.marketingStrategist}
                 </span>

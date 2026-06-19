@@ -107,13 +107,13 @@ export default function NotifyStrategistButton({
         <Bell size={14} /> Notify strategist
       </button>
       {open ? (
-        <div className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-white/[0.08]/80 bg-bip-card p-3 shadow-xl">
+        <div className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-bip-border bg-bip-card p-3 shadow-xl">
           
-          <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
+          <p className="text-xs font-semibold uppercase tracking-wider text-bip-muted">
             
             Select recipient
           </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-white/50">
+          <p className="mt-1 text-[11px] leading-relaxed text-bip-muted">
             
             Opens a pre-filled email draft in your mail app.
           </p>
@@ -137,7 +137,7 @@ export default function NotifyStrategistButton({
                       type="button"
                       disabled={disabled}
                       onClick={() => setSelectedName(contact.name)}
-                      className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition ${disabled ? "cursor-not-allowed border-white/[0.08] bg-bip-card/40 text-slate-600" : isSelected ? "border-indigo-500/40 bg-bip-accent/10 text-indigo-200" : "border-white/[0.08] bg-bip-card/60 text-white/75 hover:border-white/[0.08] hover:bg-bip-card/60"}`}
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition ${disabled ? "cursor-not-allowed border-bip-border bg-bip-card/40 text-slate-600" : isSelected ? "border-indigo-500/40 bg-bip-accent/10 text-indigo-200" : "border-bip-border bg-bip-card/60 text-bip-text hover:border-bip-border hover:bg-bip-card/60"}`}
                     >
                       
                       <span>
@@ -170,7 +170,7 @@ export default function NotifyStrategistButton({
               type="button"
               onClick={() => void handleOpenDraft()}
               disabled={!canNotify || opening}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-white transition hover:bg-bip-accent disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-accent disabled:opacity-50"
             >
               
               {opening ? (
@@ -183,14 +183,14 @@ export default function NotifyStrategistButton({
               onClick={() => void handleCopyDraft()}
               disabled={!canNotify}
               title="Copy mailto link"
-              className="rounded-lg border border-white/[0.08] px-3 py-2 text-white/50 transition hover:bg-bip-card/60 hover:text-white/75 disabled:opacity-50"
+              className="rounded-lg border border-bip-border px-3 py-2 text-bip-muted transition hover:bg-bip-card/60 hover:text-bip-text disabled:opacity-50"
             >
               
               <Copy size={14} />
             </button>
           </div>
           {copyMessage ? (
-            <p className="mt-2 text-[11px] text-white/50">{copyMessage}</p>
+            <p className="mt-2 text-[11px] text-bip-muted">{copyMessage}</p>
           ) : null}
         </div>
       ) : null}

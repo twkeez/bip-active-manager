@@ -99,11 +99,11 @@ export default function AuditExportDialog({ run, onClose }: Props) {
           `,
         }}
       />
-      <div className="vet-output-no-print flex shrink-0 flex-col gap-3 border-b border-white/[0.08] bg-bip-card px-4 py-3">
+      <div className="vet-output-no-print flex shrink-0 flex-col gap-3 border-b border-bip-border bg-bip-card px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-white">Export site audit</p>
-            <p className="text-xs text-white/50">
+            <p className="text-sm font-semibold text-bip-text">Export site audit</p>
+            <p className="text-xs text-bip-muted">
               Edit headings, text, and metrics in place — hide or remove anything you do not want in
               the PDF
             </p>
@@ -112,7 +112,7 @@ export default function AuditExportDialog({ run, onClose }: Props) {
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.12] bg-bip-page px-3 py-2 text-sm text-white/75 hover:bg-white/[0.06]"
+              className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-page px-3 py-2 text-sm text-bip-text hover:bg-bip-fill"
             >
               <RotateCcw className="h-4 w-4" />
               Reset
@@ -120,7 +120,7 @@ export default function AuditExportDialog({ run, onClose }: Props) {
             <button
               type="button"
               onClick={() => void handleCopy()}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.12] bg-bip-page px-3 py-2 text-sm text-white/75 hover:bg-white/[0.06]"
+              className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-page px-3 py-2 text-sm text-bip-text hover:bg-bip-fill"
             >
               <ClipboardCopy className="h-4 w-4" />
               {copied ? "Copied!" : "Copy for Google Docs"}
@@ -136,7 +136,7 @@ export default function AuditExportDialog({ run, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.12] px-3 py-2 text-sm text-white/75 hover:bg-white/[0.06]"
+              className="inline-flex items-center gap-2 rounded-lg border border-bip-border px-3 py-2 text-sm text-bip-text hover:bg-bip-fill"
             >
               <X className="h-4 w-4" />
               Close
@@ -144,13 +144,13 @@ export default function AuditExportDialog({ run, onClose }: Props) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-white/50">Add block:</span>
+          <span className="text-xs text-bip-muted">Add block:</span>
           {ADD_BLOCK_OPTIONS.map((option) => (
             <button
               key={option.kind}
               type="button"
               onClick={() => handleAddBlock(option.kind)}
-              className="inline-flex items-center gap-1 rounded-md border border-white/[0.12] px-2.5 py-1 text-xs text-white/75 hover:bg-white/[0.06]"
+              className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2.5 py-1 text-xs text-bip-text hover:bg-bip-fill"
             >
               <Plus className="h-3 w-3" />
               {option.label}

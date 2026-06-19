@@ -47,25 +47,25 @@ export default function ClientListFilterBar({
     );
   }
   return (
-    <div className="mb-4 rounded-xl border border-white/[0.08] bg-bip-card p-4 shadow-none">
+    <div className="mb-4 rounded-xl border border-bip-border bg-bip-card p-4 shadow-none">
       
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         
         <div className="flex flex-1 flex-col gap-3 sm:max-w-md">
           
-          <label className="text-xs font-semibold uppercase tracking-wide text-white/50">
+          <label className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
             
             Search clients
           </label>
           <div className="relative">
             
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-bip-muted" />
             <input
               type="search"
               placeholder="Search by client name…"
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
-              className="w-full rounded-lg border border-white/[0.08] bg-bip-card py-2.5 pl-10 pr-3 text-sm text-white shadow-none placeholder:text-white/40 focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+              className="w-full rounded-lg border border-bip-border bg-bip-card py-2.5 pl-10 pr-3 text-sm text-bip-text shadow-none placeholder:text-bip-muted focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
             />
           </div>
         </div>
@@ -73,7 +73,7 @@ export default function ClientListFilterBar({
           
           <label
             htmlFor="client-status-filter"
-            className="text-xs font-semibold uppercase tracking-wide text-white/50"
+            className="text-xs font-semibold uppercase tracking-wide text-bip-muted"
           >
             
             Status
@@ -84,7 +84,7 @@ export default function ClientListFilterBar({
             onChange={(event) =>
               onStatusFilterChange(event.target.value as ClientStatusFilter)
             }
-            className="min-w-[160px] rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2.5 text-sm text-white shadow-none focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+            className="min-w-[160px] rounded-lg border border-bip-border bg-bip-card px-3 py-2.5 text-sm text-bip-text shadow-none focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
           >
             
             {STATUS_OPTIONS.map((option) => (
@@ -99,7 +99,7 @@ export default function ClientListFilterBar({
           
           <label
             htmlFor="client-onboarding-filter"
-            className="text-xs font-semibold uppercase tracking-wide text-white/50"
+            className="text-xs font-semibold uppercase tracking-wide text-bip-muted"
           >
             
             Onboarding
@@ -110,7 +110,7 @@ export default function ClientListFilterBar({
             onChange={(event) =>
               onOnboardingFilterChange(event.target.value as OnboardingFilter)
             }
-            className="min-w-[160px] rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2.5 text-sm text-white shadow-none focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+            className="min-w-[160px] rounded-lg border border-bip-border bg-bip-card px-3 py-2.5 text-sm text-bip-text shadow-none focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
           >
             
             {ONBOARDING_OPTIONS.map((option) => (
@@ -123,7 +123,7 @@ export default function ClientListFilterBar({
         </div>
         <div className="flex flex-col gap-2">
           
-          <span className="text-xs font-semibold uppercase tracking-wide text-white/50">
+          <span className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
             
             Active services
           </span>
@@ -137,7 +137,7 @@ export default function ClientListFilterBar({
                   type="button"
                   aria-pressed={active}
                   onClick={() => toggleService(option.key)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${active ? "bg-bip-accent text-bip-page" : "border border-white/[0.08] bg-bip-page text-white/75 hover:bg-white/[0.06]"}`}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${active ? "bg-bip-accent text-bip-page" : "border border-bip-border bg-bip-page text-bip-text hover:bg-bip-fill"}`}
                 >
                   
                   {option.label}

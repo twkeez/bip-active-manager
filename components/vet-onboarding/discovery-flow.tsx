@@ -31,7 +31,7 @@ import type {
 } from "@/types/onboarding";
 
 const inputClass =
-  "w-full rounded-lg border border-white/[0.12] bg-bip-page px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
+  "w-full rounded-lg border border-bip-border bg-bip-page px-3 py-2.5 text-sm text-bip-text placeholder:text-bip-muted focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
 
 function Field({
   label,
@@ -44,7 +44,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-white/75">
+      <span className="mb-1.5 block text-sm font-medium text-bip-text">
         {label}
         {required ? <span className="text-bip-danger"> *</span> : null}
       </span>
@@ -71,8 +71,8 @@ function RadioGroup({
           key={option}
           className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm transition ${
             value === option
-              ? "border-bip-accent bg-bip-accent/10 ring-1 ring-bip-accent text-white"
-              : "border-white/[0.08] bg-bip-page text-white/75 hover:border-bip-accent"
+              ? "border-bip-accent bg-bip-accent/10 ring-1 ring-bip-accent text-bip-text"
+              : "border-bip-border bg-bip-page text-bip-text hover:border-bip-accent"
           }`}
         >
           <input
@@ -87,7 +87,7 @@ function RadioGroup({
             className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
               value === option
                 ? "border-bip-accent bg-bip-accent"
-                : "border-white/30"
+                : "border-bip-border"
             }`}
           >
             {value === option ? (
@@ -121,8 +121,8 @@ function MultiSelect({
             onClick={() => onToggle(option)}
             className={`rounded-lg border px-4 py-3 text-left text-sm transition ${
               isSelected
-                ? "border-bip-accent bg-bip-accent/10 text-white ring-1 ring-bip-accent"
-                : "border-white/[0.08] bg-bip-page text-white/75 hover:border-bip-accent"
+                ? "border-bip-accent bg-bip-accent/10 text-bip-text ring-1 ring-bip-accent"
+                : "border-bip-border bg-bip-page text-bip-text hover:border-bip-accent"
             }`}
           >
             <span className="mr-2">{isSelected ? "☑" : "☐"}</span>
@@ -313,7 +313,7 @@ export default function DiscoveryFlow({
   }
 
   return (
-    <div className="min-h-screen bg-bip-page font-sans text-white/75">
+    <div className="min-h-screen bg-bip-page font-sans text-bip-text">
       <BrandHeader />
       <div className="px-4 py-10 sm:px-6">
         <div className="mx-auto max-w-2xl">
@@ -321,17 +321,17 @@ export default function DiscoveryFlow({
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.06]"
+              className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text transition hover:bg-bip-fill"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to plan
             </button>
-            <p className="text-xs text-white/50">{clientData.practiceName}</p>
+            <p className="text-xs text-bip-muted">{clientData.practiceName}</p>
           </div>
 
           <header className="mb-8 text-center">
-            <h1 className="text-2xl font-bold text-white">Full Discovery</h1>
-            <p className="mt-2 text-sm text-white/75">
+            <h1 className="text-2xl font-bold text-bip-text">Full Discovery</h1>
+            <p className="mt-2 text-sm text-bip-text">
               A deeper diagnostic for {clientData.practiceName} — building on your
               onboarding intake to produce a strategic discovery report.
             </p>
@@ -350,14 +350,14 @@ export default function DiscoveryFlow({
                         ? "bg-bip-accent text-bip-page"
                         : done
                           ? "bg-bip-accent/20 text-bip-accent"
-                          : "bg-white/[0.06] text-white/40"
+                          : "bg-bip-fill text-bip-muted"
                     }`}
                   >
                     {stepNum}
                   </div>
                   <span
                     className={`hidden text-sm sm:inline ${
-                      active ? "font-medium text-white" : "text-white/50"
+                      active ? "font-medium text-bip-text" : "text-bip-muted"
                     }`}
                   >
                     {label}
@@ -365,7 +365,7 @@ export default function DiscoveryFlow({
                   {i < DISCOVERY_STEPS.length - 1 ? (
                     <div
                       className={`mx-1 h-px w-8 sm:w-12 ${
-                        done ? "bg-bip-accent" : "bg-white/[0.08]"
+                        done ? "bg-bip-accent" : "bg-bip-fill"
                       }`}
                     />
                   ) : null}
@@ -374,10 +374,10 @@ export default function DiscoveryFlow({
             })}
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-bip-card p-6 shadow-none sm:p-8">
+          <div className="rounded-2xl border border-bip-border bg-bip-card p-6 shadow-none sm:p-8">
             {step === 1 ? (
               <div className="space-y-5">
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-bip-text">
                   Capacity &amp; Practice DNA
                 </h2>
                 <Field label="Are they looking for more clients, or better/higher-margin clients?" required>
@@ -463,7 +463,7 @@ export default function DiscoveryFlow({
 
             {step === 2 ? (
               <div className="space-y-5">
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-bip-text">
                   Reputation &amp; Digital Audit
                 </h2>
                 <Field label="Current Google star rating" required>
@@ -552,7 +552,7 @@ export default function DiscoveryFlow({
 
             {step === 3 ? (
               <div className="space-y-5">
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-bip-text">
                   Competitive Landscape
                 </h2>
                 <Field label="Clinic setting" required>
@@ -609,7 +609,7 @@ export default function DiscoveryFlow({
                     className={inputClass}
                     placeholder="e.g. Riverside Animal Hospital, VCA Austin"
                   />
-                  <p className="mt-1 text-xs text-white/50">
+                  <p className="mt-1 text-xs text-bip-muted">
                     Comma-separated — we will look up ratings, ads, and social
                     presence.
                   </p>
@@ -627,7 +627,7 @@ export default function DiscoveryFlow({
               <button
                 type="button"
                 onClick={handleBack}
-                className="rounded-lg border border-white/[0.08] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/[0.06]"
+                className="rounded-lg border border-bip-border px-5 py-2.5 text-sm font-medium text-bip-text transition hover:bg-bip-fill"
               >
                 Back
               </button>

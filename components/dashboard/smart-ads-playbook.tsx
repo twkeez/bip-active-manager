@@ -14,9 +14,9 @@ import {
 } from "@/lib/ads/smart-playbook";
 import type { AdsSnapshot } from "@/lib/types/client";
 const panelClass =
-  "rounded-xl border border-white/[0.08] bg-bip-card/50 text-white";
+  "rounded-xl border border-bip-border bg-bip-card/50 text-bip-text";
 const taskCardClass =
-  "flex flex-col items-start justify-between gap-4 rounded-xl border border-white/[0.08] bg-bip-card/40 p-5 transition hover:border-white/[0.08] md:flex-row md:items-center";
+  "flex flex-col items-start justify-between gap-4 rounded-xl border border-bip-border bg-bip-card/40 p-5 transition hover:border-bip-border md:flex-row md:items-center";
 type SmartAdsPlaybookProps = {
   adsSnapshot: AdsSnapshot;
   clientName?: string;
@@ -38,7 +38,7 @@ function KeywordInlineList({
       {shown.map((keyword, index) => (
         <span key={keyword}>
           
-          <span className="font-mono text-white/75">
+          <span className="font-mono text-bip-text">
             &quot;{keyword}&quot;
           </span>
           {index < shown.length - 2 ? "," : null}
@@ -46,7 +46,7 @@ function KeywordInlineList({
         </span>
       ))}
       {overflow > 0 ? (
-        <span className="text-white/50"> (+{overflow} more)</span>
+        <span className="text-bip-muted"> (+{overflow} more)</span>
       ) : null}
     </>
   );
@@ -116,15 +116,15 @@ export default function SmartAdsPlaybook({
     ? className
     : `${panelClass} p-6 ${className}`.trim();
   const header = (
-    <div className="mb-6 flex items-center gap-2 border-b border-white/[0.08] pb-3">
+    <div className="mb-6 flex items-center gap-2 border-b border-bip-border pb-3">
       
       <Sparkles className="fill-indigo-400/20 text-bip-accent" size={18} />
       <div>
         
-        <h3 className="text-base font-semibold text-white">
+        <h3 className="text-base font-semibold text-bip-text">
           Smart Optimization Playbook
         </h3>
-        <p className="text-xs text-white/50">
+        <p className="text-xs text-bip-muted">
           
           {visibleTasks.length === 0
             ? "No grouped interventions from the latest quality score flags or budget caps."
@@ -153,11 +153,11 @@ export default function SmartAdsPlaybook({
                     
                     <PenTool size={14} /> Ad Copy Relevance Gap
                   </div>
-                  <h4 className="text-sm font-medium text-white">
+                  <h4 className="text-sm font-medium text-bip-text">
                     
                     Inject Missing Keywords into Headlines
                   </h4>
-                  <p className="max-w-xl text-xs text-white/50">
+                  <p className="max-w-xl text-xs text-bip-muted">
                     
                     The keywords <KeywordInlineList
                       keywords={task.keywords}
@@ -173,7 +173,7 @@ export default function SmartAdsPlaybook({
                     href="https://ads.google.com/aw/adwords/express/campaigns"
                     target="_blank"
                     rel="noreferrer"
-                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-white transition hover:bg-bip-accent md:flex-initial"
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-accent md:flex-initial"
                   >
                     
                     Edit Ad Copy <ArrowRight size={12} />
@@ -183,7 +183,7 @@ export default function SmartAdsPlaybook({
                     onClick={() =>
                       setDismissed((prev) => new Set(prev).add(task.kind))
                     }
-                    className="flex-1 rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2 text-xs font-medium text-white/50 transition hover:bg-bip-card/70 md:flex-initial"
+                    className="flex-1 rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2 text-xs font-medium text-bip-muted transition hover:bg-bip-card/70 md:flex-initial"
                   >
                     
                     Ignore
@@ -202,14 +202,14 @@ export default function SmartAdsPlaybook({
                     
                     <Layers size={14} /> CTR Optimization
                   </div>
-                  <h4 className="text-sm font-medium text-white">
+                  <h4 className="text-sm font-medium text-bip-text">
                     
                     Deploy Visual Sitelink &amp; Callout Extensions
                   </h4>
-                  <p className="max-w-xl text-xs text-white/50">
+                  <p className="max-w-xl text-xs text-bip-muted">
                     
                     Expected CTR is lagging for{""}
-                    <span className="text-white/75">
+                    <span className="text-bip-text">
                       {describeAdGroups(task.adGroupNames)}
                     </span>
                     {task.keywords.length > 0 ? (
@@ -235,7 +235,7 @@ export default function SmartAdsPlaybook({
                     href="https://ads.google.com/aw/adextensions"
                     target="_blank"
                     rel="noreferrer"
-                    className="flex flex-1 rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2 text-xs font-medium text-white/75 transition hover:bg-bip-card/70 md:flex-initial"
+                    className="flex flex-1 rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-card/70 md:flex-initial"
                   >
                     
                     Manage Extensions
@@ -245,7 +245,7 @@ export default function SmartAdsPlaybook({
                     onClick={() =>
                       setSnoozed((prev) => new Set(prev).add(task.kind))
                     }
-                    className="flex-1 rounded-lg bg-bip-card/30 px-3 py-2 text-xs font-medium text-white/50 transition hover:bg-bip-card/50 md:flex-initial"
+                    className="flex-1 rounded-lg bg-bip-card/30 px-3 py-2 text-xs font-medium text-bip-muted transition hover:bg-bip-card/50 md:flex-initial"
                   >
                     
                     Snooze
@@ -264,11 +264,11 @@ export default function SmartAdsPlaybook({
                   
                   <TrendingUp size={14} /> Impression Share Capture
                 </div>
-                <h4 className="text-sm font-medium text-white">
+                <h4 className="text-sm font-medium text-bip-text">
                   
                   Request {expansionPct}% Budget Expansion Allocation
                 </h4>
-                <p className="max-w-xl text-xs text-white/50">
+                <p className="max-w-xl text-xs text-bip-muted">
                   
                   Campaign budget limits are artificially shutting off your ads
                   prematurely, missing exactly

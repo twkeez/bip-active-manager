@@ -22,11 +22,11 @@ type PlaybookGuidancePanelProps = {
 };
 function PlaybookSectionBody({ section }: { section: PlaybookSection }) {
   return (
-    <div className="space-y-3 text-xs leading-relaxed text-white/75">
+    <div className="space-y-3 text-xs leading-relaxed text-bip-text">
       
       <div>
         
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-bip-muted">
           
           The Root Cause
         </p>
@@ -34,7 +34,7 @@ function PlaybookSectionBody({ section }: { section: PlaybookSection }) {
       </div>
       <div className="space-y-1.5">
         
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-bip-muted">
           
           Step-by-Step Fix
         </p>
@@ -50,7 +50,7 @@ function PlaybookSectionBody({ section }: { section: PlaybookSection }) {
         ))}
       </div>
       {section.proTip ? (
-        <div className="flex gap-2 rounded-lg border border-indigo-500/10 bg-bip-accent/5 p-2.5 text-white/50">
+        <div className="flex gap-2 rounded-lg border border-indigo-500/10 bg-bip-accent/5 p-2.5 text-bip-muted">
           
           <Lightbulb
             size={14}
@@ -76,7 +76,7 @@ function AccordionItem({
   onToggle: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-white/[0.08] bg-bip-card/40">
+    <div className="overflow-hidden rounded-lg border border-bip-border bg-bip-card/40">
       
       <button
         type="button"
@@ -84,19 +84,19 @@ function AccordionItem({
         className="flex w-full items-center justify-between p-4 text-left transition hover:bg-bip-card/30"
       >
         
-        <div className="flex items-center gap-2 text-sm font-medium text-white/75">
+        <div className="flex items-center gap-2 text-sm font-medium text-bip-text">
           
           <span className={`h-2 w-2 rounded-full ${section.dotClass}`} />
           {section.title}
         </div>
         {isOpen ? (
-          <ChevronUp size={16} className="shrink-0 text-white/50" />
+          <ChevronUp size={16} className="shrink-0 text-bip-muted" />
         ) : (
-          <ChevronDown size={16} className="shrink-0 text-white/50" />
+          <ChevronDown size={16} className="shrink-0 text-bip-muted" />
         )}
       </button>
       {isOpen ? (
-        <div className="border-t border-white/[0.08] bg-bip-card/20 p-4">
+        <div className="border-t border-bip-border bg-bip-card/20 p-4">
           
           <PlaybookSectionBody section={section} />
         </div>
@@ -153,16 +153,16 @@ export default function PlaybookGuidancePanel({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isDrawerOpen]);
   const header = (
-    <div className="flex items-center gap-2 border-b border-white/[0.08] pb-3">
+    <div className="flex items-center gap-2 border-b border-bip-border pb-3">
       
       <BookOpen className="text-bip-accent" size={18} />
       <div>
         
-        <h3 className="text-base font-semibold text-white">
+        <h3 className="text-base font-semibold text-bip-text">
           
           Standard Operating Playbook &amp; Best Practices
         </h3>
-        <p className="text-xs text-white/50">
+        <p className="text-xs text-bip-muted">
           
           Contextual agency execution playbooks for resolving flagged
           performance defects.
@@ -192,16 +192,16 @@ export default function PlaybookGuidancePanel({
               onClick={() => setIsDrawerOpen(false)}
             />
             <aside
-              className={`relative flex h-full w-full max-w-md flex-col border-l border-white/[0.08] bg-bip-page shadow-2xl ${className}`}
+              className={`relative flex h-full w-full max-w-md flex-col border-l border-bip-border bg-bip-page shadow-2xl ${className}`}
             >
               
-              <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] p-5">
+              <div className="flex items-start justify-between gap-3 border-b border-bip-border p-5">
                 
                 {header}
                 <button
                   type="button"
                   onClick={() => setIsDrawerOpen(false)}
-                  className="rounded-lg border border-white/[0.08] p-2 text-white/50 transition hover:bg-bip-card/60 hover:text-white/75"
+                  className="rounded-lg border border-bip-border p-2 text-bip-muted transition hover:bg-bip-card/60 hover:text-bip-text"
                 >
                   
                   <X size={16} />
@@ -223,7 +223,7 @@ export default function PlaybookGuidancePanel({
   }
   return (
     <div
-      className={`rounded-xl border border-white/[0.08] bg-bip-card/40 p-6 font-sans ${className}`}
+      className={`rounded-xl border border-bip-border bg-bip-card/40 p-6 font-sans ${className}`}
     >
       
       <div className="mb-6">{header}</div>
@@ -258,9 +258,9 @@ export function PlaybookInlineTrigger({
         {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
       </button>
       {isOpen ? (
-        <div className="mt-2 rounded-lg border border-white/[0.08] bg-bip-card/40 p-3">
+        <div className="mt-2 rounded-lg border border-bip-border bg-bip-card/40 p-3">
           
-          <p className="mb-2 text-xs font-semibold text-white/75">
+          <p className="mb-2 text-xs font-semibold text-bip-text">
             {section.title}
           </p>
           <PlaybookSectionBody section={section} />

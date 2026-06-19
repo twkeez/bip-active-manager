@@ -9,7 +9,7 @@ import { calculateDualRadius } from "@/lib/strategy-mapper/radius";
 import type { StrategyMapperFormData } from "@/types/strategy-mapper";
 
 const inputClass =
-  "w-full rounded-lg border border-white/[0.12] bg-bip-page px-3 py-2 text-sm text-white placeholder:text-white/40 focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
+  "w-full rounded-lg border border-bip-border bg-bip-page px-3 py-2 text-sm text-bip-text placeholder:text-bip-muted focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
 
 const PREVIEW_FORM: StrategyMapperFormData = {
   practiceName: "Sample Animal Hospital",
@@ -159,13 +159,13 @@ export default function TierLibraryEditor() {
   }
 
   if (loading) {
-    return <p className="text-sm text-white/50">Loading tier library...</p>;
+    return <p className="text-sm text-bip-muted">Loading tier library...</p>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-white/50">
+        <p className="text-sm text-bip-muted">
           Edit approved Phase 1 blurbs and upsell tier language. Placeholders like{" "}
           <code className="text-bip-accent">[Practice Name]</code> are substituted at
           generation time.
@@ -174,7 +174,7 @@ export default function TierLibraryEditor() {
           type="button"
           disabled={saving}
           onClick={() => void resetDefaults()}
-          className="rounded-lg border border-white/[0.08] bg-bip-card px-4 py-2 text-sm text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+          className="rounded-lg border border-bip-border bg-bip-card px-4 py-2 text-sm text-bip-text hover:bg-bip-fill disabled:opacity-60"
         >
           Reset to defaults
         </button>
@@ -191,7 +191,7 @@ export default function TierLibraryEditor() {
         return (
           <section
             key={serviceOption.id}
-            className="rounded-xl border border-white/[0.08] bg-bip-card p-5 sm:p-6"
+            className="rounded-xl border border-bip-border bg-bip-card p-5 sm:p-6"
           >
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-bip-accent">
               {serviceOption.label}
@@ -200,7 +200,7 @@ export default function TierLibraryEditor() {
               {serviceTiers.map((tier) => (
                 <div
                   key={tier.tierKey}
-                  className="rounded-lg border border-white/[0.08] bg-bip-page/60 p-4"
+                  className="rounded-lg border border-bip-border bg-bip-page/60 p-4"
                 >
                   <button
                     type="button"
@@ -209,12 +209,12 @@ export default function TierLibraryEditor() {
                     }
                     className="flex w-full items-center justify-between text-left"
                   >
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-bip-text">
                       {tier.tierLabel}{" "}
-                      <span className="text-xs text-white/40">({tier.tierKey})</span>
+                      <span className="text-xs text-bip-muted">({tier.tierKey})</span>
                     </span>
                     <ChevronDown
-                      className={`h-4 w-4 text-white/50 transition ${
+                      className={`h-4 w-4 text-bip-muted transition ${
                         expandedKey === tier.tierKey ? "rotate-180" : ""
                       }`}
                     />
@@ -223,7 +223,7 @@ export default function TierLibraryEditor() {
                   {expandedKey === tier.tierKey ? (
                     <div className="mt-4 space-y-3">
                       <label className="block text-sm">
-                        <span className="mb-1 block text-white/60">Section title</span>
+                        <span className="mb-1 block text-bip-muted">Section title</span>
                         <input
                           value={tier.title}
                           onChange={(e) =>
@@ -233,7 +233,7 @@ export default function TierLibraryEditor() {
                         />
                       </label>
                       <label className="block text-sm">
-                        <span className="mb-1 block text-white/60">Objective</span>
+                        <span className="mb-1 block text-bip-muted">Objective</span>
                         <textarea
                           value={tier.objective}
                           onChange={(e) =>
@@ -244,7 +244,7 @@ export default function TierLibraryEditor() {
                         />
                       </label>
                       <label className="block text-sm">
-                        <span className="mb-1 block text-white/60">
+                        <span className="mb-1 block text-bip-muted">
                           Match aliases (semicolon-separated)
                         </span>
                         <input
@@ -264,7 +264,7 @@ export default function TierLibraryEditor() {
                         />
                       </label>
                       <div>
-                        <span className="mb-2 block text-sm text-white/60">Tactics</span>
+                        <span className="mb-2 block text-sm text-bip-muted">Tactics</span>
                         <ul className="space-y-2">
                           {tier.tactics.map((tactic, index) => (
                             <li key={index} className="flex items-start gap-2">
@@ -273,7 +273,7 @@ export default function TierLibraryEditor() {
                                   type="button"
                                   disabled={index === 0 || saving}
                                   onClick={() => moveTactic(tier.tierKey, index, "up")}
-                                  className="rounded p-0.5 text-white/50 hover:bg-bip-card/10 disabled:opacity-30"
+                                  className="rounded p-0.5 text-bip-muted hover:bg-bip-card/10 disabled:opacity-30"
                                   aria-label="Move tactic up"
                                 >
                                   <ChevronUp className="h-3.5 w-3.5" />
@@ -282,7 +282,7 @@ export default function TierLibraryEditor() {
                                   type="button"
                                   disabled={index === tier.tactics.length - 1 || saving}
                                   onClick={() => moveTactic(tier.tierKey, index, "down")}
-                                  className="rounded p-0.5 text-white/50 hover:bg-bip-card/10 disabled:opacity-30"
+                                  className="rounded p-0.5 text-bip-muted hover:bg-bip-card/10 disabled:opacity-30"
                                   aria-label="Move tactic down"
                                 >
                                   <ChevronDown className="h-3.5 w-3.5" />
@@ -299,7 +299,7 @@ export default function TierLibraryEditor() {
                               <button
                                 type="button"
                                 onClick={() => removeTactic(tier.tierKey, index)}
-                                className="mt-2 rounded p-1 text-white/50 hover:bg-bip-danger/20 hover:text-bip-danger"
+                                className="mt-2 rounded p-1 text-bip-muted hover:bg-bip-danger/20 hover:text-bip-danger"
                                 aria-label="Remove tactic"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -310,7 +310,7 @@ export default function TierLibraryEditor() {
                         <button
                           type="button"
                           onClick={() => addTactic(tier.tierKey)}
-                          className="mt-2 inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-xs text-white/60 hover:bg-white/[0.04]"
+                          className="mt-2 inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-muted hover:bg-bip-hover"
                         >
                           <Plus className="h-3.5 w-3.5" />
                           Add tactic
@@ -336,15 +336,15 @@ export default function TierLibraryEditor() {
       })}
 
       {previewBlock ? (
-        <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5">
+        <section className="rounded-xl border border-bip-border bg-bip-card p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bip-accent">
             Preview (sample interpolation)
           </h2>
-          <p className="text-sm font-bold text-white">{previewBlock.title}</p>
-          <p className="mt-2 text-sm text-white/70">
+          <p className="text-sm font-bold text-bip-text">{previewBlock.title}</p>
+          <p className="mt-2 text-sm text-bip-muted">
             <strong>Objective:</strong> {previewBlock.objective}
           </p>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/70">
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-bip-muted">
             {previewBlock.tactics.map((tactic, i) => (
               <li key={i}>{tactic}</li>
             ))}

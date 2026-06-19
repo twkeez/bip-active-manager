@@ -119,7 +119,7 @@ export function ReportActionTable({ rows }: { rows: ReportActionRow[] }) {
     <div className="overflow-hidden rounded-lg border border-[var(--report-border)] print:break-inside-avoid">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase tracking-wide text-white">
+          <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase tracking-wide text-bip-text">
             <th className="px-4 py-3">Action</th>
             <th className="px-4 py-3">Assigned To</th>
             <th className="px-4 py-3">Timeline</th>

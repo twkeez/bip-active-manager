@@ -577,7 +577,7 @@ export default function AuditReportExport({
             <div className="overflow-hidden rounded-lg border border-[var(--report-border)]">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase text-white">
+                  <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase text-bip-text">
                     <th className="px-4 py-3">Query</th>
                     <th className="px-4 py-3">Clicks</th>
                     <th className="px-4 py-3">Impressions</th>
@@ -609,7 +609,7 @@ export default function AuditReportExport({
             <div className="overflow-hidden rounded-lg border border-[var(--report-border)]">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="bg-[var(--report-navy)] text-xs font-semibold uppercase text-white">
+                  <tr className="bg-[var(--report-navy)] text-xs font-semibold uppercase text-bip-text">
                     <th className="px-3 py-2">URL</th>
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2">Words</th>

@@ -50,7 +50,7 @@ function renderMarkdownPreview(markdown: string) {
     const trimmed = block.trim();
     if (trimmed.startsWith("#")) {
       return (
-        <h1 key={index} className="text-xl font-semibold text-white">
+        <h1 key={index} className="text-xl font-semibold text-bip-text">
           
           {trimmed.slice(2)}
         </h1>
@@ -60,7 +60,7 @@ function renderMarkdownPreview(markdown: string) {
       return (
         <h2
           key={index}
-          className="mt-4 text-sm font-bold uppercase tracking-wide text-white"
+          className="mt-4 text-sm font-bold uppercase tracking-wide text-bip-text"
         >
           
           {trimmed}
@@ -74,7 +74,7 @@ function renderMarkdownPreview(markdown: string) {
       return (
         <ul
           key={index}
-          className="list-disc space-y-1 pl-5 text-sm leading-6 text-white/75"
+          className="list-disc space-y-1 pl-5 text-sm leading-6 text-bip-text"
         >
           
           {items.map((item, itemIndex) => (
@@ -84,7 +84,7 @@ function renderMarkdownPreview(markdown: string) {
       );
     }
     return (
-      <p key={index} className="text-sm leading-6 text-white/75">
+      <p key={index} className="text-sm leading-6 text-bip-text">
         
         {trimmed}
       </p>
@@ -94,7 +94,7 @@ function renderMarkdownPreview(markdown: string) {
 function AdsKpiStrip({ adsSnapshot }: { adsSnapshot: AdsSnapshot | null }) {
   if (!adsSnapshot) {
     return (
-      <p className="text-xs text-white/50">
+      <p className="text-xs text-bip-muted">
         
         Sync Google Ads to show KPI cards here.
       </p>
@@ -115,22 +115,22 @@ function AdsKpiStrip({ adsSnapshot }: { adsSnapshot: AdsSnapshot | null }) {
     {
       label: "Avg. CPC",
       value: formatAverageCpcFromMicros(totals.average_cpc),
-      tone: "bg-bip-card text-white border border-white/[0.08]",
+      tone: "bg-bip-card text-bip-text border border-bip-border",
     },
     {
       label: "Cost",
       value: formatCurrencyFromMicros(totals.cost_micros),
-      tone: "bg-bip-card text-white border border-white/[0.08]",
+      tone: "bg-bip-card text-bip-text border border-bip-border",
     },
   ];
   return (
     <div className="space-y-2">
       
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
         
         Google Ads snapshot
       </p>
-      <p className="text-xs text-white/50">
+      <p className="text-xs text-bip-muted">
         
         {formatDateRangeLabel(
           adsSnapshot.start_date,
@@ -270,7 +270,7 @@ export default function MarketingUpdateComposer({
             
             Client marketing update
           </p>
-          <p className="mt-0.5 text-sm text-white/75">
+          <p className="mt-0.5 text-sm text-bip-text">
             
             Generate a Basecamp-style client update from synced data, then copy
             into Basecamp.
@@ -295,50 +295,50 @@ export default function MarketingUpdateComposer({
         
         <label className="block">
           
-          <span className="text-xs text-white/50">Title</span>
+          <span className="text-xs text-bip-muted">Title</span>
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="mt-1 w-full rounded-md border border-white/[0.08] bg-bip-card px-2 py-1.5 text-sm text-white focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+            className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
           />
         </label>
         <label className="block">
           
-          <span className="text-xs text-white/50">Greeting</span>
+          <span className="text-xs text-bip-muted">Greeting</span>
           <input
             value={greeting}
             onChange={(event) => setGreeting(event.target.value)}
-            className="mt-1 w-full rounded-md border border-white/[0.08] bg-bip-card px-2 py-1.5 text-sm text-white focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+            className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
             placeholder="Hi Erika and Dr. Barnes,"
           />
         </label>
         <label className="block">
           
-          <span className="text-xs text-white/50">Start date</span>
+          <span className="text-xs text-bip-muted">Start date</span>
           <input
             type="date"
             value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
-            className="mt-1 w-full rounded-md border border-white/[0.08] bg-bip-card px-2 py-1.5 text-sm text-white focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+            className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
           />
         </label>
         <label className="block">
           
-          <span className="text-xs text-white/50">End date</span>
+          <span className="text-xs text-bip-muted">End date</span>
           <input
             type="date"
             value={endDate}
             onChange={(event) => setEndDate(event.target.value)}
-            className="mt-1 w-full rounded-md border border-white/[0.08] bg-bip-card px-2 py-1.5 text-sm text-white focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+            className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
           />
         </label>
       </div>
-      <div className="mt-3 rounded-md border border-white/[0.08]">
+      <div className="mt-3 rounded-md border border-bip-border">
         
         <button
           type="button"
           onClick={() => setGbpExpanded((prev) => !prev)}
-          className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-medium text-white/75"
+          className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-medium text-bip-text"
         >
           
           GBP metrics (manual)
@@ -349,7 +349,7 @@ export default function MarketingUpdateComposer({
           )}
         </button>
         {gbpExpanded && (
-          <div className="grid gap-2 border-t border-white/[0.08] px-3 py-3 md:grid-cols-2">
+          <div className="grid gap-2 border-t border-bip-border px-3 py-3 md:grid-cols-2">
             
             {(
               [
@@ -361,7 +361,7 @@ export default function MarketingUpdateComposer({
             ).map(([key, label]) => (
               <label key={key} className="block">
                 
-                <span className="text-xs text-white/50">{label}</span>
+                <span className="text-xs text-bip-muted">{label}</span>
                 <input
                   inputMode="numeric"
                   value={gbpManual[key]}
@@ -371,7 +371,7 @@ export default function MarketingUpdateComposer({
                       [key]: event.target.value,
                     }))
                   }
-                  className="mt-1 w-full rounded-md border border-white/[0.08] bg-bip-card px-2 py-1.5 text-sm text-white focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+                  className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
                   placeholder="Optional"
                 />
               </label>
@@ -383,43 +383,43 @@ export default function MarketingUpdateComposer({
         
         <label className="block md:col-span-2">
           
-          <span className="text-xs text-white/50">
+          <span className="text-xs text-bip-muted">
             Client requests (NEXT STEPS)
           </span>
           <textarea
             value={clientRequests}
             onChange={(event) => setClientRequests(event.target.value)}
             rows={2}
-            className="mt-1 w-full rounded-md border border-white/[0.08] bg-bip-card px-2 py-1.5 text-sm text-white focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+            className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
             placeholder="Example: Please send updated team photos for the GBP profile."
           />
         </label>
         <label className="block">
           
-          <span className="text-xs text-white/50">Next meeting URL</span>
+          <span className="text-xs text-bip-muted">Next meeting URL</span>
           <input
             value={nextMeetingUrl}
             onChange={(event) => setNextMeetingUrl(event.target.value)}
-            className="mt-1 w-full rounded-md border border-white/[0.08] bg-bip-card px-2 py-1.5 text-sm text-white focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+            className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
             placeholder="https://..."
           />
         </label>
         <label className="block">
           
-          <span className="text-xs text-white/50">
+          <span className="text-xs text-bip-muted">
             Additional notes for AI
           </span>
           <input
             value={additionalNotes}
             onChange={(event) => setAdditionalNotes(event.target.value)}
-            className="mt-1 w-full rounded-md border border-white/[0.08] bg-bip-card px-2 py-1.5 text-sm text-white focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+            className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
             placeholder="Optional context for the draft"
           />
         </label>
       </div>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
       {channelsLabel && (
-        <p className="mt-2 text-xs text-white/50">
+        <p className="mt-2 text-xs text-bip-muted">
           
           Channels included: {channelsLabel}
         </p>
@@ -429,14 +429,14 @@ export default function MarketingUpdateComposer({
           
           <div className="space-y-3">
             
-            <div className="rounded-lg border border-white/[0.08] bg-bip-page p-4">
+            <div className="rounded-lg border border-bip-border bg-bip-page p-4">
               
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-white/50">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
                 
                 Basecamp preview
               </p>
               {loading ? (
-                <p className="text-sm text-white/75">Generating update…</p>
+                <p className="text-sm text-bip-text">Generating update…</p>
               ) : (
                 <div className="space-y-2">
                   {renderMarkdownPreview(markdown)}
@@ -447,7 +447,7 @@ export default function MarketingUpdateComposer({
               
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 
-                <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+                <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
                   
                   Editable draft
                 </p>
@@ -457,7 +457,7 @@ export default function MarketingUpdateComposer({
                     type="button"
                     onClick={() => void handleCopy("markdown")}
                     disabled={!markdown.trim()}
-                    className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-xs font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
                   >
                     
                     <Copy className="h-3.5 w-3.5" /> Copy markdown
@@ -466,7 +466,7 @@ export default function MarketingUpdateComposer({
                     type="button"
                     onClick={() => void handleCopy("plain")}
                     disabled={!markdown.trim()}
-                    className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-xs font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
                   >
                     
                     <Copy className="h-3.5 w-3.5" /> Copy plain text
@@ -484,16 +484,16 @@ export default function MarketingUpdateComposer({
                 className="w-full bip-input shadow-none"
               />
               {copyMessage && (
-                <p className="mt-2 text-xs text-white/50">{copyMessage}</p>
+                <p className="mt-2 text-xs text-bip-muted">{copyMessage}</p>
               )}
-              <p className="mt-2 text-xs text-white/50">
+              <p className="mt-2 text-xs text-bip-muted">
                 
                 Attach your Google Ads dashboard screenshot separately in
                 Basecamp.
               </p>
             </div>
           </div>
-          <aside className="rounded-lg border border-white/[0.08] bg-bip-card p-3">
+          <aside className="rounded-lg border border-bip-border bg-bip-card p-3">
             
             <AdsKpiStrip adsSnapshot={adsSnapshot} />
           </aside>

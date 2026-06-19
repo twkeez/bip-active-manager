@@ -51,7 +51,7 @@ function ClientPricingTable({
     <div className="mt-4 overflow-hidden rounded-lg border border-[var(--report-border)] print:break-inside-avoid">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase tracking-wide text-white">
+          <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase tracking-wide text-bip-text">
             <th className="px-4 py-3">Service</th>
             <th className="px-4 py-3">Regional Benchmark</th>
             <th className="px-4 py-3">Your Practice</th>
@@ -218,7 +218,7 @@ export default function ClientOutputView({
               key={i}
               className="rounded-lg border border-[var(--report-border)] bg-white p-5 print:break-inside-avoid"
             >
-              <span className="inline-block rounded-full bg-[var(--report-teal)] px-3 py-1 text-xs font-semibold text-white">
+              <span className="inline-block rounded-full bg-[var(--report-teal)] px-3 py-1 text-xs font-semibold text-bip-text">
                 {item.phase}
               </span>
               <h4 className="mt-3 font-bold text-[var(--report-navy)]">
@@ -313,7 +313,7 @@ export default function ClientOutputView({
           <button
             type="button"
             onClick={() => window.print()}
-            className="rounded-lg bg-[var(--report-teal)] px-6 py-2.5 text-sm font-medium text-white transition hover:brightness-110"
+            className="rounded-lg bg-[var(--report-teal)] px-6 py-2.5 text-sm font-medium text-bip-text transition hover:brightness-110"
           >
             Download Client PDF
           </button>

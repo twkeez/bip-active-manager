@@ -29,8 +29,8 @@ function statusBadgeClass(status: ClientProjectStatus) {
   if (status === "active") return "bg-emerald-500/20 text-emerald-200";
   if (status === "paused") return "bg-amber-500/20 text-amber-200";
   if (status === "completed") return "bg-sky-500/20 text-sky-200";
-  if (status === "archived") return "bg-zinc-500/20 text-white/75";
-  return "bg-zinc-600/40 text-white/75";
+  if (status === "archived") return "bg-zinc-500/20 text-bip-text";
+  return "bg-zinc-600/40 text-bip-text";
 }
 export default function ProjectsPanel({
   projects,
@@ -123,7 +123,7 @@ export default function ProjectsPanel({
         <select
           value={clientFilter}
           onChange={(event) => setClientFilter(event.target.value)}
-          className="rounded-md border border-white/10 bg-bip-card/80 px-2 py-1.5 text-xs text-white/75"
+          className="rounded-md border border-bip-border bg-bip-card/80 px-2 py-1.5 text-xs text-bip-text"
         >
           
           <option value="">All clients</option>
@@ -140,7 +140,7 @@ export default function ProjectsPanel({
           onChange={(event) =>
             setStatusFilter(event.target.value as ClientProjectStatus | "")
           }
-          className="rounded-md border border-white/10 bg-bip-card/80 px-2 py-1.5 text-xs text-white/75"
+          className="rounded-md border border-bip-border bg-bip-card/80 px-2 py-1.5 text-xs text-bip-text"
         >
           
           <option value="">All statuses</option>
@@ -156,16 +156,16 @@ export default function ProjectsPanel({
         <button
           type="button"
           onClick={() => setShowCreate((value) => !value)}
-          className="ml-auto inline-flex items-center gap-1 rounded-md bg-bip-card/10 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-bip-card/15"
+          className="ml-auto inline-flex items-center gap-1 rounded-md bg-bip-card/10 px-2.5 py-1.5 text-xs font-medium text-bip-text hover:bg-bip-card/15"
         >
           
           <Plus className="h-3.5 w-3.5" /> New project
         </button>
       </div>
       {showCreate ? (
-        <div className="mb-3 rounded-lg border border-white/10 bg-bip-page/70 p-3 text-sm">
+        <div className="mb-3 rounded-lg border border-bip-border bg-bip-page/70 p-3 text-sm">
           
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
             
             New client project
           </p>
@@ -174,7 +174,7 @@ export default function ProjectsPanel({
             <select
               value={newClientId}
               onChange={(event) => setNewClientId(event.target.value)}
-              className="w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5 text-sm text-white"
+              className="w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text"
             >
               
               <option value="">Select client…</option>
@@ -190,21 +190,21 @@ export default function ProjectsPanel({
               value={newName}
               onChange={(event) => setNewName(event.target.value)}
               placeholder="e.g. Hiring Campaign"
-              className="w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5 text-sm text-white"
+              className="w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text"
             />
             <textarea
               value={newObjective}
               onChange={(event) => setNewObjective(event.target.value)}
               placeholder="Objective (roles, channels, timeline…)"
               rows={2}
-              className="w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5 text-sm text-white"
+              className="w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text"
             />
             <textarea
               value={newDescription}
               onChange={(event) => setNewDescription(event.target.value)}
               placeholder="Description (optional)"
               rows={2}
-              className="w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5 text-sm text-white"
+              className="w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text"
             />
             <div className="flex gap-2">
               
@@ -212,14 +212,14 @@ export default function ProjectsPanel({
                 type="date"
                 value={newStartDate}
                 onChange={(event) => setNewStartDate(event.target.value)}
-                className="w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5 text-sm text-white"
+                className="w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text"
                 aria-label="Target start date"
               />
               <input
                 type="date"
                 value={newEndDate}
                 onChange={(event) => setNewEndDate(event.target.value)}
-                className="w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5 text-sm text-white"
+                className="w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm text-bip-text"
                 aria-label="Target end date"
               />
             </div>
@@ -241,7 +241,7 @@ export default function ProjectsPanel({
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         
         {filtered.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-white/15 px-3 py-6 text-center text-sm text-white/40">
+          <p className="rounded-lg border border-dashed border-bip-border px-3 py-6 text-center text-sm text-bip-muted">
             
             No projects yet. Create one to plan a client initiative.
           </p>
@@ -253,17 +253,17 @@ export default function ProjectsPanel({
                 key={project.id}
                 type="button"
                 onClick={() => onSelectProject(project.id)}
-                className={`w-full rounded-lg border px-3 py-3 text-left transition ${selected ? "border-sky-400/50 bg-sky-500/10" : "border-white/10 bg-bip-page/50 hover:border-white/20"}`}
+                className={`w-full rounded-lg border px-3 py-3 text-left transition ${selected ? "border-sky-400/50 bg-sky-500/10" : "border-bip-border bg-bip-page/50 hover:border-bip-border"}`}
               >
                 
                 <div className="flex items-start justify-between gap-2">
                   
                   <div>
                     
-                    <p className="font-medium text-white">
+                    <p className="font-medium text-bip-text">
                       {project.name}
                     </p>
-                    <p className="text-xs text-white/40">
+                    <p className="text-xs text-bip-muted">
                       {projectClientLabel(project.client)}
                     </p>
                   </div>
@@ -274,7 +274,7 @@ export default function ProjectsPanel({
                     {STATUS_LABELS[project.status]}
                   </span>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-white/40">
+                <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-bip-muted">
                   
                   <span>
                     

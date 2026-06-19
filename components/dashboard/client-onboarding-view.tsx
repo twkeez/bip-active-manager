@@ -48,7 +48,7 @@ function ItemRow({
           type="button"
           disabled={busy}
           onClick={() => onToggleManual(item.itemKey, !item.done)}
-          className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${item.done ? "border-emerald-500 bg-emerald-500 text-white" : "border-white/[0.12] bg-bip-card text-transparent hover:border-emerald-500"}`}
+          className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${item.done ? "border-emerald-500 bg-emerald-500 text-white" : "border-bip-border bg-bip-card text-transparent hover:border-emerald-500"}`}
           aria-label={item.done ? "Mark incomplete" : "Mark complete"}
         >
           
@@ -57,18 +57,18 @@ function ItemRow({
       ) : item.done ? (
         <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
       ) : (
-        <Circle className="mt-0.5 h-5 w-5 shrink-0 text-white/75" />
+        <Circle className="mt-0.5 h-5 w-5 shrink-0 text-bip-text" />
       )}
       <div className="min-w-0 flex-1">
         
         <p
-          className={`text-sm ${item.done ? "text-white/50 line-through" : "font-medium text-white"}`}
+          className={`text-sm ${item.done ? "text-bip-muted line-through" : "font-medium text-bip-text"}`}
         >
           
           {item.label}
         </p>
         {item.hint && !item.done && (
-          <p className="mt-0.5 text-xs text-white/50">{item.hint}</p>
+          <p className="mt-0.5 text-xs text-bip-muted">{item.hint}</p>
         )}
         {item.autoVerified && item.done && (
           <p className="mt-0.5 text-[10px] uppercase tracking-wide text-emerald-600">
@@ -229,7 +229,7 @@ export default function ClientOnboardingView({
   }
   if (loading && !evaluation) {
     return (
-      <div className="flex items-center gap-2 py-8 text-sm text-white/50">
+      <div className="flex items-center gap-2 py-8 text-sm text-bip-muted">
         
         <Loader2 className="h-4 w-4 animate-spin" /> Loading onboarding
         checklist…
@@ -238,9 +238,9 @@ export default function ClientOnboardingView({
   }
   if (!evaluation || evaluation.onboardingStatus !== "active") {
     return (
-      <div className="space-y-4 rounded-xl border border-white/[0.08] bg-bip-card p-4">
+      <div className="space-y-4 rounded-xl border border-bip-border bg-bip-card p-4">
         
-        <p className="text-sm text-white/75">
+        <p className="text-sm text-bip-text">
           
           {evaluation?.onboardingStatus === "complete"
             ? "This client has completed onboarding."
@@ -250,7 +250,7 @@ export default function ClientOnboardingView({
           <button
             type="button"
             onClick={() => void handleStart()}
-            className="rounded-md border border-white/[0.12] bg-bip-card px-3 py-2 text-sm font-medium hover:bg-bip-page"
+            className="rounded-md border border-bip-border bg-bip-card px-3 py-2 text-sm font-medium hover:bg-bip-page"
           >
             
             Start onboarding
@@ -270,21 +270,21 @@ export default function ClientOnboardingView({
   return (
     <div className="space-y-4">
       
-      <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4">
+      <div className="rounded-xl border border-bip-border bg-bip-card p-4">
         
         <div className="flex flex-wrap items-start justify-between gap-3">
           
           <div>
             
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               
               Onboarding progress
             </p>
-            <p className="mt-1 text-2xl font-semibold text-white">
+            <p className="mt-1 text-2xl font-semibold text-bip-text">
               
               {evaluation.progressPercent}%
             </p>
-            <p className="text-xs text-white/50">
+            <p className="text-xs text-bip-muted">
               
               {evaluation.requiredDoneCount} of {evaluation.requiredTotalCount}
               required steps
@@ -334,14 +334,14 @@ export default function ClientOnboardingView({
         </div>
         <p className="mt-1 text-sm">{evaluation.commsCadenceLabel}</p>
         {latestThread && (
-          <div className="mt-3 rounded-lg border border-black/5 bg-bip-card/60 p-3 text-sm text-white/75">
+          <div className="mt-3 rounded-lg border border-black/5 bg-bip-card/60 p-3 text-sm text-bip-text">
             
             {latestThread.thread_title && (
-              <p className="font-medium text-white">
+              <p className="font-medium text-bip-text">
                 {latestThread.thread_title}
               </p>
             )}
-            <p className="mt-1 text-xs text-white/50">
+            <p className="mt-1 text-xs text-bip-muted">
               
               {latestThread.author_email ?? "Unknown sender"}
             </p>
@@ -368,12 +368,12 @@ export default function ClientOnboardingView({
       {groupedItems.map((group) => (
         <section
           key={group.category}
-          className="overflow-hidden rounded-xl border border-white/[0.08] bg-bip-card"
+          className="overflow-hidden rounded-xl border border-bip-border bg-bip-card"
         >
           
-          <div className="border-b border-white/[0.08] bg-bip-page px-4 py-2">
+          <div className="border-b border-bip-border bg-bip-page px-4 py-2">
             
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-white/75">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-bip-text">
               
               {group.label}
             </h3>

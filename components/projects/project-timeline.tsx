@@ -14,13 +14,13 @@ export default function ProjectTimeline({
     return null;
   }
   return (
-    <div className="mb-3 rounded-lg border border-white/10 bg-bip-page/60 p-3">
+    <div className="mb-3 rounded-lg border border-bip-border bg-bip-page/60 p-3">
       
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
         
         Timeline
       </p>
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/40">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-bip-muted">
         
         {targetStartDate ? <span>Start {targetStartDate}</span> : null}
         {targetEndDate ? <span>End {targetEndDate}</span> : null}
@@ -30,13 +30,13 @@ export default function ProjectTimeline({
         {phases.map((phase, index) => (
           <div
             key={phase.id}
-            className="min-w-[7rem] flex-1 rounded-md border border-white/10 bg-bip-card/80 px-2 py-1.5"
+            className="min-w-[7rem] flex-1 rounded-md border border-bip-border bg-bip-card/80 px-2 py-1.5"
           >
             
-            <p className="truncate text-xs font-medium text-white/75">
+            <p className="truncate text-xs font-medium text-bip-text">
               {phase.title}
             </p>
-            <p className="text-[10px] capitalize text-white/50">
+            <p className="text-[10px] capitalize text-bip-muted">
               
               {index + 1}/{phases.length} · {phase.status.replace("_", "")}
             </p>

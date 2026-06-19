@@ -65,7 +65,7 @@ function StatusChip({ status }: { status: FindingStatus }) {
           ? "Acknowledged"
           : "Resolved";
   return (
-    <span className="inline-flex rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] font-medium text-white/75">
+    <span className="inline-flex rounded-full bg-bip-fill px-2 py-0.5 text-[11px] font-medium text-bip-text">
       
       {label}
     </span>
@@ -97,16 +97,16 @@ function MetricTile({
   return (
     <div
       title={definition ? `${definition}` : undefined}
-      className="rounded-md border border-white/[0.08] bg-bip-card px-2.5 py-2"
+      className="rounded-md border border-bip-border bg-bip-card px-2.5 py-2"
     >
       
-      <p className="text-[11px] uppercase tracking-wide text-white/50">
+      <p className="text-[11px] uppercase tracking-wide text-bip-muted">
         
         {label}
       </p>
-      <p className="mt-1 font-medium text-white">{value}</p>
+      <p className="mt-1 font-medium text-bip-text">{value}</p>
       {(sourceLabel || updatedAt) && (
-        <p className="mt-1 text-[10px] text-white/50">
+        <p className="mt-1 text-[10px] text-bip-muted">
           
           {sourceLabel ?? ""} {sourceLabel && updatedAt ? " •" : ""}
           {updatedAt
@@ -119,11 +119,11 @@ function MetricTile({
 }
 export function FindingCard({ finding }: { finding: TechnicalFinding }) {
   return (
-    <article className="rounded-lg border border-white/[0.08] bg-bip-card p-3">
+    <article className="rounded-lg border border-bip-border bg-bip-card p-3">
       
       <div className="mb-1 flex items-center justify-between gap-2">
         
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-white/50">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-bip-muted">
           
           {finding.channel === "seo" && <Search className="h-3.5 w-3.5" />}
           {finding.channel === "ads" && <Megaphone className="h-3.5 w-3.5" />}
@@ -139,8 +139,8 @@ export function FindingCard({ finding }: { finding: TechnicalFinding }) {
           <StatusChip status={finding.status} />
         </div>
       </div>
-      <p className="text-sm font-medium text-white"> {finding.title} </p>
-      <p className="mt-1 text-xs text-white/50">
+      <p className="text-sm font-medium text-bip-text"> {finding.title} </p>
+      <p className="mt-1 text-xs text-bip-muted">
         
         Confidence {finding.confidence} • Impact {finding.impact} • Due
         {finding.dueLabel}
@@ -149,28 +149,28 @@ export function FindingCard({ finding }: { finding: TechnicalFinding }) {
         
         <button
           type="button"
-          className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-bip-page"
+          className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-page"
         >
           
           Assign
         </button>
         <button
           type="button"
-          className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-bip-page"
+          className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-page"
         >
           
           Mark done
         </button>
         <button
           type="button"
-          className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-bip-page"
+          className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-page"
         >
           
           Snooze
         </button>
         <button
           type="button"
-          className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-bip-page"
+          className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-page"
         >
           
           Ignore
@@ -487,35 +487,35 @@ export default function ChannelOverview({
       {channel !== "ads" && (
         <div className="grid grid-cols-3 gap-2">
           
-          <div className="rounded-lg border border-white/[0.08] bg-bip-page p-2.5">
+          <div className="rounded-lg border border-bip-border bg-bip-page p-2.5">
             
-            <p className="text-[11px] uppercase tracking-wide text-white/50">
+            <p className="text-[11px] uppercase tracking-wide text-bip-muted">
               
               Channel
             </p>
-            <p className="mt-1 text-sm font-medium text-white">
+            <p className="mt-1 text-sm font-medium text-bip-text">
               
               {channelLabel(channel)}
             </p>
           </div>
-          <div className="rounded-lg border border-white/[0.08] bg-bip-page p-2.5">
+          <div className="rounded-lg border border-bip-border bg-bip-page p-2.5">
             
-            <p className="text-[11px] uppercase tracking-wide text-white/50">
+            <p className="text-[11px] uppercase tracking-wide text-bip-muted">
               
               {openIssuesLabel}
             </p>
-            <p className="mt-1 text-sm font-medium text-white">
+            <p className="mt-1 text-sm font-medium text-bip-text">
               
               {findings.length}
             </p>
           </div>
-          <div className="rounded-lg border border-white/[0.08] bg-bip-page p-2.5">
+          <div className="rounded-lg border border-bip-border bg-bip-page p-2.5">
             
-            <p className="text-[11px] uppercase tracking-wide text-white/50">
+            <p className="text-[11px] uppercase tracking-wide text-bip-muted">
               
               {criticalLabel}
             </p>
-            <p className="mt-1 text-sm font-medium text-white">
+            <p className="mt-1 text-sm font-medium text-bip-text">
               
               {criticalCount}
             </p>
@@ -540,9 +540,9 @@ export default function ChannelOverview({
       {(channel === "seo" ||
         channel === "sitemaps" ||
         channel === "social") && (
-        <div className="rounded-lg border border-white/[0.08] bg-bip-page p-3 text-xs text-white/75">
+        <div className="rounded-lg border border-bip-border bg-bip-page p-3 text-xs text-bip-text">
           
-          <p className="font-semibold uppercase tracking-wide text-white/50">
+          <p className="font-semibold uppercase tracking-wide text-bip-muted">
             
             Data legend
           </p>
@@ -559,7 +559,7 @@ export default function ChannelOverview({
             {freshnessChips.map((chip) => (
               <span
                 key={chip}
-                className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] text-white/75"
+                className="rounded-full bg-bip-fill px-2 py-0.5 text-[11px] text-bip-text"
               >
                 
                 {chip}
@@ -569,11 +569,11 @@ export default function ChannelOverview({
         </div>
       )}
       {channel === "seo" && (
-        <div className="rounded-lg border border-white/[0.08] bg-bip-page p-3">
+        <div className="rounded-lg border border-bip-border bg-bip-page p-3">
           
           <div className="flex items-center justify-between gap-2">
             
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               
               Lighthouse (mobile)
             </p>
@@ -581,14 +581,14 @@ export default function ChannelOverview({
               type="button"
               onClick={onRefreshLighthouse}
               disabled={lighthouseLoading || !onRefreshLighthouse}
-              className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+              className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
             >
               
               Refresh Lighthouse
             </button>
           </div>
           {lighthouse && (
-            <p className="mt-2 text-[11px] text-white/50">
+            <p className="mt-2 text-[11px] text-bip-muted">
               
               Last run {formatDateTime(lighthouse.fetched_at)}
               {lighthouseAgeDays != null
@@ -603,7 +603,7 @@ export default function ChannelOverview({
             </p>
           )}
           {lighthouseLoading && (
-            <p className="mt-2 text-sm text-white/75">
+            <p className="mt-2 text-sm text-bip-text">
               
               Fetching Lighthouse data...
             </p>
@@ -670,7 +670,7 @@ export default function ChannelOverview({
             </div>
           )}
           {!lighthouseLoading && !lighthouseError && !lighthouse && (
-            <p className="mt-2 text-sm text-white/75">
+            <p className="mt-2 text-sm text-bip-text">
               
               Lighthouse data will load when a website URL is available.
             </p>
@@ -678,11 +678,11 @@ export default function ChannelOverview({
         </div>
       )}
       {channel === "seo" && (
-        <div className="rounded-lg border border-white/[0.08] bg-bip-page p-3">
+        <div className="rounded-lg border border-bip-border bg-bip-page p-3">
           
           <div className="flex items-center justify-between gap-2">
             
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               
               Website crawl (quick scan)
             </p>
@@ -690,27 +690,27 @@ export default function ChannelOverview({
               type="button"
               onClick={onRunSeoCrawl}
               disabled={crawlLoading || !onRunSeoCrawl}
-              className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+              className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
             >
               
               Run Crawl
             </button>
           </div>
           {crawlSnapshot && (
-            <p className="mt-2 text-[11px] text-white/50">
+            <p className="mt-2 text-[11px] text-bip-muted">
               
               Last run {formatDateTime(crawlSnapshot.updated_at)} •
               {crawlSnapshot.crawled_urls} URLs scanned
             </p>
           )}
           {crawlLoading && (
-            <p className="mt-2 text-sm text-white/75">Running crawl...</p>
+            <p className="mt-2 text-sm text-bip-text">Running crawl...</p>
           )}
           {crawlError && (
             <p className="mt-2 text-sm text-red-600">{crawlError}</p>
           )}
           {!crawlLoading && crawlIssues.length > 0 && (
-            <p className="mt-2 text-xs text-white/50">
+            <p className="mt-2 text-xs text-bip-muted">
               
               {crawlIssues.length} crawl issue
               {crawlIssues.length === 1 ? "" : "s"} in the unified
@@ -720,11 +720,11 @@ export default function ChannelOverview({
         </div>
       )}
       {channel === "seo" && (
-        <div className="rounded-lg border border-white/[0.08] bg-bip-page p-3">
+        <div className="rounded-lg border border-bip-border bg-bip-page p-3">
           
           <div className="flex items-center justify-between gap-2">
             
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               
               Search Console signals
             </p>
@@ -732,35 +732,35 @@ export default function ChannelOverview({
               type="button"
               onClick={onSyncSearchConsole}
               disabled={gscLoading || !onSyncSearchConsole}
-              className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+              className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
             >
               
               Sync Search Console
             </button>
           </div>
           {gscSnapshot && (
-            <p className="mt-2 text-[11px] text-white/50">
+            <p className="mt-2 text-[11px] text-bip-muted">
               
               Last sync {formatDateTime(gscSnapshot.updated_at)} •
               {gscSnapshot.start_date} to {gscSnapshot.end_date}
             </p>
           )}
           {!gscLoading && gscPageMetrics.length > 0 && (
-            <p className="mt-2 text-[11px] text-white/50">
+            <p className="mt-2 text-[11px] text-bip-muted">
               
               Top page: {Math.round(gscPageMetrics[0]!.impressions)}
               impressions, CTR {(gscPageMetrics[0]!.ctr * 100).toFixed(2)}%
             </p>
           )}
           {!gscLoading && gscQueryMetrics.length > 0 && (
-            <p className="mt-1 text-[11px] text-white/50">
+            <p className="mt-1 text-[11px] text-bip-muted">
               
               Top query: {gscQueryMetrics[0]!.query} (pos
               {gscQueryMetrics[0]!.position.toFixed(1)})
             </p>
           )}
           {gscLoading && (
-            <p className="mt-2 text-sm text-white/75">
+            <p className="mt-2 text-sm text-bip-text">
               
               Syncing Search Console...
             </p>
@@ -769,7 +769,7 @@ export default function ChannelOverview({
             <p className="mt-2 text-sm text-red-600">{gscError}</p>
           )}
           {!gscLoading && gscSignals.length > 0 && (
-            <p className="mt-2 text-xs text-white/50">
+            <p className="mt-2 text-xs text-bip-muted">
               
               {gscSignals.length} Search Console signal
               {gscSignals.length === 1 ? "" : "s"} in the unified
@@ -790,9 +790,9 @@ export default function ChannelOverview({
         </div>
       )}
       {channel === "seo" && selectedClient && (
-        <div className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-bip-page px-3 py-2">
+        <div className="flex items-center justify-between rounded-lg border border-bip-border bg-bip-page px-3 py-2">
           
-          <p className="text-xs text-white/75">
+          <p className="text-xs text-bip-text">
             
             {selectedCount} help desk item{selectedCount === 1 ? "" : "s"}
             selected
@@ -801,7 +801,7 @@ export default function ChannelOverview({
             type="button"
             onClick={onCopyHelpdeskTicket}
             disabled={!onCopyHelpdeskTicket || selectedCount === 0}
-            className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+            className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
           >
             
             Review/edit ticket text
@@ -809,11 +809,11 @@ export default function ChannelOverview({
         </div>
       )}
       {channel === "sitemaps" && (
-        <div className="rounded-lg border border-white/[0.08] bg-bip-page p-3">
+        <div className="rounded-lg border border-bip-border bg-bip-page p-3">
           
           <div className="flex items-center justify-between gap-2">
             
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               
               Sitemap freshness
             </p>
@@ -821,14 +821,14 @@ export default function ChannelOverview({
               type="button"
               onClick={onSyncSitemaps}
               disabled={sitemapLoading || !onSyncSitemaps}
-              className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+              className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
             >
               
               Refresh sitemap
             </button>
           </div>
           {sitemapSnapshot && (
-            <p className="mt-2 text-[11px] text-white/50">
+            <p className="mt-2 text-[11px] text-bip-muted">
               
               Last sync {formatDateTime(sitemapSnapshot.updated_at)} •
               {sitemapSnapshot.url_count} URLs •{""}
@@ -836,26 +836,26 @@ export default function ChannelOverview({
             </p>
           )}
           {sitemapLoading && (
-            <p className="mt-2 text-sm text-white/75"> Syncing sitemap... </p>
+            <p className="mt-2 text-sm text-bip-text"> Syncing sitemap... </p>
           )}
           {sitemapError && (
             <p className="mt-2 text-sm text-red-600">{sitemapError}</p>
           )}
           {!sitemapLoading && sitemapUrls.length > 0 && (
-            <div className="mt-2 overflow-auto rounded-md border border-white/[0.08]">
+            <div className="mt-2 overflow-auto rounded-md border border-bip-border">
               
-              <table className="w-full min-w-[680px] border-collapse text-left text-xs"><thead><tr className="border-b border-white/[0.08] bg-white/[0.06]"><th className="px-2 py-1.5 font-medium text-white/75">
+              <table className="w-full min-w-[680px] border-collapse text-left text-xs"><thead><tr className="border-b border-bip-border bg-bip-fill"><th className="px-2 py-1.5 font-medium text-bip-text">
                       URL
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       Lastmod
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       HTTP Last-Modified
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       Effective updated
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       Stale 90d
                     </th></tr></thead><tbody>{sitemapUrls.slice(0, 25).map((row) => (
-                    <tr key={row.id} className="border-b border-zinc-100"><td className="px-2 py-1.5 text-white/75">
+                    <tr key={row.id} className="border-b border-zinc-100"><td className="px-2 py-1.5 text-bip-text">
                         
                         <a
                           href={row.loc}
@@ -866,15 +866,15 @@ export default function ChannelOverview({
                           
                           {row.loc}
                         </a>
-                      </td><td className="px-2 py-1.5 text-white/75">
+                      </td><td className="px-2 py-1.5 text-bip-text">
                         
                         {row.lastmod ? formatDateTime(row.lastmod) : "—"}
-                      </td><td className="px-2 py-1.5 text-white/75">
+                      </td><td className="px-2 py-1.5 text-bip-text">
                         
                         {row.http_last_modified
                           ? formatDateTime(row.http_last_modified)
                           : "—"}
-                      </td><td className="px-2 py-1.5 text-white/75">
+                      </td><td className="px-2 py-1.5 text-bip-text">
                         
                         {row.effective_updated_at
                           ? formatDateTime(row.effective_updated_at)
@@ -895,11 +895,11 @@ export default function ChannelOverview({
         </div>
       )}
       {channel === "social" && (
-        <div className="rounded-lg border border-white/[0.08] bg-bip-page p-3">
+        <div className="rounded-lg border border-bip-border bg-bip-page p-3">
           
           <div className="flex items-center justify-between gap-2">
             
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               
               Social reporting (Facebook + Instagram)
             </p>
@@ -909,7 +909,7 @@ export default function ChannelOverview({
                 type="button"
                 onClick={onRefreshSocialToken}
                 disabled={socialTokenRefreshing || !onRefreshSocialToken}
-                className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+                className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
               >
                 
                 Refresh token
@@ -918,32 +918,32 @@ export default function ChannelOverview({
                 type="button"
                 onClick={onSyncSocial}
                 disabled={socialLoading || !onSyncSocial}
-                className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+                className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
               >
                 
                 Sync social
               </button>
             </div>
           </div>
-          <p className="mt-2 text-[11px] text-white/50">
+          <p className="mt-2 text-[11px] text-bip-muted">
             
             {socialConnections.length} platform connection
             {socialConnections.length === 1 ? "" : "s"} • {socialPosts.length}
             posts/media tracked
           </p>
-          <p className="mt-1 text-[11px] text-white/50">
+          <p className="mt-1 text-[11px] text-bip-muted">
             
             {socialSignals.length} evaluation signal
             {socialSignals.length === 1 ? "" : "s"}
           </p>
           {socialLoading && (
-            <p className="mt-2 text-sm text-white/75">Syncing social data...</p>
+            <p className="mt-2 text-sm text-bip-text">Syncing social data...</p>
           )}
           {socialError && (
             <p className="mt-2 text-sm text-red-600">{socialError}</p>
           )}
           {socialTokenMessage && (
-            <p className="mt-2 text-xs text-white/75">{socialTokenMessage}</p>
+            <p className="mt-2 text-xs text-bip-text">{socialTokenMessage}</p>
           )}
           {!socialLoading && (
             <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
@@ -971,49 +971,49 @@ export default function ChannelOverview({
             </div>
           )}
           {!socialLoading && socialPosts.length > 0 && (
-            <div className="mt-3 overflow-auto rounded-md border border-white/[0.08]">
+            <div className="mt-3 overflow-auto rounded-md border border-bip-border">
               
-              <table className="w-full min-w-[760px] border-collapse text-left text-xs"><thead><tr className="border-b border-white/[0.08] bg-white/[0.06]"><th className="px-2 py-1.5 font-medium text-white/75">
+              <table className="w-full min-w-[760px] border-collapse text-left text-xs"><thead><tr className="border-b border-bip-border bg-bip-fill"><th className="px-2 py-1.5 font-medium text-bip-text">
                       Platform
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       Type
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       Published
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       Reach
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       Impressions
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       Engagement
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       Comments
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       Shares
-                    </th><th className="px-2 py-1.5 font-medium text-white/75">
+                    </th><th className="px-2 py-1.5 font-medium text-bip-text">
                       Clicks
                     </th></tr></thead><tbody>{socialPosts.slice(0, 25).map((post) => (
                     <tr
                       key={`${post.platform}-${post.post_id}`}
                       className="border-b border-zinc-100"
-                    ><td className="px-2 py-1.5 text-white/75">
+                    ><td className="px-2 py-1.5 text-bip-text">
                         {post.platform}
-                      </td><td className="px-2 py-1.5 text-white/75">
+                      </td><td className="px-2 py-1.5 text-bip-text">
                         {post.media_type ?? "post"}
-                      </td><td className="px-2 py-1.5 text-white/75">
+                      </td><td className="px-2 py-1.5 text-bip-text">
                         {post.published_at
                           ? formatDateTime(post.published_at)
                           : "—"}
-                      </td><td className="px-2 py-1.5 text-white/75">
+                      </td><td className="px-2 py-1.5 text-bip-text">
                         {post.reach ?? "—"}
-                      </td><td className="px-2 py-1.5 text-white/75">
+                      </td><td className="px-2 py-1.5 text-bip-text">
                         {post.impressions ?? "—"}
-                      </td><td className="px-2 py-1.5 text-white/75">
+                      </td><td className="px-2 py-1.5 text-bip-text">
                         {post.engagement ?? "—"}
-                      </td><td className="px-2 py-1.5 text-white/75">
+                      </td><td className="px-2 py-1.5 text-bip-text">
                         {post.comments ?? "—"}
-                      </td><td className="px-2 py-1.5 text-white/75">
+                      </td><td className="px-2 py-1.5 text-bip-text">
                         {post.shares ?? "—"}
-                      </td><td className="px-2 py-1.5 text-white/75">
+                      </td><td className="px-2 py-1.5 text-bip-text">
                         {post.link_clicks ?? "—"}
                       </td></tr>
                   ))}
@@ -1023,11 +1023,11 @@ export default function ChannelOverview({
         </div>
       )}
       {channel === "social" && (
-        <div className="rounded-lg border border-white/[0.08] bg-bip-page p-3">
+        <div className="rounded-lg border border-bip-border bg-bip-page p-3">
           
           <div className="flex items-center justify-between gap-2">
             
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               
               Social idea queue
             </p>
@@ -1035,7 +1035,7 @@ export default function ChannelOverview({
               type="button"
               onClick={onGenerateSocialIdeas}
               disabled={socialIdeasLoading || !onGenerateSocialIdeas}
-              className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+              className="rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
             >
               
               Generate ideas
@@ -1045,7 +1045,7 @@ export default function ChannelOverview({
             <p className="mt-2 text-sm text-red-600">{socialIdeasError}</p>
           )}
           {socialIdeas.length === 0 ? (
-            <p className="mt-2 text-sm text-white/75">
+            <p className="mt-2 text-sm text-bip-text">
               
               Generate idea cards from recent top-performing posts and weak
               themes.
@@ -1056,17 +1056,17 @@ export default function ChannelOverview({
               {socialIdeas.map((idea) => (
                 <li
                   key={idea.id}
-                  className="rounded-md border border-white/[0.08] bg-bip-card p-2 text-xs"
+                  className="rounded-md border border-bip-border bg-bip-card p-2 text-xs"
                 >
                   
-                  <p className="font-medium text-white">{idea.theme}</p>
-                  <p className="mt-1 text-white/75">
+                  <p className="font-medium text-bip-text">{idea.theme}</p>
+                  <p className="mt-1 text-bip-text">
                     Objective: {idea.objective}
                   </p>
-                  <p className="mt-1 text-white/75">Hook: {idea.hook}</p>
-                  <p className="mt-1 text-white/75">Format: {idea.format}</p>
-                  <p className="mt-1 text-white/75">CTA: {idea.cta}</p>
-                  <p className="mt-1 text-white/50">
+                  <p className="mt-1 text-bip-text">Hook: {idea.hook}</p>
+                  <p className="mt-1 text-bip-text">Format: {idea.format}</p>
+                  <p className="mt-1 text-bip-text">CTA: {idea.cta}</p>
+                  <p className="mt-1 text-bip-muted">
                     Suggested window: {idea.suggested_window}
                   </p>
                 </li>
@@ -1090,7 +1090,7 @@ export default function ChannelOverview({
       {channel === "ads" ? null : channel !== "seo" ||
         seoInspectorIssues.length === 0 ? (
         findings.length === 0 ? (
-          <p className="rounded-lg border border-white/[0.08] bg-bip-page px-3 py-2 text-sm text-white/75">
+          <p className="rounded-lg border border-bip-border bg-bip-page px-3 py-2 text-sm text-bip-text">
             
             No findings yet. Connect this channel to populate diagnostics.
           </p>

@@ -157,15 +157,15 @@ export default function GlobalAdsOptimizationCenter({
   const activeFilterCount = selectedFilters.size;
 
   return (
-    <div className="flex min-h-screen flex-1 flex-col bg-bip-page font-sans text-white">
+    <div className="flex min-h-screen flex-1 flex-col bg-bip-page font-sans text-bip-text">
 
       {/* Header */}
-      <header className="border-b border-white/[0.08] px-6 py-5">
+      <header className="border-b border-bip-border px-6 py-5">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link
               href="/dashboard"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-bip-card/50 text-white/75 transition hover:bg-bip-card/60"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-bip-border bg-bip-card/50 text-bip-text transition hover:bg-bip-card/60"
               title="Dashboard"
             >
               <LayoutGrid className="h-4 w-4" aria-hidden />
@@ -174,10 +174,10 @@ export default function GlobalAdsOptimizationCenter({
               <Megaphone className="h-5 w-5" aria-hidden />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base font-semibold tracking-tight text-white">
+              <h1 className="text-base font-semibold tracking-tight text-bip-text">
                 Global Ads Optimization
               </h1>
-              <p className="text-xs text-white/40">
+              <p className="text-xs text-bip-muted">
                 {coverage.syncedAccountCount} of {coverage.syncableAccountCount} accounts synced
                 {syncAgeLabel ? ` · ${syncAgeLabel}` : ""}
               </p>
@@ -186,13 +186,13 @@ export default function GlobalAdsOptimizationCenter({
           <div className="flex shrink-0 items-center gap-2">
             <Link
               href="/conversion-integrity"
-              className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs font-medium text-white/60 transition hover:text-white"
+              className="rounded-lg border border-bip-border px-3 py-1.5 text-xs font-medium text-bip-muted transition hover:text-bip-text"
             >
               Conversion Radar
             </Link>
             <Link
               href="/ppc-defense"
-              className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs font-medium text-white/60 transition hover:text-white"
+              className="rounded-lg border border-bip-border px-3 py-1.5 text-xs font-medium text-bip-muted transition hover:text-bip-text"
             >
               PPC Defense
             </Link>
@@ -244,24 +244,24 @@ export default function GlobalAdsOptimizationCenter({
         {/* Stats row */}
         <div className="mb-6 grid grid-cols-4 gap-3">
           {[
-            { label: "Syncable", value: coverage.syncableAccountCount, color: "text-white" },
-            { label: "Synced", value: coverage.syncedAccountCount, color: "text-white" },
+            { label: "Syncable", value: coverage.syncableAccountCount, color: "text-bip-text" },
+            { label: "Synced", value: coverage.syncedAccountCount, color: "text-bip-text" },
             { label: "With issues", value: summary.accountsWithIssues, color: "text-amber-400" },
             { label: "Healthy", value: coverage.healthySyncedAccountCount, color: "text-emerald-400" },
           ].map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-white/[0.08] bg-bip-card/40 px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">{stat.label}</p>
+            <div key={stat.label} className="rounded-xl border border-bip-border bg-bip-card/40 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-bip-muted">{stat.label}</p>
               <p className={`mt-1 text-2xl font-bold ${stat.color}`}>{stat.value}</p>
             </div>
           ))}
         </div>
 
         {/* Filter + sort bar */}
-        <div className="mb-4 rounded-xl border border-white/[0.08] bg-bip-card/40">
+        <div className="mb-4 rounded-xl border border-bip-border bg-bip-card/40">
           <button
             type="button"
             onClick={() => setFiltersOpen((o) => !o)}
-            className="flex w-full items-center justify-between px-4 py-3 text-xs font-medium text-white/50 hover:text-white/75 transition-colors"
+            className="flex w-full items-center justify-between px-4 py-3 text-xs font-medium text-bip-muted hover:text-bip-text transition-colors"
           >
             <span>
               Filters
@@ -275,7 +275,7 @@ export default function GlobalAdsOptimizationCenter({
           </button>
 
           {filtersOpen && (
-            <div className="border-t border-white/[0.06] px-4 pb-4 pt-3">
+            <div className="border-t border-bip-border px-4 pb-4 pt-3">
               <div className="flex flex-wrap gap-2">
                 {FILTER_OPTIONS.map((opt) => {
                   const active = selectedFilters.has(opt.value);
@@ -286,8 +286,8 @@ export default function GlobalAdsOptimizationCenter({
                       onClick={() => toggleFilter(opt.value)}
                       className={`rounded-lg border px-3 py-1.5 text-xs transition ${
                         active
-                          ? "border-bip-accent/30 bg-bip-accent/10 text-white/80"
-                          : "border-white/[0.08] bg-bip-card/30 text-white/35 hover:text-white/60"
+                          ? "border-bip-accent/30 bg-bip-accent/10 text-bip-text"
+                          : "border-bip-border bg-bip-card/30 text-bip-subtle hover:text-bip-muted"
                       }`}
                     >
                       {opt.label}
@@ -297,14 +297,14 @@ export default function GlobalAdsOptimizationCenter({
                 <button
                   type="button"
                   onClick={() => setSelectedFilters(new Set(ALL_ISSUE_TYPES))}
-                  className="ml-auto rounded-lg border border-white/[0.06] px-3 py-1.5 text-xs text-white/35 hover:text-white/60 transition"
+                  className="ml-auto rounded-lg border border-bip-border px-3 py-1.5 text-xs text-bip-subtle hover:text-bip-muted transition"
                 >
                   All
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedFilters(new Set())}
-                  className="rounded-lg border border-white/[0.06] px-3 py-1.5 text-xs text-white/35 hover:text-white/60 transition"
+                  className="rounded-lg border border-bip-border px-3 py-1.5 text-xs text-bip-subtle hover:text-bip-muted transition"
                 >
                   None
                 </button>
@@ -314,11 +314,11 @@ export default function GlobalAdsOptimizationCenter({
         </div>
 
         {/* Issues table */}
-        <div className="rounded-xl border border-white/[0.08] bg-bip-card/40 overflow-hidden">
+        <div className="rounded-xl border border-bip-border bg-bip-card/40 overflow-hidden">
 
           {/* Table header with count + sort */}
-          <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
-            <p className="text-xs text-white/40">
+          <div className="flex items-center justify-between border-b border-bip-border px-4 py-3">
+            <p className="text-xs text-bip-muted">
               {selectedFilters.size === 0
                 ? "No filters selected"
                 : `${filteredIssues.length} issue${filteredIssues.length !== 1 ? "s" : ""} across ${summary.accountsWithIssues} account${summary.accountsWithIssues !== 1 ? "s" : ""}`}
@@ -326,7 +326,7 @@ export default function GlobalAdsOptimizationCenter({
             <button
               type="button"
               onClick={cycleSortKey}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-xs text-white/40 transition hover:text-white/70"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-2.5 py-1.5 text-xs text-bip-muted transition hover:text-bip-muted"
             >
               <ArrowUpDown size={11} />
               Sort: {sortKey === "severity" ? "Severity" : sortKey === "account" ? "Client" : "Issue type"}
@@ -335,20 +335,20 @@ export default function GlobalAdsOptimizationCenter({
 
           {selectedFilters.size === 0 ? (
             <div className="py-16 text-center">
-              <p className="text-sm text-white/40">Select at least one filter to see issues.</p>
+              <p className="text-sm text-bip-muted">Select at least one filter to see issues.</p>
             </div>
           ) : filteredIssues.length === 0 ? (
             <div className="py-16 text-center">
-              <p className="text-sm font-medium text-white/60">No issues found</p>
-              <p className="mt-1 text-xs text-white/35">
+              <p className="text-sm font-medium text-bip-muted">No issues found</p>
+              <p className="mt-1 text-xs text-bip-subtle">
                 All synced accounts are clear for the selected filters.
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="border-b border-white/[0.06]">
-                  <tr className="text-[10px] font-semibold uppercase tracking-wider text-white/35">
+                <thead className="border-b border-bip-border">
+                  <tr className="text-[10px] font-semibold uppercase tracking-wider text-bip-subtle">
                     <th className="px-4 py-3">Client</th>
                     <th className="px-4 py-3">Issue</th>
                     <th className="px-4 py-3">What&apos;s affected</th>
@@ -360,18 +360,18 @@ export default function GlobalAdsOptimizationCenter({
                   {filteredIssues.map((item) => {
                     const target = buildGoogleAdsOptimizeTarget(item);
                     return (
-                      <tr key={item.id} className="transition hover:bg-white/[0.02]">
+                      <tr key={item.id} className="transition hover:bg-bip-hover">
 
                         {/* Client */}
                         <td className="px-4 py-3">
                           <Link
                             href={target.workspaceUrl}
-                            className="font-medium text-white/80 hover:text-bip-accent transition-colors"
+                            className="font-medium text-bip-text hover:text-bip-accent transition-colors"
                           >
                             {item.accountName}
                           </Link>
                           {target.formattedCustomerId && (
-                            <p className="mt-0.5 font-mono text-[10px] text-white/30">
+                            <p className="mt-0.5 font-mono text-[10px] text-bip-subtle">
                               {target.formattedCustomerId}
                             </p>
                           )}
@@ -381,22 +381,22 @@ export default function GlobalAdsOptimizationCenter({
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${severityDotClass(item.severity)}`} />
-                            <span className="text-white/75 text-xs">
+                            <span className="text-bip-text text-xs">
                               {ISSUE_PLAIN_LABEL[item.issueType] ?? item.issueLabel}
                             </span>
                           </div>
-                          <p className="mt-0.5 pl-3.5 text-[10px] text-white/30">
+                          <p className="mt-0.5 pl-3.5 text-[10px] text-bip-subtle">
                             {severityLabel(item.severity)}
                           </p>
                         </td>
 
                         {/* What's affected */}
-                        <td className="px-4 py-3 font-mono text-xs text-white/40">
+                        <td className="px-4 py-3 font-mono text-xs text-bip-muted">
                           {item.target}
                         </td>
 
                         {/* Why it matters */}
-                        <td className="px-4 py-3 text-xs text-white/40 max-w-[200px]">
+                        <td className="px-4 py-3 text-xs text-bip-muted max-w-[200px]">
                           {item.impact}
                         </td>
 
@@ -414,7 +414,7 @@ export default function GlobalAdsOptimizationCenter({
                               </a>
                               <Link
                                 href={target.workspaceUrl}
-                                className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                                className="text-[10px] text-bip-subtle hover:text-bip-muted transition-colors"
                               >
                                 Open client →
                               </Link>

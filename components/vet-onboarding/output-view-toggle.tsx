@@ -31,7 +31,7 @@ export default function OutputViewToggle({
             onClick={() => onChange(tab.id)}
             className={`relative flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition ${
               active
-                ? "bg-[var(--report-navy,#1a4a9a)] text-white shadow-sm"
+                ? "bg-[var(--report-navy,#1a4a9a)] text-bip-text shadow-sm"
                 : "text-[var(--report-muted,#5a6478)] hover:bg-[#f4f8fc]"
             }`}
           >

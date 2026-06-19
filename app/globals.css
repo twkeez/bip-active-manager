@@ -175,6 +175,13 @@
   --color-bip-accent:  var(--bip-accent);
   --color-bip-danger:  var(--bip-danger);
   --color-bip-border:  var(--bip-border);
+  /* Semantic text tokens — adapt to dark/light theme */
+  --color-bip-text:    var(--text);
+  --color-bip-muted:   var(--text-muted);
+  --color-bip-subtle:  var(--text-subtle);
+  /* Semantic surface tokens */
+  --color-bip-fill:    var(--surface-2);
+  --color-bip-hover:   var(--surface-hover);
   --font-sans: var(--font-source-sans);
   --font-mono: var(--font-geist-mono);
 }

@@ -215,7 +215,7 @@ export default function StrategyMapperOutput({
       <button
         type="button"
         onClick={() => void handleCopy()}
-        className={`inline-flex items-center gap-2 rounded-lg bg-[var(--report-accent)] px-5 py-2.5 text-sm font-medium text-white transition hover:brightness-110 ${className}`}
+        className={`inline-flex items-center gap-2 rounded-lg bg-[var(--report-accent)] px-5 py-2.5 text-sm font-medium text-bip-text transition hover:brightness-110 ${className}`}
       >
         <ClipboardCopy className="h-4 w-4" />
         {copied ? "Copied!" : "Copy for Google Docs"}
@@ -231,7 +231,7 @@ export default function StrategyMapperOutput({
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-4 py-2 text-sm text-white/75 hover:bg-white/[0.06]"
+            className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-4 py-2 text-sm text-bip-text hover:bg-bip-fill"
           >
             <Printer className="h-4 w-4" />
             Print
@@ -239,7 +239,7 @@ export default function StrategyMapperOutput({
           <button
             type="button"
             onClick={onStartOver}
-            className="rounded-lg border border-white/[0.08] bg-bip-card px-4 py-2 text-sm text-white/75 hover:bg-white/[0.06]"
+            className="rounded-lg border border-bip-border bg-bip-card px-4 py-2 text-sm text-bip-text hover:bg-bip-fill"
           >
             Start Over
           </button>
@@ -325,7 +325,7 @@ export default function StrategyMapperOutput({
           <div className="overflow-hidden rounded-lg border border-[var(--report-border)] print:break-inside-avoid">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase tracking-wide text-white">
+                <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase tracking-wide text-bip-text">
                   <th className="px-3 py-3">Practice</th>
                   <th className="px-3 py-3">Distance</th>
                   <th className="px-3 py-3">Rating</th>
@@ -439,7 +439,7 @@ export default function StrategyMapperOutput({
                       <div className="overflow-hidden rounded-lg border border-[var(--report-border)]">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase tracking-wide text-white">
+                            <tr className="bg-[var(--report-navy)] text-left text-xs font-semibold uppercase tracking-wide text-bip-text">
                               <th className="px-3 py-2">Intent Category</th>
                               <th className="px-3 py-2">Target Geography</th>
                               <th className="px-3 py-2">Keyword Variations</th>

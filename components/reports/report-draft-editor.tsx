@@ -52,7 +52,7 @@ function SectionToggle({
       className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition ${
         visible
           ? "bg-bip-accent/10 text-bip-accent border border-bip-accent/20"
-          : "bg-white/[0.04] text-white/30 border border-white/[0.06]"
+          : "bg-bip-hover text-bip-subtle border border-bip-border"
       }`}
     >
       {visible ? <Eye size={11} /> : <EyeOff size={11} />}
@@ -77,13 +77,13 @@ function CollapsibleSection({
   const [open, setOpen] = useState(true);
   return (
     <div className={`rounded-xl border transition ${
-      visible ? "border-white/[0.08] bg-bip-card" : "border-white/[0.04] bg-bip-card/40 opacity-60"
+      visible ? "border-bip-border bg-bip-card" : "border-bip-border bg-bip-card/40 opacity-60"
     }`}>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex items-center gap-2 text-sm font-medium text-white/80 hover:text-white transition"
+          className="flex items-center gap-2 text-sm font-medium text-bip-text hover:text-bip-text transition"
         >
           {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           {title}
@@ -92,10 +92,10 @@ function CollapsibleSection({
       </div>
 
       {open && (
-        <div className="border-t border-white/[0.05] px-4 pb-4 pt-3 space-y-3">
+        <div className="border-t border-bip-border px-4 pb-4 pt-3 space-y-3">
           {children}
           <div>
-            <label className="text-[11px] text-white/30 uppercase tracking-wider">
+            <label className="text-[11px] text-bip-subtle uppercase tracking-wider">
               Strategist note (appears below this section in the report)
             </label>
             <textarea
@@ -103,7 +103,7 @@ function CollapsibleSection({
               value={comment}
               onChange={(e) => onCommentChange(e.target.value)}
               placeholder="Add context, explanation, or commentary…"
-              className="mt-1.5 w-full rounded-lg border border-white/[0.08] bg-bip-page/50 px-3 py-2 text-sm text-white/75 placeholder-white/20 focus:border-bip-accent/30 focus:outline-none resize-none"
+              className="mt-1.5 w-full rounded-lg border border-bip-border bg-bip-page/50 px-3 py-2 text-sm text-bip-text placeholder-bip-subtle focus:border-bip-accent/30 focus:outline-none resize-none"
             />
           </div>
         </div>
@@ -302,16 +302,16 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
   return (
     <div className="min-h-screen bg-bip-page">
       {/* Top bar */}
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-white/[0.06] bg-bip-page/95 px-6 py-3 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-bip-border bg-bip-page/95 px-6 py-3 backdrop-blur">
         <div className="flex items-center gap-3">
           <Link
             href={`/dashboard/clients/${clientId}`}
-            className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition"
+            className="flex items-center gap-1.5 text-xs text-bip-muted hover:text-bip-muted transition"
           >
             <ArrowLeft size={13} /> Back to client
           </Link>
-          <span className="text-white/20">·</span>
-          <span className="text-sm font-medium text-white/70">
+          <span className="text-bip-subtle">·</span>
+          <span className="text-sm font-medium text-bip-muted">
             {report.client.account_name}
           </span>
           <span className="rounded bg-bip-accent/10 px-2 py-0.5 text-[11px] font-medium text-bip-accent">
@@ -327,7 +327,7 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
             type="button"
             onClick={saveDraft}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white/60 hover:text-white transition disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-1.5 text-xs text-bip-muted hover:text-bip-text transition disabled:opacity-40"
           >
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
             Save draft
@@ -347,15 +347,15 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
 
         {/* Window + intro */}
         <div className="space-y-1">
-          <h1 className="text-lg font-semibold text-white">Edit Report Draft</h1>
-          <p className="text-xs text-white/40">
+          <h1 className="text-lg font-semibold text-bip-text">Edit Report Draft</h1>
+          <p className="text-xs text-bip-muted">
             Toggle sections, override values, and add strategist commentary before generating the PDF.
           </p>
         </div>
 
         {/* Reporting window */}
-        <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-white/30">Reporting window</p>
+        <div className="rounded-xl border border-bip-border bg-bip-card p-4 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-bip-subtle">Reporting window</p>
           <div className="flex gap-2">
             {["Last 7 days", "Last 30 days", "Last 90 days"].map((label) => (
               <button
@@ -365,7 +365,7 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
                 className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                   windowLabel === label
                     ? "border-bip-accent/40 bg-bip-accent/10 text-bip-accent"
-                    : "border-white/[0.08] text-white/40 hover:text-white/60"
+                    : "border-bip-border text-bip-muted hover:text-bip-muted"
                 }`}
               >
                 {label}
@@ -375,10 +375,10 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
         </div>
 
         {/* Strategist narrative */}
-        <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4 space-y-2">
+        <div className="rounded-xl border border-bip-border bg-bip-card p-4 space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-white/30">
-              Strategist intro <span className="normal-case font-normal text-white/20">(appears at top of report)</span>
+            <p className="text-xs font-semibold uppercase tracking-wider text-bip-subtle">
+              Strategist intro <span className="normal-case font-normal text-bip-subtle">(appears at top of report)</span>
             </p>
             <button
               type="button"
@@ -396,7 +396,7 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
             <p className="text-xs text-red-400">{introError}</p>
           )}
           {generatingIntro && (
-            <p className="text-xs text-white/30 animate-pulse">
+            <p className="text-xs text-bip-subtle animate-pulse">
               Analyzing metrics and drafting your intro…
             </p>
           )}
@@ -405,9 +405,9 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
             value={narrative}
             onChange={(e) => { setNarrative(e.target.value); setSaved(false); }}
             placeholder={`Hi [Client name],\n\nHere's a summary of your performance over the past 30 days…`}
-            className="w-full rounded-lg border border-white/[0.08] bg-bip-page/50 px-3 py-2.5 text-sm text-white/80 placeholder-white/20 focus:border-bip-accent/30 focus:outline-none resize-none"
+            className="w-full rounded-lg border border-bip-border bg-bip-page/50 px-3 py-2.5 text-sm text-bip-text placeholder-bip-subtle focus:border-bip-accent/30 focus:outline-none resize-none"
           />
-          <p className="text-[11px] text-white/20">AI draft based on this client&apos;s strongest metrics — edit freely before generating the report.</p>
+          <p className="text-[11px] text-bip-subtle">AI draft based on this client&apos;s strongest metrics — edit freely before generating the report.</p>
         </div>
 
         {/* Performance Overview */}
@@ -423,12 +423,12 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
             {[report.channels.ads, report.channels.searchConsole, report.channels.ga4]
               .filter((c) => c.metrics.length > 0)
               .map((c) => (
-                <div key={c.source} className="rounded border border-white/[0.06] px-2 py-1.5 text-xs text-white/40">
+                <div key={c.source} className="rounded border border-bip-border px-2 py-1.5 text-xs text-bip-muted">
                   {c.title} — {c.metrics.length} metrics
                 </div>
               ))}
             {report.channels.ads.metrics.length === 0 && report.channels.searchConsole.metrics.length === 0 && (
-              <p className="text-xs text-white/30">No channel data synced yet.</p>
+              <p className="text-xs text-bip-subtle">No channel data synced yet.</p>
             )}
           </div>
         </CollapsibleSection>
@@ -442,7 +442,7 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
           comment={sectionComments.gsc_top_pages ?? ""}
           onCommentChange={(v) => updateComment("gsc_top_pages", v)}
         >
-          <p className="text-xs text-white/30">
+          <p className="text-xs text-bip-subtle">
             {report.gscTopPages.length > 0
               ? `${report.gscTopPages.length} top pages · ${report.gscTopPages.reduce((s, p) => s + p.clicks, 0).toLocaleString()} total clicks`
               : "No GSC top-page data synced yet."}
@@ -458,7 +458,7 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
           comment={sectionComments.social ?? ""}
           onCommentChange={(v) => updateComment("social", v)}
         >
-          <p className="text-xs text-white/30">
+          <p className="text-xs text-bip-subtle">
             {socialWindow.length > 0
               ? `${socialWindow.length} days · ${socialTotals.reach.toLocaleString()} reach · ${socialTotals.engagement.toLocaleString()} engagements · ${socialTotals.follows.toLocaleString()} follows`
               : "No social data synced yet — run Social sync from the Connections tab."}
@@ -476,20 +476,20 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
         >
           <div className="space-y-3">
             {kwLoading ? (
-              <p className="text-xs text-white/30">Loading…</p>
+              <p className="text-xs text-bip-subtle">Loading…</p>
             ) : keywords.length === 0 ? (
-              <p className="text-xs text-white/30">No keywords tracked yet — add some below.</p>
+              <p className="text-xs text-bip-subtle">No keywords tracked yet — add some below.</p>
             ) : (
               <ul className="space-y-1.5">
                 {keywords.map((kw) => (
-                  <li key={kw.id ?? kw.keyword} className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
-                    <span className="text-sm text-white/75">{kw.keyword}</span>
-                    {kw.tag && <span className="text-[10px] text-white/30 font-mono">{kw.tag}</span>}
+                  <li key={kw.id ?? kw.keyword} className="flex items-center justify-between gap-2 rounded-lg border border-bip-border bg-bip-hover px-3 py-2">
+                    <span className="text-sm text-bip-text">{kw.keyword}</span>
+                    {kw.tag && <span className="text-[10px] text-bip-subtle font-mono">{kw.tag}</span>}
                     <button
                       type="button"
                       onClick={() => void removeKeyword(kw.id, kw.keyword)}
                       disabled={kwSaving}
-                      className="ml-auto shrink-0 text-white/20 hover:text-red-400 transition disabled:opacity-40"
+                      className="ml-auto shrink-0 text-bip-subtle hover:text-red-400 transition disabled:opacity-40"
                     >
                       <X size={12} />
                     </button>
@@ -506,20 +506,20 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
                 onChange={(e) => setKwInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void addKeyword(); } }}
                 placeholder="Add keyword…"
-                className="flex-1 rounded-lg border border-white/[0.08] bg-bip-page/50 px-3 py-1.5 text-sm text-white/75 placeholder-white/20 focus:border-bip-accent/30 focus:outline-none"
+                className="flex-1 rounded-lg border border-bip-border bg-bip-page/50 px-3 py-1.5 text-sm text-bip-text placeholder-bip-subtle focus:border-bip-accent/30 focus:outline-none"
               />
               <input
                 type="text"
                 value={kwTag}
                 onChange={(e) => setKwTag(e.target.value)}
                 placeholder="Tag (optional)"
-                className="w-28 rounded-lg border border-white/[0.08] bg-bip-page/50 px-3 py-1.5 text-sm text-white/75 placeholder-white/20 focus:border-bip-accent/30 focus:outline-none"
+                className="w-28 rounded-lg border border-bip-border bg-bip-page/50 px-3 py-1.5 text-sm text-bip-text placeholder-bip-subtle focus:border-bip-accent/30 focus:outline-none"
               />
               <button
                 type="button"
                 onClick={() => void addKeyword()}
                 disabled={!kwInput.trim() || kwSaving}
-                className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white/50 hover:text-white transition disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-lg border border-bip-border px-3 py-1.5 text-xs text-bip-muted hover:text-bip-text transition disabled:opacity-40"
               >
                 {kwSaving ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
                 Add
@@ -534,7 +534,7 @@ export default function ReportDraftEditor({ report, clientId, existingDraft }: P
             type="button"
             onClick={saveDraft}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-4 py-2 text-sm text-white/60 hover:text-white transition disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-4 py-2 text-sm text-bip-muted hover:text-bip-text transition disabled:opacity-40"
           >
             {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
             Save draft

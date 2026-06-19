@@ -53,9 +53,9 @@ function formatRelative(value: string | null | undefined) {
 
 function DataRow({ label, value, mono = false }: { label: string; value?: string | null; mono?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-white/[0.05] py-2.5 last:border-0">
-      <dt className="text-xs text-white/40 shrink-0">{label}</dt>
-      <dd className={`text-xs text-right ${mono ? "font-mono text-white/60" : "text-white/70"} truncate max-w-[240px]`}>
+    <div className="flex items-center justify-between gap-4 border-b border-bip-border py-2.5 last:border-0">
+      <dt className="text-xs text-bip-muted shrink-0">{label}</dt>
+      <dd className={`text-xs text-right ${mono ? "font-mono text-bip-muted" : "text-bip-muted"} truncate max-w-[240px]`}>
         {value || "—"}
       </dd>
     </div>
@@ -95,14 +95,14 @@ function EditableField({
     return <DataRow label={label} value={norm(value)} mono={mono} />;
   }
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-white/[0.05] py-2 last:border-0">
-      <label className="text-xs text-white/40 shrink-0">{label}</label>
+    <div className="flex items-center justify-between gap-4 border-b border-bip-border py-2 last:border-0">
+      <label className="text-xs text-bip-muted shrink-0">{label}</label>
       <input
         type="text"
         value={draft[fieldKey]}
         onChange={(e) => onChange(fieldKey, e.target.value)}
         placeholder="—"
-        className={`text-right text-xs bg-white/[0.05] border border-white/[0.12] rounded px-2 py-1 text-white/80 focus:outline-none focus:border-bip-accent/50 w-48 ${mono ? "font-mono" : ""}`}
+        className={`text-right text-xs bg-bip-hover border border-bip-border rounded px-2 py-1 text-bip-text focus:outline-none focus:border-bip-accent/50 w-48 ${mono ? "font-mono" : ""}`}
       />
     </div>
   );
@@ -148,7 +148,7 @@ function DataSyncPanel({ clientId, client }: { clientId: number; client: Record<
           return (
             <div key={job.label} className="flex items-center justify-between gap-4 py-1">
               <div>
-                <span className="text-xs text-white/70">{job.label}</span>
+                <span className="text-xs text-bip-muted">{job.label}</span>
                 {errors[job.label] && (
                   <p className="text-[10px] text-red-400 mt-0.5">{errors[job.label]}</p>
                 )}
@@ -160,7 +160,7 @@ function DataSyncPanel({ clientId, client }: { clientId: number; client: Record<
                 onClick={() => void runSync(job)}
                 disabled={!hasConfig || status === "running"}
                 title={!hasConfig ? `Set ${job.requiredField} in Connections first` : undefined}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.10] px-3 py-1.5 text-xs text-white/60 hover:text-white hover:border-white/20 disabled:opacity-30 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-1.5 text-xs text-bip-muted hover:text-bip-text hover:border-bip-border disabled:opacity-30 transition-colors"
               >
                 {status === "running" ? (
                   <><Loader size={11} className="animate-spin" /> Syncing…</>
@@ -207,15 +207,15 @@ function MapsUrlLookup({ clientId, onFound }: { clientId: number; onFound: (plac
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-white/[0.05]">
-      <p className="text-[0.65rem] text-white/30 mb-2">Or paste a Google Maps URL to look up the Place ID</p>
+    <div className="mt-3 pt-3 border-t border-bip-border">
+      <p className="text-[0.65rem] text-bip-subtle mb-2">Or paste a Google Maps URL to look up the Place ID</p>
       <div className="flex gap-2">
         <input
           type="text"
           value={url}
           onChange={(e) => { setUrl(e.target.value); setFound(null); setError(null); }}
           placeholder="https://www.google.com/maps/place/..."
-          className="flex-1 text-xs bg-white/[0.05] border border-white/[0.12] rounded px-2 py-1.5 text-white/70 placeholder-white/20 focus:outline-none focus:border-bip-accent/50 font-mono"
+          className="flex-1 text-xs bg-bip-hover border border-bip-border rounded px-2 py-1.5 text-bip-muted placeholder-bip-subtle focus:outline-none focus:border-bip-accent/50 font-mono"
         />
         <button
           onClick={() => void lookup()}
@@ -340,14 +340,14 @@ function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; o
     <div className="space-y-5">
       {/* Edit / Save controls */}
       <div className="flex items-center justify-between">
-        <p className="text-xs text-white/30">Connection IDs used by integrations</p>
+        <p className="text-xs text-bip-subtle">Connection IDs used by integrations</p>
         {editing ? (
           <div className="flex items-center gap-2">
             {saveError && <span className="text-xs text-red-400">{saveError}</span>}
             <button
               type="button"
               onClick={cancelEdit}
-              className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white/50 hover:text-white transition"
+              className="inline-flex items-center gap-1 rounded-lg border border-bip-border px-3 py-1.5 text-xs text-bip-muted hover:text-bip-text transition"
             >
               <X size={12} /> Cancel
             </button>
@@ -367,14 +367,14 @@ function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; o
               onClick={() => void discover()}
               disabled={discovering || !client.website}
               title={!client.website ? "Set a website URL in the Ads section first" : "Scan website for GA4 ID and Place ID"}
-              className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white/50 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1 rounded-lg border border-bip-border px-3 py-1.5 text-xs text-bip-muted hover:text-bip-text transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ScanSearch size={12} /> {discovering ? "Scanning…" : "Auto-discover"}
             </button>
             <button
               type="button"
               onClick={startEdit}
-              className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white/50 hover:text-white transition"
+              className="inline-flex items-center gap-1 rounded-lg border border-bip-border px-3 py-1.5 text-xs text-bip-muted hover:text-bip-text transition"
             >
               <Pencil size={12} /> Edit
             </button>
@@ -391,25 +391,25 @@ function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; o
       {discovered && !discoverError && (
         <div className="rounded-lg border border-bip-accent/20 bg-bip-accent/5 px-3 py-2.5 text-xs space-y-1">
           {discovered.ga4_id ? (
-            <p className="text-white/70">
+            <p className="text-bip-muted">
               <span className="text-bip-accent font-medium">GA4 ID found:</span> {discovered.ga4_id}
-              <span className="ml-2 text-white/30">via {discovered.sources.ga4_id}</span>
+              <span className="ml-2 text-bip-subtle">via {discovered.sources.ga4_id}</span>
             </p>
           ) : (
-            <p className="text-white/40">GA4 ID — not found on page</p>
+            <p className="text-bip-muted">GA4 ID — not found on page</p>
           )}
           {discovered.google_place_id ? (
-            <p className="text-white/70">
+            <p className="text-bip-muted">
               <span className="text-bip-accent font-medium">Place ID found:</span> {discovered.google_place_id}
-              <span className="ml-2 text-white/30">via {discovered.sources.google_place_id}</span>
+              <span className="ml-2 text-bip-subtle">via {discovered.sources.google_place_id}</span>
             </p>
           ) : (
-            <p className="text-white/40">Place ID — not found on page</p>
+            <p className="text-bip-muted">Place ID — not found on page</p>
           )}
           {discovered.ga4_id || discovered.google_place_id ? (
-            <p className="text-white/30 pt-0.5">Fields pre-filled below — review and save.</p>
+            <p className="text-bip-subtle pt-0.5">Fields pre-filled below — review and save.</p>
           ) : (
-            <p className="text-white/40">Nothing discoverable found on the website.</p>
+            <p className="text-bip-muted">Nothing discoverable found on the website.</p>
           )}
         </div>
       )}
@@ -466,7 +466,7 @@ function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; o
           <p className="bip-section-label mb-3">Social Connections</p>
           <ul className="space-y-1.5">
             {socialConnections.map((sc) => (
-              <li key={sc.id} className="text-xs text-white/60">
+              <li key={sc.id} className="text-xs text-bip-muted">
                 {sc.platform} — {sc.account_name ?? sc.account_username ?? sc.page_id ?? "connected"}
               </li>
             ))}
@@ -501,7 +501,7 @@ function CommsTab({ data }: { data: ClientWorkspaceInitialData }) {
             href={openableBasecampUrl(latestClient.thread_url) ?? "#"}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-white/60 hover:text-white transition-colors"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-2 text-xs text-bip-muted hover:text-bip-text transition-colors"
           >
             Open latest thread in Basecamp <ExternalLink size={11} />
           </a>
@@ -517,15 +517,15 @@ function CommsTab({ data }: { data: ClientWorkspaceInitialData }) {
               <li key={event.id} className="flex items-start gap-3 px-5 py-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-medium uppercase tracking-wider ${event.is_internal ? "text-white/30" : "text-bip-accent/70"}`}>
+                    <span className={`text-[10px] font-medium uppercase tracking-wider ${event.is_internal ? "text-bip-subtle" : "text-bip-accent/70"}`}>
                       {event.is_internal ? "Internal" : "Client"}
                     </span>
-                    <span className="text-[10px] text-white/25">{formatRelative(event.occurred_at)}</span>
+                    <span className="text-[10px] text-bip-subtle">{formatRelative(event.occurred_at)}</span>
                   </div>
-                  <p className="mt-0.5 text-xs font-medium text-white/75 truncate">
+                  <p className="mt-0.5 text-xs font-medium text-bip-text truncate">
                     {norm(event.thread_title) || "Untitled thread"}
                   </p>
-                  <p className="mt-0.5 text-xs text-white/40 line-clamp-2">
+                  <p className="mt-0.5 text-xs text-bip-muted line-clamp-2">
                     {previewText(event, 120)}
                   </p>
                 </div>
@@ -534,7 +534,7 @@ function CommsTab({ data }: { data: ClientWorkspaceInitialData }) {
                     href={openableBasecampUrl(event.thread_url) ?? "#"}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 mt-0.5 text-white/20 hover:text-bip-accent transition-colors"
+                    className="shrink-0 mt-0.5 text-bip-subtle hover:text-bip-accent transition-colors"
                   >
                     <ExternalLink size={12} />
                   </a>
@@ -546,7 +546,7 @@ function CommsTab({ data }: { data: ClientWorkspaceInitialData }) {
       )}
 
       {threadEvents.length === 0 && (
-        <p className="text-sm text-white/40">No synced Basecamp threads in the last 30 days.</p>
+        <p className="text-sm text-bip-muted">No synced Basecamp threads in the last 30 days.</p>
       )}
     </div>
   );
@@ -614,18 +614,18 @@ export default function ClientSimpleTabView({
   const content = renderContent();
 
   return (
-    <main className="flex-1 bg-bip-card p-6 font-sans text-white">
+    <main className="flex-1 bg-bip-card p-6 font-sans text-bip-text">
       {/* Header */}
-      <header className="mb-6 flex flex-col items-start justify-between gap-4 border-b border-white/[0.08] pb-4 md:flex-row md:items-center">
+      <header className="mb-6 flex flex-col items-start justify-between gap-4 border-b border-bip-border pb-4 md:flex-row md:items-center">
         <div>
           <Link
             href={clientsListHref}
-            className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-white/50 transition hover:text-white/75"
+            className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-bip-muted transition hover:text-bip-text"
           >
             <ArrowLeft size={14} /> Back to clients
           </Link>
           <h1 className="text-2xl font-bold tracking-tight">{client.account_name}</h1>
-          <p className="mt-1 text-sm text-white/50">
+          <p className="mt-1 text-sm text-bip-muted">
             #{client.id}
             {norm(client.marketing_strategist) ? ` · ${client.marketing_strategist}` : ""}
           </p>
@@ -635,7 +635,7 @@ export default function ClientSimpleTabView({
             {tierLabel}
           </span>
           {services.map((s) => (
-            <span key={s} className="rounded-full border border-white/[0.08] bg-bip-card/80 px-2.5 py-1 text-xs text-white/75">
+            <span key={s} className="rounded-full border border-bip-border bg-bip-card/80 px-2.5 py-1 text-xs text-bip-text">
               {s}
             </span>
           ))}
@@ -646,7 +646,7 @@ export default function ClientSimpleTabView({
       <nav className="mb-6 flex flex-wrap gap-2">
         <Link
           href={`/dashboard/clients/${clientId}`}
-          className="rounded-lg border border-white/[0.08] bg-bip-card/50 px-3 py-1.5 text-xs font-medium text-white/75 transition hover:text-white"
+          className="rounded-lg border border-bip-border bg-bip-card/50 px-3 py-1.5 text-xs font-medium text-bip-text transition hover:text-bip-text"
         >
           Overview
         </Link>
@@ -657,7 +657,7 @@ export default function ClientSimpleTabView({
             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
               tab.id === activeTab
                 ? "border-bip-accent/40 bg-bip-accent/10 text-bip-accent"
-                : "border-white/[0.08] bg-bip-card/50 text-white/75 hover:text-white"
+                : "border-bip-border bg-bip-card/50 text-bip-text hover:text-bip-text"
             }`}
           >
             {tab.label}

@@ -28,7 +28,7 @@ export default async function PlaybookPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
-        <h1 className="text-lg font-semibold text-white">Service Playbook</h1>
+        <h1 className="text-lg font-semibold text-bip-text">Service Playbook</h1>
         <p className="text-sm text-[rgba(255,255,255,0.4)]">
           Best practices, deliverables, and guidelines by service tier.
           {isAdmin && " Click any item to edit."}

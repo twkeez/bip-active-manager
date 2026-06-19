@@ -14,7 +14,7 @@ import type {
 } from "@/types/strategy-mapper";
 
 const inputClass =
-  "w-full rounded-lg border border-white/[0.12] bg-bip-page px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
+  "w-full rounded-lg border border-bip-border bg-bip-page px-3 py-2.5 text-sm text-bip-text placeholder:text-bip-muted focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
 
 function Field({
   label,
@@ -25,7 +25,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-white/75">{label}</span>
+      <span className="mb-1.5 block text-sm font-medium text-bip-text">{label}</span>
       {children}
     </label>
   );
@@ -39,7 +39,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-white/[0.08] bg-bip-card p-5 sm:p-6">
+    <section className="rounded-xl border border-bip-border bg-bip-card p-5 sm:p-6">
       <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-bip-accent">
         {title}
       </h2>
@@ -96,7 +96,7 @@ function StringListEditor({
 
   return (
     <div>
-      <span className="mb-2 block text-sm font-medium text-white/75">{label}</span>
+      <span className="mb-2 block text-sm font-medium text-bip-text">{label}</span>
       <div className="space-y-2">
         {items.map((item, index) => (
           <div key={index} className="flex gap-2">
@@ -110,7 +110,7 @@ function StringListEditor({
             <button
               type="button"
               onClick={() => removeItem(index)}
-              className="shrink-0 rounded-lg border border-white/[0.08] px-2 text-white/50 hover:bg-white/[0.06] hover:text-bip-danger"
+              className="shrink-0 rounded-lg border border-bip-border px-2 text-bip-muted hover:bg-bip-fill hover:text-bip-danger"
               aria-label={`Remove ${label} item ${index + 1}`}
             >
               <Trash2 className="h-4 w-4" />
@@ -232,9 +232,9 @@ export default function StrategyMapperStaging({
           </p>
         </div>
       ) : null}
-      <div className="rounded-xl border border-bip-accent/30 bg-bip-accent/5 px-4 py-3 text-sm text-white/75">
-        <p className="font-medium text-white">Review &amp; edit research data</p>
-        <p className="mt-1 text-xs text-white/50">
+      <div className="rounded-xl border border-bip-accent/30 bg-bip-accent/5 px-4 py-3 text-sm text-bip-text">
+        <p className="font-medium text-bip-text">Review &amp; edit research data</p>
+        <p className="mt-1 text-xs text-bip-muted">
           Verify competitor data and sales context before building the report. Phase 1
           services:{" "}
           {activeServices.map((s) => SERVICE_LABELS[s]).join(", ") || "None"}
@@ -289,7 +289,7 @@ export default function StrategyMapperStaging({
             />
           </Field>
         </div>
-        <label className="flex cursor-pointer items-center gap-3 text-sm text-white/75">
+        <label className="flex cursor-pointer items-center gap-3 text-sm text-bip-text">
           <input
             type="checkbox"
             checked={research.clientMetrics.runsGoogleAds}
@@ -298,7 +298,7 @@ export default function StrategyMapperStaging({
                 clientMetrics: { runsGoogleAds: e.target.checked },
               })
             }
-            className="h-4 w-4 rounded border-white/20 bg-bip-page text-bip-accent focus:ring-bip-accent"
+            className="h-4 w-4 rounded border-bip-border bg-bip-page text-bip-accent focus:ring-bip-accent"
           />
           Client runs Google Ads
         </label>
@@ -334,14 +334,14 @@ export default function StrategyMapperStaging({
             />
           </Field>
         </div>
-        <label className="flex cursor-pointer items-center gap-3 text-sm text-white/75">
+        <label className="flex cursor-pointer items-center gap-3 text-sm text-bip-text">
           <input
             type="checkbox"
             checked={research.specialtyRadiusEnabled}
             onChange={(e) =>
               updateResearch({ specialtyRadiusEnabled: e.target.checked })
             }
-            className="h-4 w-4 rounded border-white/20 bg-bip-page text-bip-accent focus:ring-bip-accent"
+            className="h-4 w-4 rounded border-bip-border bg-bip-page text-bip-accent focus:ring-bip-accent"
           />
           Enable specialty / regional radius
         </label>
@@ -376,16 +376,16 @@ export default function StrategyMapperStaging({
           {research.competitors.map((competitor, index) => (
             <div
               key={index}
-              className="rounded-lg border border-white/[0.08] bg-bip-page/50 p-4"
+              className="rounded-lg border border-bip-border bg-bip-page/50 p-4"
             >
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs font-medium uppercase tracking-wide text-white/40">
+                <span className="text-xs font-medium uppercase tracking-wide text-bip-muted">
                   Competitor {index + 1}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeCompetitor(index)}
-                  className="inline-flex items-center gap-1 text-xs text-white/50 hover:text-bip-danger"
+                  className="inline-flex items-center gap-1 text-xs text-bip-muted hover:text-bip-danger"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Remove
@@ -458,14 +458,14 @@ export default function StrategyMapperStaging({
                     <option value="regional">Regional</option>
                   </select>
                 </Field>
-                <label className="flex cursor-pointer items-center gap-3 self-end pb-2 text-sm text-white/75">
+                <label className="flex cursor-pointer items-center gap-3 self-end pb-2 text-sm text-bip-text">
                   <input
                     type="checkbox"
                     checked={competitor.runsGoogleAds}
                     onChange={(e) =>
                       updateCompetitor(index, { runsGoogleAds: e.target.checked })
                     }
-                    className="h-4 w-4 rounded border-white/20 bg-bip-page text-bip-accent focus:ring-bip-accent"
+                    className="h-4 w-4 rounded border-bip-border bg-bip-page text-bip-accent focus:ring-bip-accent"
                   />
                   Runs Google Ads
                 </label>
@@ -475,7 +475,7 @@ export default function StrategyMapperStaging({
           <button
             type="button"
             onClick={addCompetitor}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-white/[0.12] px-4 py-2 text-sm text-bip-accent hover:border-bip-accent/50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-bip-border px-4 py-2 text-sm text-bip-accent hover:border-bip-accent/50"
           >
             <Plus className="h-4 w-4" />
             Add competitor
@@ -541,7 +541,7 @@ export default function StrategyMapperStaging({
           type="button"
           onClick={onBack}
           disabled={loading}
-          className="rounded-lg border border-white/[0.08] bg-bip-card px-5 py-3 text-sm text-white/75 transition hover:bg-white/[0.06] disabled:opacity-60"
+          className="rounded-lg border border-bip-border bg-bip-card px-5 py-3 text-sm text-bip-text transition hover:bg-bip-fill disabled:opacity-60"
         >
           Back to form
         </button>
@@ -558,7 +558,7 @@ export default function StrategyMapperStaging({
         </button>
       </div>
       {!buildReady ? (
-        <p className="text-xs text-white/45">
+        <p className="text-xs text-bip-muted">
           Run the website SEO audit before building the report when a URL is required or
           provided.
         </p>

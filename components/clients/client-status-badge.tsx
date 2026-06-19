@@ -5,7 +5,7 @@ const STATUS_BADGE_CLASS: Record<ClientDisplayStatus, string> = {
   Active: "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
   Awaiting: "border border-amber-500/20 bg-amber-500/10 text-amber-400",
   Pending: "border border-amber-500/20 bg-amber-500/10 text-amber-400",
-  Paused: "border border-white/[0.08] bg-white/[0.06] text-white/50",
+  Paused: "border border-bip-border bg-bip-fill text-bip-muted",
 };
 export function resolveClientStatus(
   client: Pick<ClientRow, "needs_reply" | "reply_acknowledged_at" | "tier">,
@@ -22,7 +22,7 @@ export function clientStatusBadgeClass(status: string) {
     return STATUS_BADGE_CLASS.Awaiting;
   }
   if (normalized === "paused") return STATUS_BADGE_CLASS.Paused;
-  return "bg-white/[0.06] text-white/75";
+  return "bg-bip-fill text-bip-text";
 }
 type Props = { status: ClientDisplayStatus | string; title?: string };
 export default function ClientStatusBadge({ status, title }: Props) {

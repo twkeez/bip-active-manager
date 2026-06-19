@@ -235,18 +235,18 @@ export default function ClientWorkspaceDashboard({
   }
 
   return (
-    <main className="flex-1 bg-bip-card p-6 font-sans text-white">
+    <main className="flex-1 bg-bip-card p-6 font-sans text-bip-text">
       {/* Header */}
-      <header className="mb-6 flex flex-col items-start justify-between gap-4 border-b border-white/[0.08] pb-4 md:flex-row md:items-center">
+      <header className="mb-6 flex flex-col items-start justify-between gap-4 border-b border-bip-border pb-4 md:flex-row md:items-center">
         <div>
           <Link
             href={clientsListHref}
-            className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-white/50 transition hover:text-white/75"
+            className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-bip-muted transition hover:text-bip-text"
           >
             <ArrowLeft size={14} /> Back to clients
           </Link>
           <h1 className="text-2xl font-bold tracking-tight">{client.account_name}</h1>
-          <p className="mt-1 text-sm text-white/50">
+          <p className="mt-1 text-sm text-bip-muted">
             #{client.id}
             {norm(client.marketing_strategist) ? ` · ${client.marketing_strategist}` : ""}
           </p>
@@ -258,7 +258,7 @@ export default function ClientWorkspaceDashboard({
           {services.map((s) => (
             <span
               key={s}
-              className="rounded-full border border-white/[0.08] bg-bip-card/80 px-2.5 py-1 text-xs text-white/75"
+              className="rounded-full border border-bip-border bg-bip-card/80 px-2.5 py-1 text-xs text-bip-text"
             >
               {s}
             </span>
@@ -278,7 +278,7 @@ export default function ClientWorkspaceDashboard({
           <Link
             key={tab.id}
             href={`/dashboard/clients/${clientId}?tab=${tab.id}`}
-            className="rounded-lg border border-white/[0.08] bg-bip-card/50 px-3 py-1.5 text-xs font-medium text-white/75 transition hover:border-white/[0.12] hover:text-white"
+            className="rounded-lg border border-bip-border bg-bip-card/50 px-3 py-1.5 text-xs font-medium text-bip-text transition hover:border-bip-border hover:text-bip-text"
           >
             {tab.label}
           </Link>
@@ -305,7 +305,7 @@ export default function ClientWorkspaceDashboard({
               >
                 Action Required: Unanswered Client Thread
               </h4>
-              <p className="mt-1 text-sm text-white/75">
+              <p className="mt-1 text-sm text-bip-text">
                 {latestClientThread ? (
                   <>
                     Last response{" "}
@@ -313,7 +313,7 @@ export default function ClientWorkspaceDashboard({
                       ? `(${formatRelativeDays(latestClientThread.occurred_at)})`
                       : ""}
                     :{" "}
-                    <span className="italic text-white/50">
+                    <span className="italic text-bip-muted">
                       &ldquo;{previewText(latestClientThread, 120)}&rdquo;
                     </span>
                   </>
@@ -352,7 +352,7 @@ export default function ClientWorkspaceDashboard({
               type="button"
               onClick={() => void handleNoReplyNeeded()}
               disabled={acknowledging}
-              className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-slate-600/80 bg-bip-card/80 px-4 py-2 text-sm font-medium text-white/75 transition hover:bg-slate-700/80 disabled:opacity-60"
+              className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-slate-600/80 bg-bip-card/80 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700/80 disabled:opacity-60"
             >
               {acknowledging && <Loader2 size={14} className="animate-spin" />}
               No reply needed
@@ -362,7 +362,7 @@ export default function ClientWorkspaceDashboard({
                 href={openableBasecampUrl(latestClientThread.thread_url) ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium text-white transition ${
+                className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium text-bip-text transition ${
                   (client.days_stale ?? 0) >= 14
                     ? "bg-red-600 hover:bg-red-500"
                     : "bg-amber-600 hover:bg-amber-500"
@@ -388,14 +388,14 @@ export default function ClientWorkspaceDashboard({
         <aside className="space-y-5 lg:col-span-4">
 
           {/* Connections */}
-          <div className="rounded-xl border border-white/[0.08] bg-bip-card/50 p-5">
+          <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-bip-muted">
                 Connections
               </h3>
               <Link
                 href={`/dashboard/clients/${clientId}?tab=connections`}
-                className="text-xs text-white/30 hover:text-bip-accent transition-colors"
+                className="text-xs text-bip-subtle hover:text-bip-accent transition-colors"
               >
                 Manage →
               </Link>
@@ -409,9 +409,9 @@ export default function ClientWorkspaceDashboard({
                     ) : dot.required ? (
                       <XCircle size={14} className="shrink-0 text-red-400" />
                     ) : (
-                      <WifiOff size={14} className="shrink-0 text-white/25" />
+                      <WifiOff size={14} className="shrink-0 text-bip-subtle" />
                     )}
-                    <span className={dot.connected ? "text-white/75" : "text-white/35"}>
+                    <span className={dot.connected ? "text-bip-text" : "text-bip-subtle"}>
                       {dot.label}
                     </span>
                   </div>
@@ -434,33 +434,33 @@ export default function ClientWorkspaceDashboard({
           </div>
 
           {/* Account info */}
-          <div className="rounded-xl border border-white/[0.08] bg-bip-card/50 p-5">
-            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-white/50">
+          <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-bip-muted">
               Account
             </h3>
             <dl className="space-y-2.5 text-sm">
               <div className="flex justify-between gap-2">
-                <dt className="text-white/50">Package hours</dt>
-                <dd className="font-medium text-white/75">{client.total_package_hours ?? "—"}</dd>
+                <dt className="text-bip-muted">Package hours</dt>
+                <dd className="font-medium text-bip-text">{client.total_package_hours ?? "—"}</dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-white/50">Strategist hours</dt>
-                <dd className="font-medium text-white/75">{client.hours_for_strategist ?? "—"}</dd>
+                <dt className="text-bip-muted">Strategist hours</dt>
+                <dd className="font-medium text-bip-text">{client.hours_for_strategist ?? "—"}</dd>
               </div>
               {norm(client.website) && (
                 <div className="flex justify-between gap-2">
-                  <dt className="text-white/50">Website</dt>
-                  <dd className="max-w-[150px] truncate font-medium text-white/75">
+                  <dt className="text-bip-muted">Website</dt>
+                  <dd className="max-w-[150px] truncate font-medium text-bip-text">
                     {norm(client.website)}
                   </dd>
                 </div>
               )}
               {data.gbpSnapshot && (
                 <div className="flex justify-between gap-2">
-                  <dt className="text-white/50">GBP rating</dt>
-                  <dd className="font-medium text-white/75">
+                  <dt className="text-bip-muted">GBP rating</dt>
+                  <dd className="font-medium text-bip-text">
                     {data.gbpSnapshot.rating?.toFixed(1) ?? "—"} / 5
-                    <span className="ml-1.5 text-xs text-white/35">
+                    <span className="ml-1.5 text-xs text-bip-subtle">
                       ({data.gbpSnapshot.user_ratings_total ?? 0} reviews)
                     </span>
                   </dd>
@@ -479,7 +479,7 @@ export default function ClientWorkspaceDashboard({
             </Link>
             <Link
               href={`/dashboard/clients/${clientId}?tab=playbook`}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm font-medium text-white/75 transition hover:bg-bip-card hover:text-white"
+              className="inline-flex items-center gap-2 rounded-lg border border-bip-border px-4 py-2.5 text-sm font-medium text-bip-text transition hover:bg-bip-card hover:text-bip-text"
             >
               <BookOpen size={15} /> Service playbook
             </Link>
@@ -487,7 +487,7 @@ export default function ClientWorkspaceDashboard({
               href={`/reports/${clientId}?range=last30`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm font-medium text-white/75 transition hover:bg-bip-card hover:text-white"
+              className="inline-flex items-center gap-2 rounded-lg border border-bip-border px-4 py-2.5 text-sm font-medium text-bip-text transition hover:bg-bip-card hover:text-bip-text"
             >
               <Share2 size={15} /> Generate PDF report
             </Link>
@@ -496,9 +496,9 @@ export default function ClientWorkspaceDashboard({
 
         {/* Right: Attention needed */}
         <section className="lg:col-span-8">
-          <div className="rounded-xl border border-white/[0.08] bg-bip-card/50 p-5">
+          <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-bip-muted">
                 Attention Needed
               </h3>
               {attentionItems.length > 0 && (
@@ -520,8 +520,8 @@ export default function ClientWorkspaceDashboard({
             {attentionItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <CheckCircle2 size={28} className="mb-3 text-emerald-500/60" />
-                <p className="text-sm font-medium text-white/60">All clear</p>
-                <p className="mt-1 text-xs text-white/35">
+                <p className="text-sm font-medium text-bip-muted">All clear</p>
+                <p className="mt-1 text-xs text-bip-subtle">
                   No critical or warning signals detected across connected services.
                 </p>
               </div>
@@ -532,18 +532,18 @@ export default function ClientWorkspaceDashboard({
                     <SeverityDot severity={item.severity} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-[10px] font-semibold uppercase tracking-wider ${AREA_COLORS[item.area] ?? "text-white/40"}`}>
+                        <span className={`text-[10px] font-semibold uppercase tracking-wider ${AREA_COLORS[item.area] ?? "text-bip-muted"}`}>
                           {item.area}
                         </span>
                         {item.metricValue && (
-                          <span className="text-[10px] font-mono text-white/30 border border-white/[0.08] rounded px-1.5 py-0.5">
+                          <span className="text-[10px] font-mono text-bip-subtle border border-bip-border rounded px-1.5 py-0.5">
                             {item.metricValue}
                           </span>
                         )}
                       </div>
-                      <p className="mt-0.5 text-sm text-white/80">{item.title}</p>
+                      <p className="mt-0.5 text-sm text-bip-text">{item.title}</p>
                       {item.description && (
-                        <p className="mt-0.5 text-xs text-white/40 leading-relaxed">{item.description}</p>
+                        <p className="mt-0.5 text-xs text-bip-muted leading-relaxed">{item.description}</p>
                       )}
                       {item.suggestion && (
                         <p className="mt-1 text-xs text-bip-accent/70">
@@ -552,14 +552,14 @@ export default function ClientWorkspaceDashboard({
                       )}
                       {item.affectedKeywords && item.affectedKeywords.length > 0 && (
                         <div className="mt-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30 mb-1">Affected keywords</p>
-                          <div className="rounded border border-white/[0.06] bg-black/20 overflow-hidden">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-bip-subtle mb-1">Affected keywords</p>
+                          <div className="rounded border border-bip-border bg-black/20 overflow-hidden">
                             {item.affectedKeywords.map((kw, i) => (
-                              <div key={i} className="flex items-baseline gap-2 px-2 py-1 border-b border-white/[0.04] last:border-0 text-[11px]">
-                                <span className="font-mono text-white/70 truncate max-w-[180px] shrink-0">{kw.keyword}</span>
-                                <span className="text-white/25 shrink-0">{kw.match_type.toLowerCase()}</span>
-                                <span className="text-white/35 truncate min-w-0">{kw.campaign_name}</span>
-                                <span className="text-white/25 truncate min-w-0 hidden sm:block">{kw.ad_group_name}</span>
+                              <div key={i} className="flex items-baseline gap-2 px-2 py-1 border-b border-bip-border last:border-0 text-[11px]">
+                                <span className="font-mono text-bip-muted truncate max-w-[180px] shrink-0">{kw.keyword}</span>
+                                <span className="text-bip-subtle shrink-0">{kw.match_type.toLowerCase()}</span>
+                                <span className="text-bip-subtle truncate min-w-0">{kw.campaign_name}</span>
+                                <span className="text-bip-subtle truncate min-w-0 hidden sm:block">{kw.ad_group_name}</span>
                               </div>
                             ))}
                           </div>
@@ -568,7 +568,7 @@ export default function ClientWorkspaceDashboard({
                     </div>
                     <Link
                       href={`/dashboard/clients/${clientId}?tab=${item.tab}`}
-                      className="shrink-0 text-[11px] text-white/30 hover:text-bip-accent transition-colors whitespace-nowrap mt-0.5"
+                      className="shrink-0 text-[11px] text-bip-subtle hover:text-bip-accent transition-colors whitespace-nowrap mt-0.5"
                     >
                       {item.tab} tab →
                     </Link>
@@ -578,7 +578,7 @@ export default function ClientWorkspaceDashboard({
             )}
 
             {attentionItems.length > 0 && (
-              <p className="mt-5 border-t border-white/[0.05] pt-4 text-xs text-white/30">
+              <p className="mt-5 border-t border-bip-border pt-4 text-xs text-bip-subtle">
                 These alerts are new — many clients will show warnings as this data is reviewed for the first time.
                 Drill into each tab to investigate.
               </p>
@@ -587,17 +587,17 @@ export default function ClientWorkspaceDashboard({
 
           {/* Recent comms preview */}
           {data.threadEvents.length > 0 && (
-            <div className="mt-5 rounded-xl border border-white/[0.08] bg-bip-card/50 p-5">
+            <div className="mt-5 rounded-xl border border-bip-border bg-bip-card/50 p-5">
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MessageSquare size={14} className="text-violet-400" />
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-bip-muted">
                     Recent Comms
                   </h3>
                 </div>
                 <Link
                   href={`/dashboard/clients/${clientId}?tab=comms`}
-                  className="text-xs text-white/30 hover:text-bip-accent transition-colors"
+                  className="text-xs text-bip-subtle hover:text-bip-accent transition-colors"
                 >
                   All comms →
                 </Link>
@@ -606,21 +606,21 @@ export default function ClientWorkspaceDashboard({
                 {data.threadEvents.slice(0, 4).map((event) => (
                   <li
                     key={event.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-white/[0.06] bg-bip-card/40 px-3 py-2.5"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2.5"
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-white/75 truncate">
+                      <p className="text-xs font-medium text-bip-text truncate">
                         {norm(event.thread_title) || "Untitled thread"}
                       </p>
-                      <p className="mt-0.5 text-xs text-white/40 truncate">
+                      <p className="mt-0.5 text-xs text-bip-muted truncate">
                         {previewText(event, 80)}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-[10px] text-white/30">
+                      <p className="text-[10px] text-bip-subtle">
                         {event.is_internal ? "Internal" : "Client"}
                       </p>
-                      <p className="text-[10px] text-white/25">
+                      <p className="text-[10px] text-bip-subtle">
                         {formatRelativeDays(event.occurred_at) ?? "—"}
                       </p>
                     </div>

@@ -21,7 +21,7 @@ function changeTrendClass(
   if (trend === "down") {
     return theme === "dark" ? "text-red-400" : "text-bip-danger";
   }
-  return theme === "dark" ? "text-white/50" : "text-white/50";
+  return theme === "dark" ? "text-bip-muted" : "text-bip-muted";
 }
 export function KpiSummaryCard({
   item,
@@ -32,16 +32,16 @@ export function KpiSummaryCard({
 }) {
   const cardClass =
     theme === "dark"
-      ? "rounded-xl border border-white/[0.08] bg-bip-card/50 px-4 py-3"
-      : "rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2.5";
+      ? "rounded-xl border border-bip-border bg-bip-card/50 px-4 py-3"
+      : "rounded-lg border border-bip-border bg-bip-card px-3 py-2.5";
   const labelClass =
     theme === "dark"
-      ? "text-[11px] font-medium uppercase tracking-wide text-white/50"
-      : "text-[11px] font-medium uppercase tracking-wide text-white/40";
+      ? "text-[11px] font-medium uppercase tracking-wide text-bip-muted"
+      : "text-[11px] font-medium uppercase tracking-wide text-bip-muted";
   const valueClass =
     theme === "dark"
-      ? "mt-1 text-xl font-bold tabular-nums text-white"
-      : "mt-1 text-xl font-bold tabular-nums text-white";
+      ? "mt-1 text-xl font-bold tabular-nums text-bip-text"
+      : "mt-1 text-xl font-bold tabular-nums text-bip-text";
   return (
     <article className={cardClass}>
       

@@ -110,23 +110,23 @@ export default function LlmsTxtManager({ clients, userEmail }: Props) {
     result == null ? "" : tab === "index" ? result.llmsTxt : result.llmsFullTxt;
 
   return (
-    <div className="min-h-screen bg-bip-page font-sans text-white/75">
-      <header className="border-b border-white/[0.08] px-6 py-5">
+    <div className="min-h-screen bg-bip-page font-sans text-bip-text">
+      <header className="border-b border-bip-border px-6 py-5">
         <div className="mx-auto flex max-w-5xl items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <FileText className="text-bip-accent" size={20} />
-              <h1 className="text-lg font-semibold tracking-tight text-white">
+              <h1 className="text-lg font-semibold tracking-tight text-bip-text">
                 llms.txt Generator
               </h1>
             </div>
-            <p className="mt-1 text-xs text-white/50">
+            <p className="mt-1 text-xs text-bip-muted">
               Curated LLM index + full export · {userEmail ?? "Signed in"}
             </p>
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.06]"
+            className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text transition hover:bg-bip-fill"
           >
             <ArrowLeft className="h-4 w-4" />
             Dashboard
@@ -135,7 +135,7 @@ export default function LlmsTxtManager({ clients, userEmail }: Props) {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8">
-        <p className="mb-6 text-sm text-white/60">
+        <p className="mb-6 text-sm text-bip-muted">
           Generate spec-compliant{" "}
           <a
             href="https://llmstxt.org/"
@@ -154,16 +154,16 @@ export default function LlmsTxtManager({ clients, userEmail }: Props) {
           ).
         </p>
 
-        <div className="rounded-xl border border-white/[0.08] bg-bip-card p-6">
+        <div className="rounded-xl border border-bip-border bg-bip-card p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <label className="flex-1 text-sm">
-              <span className="mb-2 block text-white/50">Client</span>
+              <span className="mb-2 block text-bip-muted">Client</span>
               <select
                 value={clientId}
                 onChange={(e) =>
                   setClientId(e.target.value ? Number(e.target.value) : "")
                 }
-                className="w-full rounded-lg border border-white/[0.08] bg-bip-page px-3 py-2.5 text-white outline-none focus:border-bip-accent/50"
+                className="w-full rounded-lg border border-bip-border bg-bip-page px-3 py-2.5 text-bip-text outline-none focus:border-bip-accent/50"
                 disabled={loading || clients.length === 0}
               >
                 {clients.length === 0 ? (
@@ -193,9 +193,9 @@ export default function LlmsTxtManager({ clients, userEmail }: Props) {
           </div>
 
           {selectedClient ? (
-            <p className="mt-3 text-xs text-white/40">
+            <p className="mt-3 text-xs text-bip-muted">
               Will crawl sitemap at{" "}
-              <span className="text-white/60">{selectedClient.website}</span>
+              <span className="text-bip-muted">{selectedClient.website}</span>
             </p>
           ) : null}
 
@@ -210,10 +210,10 @@ export default function LlmsTxtManager({ clients, userEmail }: Props) {
           <div className="mt-8 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold text-white">
+                <h2 className="text-base font-semibold text-bip-text">
                   {result.clientName}
                 </h2>
-                <p className="text-xs text-white/50">
+                <p className="text-xs text-bip-muted">
                   {result.stats.urlsDiscovered} URLs discovered ·{" "}
                   {result.stats.urlsIndexed} indexed · {result.stats.urlsInFull}{" "}
                   in full export · {formatBytes(result.stats.llmsFullBytes)}
@@ -224,7 +224,7 @@ export default function LlmsTxtManager({ clients, userEmail }: Props) {
                 <button
                   type="button"
                   onClick={() => void handleCopy()}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-white/75 hover:bg-white/[0.06]"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-2 text-xs text-bip-text hover:bg-bip-fill"
                 >
                   <Copy className="h-3.5 w-3.5" />
                   Copy
@@ -232,7 +232,7 @@ export default function LlmsTxtManager({ clients, userEmail }: Props) {
                 <button
                   type="button"
                   onClick={handleDownloadIndex}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-white/75 hover:bg-white/[0.06]"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-2 text-xs text-bip-text hover:bg-bip-fill"
                 >
                   <Download className="h-3.5 w-3.5" />
                   llms.txt
@@ -240,7 +240,7 @@ export default function LlmsTxtManager({ clients, userEmail }: Props) {
                 <button
                   type="button"
                   onClick={handleDownloadFull}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-white/75 hover:bg-white/[0.06]"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-2 text-xs text-bip-text hover:bg-bip-fill"
                 >
                   <Download className="h-3.5 w-3.5" />
                   llms-full.txt
@@ -260,34 +260,34 @@ export default function LlmsTxtManager({ clients, userEmail }: Props) {
               <p className="text-xs text-bip-accent">{copyMessage}</p>
             ) : null}
 
-            <div className="flex gap-2 border-b border-white/[0.08]">
+            <div className="flex gap-2 border-b border-bip-border">
               <button
                 type="button"
                 onClick={() => setTab("index")}
-                className={`px-4 py-2 text-sm ${tab === "index" ? "border-b-2 border-bip-accent text-white" : "text-white/50"}`}
+                className={`px-4 py-2 text-sm ${tab === "index" ? "border-b-2 border-bip-accent text-bip-text" : "text-bip-muted"}`}
               >
                 llms.txt
               </button>
               <button
                 type="button"
                 onClick={() => setTab("full")}
-                className={`px-4 py-2 text-sm ${tab === "full" ? "border-b-2 border-bip-accent text-white" : "text-white/50"}`}
+                className={`px-4 py-2 text-sm ${tab === "full" ? "border-b-2 border-bip-accent text-bip-text" : "text-bip-muted"}`}
               >
                 llms-full.txt
               </button>
             </div>
 
-            <pre className="max-h-[60vh] overflow-auto rounded-xl border border-white/[0.08] bg-bip-page/80 p-4 text-xs leading-relaxed text-white/80 whitespace-pre-wrap">
+            <pre className="max-h-[60vh] overflow-auto rounded-xl border border-bip-border bg-bip-page/80 p-4 text-xs leading-relaxed text-bip-text whitespace-pre-wrap">
               {previewContent}
             </pre>
 
-            <p className="text-xs text-white/40">
+            <p className="text-xs text-bip-muted">
               Deploy to{" "}
-              <code className="text-white/60">
+              <code className="text-bip-muted">
                 https://{result.domain}/llms.txt
               </code>{" "}
               and{" "}
-              <code className="text-white/60">
+              <code className="text-bip-muted">
                 https://{result.domain}/llms-full.txt
               </code>
             </p>

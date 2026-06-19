@@ -28,16 +28,16 @@ function ScoreCard({
   const display = value == null ? "—" : `${value}`;
   const tone =
     value == null
-      ? "text-white/40"
+      ? "text-bip-muted"
       : value >= 90
         ? "text-emerald-600"
         : value >= 50
           ? "text-amber-600"
           : "text-red-600";
   return (
-    <div className="rounded-lg border border-white/[0.08] bg-bip-card p-3">
+    <div className="rounded-lg border border-bip-border bg-bip-card p-3">
       
-      <p className="text-[11px] uppercase tracking-wide text-white/50">
+      <p className="text-[11px] uppercase tracking-wide text-bip-muted">
         {label}
       </p>
       <p className={`mt-1 text-2xl font-semibold ${tone}`}>{display}</p>
@@ -52,9 +52,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-white/[0.08] bg-bip-card p-4 shadow-none">
+    <section className="rounded-xl border border-bip-border bg-bip-card p-4 shadow-none">
       
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bip-muted">
         {title}
       </h3>
       {children}
@@ -105,16 +105,16 @@ export default function AuditReport({ run }: Props) {
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium ${tab === item.id ? "bg-bip-accent text-bip-page" : "bg-white/[0.06] text-white/75 hover:bg-zinc-200"}`}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium ${tab === item.id ? "bg-bip-accent text-bip-page" : "bg-bip-fill text-white hover:bg-zinc-200"}`}
           >
             
             {item.label}
           </button>
         ))}
       </div>
-      <div className="rounded-lg border border-white/[0.08] bg-bip-page p-3">
+      <div className="rounded-lg border border-bip-border bg-bip-page p-3">
         
-        <p className="text-xs font-medium uppercase tracking-wide text-white/50">
+        <p className="text-xs font-medium uppercase tracking-wide text-bip-muted">
           Stage progress
         </p>
         <ul className="mt-2 grid gap-1 sm:grid-cols-2">
@@ -127,7 +127,7 @@ export default function AuditReport({ run }: Props) {
                 className="flex items-center justify-between text-xs"
               >
                 
-                <span className="text-white/75">
+                <span className="text-bip-text">
                   {STAGE_LABELS[stage]}
                 </span>
                 <span
@@ -138,7 +138,7 @@ export default function AuditReport({ run }: Props) {
                         ? "text-red-600"
                         : status === "running"
                           ? "text-sky-600"
-                          : "text-white/40"
+                          : "text-bip-muted"
                   }
                 >
                   
@@ -172,38 +172,38 @@ export default function AuditReport({ run }: Props) {
           ) : null}
           <div className="grid grid-cols-3 gap-2 text-center text-sm">
             
-            <div className="rounded-lg border border-white/[0.08] bg-bip-card p-3">
+            <div className="rounded-lg border border-bip-border bg-bip-card p-3">
               
               <p className="text-2xl font-semibold text-red-600">
                 {criticalCount}
               </p>
-              <p className="text-xs text-white/50">Critical issues</p>
+              <p className="text-xs text-bip-muted">Critical issues</p>
             </div>
-            <div className="rounded-lg border border-white/[0.08] bg-bip-card p-3">
+            <div className="rounded-lg border border-bip-border bg-bip-card p-3">
               
               <p className="text-2xl font-semibold">
                 {report.crawl?.crawledUrls ?? 0}
               </p>
-              <p className="text-xs text-white/50">Pages crawled</p>
+              <p className="text-xs text-bip-muted">Pages crawled</p>
             </div>
-            <div className="rounded-lg border border-white/[0.08] bg-bip-card p-3">
+            <div className="rounded-lg border border-bip-border bg-bip-card p-3">
               
               <p className="text-2xl font-semibold">
                 {report.sitemap?.urlCount ?? 0}
               </p>
-              <p className="text-xs text-white/50">Sitemap URLs</p>
+              <p className="text-xs text-bip-muted">Sitemap URLs</p>
             </div>
           </div>
           {report.summary ? (
             <Section title="Executive summary">
               
-              <pre className="whitespace-pre-wrap font-sans text-sm text-white/75">
+              <pre className="whitespace-pre-wrap font-sans text-sm text-bip-text">
                 
                 {report.summary.markdown}
               </pre>
             </Section>
           ) : (
-            <p className="text-sm text-white/50">
+            <p className="text-sm text-bip-muted">
               Run the summary stage for an AI executive overview.
             </p>
           )}
@@ -213,7 +213,7 @@ export default function AuditReport({ run }: Props) {
         <div className="rounded-xl bg-bip-card p-6">
           
           {inspectorIssues.length === 0 ? (
-            <p className="text-sm text-white/50">
+            <p className="text-sm text-bip-muted">
               
               No issues collected yet. Run crawl, technical SEO, and Lighthouse
               stages to populate the checklist.
@@ -231,7 +231,7 @@ export default function AuditReport({ run }: Props) {
           
           <div className="overflow-x-auto">
             
-            <table className="min-w-full text-left text-xs"><thead><tr className="border-b border-white/[0.08] text-white/50"><th className="py-2 pr-3">URL</th><th className="py-2 pr-3">Depth</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Words</th><th className="py-2">Title</th></tr></thead><tbody>{report.crawl.pages.map((page) => (
+            <table className="min-w-full text-left text-xs"><thead><tr className="border-b border-bip-border text-bip-muted"><th className="py-2 pr-3">URL</th><th className="py-2 pr-3">Depth</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Words</th><th className="py-2">Title</th></tr></thead><tbody>{report.crawl.pages.map((page) => (
                   <tr key={page.url} className="border-b border-zinc-100"><td className="max-w-xs truncate py-2 pr-3">
                       {page.url}
                     </td><td className="py-2 pr-3">{page.depth}</td><td className="py-2 pr-3">{page.status || "—"}</td><td className="py-2 pr-3">{page.wordCount}</td><td className="max-w-xs truncate py-2">
@@ -250,22 +250,22 @@ export default function AuditReport({ run }: Props) {
               
               <p>
                 
-                <span className="text-white/50">URL:</span>
+                <span className="text-bip-muted">URL:</span>
                 {report.sitemap.sitemapUrl}
               </p>
               <p>
                 
-                <span className="text-white/50">Found:</span>
+                <span className="text-bip-muted">Found:</span>
                 {""} {report.sitemap.found ? "Yes" : "No"}
                 {report.sitemap.error ? ` (${report.sitemap.error})` : ""}
               </p>
               <p>
                 
-                <span className="text-white/50">URL count:</span>
+                <span className="text-bip-muted">URL count:</span>
                 {report.sitemap.urlCount}
               </p>
               {report.sitemap.sampleUrls.length ? (
-                <ul className="list-disc pl-5 text-xs text-white/75">
+                <ul className="list-disc pl-5 text-xs text-bip-text">
                   
                   {report.sitemap.sampleUrls.map((url) => (
                     <li key={url} className="truncate">
@@ -277,7 +277,7 @@ export default function AuditReport({ run }: Props) {
               ) : null}
             </div>
           ) : (
-            <p className="text-sm text-white/50">Sitemap stage not run yet.</p>
+            <p className="text-sm text-bip-muted">Sitemap stage not run yet.</p>
           )}
         </Section>
       ) : null}
@@ -298,7 +298,7 @@ export default function AuditReport({ run }: Props) {
               </li>
             ))}
           </ul>
-          <ul className="space-y-1 text-xs text-white/75">
+          <ul className="space-y-1 text-xs text-bip-text">
             
             {report.schema.byPage.map((page) => (
               <li key={page.url}>
@@ -319,10 +319,10 @@ export default function AuditReport({ run }: Props) {
               {report.keywords.topQueries?.length ? (
                 <div>
                   
-                  <p className="mb-2 text-xs font-semibold uppercase text-white/50">
+                  <p className="mb-2 text-xs font-semibold uppercase text-bip-muted">
                     Top queries
                   </p>
-                  <table className="min-w-full text-left text-xs"><thead><tr className="text-white/50"><th className="py-1 pr-2">Query</th><th className="py-1 pr-2">Clicks</th><th className="py-1 pr-2">Impr.</th><th className="py-1">Pos.</th></tr></thead><tbody>{report.keywords.topQueries.map((row) => (
+                  <table className="min-w-full text-left text-xs"><thead><tr className="text-bip-muted"><th className="py-1 pr-2">Query</th><th className="py-1 pr-2">Clicks</th><th className="py-1 pr-2">Impr.</th><th className="py-1">Pos.</th></tr></thead><tbody>{report.keywords.topQueries.map((row) => (
                         <tr
                           key={row.query}
                           className="border-t border-zinc-100"
@@ -342,11 +342,11 @@ export default function AuditReport({ run }: Props) {
                 {report.keywords.aiKeywords?.map((row) => (
                   <li
                     key={row.keyword}
-                    className="rounded border border-white/[0.08] p-2"
+                    className="rounded border border-bip-border p-2"
                   >
                     
                     <p className="font-medium">{row.keyword}</p>
-                    <p className="text-xs text-white/50">
+                    <p className="text-xs text-bip-muted">
                       
                       {row.alignment} · {row.evidence}
                     </p>
@@ -356,10 +356,10 @@ export default function AuditReport({ run }: Props) {
               {report.keywords.gaps?.length ? (
                 <div>
                   
-                  <p className="mb-1 text-xs font-semibold uppercase text-white/50">
+                  <p className="mb-1 text-xs font-semibold uppercase text-bip-muted">
                     Gaps
                   </p>
-                  <ul className="list-disc pl-5 text-xs text-white/75">
+                  <ul className="list-disc pl-5 text-xs text-bip-text">
                     
                     {report.keywords.gaps.map((gap) => (
                       <li key={gap}>{gap}</li>
@@ -382,7 +382,7 @@ export default function AuditReport({ run }: Props) {
             <p>TBT: {report.lighthouse.metrics.tbt ?? "—"}</p>
             <p>SI: {report.lighthouse.metrics.speedIndex ?? "—"}</p>
           </div>
-          <p className="text-xs text-white/50">
+          <p className="text-xs text-bip-muted">
             
             Full categorized findings are in the Issue checklist tab.
           </p>

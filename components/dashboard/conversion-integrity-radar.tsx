@@ -93,9 +93,9 @@ export default function ConversionIntegrityRadar({
     setAuditedIds((current) => new Set(current).add(anomaly.id));
   }
   return (
-    <div className="flex min-h-screen flex-1 flex-col bg-bip-page font-sans text-white">
+    <div className="flex min-h-screen flex-1 flex-col bg-bip-page font-sans text-bip-text">
       
-      <header className="border-b border-white/[0.08] px-6 py-5">
+      <header className="border-b border-bip-border px-6 py-5">
         
         <div className="mx-auto flex max-w-7xl items-start justify-between gap-4">
           
@@ -105,7 +105,7 @@ export default function ConversionIntegrityRadar({
               
               <Link
                 href="/dashboard"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-bip-card/50 text-white/75 transition hover:bg-bip-card/60"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-bip-border bg-bip-card/50 text-bip-text transition hover:bg-bip-card/60"
                 title="Control panel"
               >
                 
@@ -117,17 +117,17 @@ export default function ConversionIntegrityRadar({
               </div>
               <div>
                 
-                <h1 className="text-lg font-semibold tracking-tight text-white">
+                <h1 className="text-lg font-semibold tracking-tight text-bip-text">
                   
                   Conversion Integrity Radar
                 </h1>
-                <p className="mt-0.5 text-xs text-white/50">
+                <p className="mt-0.5 text-xs text-bip-muted">
                   
                   Cross-account tracking audit · {userEmail ?? "Signed in"}
                 </p>
               </div>
             </div>
-            <p className="mt-3 max-w-3xl text-sm text-white/50">
+            <p className="mt-3 max-w-3xl text-sm text-bip-muted">
               
               Scanned {summary.campaignsScanned} campaigns across
               {summary.accountsScanned}
@@ -138,7 +138,7 @@ export default function ConversionIntegrityRadar({
             
             <Link
               href="/global-ads-optimization"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-medium text-white/75 transition hover:bg-bip-card/60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-card/60"
             >
               
               Global Ads Center
@@ -167,13 +167,13 @@ export default function ConversionIntegrityRadar({
               
               Active anomalies
             </p>
-            <p className="mt-1 text-xl font-bold text-white">
+            <p className="mt-1 text-xl font-bold text-bip-text">
               {visibleAnomalies.length}
             </p>
           </div>
-          <div className="rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2">
+          <div className="rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2">
             
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-bip-muted">
               
               Critical
             </p>
@@ -181,9 +181,9 @@ export default function ConversionIntegrityRadar({
               {summary.criticalCount}
             </p>
           </div>
-          <div className="rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2">
+          <div className="rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2">
             
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-bip-muted">
               
               High warning
             </p>
@@ -191,29 +191,29 @@ export default function ConversionIntegrityRadar({
               {summary.highCount}
             </p>
           </div>
-          <div className="rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2">
+          <div className="rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2">
             
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-bip-muted">
               
               Accounts affected
             </p>
-            <p className="mt-1 text-xl font-bold text-white">
+            <p className="mt-1 text-xl font-bold text-bip-text">
               {summary.accountsAffected}
             </p>
           </div>
         </div>
         <section className="space-y-4">
           
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bip-border pb-3">
             
             <div>
               
-              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-white/50">
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-bip-muted">
                 
                 <ShieldAlert size={16} className="text-rose-400" /> Conversion
                 Integrity Radar
               </h2>
-              <p className="mt-1 text-xs text-white/50">
+              <p className="mt-1 text-xs text-bip-muted">
                 
                 Cross-account auditing suite isolating broken tracking scripts
                 and inflated conversion counts.
@@ -226,7 +226,7 @@ export default function ConversionIntegrityRadar({
             </span>
           </div>
           {visibleAnomalies.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08]/40 bg-bip-card/10 p-8 text-center text-xs text-white/50">
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-bip-border bg-bip-card/10 p-8 text-center text-xs text-bip-muted">
               
               <CheckCircle2 size={14} className="text-emerald-500/60" /> All
               running campaign profiles are verifying conversion patterns within
@@ -244,7 +244,7 @@ export default function ConversionIntegrityRadar({
               return (
                 <div
                   key={item.id}
-                  className="flex flex-col gap-4 rounded-xl border border-white/[0.08] bg-bip-card/40 p-5 transition hover:border-white/[0.08] lg:flex-row lg:items-center lg:justify-between"
+                  className="flex flex-col gap-4 rounded-xl border border-bip-border bg-bip-card/40 p-5 transition hover:border-bip-border lg:flex-row lg:items-center lg:justify-between"
                 >
                   
                   <div className="min-w-0 flex-1 space-y-1.5">
@@ -253,12 +253,12 @@ export default function ConversionIntegrityRadar({
                       
                       <Link
                         href={`/dashboard/clients/${item.clientId}?tab=ads`}
-                        className="text-sm font-semibold text-white/75 hover:text-bip-accent"
+                        className="text-sm font-semibold text-bip-text hover:text-bip-accent"
                       >
                         
                         {item.accountName}
                       </Link>
-                      <span className="font-mono text-[10px] text-white/50">
+                      <span className="font-mono text-[10px] text-bip-muted">
                         {item.accountIdLabel}
                       </span>
                       {isAudited ? (
@@ -268,27 +268,27 @@ export default function ConversionIntegrityRadar({
                         </span>
                       ) : null}
                     </div>
-                    <div className="text-xs text-white/50">
+                    <div className="text-xs text-bip-muted">
                       
                       Campaign scope:{""}
-                      <span className="font-mono text-white/75">
+                      <span className="font-mono text-bip-text">
                         {item.campaignName}
                       </span>
                     </div>
-                    <div className="mt-3 flex max-w-sm gap-6 border-t border-white/[0.08] pt-2">
+                    <div className="mt-3 flex max-w-sm gap-6 border-t border-bip-border pt-2">
                       
                       <div>
                         
-                        <p className="text-[10px] uppercase text-white/50">
+                        <p className="text-[10px] uppercase text-bip-muted">
                           Clicks
                         </p>
-                        <p className="text-sm font-bold text-white/75">
+                        <p className="text-sm font-bold text-bip-text">
                           {item.clicks}
                         </p>
                       </div>
                       <div>
                         
-                        <p className="text-[10px] uppercase text-white/50">
+                        <p className="text-[10px] uppercase text-bip-muted">
                           Conversions
                         </p>
                         <p className="text-sm font-bold text-rose-400">
@@ -297,7 +297,7 @@ export default function ConversionIntegrityRadar({
                       </div>
                       <div>
                         
-                        <p className="text-[10px] uppercase text-white/50">
+                        <p className="text-[10px] uppercase text-bip-muted">
                           Conversion rate
                         </p>
                         <p className="font-mono text-sm font-bold text-rose-400">
@@ -307,7 +307,7 @@ export default function ConversionIntegrityRadar({
                       </div>
                     </div>
                     {validation ? (
-                      <ul className="mt-3 space-y-1 rounded-lg border border-white/[0.08] bg-bip-card/40 p-3 text-xs text-white/50">
+                      <ul className="mt-3 space-y-1 rounded-lg border border-bip-border bg-bip-card/40 p-3 text-xs text-bip-muted">
                         
                         {validation.findings.map((finding) => (
                           <li key={finding}>• {finding}</li>
@@ -340,7 +340,7 @@ export default function ConversionIntegrityRadar({
                         type="button"
                         onClick={() => void handleRunValidation(item)}
                         disabled={isRunning}
-                        className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-white transition hover:bg-bip-accent disabled:opacity-60"
+                        className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-accent disabled:opacity-60"
                       >
                         
                         {isRunning ? (
@@ -355,7 +355,7 @@ export default function ConversionIntegrityRadar({
                       <button
                         type="button"
                         onClick={() => handleFlagAudit(item)}
-                        className="rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2 text-xs font-medium text-white/75 transition hover:bg-bip-card/70"
+                        className="rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-card/70"
                         title="Flag for manual tag audit"
                       >
                         
@@ -368,7 +368,7 @@ export default function ConversionIntegrityRadar({
                             new Set(current).add(item.id),
                           )
                         }
-                        className="rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2 text-xs font-medium text-white/50 transition hover:bg-bip-card/70"
+                        className="rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2 text-xs font-medium text-bip-muted transition hover:bg-bip-card/70"
                       >
                         
                         Mute
@@ -376,7 +376,7 @@ export default function ConversionIntegrityRadar({
                     </div>
                     <Link
                       href={`/dashboard/clients/${item.clientId}?tab=ads`}
-                      className="inline-flex items-center justify-end gap-1 text-[10px] text-white/50 transition hover:text-white/75"
+                      className="inline-flex items-center justify-end gap-1 text-[10px] text-bip-muted transition hover:text-bip-text"
                     >
                       
                       Open ads workspace <ExternalLink size={10} />
@@ -387,7 +387,7 @@ export default function ConversionIntegrityRadar({
             })
           )}
           {visibleAnomalies.length > 0 ? (
-            <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08]/40 bg-bip-card/10 p-4 text-center text-xs text-white/50">
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-bip-border bg-bip-card/10 p-4 text-center text-xs text-bip-muted">
               
               <CheckCircle2 size={14} className="text-emerald-500/60" />
               Remaining synced campaigns are within expected conversion

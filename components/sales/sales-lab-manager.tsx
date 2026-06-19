@@ -203,27 +203,27 @@ export default function SalesLabManager({
   return (
     <div className="flex min-h-screen flex-col bg-bip-page">
       
-      <header className="border-b border-white/[0.08] bg-bip-card px-6 py-4">
+      <header className="border-b border-bip-border bg-bip-card px-6 py-4">
         
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between">
           
           <div>
             
-            <p className="text-xs uppercase tracking-wide text-white/50">
+            <p className="text-xs uppercase tracking-wide text-bip-muted">
               
               Sales Lab
             </p>
-            <h1 className="text-lg font-semibold text-white">
+            <h1 className="text-lg font-semibold text-bip-text">
               
               Sales Demo Prompt Builder
             </h1>
-            <p className="text-xs text-white/50">
+            <p className="text-xs text-bip-muted">
               {userEmail ?? "Signed in"}
             </p>
           </div>
           <a
             href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-sm text-white/75 hover:bg-white/[0.06]"
+            className="inline-flex items-center gap-2 rounded-lg border border-bip-border px-3 py-2 text-sm text-bip-text hover:bg-bip-fill"
           >
             
             <ArrowLeft className="h-4 w-4" /> Back to dashboard
@@ -234,9 +234,9 @@ export default function SalesLabManager({
         
         <aside className="space-y-4">
           
-          <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4 shadow-none">
+          <div className="rounded-xl border border-bip-border bg-bip-card p-4 shadow-none">
             
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               
               New demo brief
             </p>
@@ -244,46 +244,46 @@ export default function SalesLabManager({
               
               <label className="block">
                 
-                <span className="mb-1 block text-xs text-white/75">
+                <span className="mb-1 block text-xs text-bip-text">
                   
                   Prospect name (optional)
                 </span>
                 <input
                   value={prospectName}
                   onChange={(event) => setProspectName(event.target.value)}
-                  className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-bip-border px-3 py-2 text-sm"
                   placeholder="Example Vet Clinic"
                 />
               </label>
               <label className="block">
                 
-                <span className="mb-1 block text-xs text-white/75">
+                <span className="mb-1 block text-xs text-bip-text">
                   
                   Prospect URL
                 </span>
                 <input
                   value={prospectUrl}
                   onChange={(event) => setProspectUrl(event.target.value)}
-                  className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-bip-border px-3 py-2 text-sm"
                   placeholder="https://example.com"
                 />
               </label>
               <label className="block">
                 
-                <span className="mb-1 block text-xs text-white/75">
+                <span className="mb-1 block text-xs text-bip-text">
                   
                   Logo URL (optional)
                 </span>
                 <input
                   value={logoUrl}
                   onChange={(event) => setLogoUrl(event.target.value)}
-                  className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-bip-border px-3 py-2 text-sm"
                   placeholder="https://example.com/logo.png"
                 />
               </label>
               <label className="block">
                 
-                <span className="mb-1 block text-xs text-white/75">
+                <span className="mb-1 block text-xs text-bip-text">
                   
                   Logo upload (optional)
                 </span>
@@ -293,51 +293,51 @@ export default function SalesLabManager({
                   onChange={(event) =>
                     setLogoUpload(event.target.files?.[0] ?? null)
                   }
-                  className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-xs"
+                  className="w-full rounded-lg border border-bip-border px-3 py-2 text-xs"
                 />
               </label>
               <label className="block">
                 
-                <span className="mb-1 block text-xs text-white/75">
+                <span className="mb-1 block text-xs text-bip-text">
                   
                   Target keyword (optional)
                 </span>
                 <input
                   value={targetKeyword}
                   onChange={(event) => setTargetKeyword(event.target.value)}
-                  className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-bip-border px-3 py-2 text-sm"
                   placeholder="vet clinic in Naples"
                 />
               </label>
               <label className="block">
                 
-                <span className="mb-1 block text-xs text-white/75">
+                <span className="mb-1 block text-xs text-bip-text">
                   
                   Competitor URL (optional)
                 </span>
                 <input
                   value={competitorUrl}
                   onChange={(event) => setCompetitorUrl(event.target.value)}
-                  className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-bip-border px-3 py-2 text-sm"
                   placeholder="https://competitor.com"
                 />
               </label>
               <label className="block">
                 
-                <span className="mb-1 block text-xs text-white/75">
+                <span className="mb-1 block text-xs text-bip-text">
                   
                   Value proposition (optional)
                 </span>
                 <input
                   value={valueProposition}
                   onChange={(event) => setValueProposition(event.target.value)}
-                  className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-bip-border px-3 py-2 text-sm"
                   placeholder="Trusted care with same-day appointments."
                 />
               </label>
               <label className="block">
                 
-                <span className="mb-1 block text-xs text-white/75">
+                <span className="mb-1 block text-xs text-bip-text">
                   
                   Client testimonial (optional)
                 </span>
@@ -345,7 +345,7 @@ export default function SalesLabManager({
                   value={clientTestimonial}
                   onChange={(event) => setClientTestimonial(event.target.value)}
                   rows={2}
-                  className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-bip-border px-3 py-2 text-sm"
                   placeholder="They always make us feel cared for and informed."
                 />
               </label>
@@ -353,7 +353,7 @@ export default function SalesLabManager({
                 
                 <label className="block">
                   
-                  <span className="mb-1 block text-xs text-white/75">
+                  <span className="mb-1 block text-xs text-bip-text">
                     
                     Crawl mode
                   </span>
@@ -366,7 +366,7 @@ export default function SalesLabManager({
                           : "all_pages",
                       )
                     }
-                    className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-bip-border px-3 py-2 text-sm"
                   >
                     
                     <option value="all_pages">All pages</option>
@@ -375,7 +375,7 @@ export default function SalesLabManager({
                 </label>
                 <label className="block">
                   
-                  <span className="mb-1 block text-xs text-white/75">
+                  <span className="mb-1 block text-xs text-bip-text">
                     
                     Max pages
                   </span>
@@ -387,13 +387,13 @@ export default function SalesLabManager({
                     onChange={(event) =>
                       setMaxPages(Number(event.target.value) || 50)
                     }
-                    className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-bip-border px-3 py-2 text-sm"
                   />
                 </label>
               </div>
               <label className="block">
                 
-                <span className="mb-1 block text-xs text-white/75">
+                <span className="mb-1 block text-xs text-bip-text">
                   
                   Prompt style
                 </span>
@@ -404,7 +404,7 @@ export default function SalesLabManager({
                       event.target.value === "short" ? "short" : "full",
                     )
                   }
-                  className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-bip-border px-3 py-2 text-sm"
                 >
                   
                   <option value="full">Full (detailed)</option>
@@ -415,7 +415,7 @@ export default function SalesLabManager({
                 type="button"
                 onClick={() => void handleRunAudit()}
                 disabled={runLoading}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-bip-card px-3 py-2 text-sm font-medium text-white hover:bg-bip-card disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-bip-card px-3 py-2 text-sm font-medium text-bip-text hover:bg-bip-card disabled:opacity-60"
               >
                 
                 {runLoading ? (
@@ -427,14 +427,14 @@ export default function SalesLabManager({
               </button>
             </div>
           </div>
-          <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4 shadow-none">
+          <div className="rounded-xl border border-bip-border bg-bip-card p-4 shadow-none">
             
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               
               Recent runs
             </p>
             {runs.length === 0 ? (
-              <p className="mt-3 text-sm text-white/50">No runs yet.</p>
+              <p className="mt-3 text-sm text-bip-muted">No runs yet.</p>
             ) : (
               <ul className="mt-3 space-y-2">
                 
@@ -444,14 +444,14 @@ export default function SalesLabManager({
                     <button
                       type="button"
                       onClick={() => void loadRunDetails(run.id)}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${selectedRun?.id === run.id ? "border-zinc-900 bg-white/[0.06]" : "border-white/[0.08] bg-bip-card hover:bg-bip-page"}`}
+                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${selectedRun?.id === run.id ? "border-zinc-900 bg-bip-fill" : "border-bip-border bg-bip-card hover:bg-bip-page"}`}
                     >
                       
-                      <p className="font-medium text-white">
+                      <p className="font-medium text-bip-text">
                         
                         {run.prospect_name || run.prospect_url}
                       </p>
-                      <p className="mt-0.5 text-xs text-white/50">
+                      <p className="mt-0.5 text-xs text-bip-muted">
                         
                         {run.status.toUpperCase()} ·
                         {formatDateTime(run.created_at)}
@@ -472,9 +472,9 @@ export default function SalesLabManager({
             </p>
           )}
           {loadDetailsLoading ? (
-            <div className="rounded-xl border border-white/[0.08] bg-bip-card p-6">
+            <div className="rounded-xl border border-bip-border bg-bip-card p-6">
               
-              <div className="inline-flex items-center gap-2 text-sm text-white/75">
+              <div className="inline-flex items-center gap-2 text-sm text-bip-text">
                 
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading run
                 details...
@@ -483,17 +483,17 @@ export default function SalesLabManager({
           ) : selectedRun && selectedAudit ? (
             <>
               
-              <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4 shadow-none">
+              <div className="rounded-xl border border-bip-border bg-bip-card p-4 shadow-none">
                 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   
                   <div>
                     
-                    <p className="text-xs uppercase tracking-wide text-white/50">
+                    <p className="text-xs uppercase tracking-wide text-bip-muted">
                       
                       Prospect
                     </p>
-                    <p className="text-base font-semibold text-white">
+                    <p className="text-base font-semibold text-bip-text">
                       
                       {selectedRun.prospect_name ||
                         selectedRun.prospect_url}
@@ -502,13 +502,13 @@ export default function SalesLabManager({
                       href={selectedRun.prospect_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-white/75 underline decoration-zinc-300 underline-offset-2 hover:text-white"
+                      className="inline-flex items-center gap-1 text-sm text-bip-text underline decoration-zinc-300 underline-offset-2 hover:text-bip-text"
                     >
                       
                       <Globe className="h-3.5 w-3.5" />
                       {selectedRun.prospect_url}
                     </a>
-                    <p className="mt-1 text-xs text-white/50">
+                    <p className="mt-1 text-xs text-bip-muted">
                       
                       Logo source used:{""}
                       {selectedAiOutputs?.prompt_brief?.logoSource === "upload"
@@ -518,27 +518,27 @@ export default function SalesLabManager({
                           : "Extracted from site assets"}
                     </p>
                   </div>
-                  <p className="text-xs text-white/50">
+                  <p className="text-xs text-bip-muted">
                     
                     Last updated {formatDateTime(selectedRun.updated_at)}
                   </p>
                 </div>
               </div>
-              <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4 shadow-none">
+              <div className="rounded-xl border border-bip-border bg-bip-card p-4 shadow-none">
                 
-                <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+                <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
                   
                   Extracted site inputs
                 </p>
                 {siteExtract.scannedUrls > 0 ? (
-                  <div className="mt-2 space-y-3 text-sm text-white/75">
+                  <div className="mt-2 space-y-3 text-sm text-bip-text">
                     
-                    <p className="text-xs text-white/50">
+                    <p className="text-xs text-bip-muted">
                       
                       Scanned {siteExtract.scannedUrls} page(s), using{""}
                       {siteExtract.sourceUrls.length} source URL(s).
                     </p>
-                    <p className="text-xs text-white/50">
+                    <p className="text-xs text-bip-muted">
                       
                       Crawl attempts:
                       {siteExtract.crawlDiagnostics?.attemptedUrls ?? 0},
@@ -560,7 +560,7 @@ export default function SalesLabManager({
                           ))}
                         </ul>
                       ) : (
-                        <p className="text-xs text-white/50">
+                        <p className="text-xs text-bip-muted">
                           
                           No value props found; prompt will include
                           placeholders.
@@ -582,7 +582,7 @@ export default function SalesLabManager({
                           ))}
                         </ul>
                       ) : (
-                        <p className="text-xs text-white/50">
+                        <p className="text-xs text-bip-muted">
                           
                           No reviews found; prompt will include
                           placeholders.
@@ -592,7 +592,7 @@ export default function SalesLabManager({
                     <div>
                       
                       <p className="font-medium">Missing sections</p>
-                      <p className="text-xs text-white/50">
+                      <p className="text-xs text-bip-muted">
                         
                         {siteExtract.missingSections.length > 0
                           ? siteExtract.missingSections.join(",")
@@ -602,7 +602,7 @@ export default function SalesLabManager({
                     <div>
                       
                       <p className="font-medium">CTAs</p>
-                      <p className="text-xs text-white/50">
+                      <p className="text-xs text-bip-muted">
                         
                         {siteExtract.ctas.length > 0
                           ? siteExtract.ctas.slice(0, 4).join(",")
@@ -611,17 +611,17 @@ export default function SalesLabManager({
                     </div>
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm text-white/75">
+                  <p className="mt-2 text-sm text-bip-text">
                     
                     No extracted source content available for this run.
                   </p>
                 )}
               </div>
-              <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4 shadow-none">
+              <div className="rounded-xl border border-bip-border bg-bip-card p-4 shadow-none">
                 
                 <div className="mb-2 flex items-center justify-between gap-2">
                   
-                  <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
                     
                     Strategist summary
                   </p>
@@ -633,14 +633,14 @@ export default function SalesLabManager({
                         setCopied("Summary copied."),
                       )
                     }
-                    className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-xs font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
                   >
                     
                     <ClipboardCopy className="h-3.5 w-3.5" /> Copy summary
                   </button>
                 </div>
                 {selectedAiOutputs?.summary_json ? (
-                  <div className="space-y-2 text-sm text-white/75">
+                  <div className="space-y-2 text-sm text-bip-text">
                     
                     <p>
                       <span className="font-semibold">The Win:</span>
@@ -656,14 +656,14 @@ export default function SalesLabManager({
                     </p>
                   </div>
                 ) : (
-                  <p className="text-sm text-white/75">No summary available.</p>
+                  <p className="text-sm text-bip-text">No summary available.</p>
                 )}
               </div>
-              <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4 shadow-none">
+              <div className="rounded-xl border border-bip-border bg-bip-card p-4 shadow-none">
                 
                 <div className="mb-2 flex items-center justify-between gap-2">
                   
-                  <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
                     
                     Demo Builder Prompt (Hostinger Horizons)
                   </p>
@@ -675,7 +675,7 @@ export default function SalesLabManager({
                         setCopied("Hostinger prompt copied."),
                       )
                     }
-                    className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-xs font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
                   >
                     
                     <ClipboardCopy className="h-3.5 w-3.5" /> Copy prompt
@@ -685,15 +685,15 @@ export default function SalesLabManager({
                   value={editablePrompt}
                   onChange={(event) => setEditablePrompt(event.target.value)}
                   rows={16}
-                  className="w-full rounded-lg border border-white/[0.08] bg-bip-page px-3 py-2 text-xs text-white"
+                  className="w-full rounded-lg border border-bip-border bg-bip-page px-3 py-2 text-xs text-bip-text"
                 />
               </div>
-              {copied && <p className="text-xs text-white/50">{copied}</p>}
+              {copied && <p className="text-xs text-bip-muted">{copied}</p>}
             </>
           ) : (
-            <div className="rounded-xl border border-white/[0.08] bg-bip-card p-6 shadow-none">
+            <div className="rounded-xl border border-bip-border bg-bip-card p-6 shadow-none">
               
-              <div className="inline-flex items-center gap-2 text-sm text-white/75">
+              <div className="inline-flex items-center gap-2 text-sm text-bip-text">
                 
                 <AlertTriangle className="h-4 w-4" /> Build a demo prompt to
                 generate a sales-ready sample site concept.

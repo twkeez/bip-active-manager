@@ -117,13 +117,16 @@ function ThemeToggle() {
   const [dark, setDark] = useState(true);
 
   useEffect(() => {
-    const current = document.documentElement.dataset.theme;
-    setDark(current !== "light");
+    const saved = localStorage.getItem("bip-theme");
+    const prefersDark = !saved || saved !== "light";
+    document.documentElement.dataset.theme = prefersDark ? "dark" : "light";
+    setDark(prefersDark);
   }, []);
 
   function toggle() {
     const next = dark ? "light" : "dark";
     document.documentElement.dataset.theme = next;
+    localStorage.setItem("bip-theme", next);
     setDark(!dark);
   }
 
@@ -144,7 +147,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="flex h-14 items-center gap-2.5 border-b border-[var(--bip-border)] px-4">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--bip-accent)]">
-          <span className="text-xs font-bold text-white">B</span>
+          <span className="text-xs font-bold text-bip-text">B</span>
         </div>
         <span className="text-sm font-semibold text-[var(--text)]">BIP Control</span>
       </div>

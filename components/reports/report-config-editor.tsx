@@ -91,7 +91,7 @@ export default function ReportConfigEditor({ config, onChange, saving, onSave, o
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-50"
+            className="rounded-lg px-3 py-1.5 text-xs font-semibold text-bip-text transition disabled:opacity-50"
             style={{ background: BI_BLUE }}
           >
             {saving ? "Saving…" : "Save layout"}

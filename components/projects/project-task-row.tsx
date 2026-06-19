@@ -17,12 +17,12 @@ export default function ProjectTaskRow({
 }: Props) {
   const done = task.status === "done";
   return (
-    <li className="flex items-center gap-2 rounded-md border border-white/10 bg-bip-page/50 px-2 py-1.5">
+    <li className="flex items-center gap-2 rounded-md border border-bip-border bg-bip-page/50 px-2 py-1.5">
       
       <button
         type="button"
         onClick={() => onToggleDone(task)}
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${done ? "border-emerald-400 bg-emerald-500/20 text-emerald-200" : "border-white/20 text-transparent hover:border-white/40"}`}
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${done ? "border-emerald-400 bg-emerald-500/20 text-emerald-200" : "border-bip-border text-transparent hover:border-bip-border"}`}
         aria-label={done ? "Mark incomplete" : "Mark complete"}
       >
         
@@ -31,7 +31,7 @@ export default function ProjectTaskRow({
       <button
         type="button"
         onClick={() => onOpenDetail(task)}
-        className={`min-w-0 flex-1 truncate text-left text-sm ${done ? "text-white/50 line-through" : "text-white"}`}
+        className={`min-w-0 flex-1 truncate text-left text-sm ${done ? "text-bip-muted line-through" : "text-bip-text"}`}
       >
         
         {task.title}
@@ -42,13 +42,13 @@ export default function ProjectTaskRow({
         onChange={(event) =>
           onDueDateChange(task, event.target.value.trim() || null)
         }
-        className="w-[7.5rem] shrink-0 rounded border border-white/10 bg-bip-card px-1 py-0.5 text-[11px] text-white/75"
+        className="w-[7.5rem] shrink-0 rounded border border-bip-border bg-bip-card px-1 py-0.5 text-[11px] text-bip-text"
         aria-label="Due date"
       />
       <button
         type="button"
         onClick={() => onToggleStar(task)}
-        className={`shrink-0 ${task.is_starred ? "text-amber-300" : "text-white/75 hover:text-white/40"}`}
+        className={`shrink-0 ${task.is_starred ? "text-amber-300" : "text-bip-text hover:text-bip-muted"}`}
         aria-label={task.is_starred ? "Unstar task" : "Star task"}
       >
         

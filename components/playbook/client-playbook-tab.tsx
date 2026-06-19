@@ -68,7 +68,7 @@ function CategorySection({
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm text-white">{item.title}</p>
+                  <p className="text-sm text-bip-text">{item.title}</p>
                   <span className="text-[10px] text-[rgba(255,255,255,0.25)] uppercase tracking-wider">
                     {TYPE_LABELS[item.type]}
                   </span>
@@ -118,7 +118,7 @@ function TierSection({
       {/* Tier header */}
       <div className="flex items-center justify-between border-b border-[var(--bip-border)] px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-white">{tier.tier_label}</p>
+          <p className="text-sm font-medium text-bip-text">{tier.tier_label}</p>
           <p className="text-xs text-[rgba(255,255,255,0.4)] line-clamp-1 mt-0.5">
             {tier.objective}
           </p>

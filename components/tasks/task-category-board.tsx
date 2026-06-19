@@ -48,9 +48,9 @@ function TaskCategoryRow({
         e.dataTransfer.setData("taskId", String(task.id));
         e.dataTransfer.effectAllowed = "move";
       }}
-      className={`flex items-start gap-2.5 border-b border-white/[0.08] bg-bip-card px-3 py-2 transition-colors duration-150 last:border-b-0 hover:bg-white/[0.06] ${task.is_starred ? "bg-amber-500/10" : ""}`}
+      className={`flex items-start gap-2.5 border-b border-bip-border bg-bip-card px-3 py-2 transition-colors duration-150 last:border-b-0 hover:bg-bip-fill ${task.is_starred ? "bg-amber-500/10" : ""}`}
     >
-      <span className="mt-1 cursor-grab text-white/30 active:cursor-grabbing" aria-hidden>
+      <span className="mt-1 cursor-grab text-bip-subtle active:cursor-grabbing" aria-hidden>
         <GripVertical className="h-4 w-4" />
       </span>
       <button
@@ -59,7 +59,7 @@ function TaskCategoryRow({
         className={`mt-0.5 inline-flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full border transition-colors duration-150 ${
           task.status === "done"
             ? "border-emerald-500 bg-emerald-500 text-white"
-            : "border-white/30 bg-bip-card text-transparent hover:border-emerald-500"
+            : "border-bip-border bg-bip-card text-transparent hover:border-emerald-500"
         }`}
         aria-label={task.status === "done" ? "Mark not done" : "Mark done"}
       >
@@ -71,27 +71,27 @@ function TaskCategoryRow({
         className="min-w-0 flex-1 text-left"
       >
         <p
-          className={`truncate text-[14px] font-medium text-white/75 ${
-            task.status === "done" ? "text-white/40 line-through decoration-white/40" : ""
+          className={`truncate text-[14px] font-medium text-bip-text ${
+            task.status === "done" ? "text-bip-muted line-through decoration-bip-muted" : ""
           }`}
         >
           {task.title}
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/50">
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-bip-muted">
           <span className="inline-flex items-center gap-1">
             <CalendarClock className="h-3 w-3" />
             {formatDate(task.due_date)}
           </span>
-          <span className="rounded-full border border-white/[0.12] px-2 py-0.5">
+          <span className="rounded-full border border-bip-border px-2 py-0.5">
             {task.priority.toUpperCase()}
           </span>
           {task.client && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5">
+            <span className="inline-flex items-center gap-1 rounded-full border border-bip-border px-2 py-0.5">
               <UserRound className="h-2.5 w-2.5" />
               {task.client.account_name}
             </span>
           )}
-          <span className="rounded-full border border-white/[0.12] px-2 py-0.5">
+          <span className="rounded-full border border-bip-border px-2 py-0.5">
             {taskSourceLabel(task)}
           </span>
         </div>
@@ -100,7 +100,7 @@ function TaskCategoryRow({
             href={sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-1 inline-block text-[10px] text-white/50 underline"
+            className="mt-1 inline-block text-[10px] text-bip-muted underline"
             onClick={(e) => e.stopPropagation()}
           >
             Open source
@@ -110,7 +110,7 @@ function TaskCategoryRow({
       <button
         type="button"
         onClick={() => onToggleStar(task)}
-        className={`mt-0.5 rounded p-1 transition-colors ${task.is_starred ? "text-[#ff6a2f]" : "text-white/75 hover:text-orange-400"}`}
+        className={`mt-0.5 rounded p-1 transition-colors ${task.is_starred ? "text-[#ff6a2f]" : "text-bip-text hover:text-orange-400"}`}
         aria-label="Toggle star"
       >
         <Star className={`h-3.5 w-3.5 ${task.is_starred ? "fill-current" : ""}`} />
@@ -118,7 +118,7 @@ function TaskCategoryRow({
       <button
         type="button"
         onClick={() => onDeleteTask(task.id)}
-        className="mt-0.5 rounded p-1 text-white/75 transition-colors hover:text-red-500"
+        className="mt-0.5 rounded p-1 text-bip-text transition-colors hover:text-red-500"
         aria-label="Delete task"
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -154,8 +154,8 @@ function CategorySection({
         dragOver
           ? "border-violet-500/50 bg-violet-500/[0.04]"
           : isUncategorized
-          ? "border-white/[0.10]"
-          : "border-white/[0.08]"
+          ? "border-bip-border"
+          : "border-bip-border"
       }`}
       onDragOver={(e) => {
         e.preventDefault();
@@ -174,22 +174,22 @@ function CategorySection({
     >
       <div
         className={`border-b px-3 py-2 ${
-          isUncategorized ? "bg-white/[0.05]" : "bg-violet-500/[0.05]"
+          isUncategorized ? "bg-bip-hover" : "bg-violet-500/[0.05]"
         }`}
       >
         <div className="flex items-center justify-between gap-2">
           <h3
             className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${
-              isUncategorized ? "text-white/50" : "text-violet-300/90"
+              isUncategorized ? "text-bip-muted" : "text-violet-300/90"
             }`}
           >
             {label}
           </h3>
-          <span className="text-[11px] text-white/35">{tasks.length}</span>
+          <span className="text-[11px] text-bip-subtle">{tasks.length}</span>
         </div>
       </div>
       {tasks.length === 0 ? (
-        <p className="px-3 py-5 text-center text-[11px] text-white/30">
+        <p className="px-3 py-5 text-center text-[11px] text-bip-subtle">
           {dragOver ? "Release to drop here" : "Drop tasks here"}
         </p>
       ) : (
@@ -265,13 +265,13 @@ export default function TaskCategoryBoard({
           }}
           placeholder="New group name… press Enter"
           disabled={adding}
-          className="flex-1 rounded-md border border-white/[0.12] bg-bip-card/85 px-3 py-1.5 text-[13px] text-white/75 placeholder:text-white/30 disabled:opacity-60"
+          className="flex-1 rounded-md border border-bip-border bg-bip-card/85 px-3 py-1.5 text-[13px] text-bip-text placeholder:text-bip-subtle disabled:opacity-60"
         />
         <button
           type="button"
           onClick={() => void handleAdd()}
           disabled={adding || !newCatName.trim()}
-          className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.12] px-3 py-1.5 text-[13px] text-white/75 hover:bg-white/[0.06] disabled:opacity-50 transition"
+          className="inline-flex items-center gap-1.5 rounded-md border border-bip-border px-3 py-1.5 text-[13px] text-bip-text hover:bg-bip-fill disabled:opacity-50 transition"
         >
           <Plus className="h-3.5 w-3.5" />
           Add group

@@ -65,9 +65,9 @@ export default function PpcDefenseRadar({
     window.setTimeout(() => setExportMessage(null), 3000);
   }
   return (
-    <div className="flex min-h-screen flex-1 flex-col bg-bip-page font-sans text-white">
+    <div className="flex min-h-screen flex-1 flex-col bg-bip-page font-sans text-bip-text">
       
-      <header className="border-b border-white/[0.08] px-6 py-5">
+      <header className="border-b border-bip-border px-6 py-5">
         
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           
@@ -77,7 +77,7 @@ export default function PpcDefenseRadar({
               
               <Link
                 href="/dashboard"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-bip-card/50 text-white/75 transition hover:bg-bip-card/60"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-bip-border bg-bip-card/50 text-bip-text transition hover:bg-bip-card/60"
                 title="Control panel"
               >
                 
@@ -85,18 +85,18 @@ export default function PpcDefenseRadar({
               </Link>
               <div>
                 
-                <h1 className="text-2xl font-bold tracking-tight text-white">
+                <h1 className="text-2xl font-bold tracking-tight text-bip-text">
                   
                   PPC Protection &amp; Defense Radar
                 </h1>
-                <p className="mt-1 text-sm text-white/50">
+                <p className="mt-1 text-sm text-bip-muted">
                   
                   Cross-account operational center ·
                   {userEmail ?? "Signed in"}
                 </p>
               </div>
             </div>
-            <p className="mt-3 max-w-3xl text-sm text-white/50">
+            <p className="mt-3 max-w-3xl text-sm text-bip-muted">
               
               Optimizing quality scores and containing runaway budget burn
               across{""} {summary.accountsScanned} synced accounts (
@@ -108,7 +108,7 @@ export default function PpcDefenseRadar({
             
             <Link
               href="/global-ads-optimization"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-medium text-white/75 transition hover:bg-bip-card/60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-card/60"
             >
               
               Global Ads Center
@@ -143,7 +143,7 @@ export default function PpcDefenseRadar({
               
               LP deficits
             </p>
-            <p className="mt-1 text-xl font-bold text-white">
+            <p className="mt-1 text-xl font-bold text-bip-text">
               {summary.lpDeficitCount}
             </p>
           </div>
@@ -153,34 +153,34 @@ export default function PpcDefenseRadar({
               
               Budget hogs
             </p>
-            <p className="mt-1 text-xl font-bold text-white">
+            <p className="mt-1 text-xl font-bold text-bip-text">
               {visibleHogs.length}
             </p>
           </div>
-          <div className="rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2">
+          <div className="rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2">
             
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-bip-muted">
               
               LP accounts
             </p>
-            <p className="mt-1 text-xl font-bold text-white">
+            <p className="mt-1 text-xl font-bold text-bip-text">
               {summary.lpAccountsAffected}
             </p>
           </div>
-          <div className="rounded-lg border border-white/[0.08] bg-bip-card/40 px-3 py-2">
+          <div className="rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2">
             
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-bip-muted">
               
               Hog accounts
             </p>
-            <p className="mt-1 text-xl font-bold text-white">
+            <p className="mt-1 text-xl font-bold text-bip-text">
               {summary.hogAccountsAffected}
             </p>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
           
-          <section className="flex flex-col justify-between rounded-xl border border-white/[0.08] bg-bip-card/40 p-6">
+          <section className="flex flex-col justify-between rounded-xl border border-bip-border bg-bip-card/40 p-6">
             
             <div>
               
@@ -196,7 +196,7 @@ export default function PpcDefenseRadar({
                   Internal Cross-Team Sync Item
                 </span>
               </div>
-              <p className="mb-6 text-xs leading-relaxed text-white/50">
+              <p className="mb-6 text-xs leading-relaxed text-bip-muted">
                 
                 Identifies destination URLs flagged by Google as providing a
                 poor user experience. Low landing page scores artificially spike
@@ -206,7 +206,7 @@ export default function PpcDefenseRadar({
               <div className="space-y-3">
                 
                 {lpDeficits.length === 0 ? (
-                  <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-white/[0.08] bg-bip-card/30 p-6 text-center text-xs text-white/50">
+                  <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-bip-border bg-bip-card/30 p-6 text-center text-xs text-bip-muted">
                     
                     <ShieldCheck size={14} className="text-emerald-500/60" /> No
                     landing page experience deficits detected in synced
@@ -216,22 +216,22 @@ export default function PpcDefenseRadar({
                   lpDeficits.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-start justify-between rounded-lg border border-white/[0.08] bg-bip-card/50 p-4"
+                      className="flex items-start justify-between rounded-lg border border-bip-border bg-bip-card/50 p-4"
                     >
                       
                       <div className="min-w-0 space-y-1">
                         
                         <Link
                           href={`/dashboard/clients/${item.clientId}?tab=ads`}
-                          className="text-sm font-semibold text-white/75 hover:text-bip-accent"
+                          className="text-sm font-semibold text-bip-text hover:text-bip-accent"
                         >
                           
                           {item.accountName}
                         </Link>
-                        <p className="text-xs text-white/50">
+                        <p className="text-xs text-bip-muted">
                           
                           Campaign:{""}
-                          <span className="font-mono text-white/75">
+                          <span className="font-mono text-bip-text">
                             {item.campaignName}
                           </span>
                           · Target:{""}
@@ -240,7 +240,7 @@ export default function PpcDefenseRadar({
                             &ldquo;{item.keyword}&rdquo;
                           </span>
                         </p>
-                        <p className="text-[10px] text-white/50">
+                        <p className="text-[10px] text-bip-muted">
                           
                           {item.accountIdLabel} · {item.costLabel} keyword spend
                           (30d)
@@ -256,20 +256,20 @@ export default function PpcDefenseRadar({
                 )}
               </div>
             </div>
-            <div className="mt-6 flex justify-end border-t border-white/[0.08] pt-4">
+            <div className="mt-6 flex justify-end border-t border-bip-border pt-4">
               
               <button
                 type="button"
                 onClick={() => void handleExportWebDev()}
                 disabled={lpDeficits.length === 0}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-bip-card/40 px-4 py-2 text-xs font-medium text-white/75 transition hover:bg-bip-card/70 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border bg-bip-card/40 px-4 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-card/70 disabled:opacity-50"
               >
                 
                 Export assignment to web dev team <ArrowRight size={12} />
               </button>
             </div>
           </section>
-          <section className="flex flex-col justify-between rounded-xl border border-white/[0.08] bg-bip-card/40 p-6">
+          <section className="flex flex-col justify-between rounded-xl border border-bip-border bg-bip-card/40 p-6">
             
             <div>
               
@@ -285,7 +285,7 @@ export default function PpcDefenseRadar({
                   Threshold: &gt;30% spend &amp; &lt;2 conversions
                 </span>
               </div>
-              <p className="mb-6 text-xs leading-relaxed text-white/50">
+              <p className="mb-6 text-xs leading-relaxed text-bip-muted">
                 
                 Flags top-heavy informational keywords that dominate an
                 account&apos;s running click budget without producing direct
@@ -305,7 +305,7 @@ export default function PpcDefenseRadar({
                         
                         <Link
                           href={`/dashboard/clients/${item.clientId}?tab=ads`}
-                          className="text-sm font-semibold text-white/75 hover:text-bip-accent"
+                          className="text-sm font-semibold text-bip-text hover:text-bip-accent"
                         >
                           
                           {item.accountName}
@@ -316,30 +316,30 @@ export default function PpcDefenseRadar({
                           {item.pctOfBudgetLabel} of total account volume
                         </p>
                       </div>
-                      <span className="text-sm font-bold text-white">
+                      <span className="text-sm font-bold text-bip-text">
                         
                         ${budgetHogDollars(item.keywordSpendMicros).toFixed(2)}
                         {""}
-                        <span className="text-[10px] font-normal text-white/50">
+                        <span className="text-[10px] font-normal text-bip-muted">
                           spent
                         </span>
                       </span>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 rounded border border-white/[0.08] bg-bip-card/40 p-2.5 text-center text-xs">
+                    <div className="grid grid-cols-3 gap-2 rounded border border-bip-border bg-bip-card/40 p-2.5 text-center text-xs">
                       
                       <div>
                         
-                        <p className="text-[10px] uppercase text-white/50">
+                        <p className="text-[10px] uppercase text-bip-muted">
                           Hog keyword
                         </p>
-                        <p className="mt-0.5 font-mono font-semibold text-white/75">
+                        <p className="mt-0.5 font-mono font-semibold text-bip-text">
                           
                           &ldquo;{item.keyword}&rdquo;
                         </p>
                       </div>
                       <div>
                         
-                        <p className="text-[10px] uppercase text-white/50">
+                        <p className="text-[10px] uppercase text-bip-muted">
                           Conversions
                         </p>
                         <p className="mt-0.5 font-bold text-red-400">
@@ -348,10 +348,10 @@ export default function PpcDefenseRadar({
                       </div>
                       <div>
                         
-                        <p className="text-[10px] uppercase text-white/50">
+                        <p className="text-[10px] uppercase text-bip-muted">
                           Total account run
                         </p>
-                        <p className="mt-0.5 font-mono text-white/50">
+                        <p className="mt-0.5 font-mono text-bip-muted">
                           
                           $
                           {budgetHogDollars(item.totalSpendMicros).toFixed(
@@ -370,7 +370,7 @@ export default function PpcDefenseRadar({
                             new Set(current).add(item.id),
                           )
                         }
-                        className="rounded border border-white/[0.08]/40 bg-bip-card/40 px-3 py-1.5 text-[11px] font-medium text-white/50 transition hover:bg-bip-card/70"
+                        className="rounded border border-bip-border bg-bip-card/40 px-3 py-1.5 text-[11px] font-medium text-bip-muted transition hover:bg-bip-card/70"
                       >
                         
                         Convert to negative match
@@ -386,7 +386,7 @@ export default function PpcDefenseRadar({
                   </div>
                 ))}
                 {visibleHogs.length === 0 ? (
-                  <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-emerald-900/20 bg-emerald-950/10 p-4 text-center text-xs text-white/50">
+                  <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-emerald-900/20 bg-emerald-950/10 p-4 text-center text-xs text-bip-muted">
                     
                     <ShieldCheck size={14} className="text-emerald-500" /> All
                     cross-account keywords are tracking inside optimal

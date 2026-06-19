@@ -514,7 +514,7 @@ export default function ProjectWorkspace({
   }
   if (loading && !project) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-white/40">
+      <div className="flex h-full items-center justify-center text-sm text-bip-muted">
         
         <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading project…
       </div>
@@ -522,7 +522,7 @@ export default function ProjectWorkspace({
   }
   if (!project) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-white/40">
+      <div className="flex h-full items-center justify-center text-sm text-bip-muted">
         
         Select a project from the list.
       </div>
@@ -539,16 +539,16 @@ export default function ProjectWorkspace({
   return (
     <div className="flex h-full min-h-0 flex-col">
       
-      <div className="mb-3 border-b border-white/10 pb-3">
+      <div className="mb-3 border-b border-bip-border pb-3">
         
         <div className="flex flex-wrap items-start justify-between gap-2">
           
           <div>
             
-            <h2 className="text-lg font-semibold text-white">
+            <h2 className="text-lg font-semibold text-bip-text">
               {project.name}
             </h2>
-            <p className="text-sm text-white/40">
+            <p className="text-sm text-bip-muted">
               {projectClientLabel(project.client)}
             </p>
           </div>
@@ -557,7 +557,7 @@ export default function ProjectWorkspace({
             {project.client_id != null ? (
               <Link
                 href={`/reports/${project.client_id}`}
-                className="inline-flex items-center gap-1 rounded-md bg-bip-card/10 px-2.5 py-1.5 text-xs text-white hover:bg-bip-card/15"
+                className="inline-flex items-center gap-1 rounded-md bg-bip-card/10 px-2.5 py-1.5 text-xs text-bip-text hover:bg-bip-card/15"
               >
                 
                 Client report <ExternalLink className="h-3 w-3" />
@@ -586,7 +586,7 @@ export default function ProjectWorkspace({
               key={item.id}
               type="button"
               onClick={() => setTab(item.id)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium ${tab === item.id ? "bg-bip-card/15 text-white" : "text-white/40 hover:bg-bip-card/5 hover:text-white/75"}`}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium ${tab === item.id ? "bg-bip-card/15 text-bip-text" : "text-bip-muted hover:bg-bip-card/5 hover:text-bip-text"}`}
             >
               
               {item.label}
@@ -600,47 +600,47 @@ export default function ProjectWorkspace({
           {statusMessage}
         </p>
       ) : null}
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1 text-sm text-white/75">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1 text-sm text-bip-text">
         
         {tab === "overview" ? (
           <div className="space-y-3">
             
             <label className="block">
               
-              <span className="text-xs text-white/40">Name</span>
+              <span className="text-xs text-bip-muted">Name</span>
               <input
                 value={editName}
                 onChange={(event) => setEditName(event.target.value)}
-                className="mt-1 w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5"
+                className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5"
               />
             </label>
             <label className="block">
               
-              <span className="text-xs text-white/40">Objective</span>
+              <span className="text-xs text-bip-muted">Objective</span>
               <textarea
                 value={editObjective}
                 onChange={(event) => setEditObjective(event.target.value)}
                 rows={3}
-                className="mt-1 w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5"
+                className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5"
               />
             </label>
             <label className="block">
               
-              <span className="text-xs text-white/40">Description</span>
+              <span className="text-xs text-bip-muted">Description</span>
               <textarea
                 value={editDescription}
                 onChange={(event) => setEditDescription(event.target.value)}
                 rows={2}
-                className="mt-1 w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5"
+                className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5"
               />
             </label>
             <label className="block">
               
-              <span className="text-xs text-white/40">Client</span>
+              <span className="text-xs text-bip-muted">Client</span>
               <select
                 value={editClientId}
                 onChange={(event) => setEditClientId(event.target.value)}
-                className="mt-1 block w-full max-w-xs rounded-md border border-white/10 bg-bip-card px-2 py-1.5"
+                className="mt-1 block w-full max-w-xs rounded-md border border-bip-border bg-bip-card px-2 py-1.5"
               >
                 
                 <option value="internal">
@@ -658,13 +658,13 @@ export default function ProjectWorkspace({
               
               <label className="block">
                 
-                <span className="text-xs text-white/40">Status</span>
+                <span className="text-xs text-bip-muted">Status</span>
                 <select
                   value={editStatus}
                   onChange={(event) =>
                     setEditStatus(event.target.value as ClientProjectStatus)
                   }
-                  className="mt-1 block rounded-md border border-white/10 bg-bip-card px-2 py-1.5"
+                  className="mt-1 block rounded-md border border-bip-border bg-bip-card px-2 py-1.5"
                 >
                   
                   {STATUS_OPTIONS.map((status) => (
@@ -677,22 +677,22 @@ export default function ProjectWorkspace({
               </label>
               <label className="block">
                 
-                <span className="text-xs text-white/40">Target start</span>
+                <span className="text-xs text-bip-muted">Target start</span>
                 <input
                   type="date"
                   value={editStartDate}
                   onChange={(event) => setEditStartDate(event.target.value)}
-                  className="mt-1 block rounded-md border border-white/10 bg-bip-card px-2 py-1.5"
+                  className="mt-1 block rounded-md border border-bip-border bg-bip-card px-2 py-1.5"
                 />
               </label>
               <label className="block">
                 
-                <span className="text-xs text-white/40">Target end</span>
+                <span className="text-xs text-bip-muted">Target end</span>
                 <input
                   type="date"
                   value={editEndDate}
                   onChange={(event) => setEditEndDate(event.target.value)}
-                  className="mt-1 block rounded-md border border-white/10 bg-bip-card px-2 py-1.5"
+                  className="mt-1 block rounded-md border border-bip-border bg-bip-card px-2 py-1.5"
                 />
               </label>
             </div>
@@ -722,12 +722,12 @@ export default function ProjectWorkspace({
             
             <div className="flex flex-wrap items-center gap-2">
               
-              <div className="flex gap-1 rounded-md border border-white/10 p-0.5">
+              <div className="flex gap-1 rounded-md border border-bip-border p-0.5">
                 
                 <button
                   type="button"
                   onClick={() => setTaskView("list")}
-                  className={`rounded px-2 py-1 text-xs ${taskView === "list" ? "bg-bip-card/15 text-white" : "text-white/40"}`}
+                  className={`rounded px-2 py-1 text-xs ${taskView === "list" ? "bg-bip-card/15 text-bip-text" : "text-bip-muted"}`}
                 >
                   
                   List
@@ -735,7 +735,7 @@ export default function ProjectWorkspace({
                 <button
                   type="button"
                   onClick={() => setTaskView("board")}
-                  className={`rounded px-2 py-1 text-xs ${taskView === "board" ? "bg-bip-card/15 text-white" : "text-white/40"}`}
+                  className={`rounded px-2 py-1 text-xs ${taskView === "board" ? "bg-bip-card/15 text-bip-text" : "text-bip-muted"}`}
                 >
                   
                   Board
@@ -748,12 +748,12 @@ export default function ProjectWorkspace({
                 value={newTaskTitle}
                 onChange={(event) => setNewTaskTitle(event.target.value)}
                 placeholder="Quick-add task for this project"
-                className="min-w-[12rem] flex-1 rounded-md border border-white/10 bg-bip-card px-2 py-1.5"
+                className="min-w-[12rem] flex-1 rounded-md border border-bip-border bg-bip-card px-2 py-1.5"
               />
               <select
                 value={newTaskPhaseId}
                 onChange={(event) => setNewTaskPhaseId(event.target.value)}
-                className="rounded-md border border-white/10 bg-bip-card px-2 py-1.5 text-xs"
+                className="rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-xs"
               >
                 
                 <option value="">No phase</option>
@@ -828,7 +828,7 @@ export default function ProjectWorkspace({
             
             <label className="block">
               
-              <span className="text-xs text-white/40">
+              <span className="text-xs text-bip-muted">
                 Optional focus (brainstorm / plan)
               </span>
               <textarea
@@ -836,7 +836,7 @@ export default function ProjectWorkspace({
                 onChange={(event) => setAiPrompt(event.target.value)}
                 rows={2}
                 placeholder="e.g. Focus on social hiring ads and landing page"
-                className="mt-1 w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5"
+                className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5"
               />
             </label>
             <div className="flex flex-wrap gap-2">
@@ -897,7 +897,7 @@ export default function ProjectWorkspace({
                     onChange={(event) =>
                       setPlanMode(event.target.value as "merge" | "replace")
                     }
-                    className="rounded border border-white/10 bg-bip-card px-2 py-1 text-xs"
+                    className="rounded border border-bip-border bg-bip-card px-2 py-1 text-xs"
                   >
                     
                     <option value="merge">Merge (update existing)</option>
@@ -906,7 +906,7 @@ export default function ProjectWorkspace({
                   <button
                     type="button"
                     onClick={() => void handlePreviewPlan()}
-                    className="rounded-md bg-bip-card/10 px-3 py-1.5 text-xs text-white hover:bg-bip-card/15"
+                    className="rounded-md bg-bip-card/10 px-3 py-1.5 text-xs text-bip-text hover:bg-bip-card/15"
                   >
                     
                     Preview changes
@@ -937,9 +937,9 @@ export default function ProjectWorkspace({
         {tab === "history" ? (
           <div className="space-y-4">
             
-            <div className="rounded-lg border border-white/10 bg-bip-page/60 p-3">
+            <div className="rounded-lg border border-bip-border bg-bip-page/60 p-3">
               
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bip-muted">
                 
                 Add manual note
               </p>
@@ -947,14 +947,14 @@ export default function ProjectWorkspace({
                 value={newNoteTitle}
                 onChange={(event) => setNewNoteTitle(event.target.value)}
                 placeholder="Note title"
-                className="mb-2 w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5 text-sm"
+                className="mb-2 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm"
               />
               <textarea
                 value={newNoteBody}
                 onChange={(event) => setNewNoteBody(event.target.value)}
                 placeholder="Note content (markdown supported)"
                 rows={3}
-                className="mb-2 w-full rounded-md border border-white/10 bg-bip-card px-2 py-1.5 text-sm"
+                className="mb-2 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-sm"
               />
               <button
                 type="button"
@@ -969,19 +969,19 @@ export default function ProjectWorkspace({
             <ul className="space-y-3">
               
               {artifacts.length === 0 ? (
-                <li className="text-white/50">
+                <li className="text-bip-muted">
                   No artifacts yet. Run an AI action above.
                 </li>
               ) : (
                 artifacts.map((artifact) => (
                   <li
                     key={artifact.id}
-                    className="rounded-lg border border-white/10 bg-bip-page/60 p-3"
+                    className="rounded-lg border border-bip-border bg-bip-page/60 p-3"
                   >
                     
                     <div className="mb-1 flex items-center justify-between gap-2">
                       
-                      <p className="font-medium text-white">
+                      <p className="font-medium text-bip-text">
                         {artifact.title}
                       </p>
                       <div className="flex items-center gap-2">
@@ -994,26 +994,26 @@ export default function ProjectWorkspace({
                                 artifact.content_markdown,
                               )
                             }
-                            className="inline-flex items-center gap-1 rounded bg-bip-card/10 px-2 py-0.5 text-[10px] text-white/75 hover:bg-bip-card/15"
+                            className="inline-flex items-center gap-1 rounded bg-bip-card/10 px-2 py-0.5 text-[10px] text-bip-text hover:bg-bip-card/15"
                           >
                             
                             <Copy className="h-3 w-3" /> Copy
                           </button>
                         ) : null}
-                        <span className="text-[10px] uppercase text-white/50">
+                        <span className="text-[10px] uppercase text-bip-muted">
                           
                           {artifact.artifact_type}
                         </span>
                       </div>
                     </div>
-                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap font-sans text-xs text-white/75">
+                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap font-sans text-xs text-bip-text">
                       
                       {artifact.content_markdown}
                     </pre>
                     {artifact.artifact_type === "plan" &&
                     artifact.content_json &&
                     typeof artifact.content_json === "object" ? (
-                      <p className="mt-2 text-[11px] text-white/50">
+                      <p className="mt-2 text-[11px] text-bip-muted">
                         
                         {(artifact.content_json as ClientProjectPlanJson).phases
                           ?.length ?? 0}

@@ -43,7 +43,7 @@ function PhaseSection({
   const percent =
     totalCount === 0 ? 0 : Math.round((doneCount / totalCount) * 100);
   return (
-    <section className="rounded-lg border border-white/10 bg-bip-page/40">
+    <section className="rounded-lg border border-bip-border bg-bip-page/40">
       
       <button
         type="button"
@@ -52,21 +52,21 @@ function PhaseSection({
       >
         
         {open ? (
-          <ChevronDown className="h-4 w-4 shrink-0 text-white/50" />
+          <ChevronDown className="h-4 w-4 shrink-0 text-bip-muted" />
         ) : (
-          <ChevronRight className="h-4 w-4 shrink-0 text-white/50" />
+          <ChevronRight className="h-4 w-4 shrink-0 text-bip-muted" />
         )}
-        <span className="flex-1 font-medium text-white">{title}</span>
-        <span className="text-xs text-white/50">
+        <span className="flex-1 font-medium text-bip-text">{title}</span>
+        <span className="text-xs text-bip-muted">
           
           {doneCount}/{totalCount} · {percent}%
         </span>
       </button>
       {open ? (
-        <ul className="space-y-1 border-t border-white/5 px-2 py-2">
+        <ul className="space-y-1 border-t border-bip-border px-2 py-2">
           
           {tasks.length === 0 ? (
-            <li className="px-1 py-1 text-xs text-white/50">
+            <li className="px-1 py-1 text-xs text-bip-muted">
               No tasks in this phase.
             </li>
           ) : (

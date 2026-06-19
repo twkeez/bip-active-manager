@@ -2,7 +2,7 @@ import { MARKETING_MANAGED_BY_OPTIONS } from "@/lib/vet-onboarding/form-options"
 import type { ClientFormData } from "@/types/onboarding";
 
 const inputClass =
-  "w-full rounded-lg border border-white/[0.12] bg-bip-page px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
+  "w-full rounded-lg border border-bip-border bg-bip-page px-3 py-2.5 text-sm text-bip-text placeholder:text-bip-muted focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
 
 function Field({
   label,
@@ -17,12 +17,12 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-white/75">
+      <span className="mb-1.5 block text-sm font-medium text-bip-text">
         {label}
         {required ? <span className="text-bip-danger"> *</span> : null}
       </span>
       {children}
-      {hint ? <p className="mt-1 text-xs text-white/50">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-bip-muted">{hint}</p> : null}
     </label>
   );
 }
@@ -47,13 +47,13 @@ export default function DigitalFootprintFields({
 
   return (
     <div
-      className={`border-t border-white/[0.08] pt-5 ${compact ? "space-y-4" : "space-y-5"}`}
+      className={`border-t border-bip-border pt-5 ${compact ? "space-y-4" : "space-y-5"}`}
     >
       <div>
         <h3 className="text-sm font-semibold uppercase tracking-wide text-bip-accent">
           Digital Footprint
         </h3>
-        <p className="mt-1 text-xs text-white/50">
+        <p className="mt-1 text-xs text-bip-muted">
           Optional — helps us audit your current online presence before building
           your plan.
         </p>

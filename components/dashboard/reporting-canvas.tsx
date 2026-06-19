@@ -164,16 +164,16 @@ export default function ReportingCanvas({
     [adsSignals],
   );
   return (
-    <div className="space-y-6 bg-bip-card p-6 font-sans text-white">
+    <div className="space-y-6 bg-bip-card p-6 font-sans text-bip-text">
       
-      <header className="flex flex-col items-start justify-between gap-4 border-b border-white/[0.08] pb-4 md:flex-row md:items-center">
+      <header className="flex flex-col items-start justify-between gap-4 border-b border-bip-border pb-4 md:flex-row md:items-center">
         
         <div>
           
           <h2 className="text-xl font-bold tracking-tight">
             Unified Reporting
           </h2>
-          <p className="mt-1 text-sm text-white/50">
+          <p className="mt-1 text-sm text-bip-muted">
             
             Cross-channel rollup · last 30 days · urgency {urgencyScore}
             /100
@@ -196,7 +196,7 @@ export default function ReportingCanvas({
               type="button"
               onClick={onRunAllSync}
               disabled={runningSync}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs font-medium text-white/75 transition hover:bg-bip-card disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-1.5 text-xs font-medium text-bip-text transition hover:bg-bip-card disabled:opacity-60"
             >
               
               {runningSync ? (
@@ -209,7 +209,7 @@ export default function ReportingCanvas({
           )}
         </div>
       </header>
-      {syncMessage && <p className="text-xs text-white/50">{syncMessage}</p>}
+      {syncMessage && <p className="text-xs text-bip-muted">{syncMessage}</p>}
       <section className="mb-8">
         
         <h3 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-bip-accent">
@@ -238,16 +238,16 @@ export default function ReportingCanvas({
           
           <MetricTile label="Global Impressions" value={seo.impressions} />
           <MetricTile label="Search Visibility Index" value={seo.visibility} />
-          <div className="rounded-xl border border-white/[0.08] bg-bip-card/50 p-5">
+          <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
             
-            <p className="text-xs text-white/50">Keyword Index Count</p>
+            <p className="text-xs text-bip-muted">Keyword Index Count</p>
             <div className="mt-1 flex items-baseline gap-2">
               
-              <span className="text-2xl font-bold text-white">
+              <span className="text-2xl font-bold text-bip-text">
                 
                 {seo.indexedCount.toLocaleString("en-US")}
               </span>
-              <span className="text-xs text-white/50">
+              <span className="text-xs text-bip-muted">
                 
                 / {seo.trackedCount.toLocaleString("en-US")} tracked
               </span>
@@ -261,19 +261,19 @@ export default function ReportingCanvas({
           
           <Link2Off size={16} /> System Sync Alerts &amp; Disconnects
         </h4>
-        <div className="grid grid-cols-1 gap-4 text-sm text-white/50 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 text-sm text-bip-muted md:grid-cols-2">
           
           <div className="space-y-2">
             
             {connectionIssues.length === 0 ? (
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-bip-muted">
                 All monitored channels are connected.
               </p>
             ) : (
               connectionIssues.map((issue) => (
                 <div
                   key={issue.id}
-                  className="flex items-center gap-2 rounded border border-white/[0.08] bg-bip-card/40 p-2 text-xs"
+                  className="flex items-center gap-2 rounded border border-bip-border bg-bip-card/40 p-2 text-xs"
                 >
                   
                   <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
@@ -285,7 +285,7 @@ export default function ReportingCanvas({
           <div className="space-y-2">
             
             {qualityAlerts.length === 0 ? (
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-bip-muted">
                 No ad quality score warnings detected.
               </p>
             ) : (
@@ -321,12 +321,12 @@ function MetricTile({
       : accent === "emerald"
         ? "text-bip-accent"
         : value === "Not synced" || value === "Not connected"
-          ? "text-white/50"
-          : "text-white";
+          ? "text-bip-muted"
+          : "text-bip-text";
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-bip-card/50 p-5">
+    <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
       
-      <p className="text-xs text-white/50">{label}</p>
+      <p className="text-xs text-bip-muted">{label}</p>
       <p className={`mt-1 text-2xl font-bold ${valueClass}`}>{value}</p>
     </div>
   );

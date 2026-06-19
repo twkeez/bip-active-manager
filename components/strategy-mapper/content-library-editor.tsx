@@ -12,7 +12,7 @@ import type {
 } from "@/lib/strategy-mapper/content-library";
 
 const inputClass =
-  "w-full rounded-lg border border-white/[0.12] bg-bip-page px-3 py-2 text-sm text-white placeholder:text-white/40 focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
+  "w-full rounded-lg border border-bip-border bg-bip-page px-3 py-2 text-sm text-bip-text placeholder:text-bip-muted focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30";
 
 const CATEGORY_LABELS: Record<ContentBlockCategory, string> = {
   executive: "Executive Summary",
@@ -128,13 +128,13 @@ export default function ContentLibraryEditor() {
   }
 
   if (loading) {
-    return <p className="text-sm text-white/50">Loading content library...</p>;
+    return <p className="text-sm text-bip-muted">Loading content library...</p>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-white/50">
+        <p className="text-sm text-bip-muted">
           Edit executive summary, keyword matrix, launch roadmap, and upsell templates.
           Placeholders like <code className="text-bip-accent">[Practice Name]</code> and{" "}
           <code className="text-bip-accent">[Top Competitor]</code> are substituted at
@@ -144,7 +144,7 @@ export default function ContentLibraryEditor() {
           type="button"
           disabled={saving}
           onClick={() => void resetDefaults()}
-          className="rounded-lg border border-white/[0.08] bg-bip-card px-4 py-2 text-sm text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+          className="rounded-lg border border-bip-border bg-bip-card px-4 py-2 text-sm text-bip-text hover:bg-bip-fill disabled:opacity-60"
         >
           Reset to defaults
         </button>
@@ -161,7 +161,7 @@ export default function ContentLibraryEditor() {
         return (
           <section
             key={category}
-            className="rounded-xl border border-white/[0.08] bg-bip-card p-5 sm:p-6"
+            className="rounded-xl border border-bip-border bg-bip-card p-5 sm:p-6"
           >
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-bip-accent">
               {CATEGORY_LABELS[category]}
@@ -170,7 +170,7 @@ export default function ContentLibraryEditor() {
               {categoryBlocks.map((block) => (
                 <div
                   key={block.blockKey}
-                  className="rounded-lg border border-white/[0.08] bg-bip-page/60 p-4"
+                  className="rounded-lg border border-bip-border bg-bip-page/60 p-4"
                 >
                   <button
                     type="button"
@@ -179,10 +179,10 @@ export default function ContentLibraryEditor() {
                     }
                     className="flex w-full items-center justify-between text-left"
                   >
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-bip-text">
                       {block.blockKey}
                       {block.primaryGoal ? (
-                        <span className="ml-2 text-xs text-white/40">{block.primaryGoal}</span>
+                        <span className="ml-2 text-xs text-bip-muted">{block.primaryGoal}</span>
                       ) : null}
                       {block.service ? (
                         <span className="ml-2 text-xs text-bip-accent/80">
@@ -192,7 +192,7 @@ export default function ContentLibraryEditor() {
                       ) : null}
                     </span>
                     <ChevronDown
-                      className={`h-4 w-4 text-white/50 transition ${
+                      className={`h-4 w-4 text-bip-muted transition ${
                         expandedKey === block.blockKey ? "rotate-180" : ""
                       }`}
                     />
@@ -387,7 +387,7 @@ function TextField({
 }) {
   return (
     <label className="block text-sm">
-      <span className="mb-1 block text-white/60">{label}</span>
+      <span className="mb-1 block text-bip-muted">{label}</span>
       {rows > 1 ? (
         <textarea
           value={value}

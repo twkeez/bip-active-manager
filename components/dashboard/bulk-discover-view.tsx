@@ -126,7 +126,7 @@ export default function BulkDiscoverView() {
           <button
             onClick={() => void runAll()}
             disabled={loading || clients.length === 0}
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--bip-accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40 transition-opacity"
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--bip-accent)] px-4 py-2 text-sm font-medium text-bip-text hover:opacity-90 disabled:opacity-40 transition-opacity"
           >
             <ScanSearch size={15} />
             {done ? "Run again" : `Scan ${clients.length} clients`}
@@ -134,7 +134,7 @@ export default function BulkDiscoverView() {
         ) : (
           <button
             onClick={stop}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/[0.12] px-4 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg border border-bip-border px-4 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
           >
             Stop
           </button>
@@ -142,7 +142,7 @@ export default function BulkDiscoverView() {
         <button
           onClick={() => void loadClients()}
           disabled={running}
-          className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)] disabled:opacity-40 transition-colors"
+          className="inline-flex items-center gap-2 rounded-lg border border-bip-border px-3 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)] disabled:opacity-40 transition-colors"
         >
           <RefreshCw size={13} /> Reload list
         </button>
@@ -151,7 +151,7 @@ export default function BulkDiscoverView() {
       {/* Progress bar */}
       {(running || done) && clients.length > 0 && (
         <div className="space-y-2">
-          <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+          <div className="h-1.5 w-full rounded-full bg-bip-fill overflow-hidden">
             <div
               className="h-full rounded-full bg-[var(--bip-accent)] transition-all duration-300"
               style={{ width: `${(processed / clients.length) * 100}%` }}
@@ -160,7 +160,7 @@ export default function BulkDiscoverView() {
           <div className="flex gap-4 text-xs text-[var(--text-muted)]">
             <span>{processed}/{clients.length} scanned</span>
             {counts.found > 0 && <span className="text-green-400">{counts.found} found</span>}
-            {counts.empty > 0 && <span className="text-white/30">{counts.empty} nothing found</span>}
+            {counts.empty > 0 && <span className="text-bip-subtle">{counts.empty} nothing found</span>}
             {counts.error > 0 && <span className="text-red-400">{counts.error} errors</span>}
           </div>
         </div>
@@ -177,7 +177,7 @@ export default function BulkDiscoverView() {
         <div className="bip-card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06]">
+              <tr className="border-b border-bip-border">
                 <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">Client</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">GA4 ID</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">Place ID</th>
@@ -192,7 +192,7 @@ export default function BulkDiscoverView() {
                 const displayPlace = doneStatus?.result.google_place_id ?? client.google_place_id ?? null;
 
                 return (
-                  <tr key={client.id} className={status.state === "scanning" ? "bg-white/[0.03]" : ""}>
+                  <tr key={client.id} className={status.state === "scanning" ? "bg-bip-hover" : ""}>
                     <td className="px-4 py-3">
                       <Link
                         href={`/dashboard/clients/${client.id}?tab=connections`}
@@ -208,7 +208,7 @@ export default function BulkDiscoverView() {
                           {displayGa4}
                         </span>
                       ) : (
-                        <span className="text-white/20">missing</span>
+                        <span className="text-bip-subtle">missing</span>
                       )}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">
@@ -217,7 +217,7 @@ export default function BulkDiscoverView() {
                           {displayPlace.slice(0, 20)}…
                         </span>
                       ) : (
-                        <span className="text-white/20">missing</span>
+                        <span className="text-bip-subtle">missing</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -236,7 +236,7 @@ export default function BulkDiscoverView() {
 
 function StatusBadge({ status }: { status: ClientStatus }) {
   if (status.state === "pending") {
-    return <span className="text-xs text-white/20">—</span>;
+    return <span className="text-xs text-bip-subtle">—</span>;
   }
   if (status.state === "scanning") {
     return (
@@ -261,7 +261,7 @@ function StatusBadge({ status }: { status: ClientStatus }) {
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-white/25">
+    <span className="inline-flex items-center gap-1.5 text-xs text-bip-subtle">
       <CircleDot size={12} /> Nothing found
     </span>
   );

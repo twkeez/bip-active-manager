@@ -136,22 +136,22 @@ export default function SiteAuditManager({ initialRuns, userEmail }: Props) {
   return (
     <div className="flex min-h-screen flex-col bg-bip-page">
       
-      <header className="border-b border-white/[0.08] bg-bip-card px-6 py-4">
+      <header className="border-b border-bip-border bg-bip-card px-6 py-4">
         
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
           
           <div>
             
-            <h1 className="text-lg font-semibold text-white">
+            <h1 className="text-lg font-semibold text-bip-text">
               Site Audit
             </h1>
-            <p className="text-xs text-white/50">
+            <p className="text-xs text-bip-muted">
               {userEmail ?? "Signed in"}
             </p>
           </div>
           <a
             href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-sm text-white/75 hover:bg-white/[0.06]"
+            className="inline-flex items-center gap-2 rounded-lg border border-bip-border px-3 py-2 text-sm text-bip-text hover:bg-bip-fill"
           >
             
             <ArrowLeft className="h-4 w-4" /> Dashboard
@@ -162,21 +162,21 @@ export default function SiteAuditManager({ initialRuns, userEmail }: Props) {
         
         <aside className="space-y-4">
           
-          <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4 shadow-none">
+          <div className="rounded-xl border border-bip-border bg-bip-card p-4 shadow-none">
             
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               New audit
             </p>
             <div className="mt-3 flex gap-2">
               
               <label className="relative flex-1">
                 
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40" />
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-bip-muted" />
                 <input
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
                   placeholder="https://example.com"
-                  className="w-full rounded-lg border border-white/[0.08] py-2 pl-7 pr-2 text-sm"
+                  className="w-full rounded-lg border border-bip-border py-2 pl-7 pr-2 text-sm"
                   onKeyDown={(event) => {
                     if (event.key === "Enter") void handleCreate();
                   }}
@@ -186,20 +186,20 @@ export default function SiteAuditManager({ initialRuns, userEmail }: Props) {
                 type="button"
                 disabled={loading}
                 onClick={() => void handleCreate()}
-                className="rounded-lg bg-bip-card px-3 py-2 text-sm font-medium text-white hover:bg-bip-card disabled:opacity-60"
+                className="rounded-lg bg-bip-card px-3 py-2 text-sm font-medium text-bip-text hover:bg-bip-card disabled:opacity-60"
               >
                 
                 Add
               </button>
             </div>
           </div>
-          <div className="rounded-xl border border-white/[0.08] bg-bip-card p-4 shadow-none">
+          <div className="rounded-xl border border-bip-border bg-bip-card p-4 shadow-none">
             
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               Recent audits
             </p>
             {runs.length === 0 ? (
-              <p className="mt-3 text-sm text-white/50">No audits yet.</p>
+              <p className="mt-3 text-sm text-bip-muted">No audits yet.</p>
             ) : (
               <ul className="mt-3 space-y-2">
                 
@@ -209,13 +209,13 @@ export default function SiteAuditManager({ initialRuns, userEmail }: Props) {
                     <button
                       type="button"
                       onClick={() => void handleSelectRun(run.id)}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${selectedRunId === run.id ? "border-zinc-900 bg-white/[0.06]" : "border-white/[0.08] hover:bg-bip-page"}`}
+                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${selectedRunId === run.id ? "border-zinc-900 bg-bip-fill" : "border-bip-border hover:bg-bip-page"}`}
                     >
                       
                       <p className="truncate font-medium">
                         {run.input_url}
                       </p>
-                      <p className="mt-0.5 text-xs text-white/50">
+                      <p className="mt-0.5 text-xs text-bip-muted">
                         
                         {run.status} · {formatWhen(run.updated_at)}
                       </p>
@@ -229,7 +229,7 @@ export default function SiteAuditManager({ initialRuns, userEmail }: Props) {
         <section className="space-y-4">
           
           {!selectedRun ? (
-            <p className="text-sm text-white/50">
+            <p className="text-sm text-bip-muted">
               Create or select an audit to view the report.
             </p>
           ) : (
@@ -254,7 +254,7 @@ export default function SiteAuditManager({ initialRuns, userEmail }: Props) {
                 <button
                   type="button"
                   onClick={() => setExportOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.12] bg-bip-card px-3 py-2 text-sm font-medium text-white/75 hover:bg-white/[0.06]"
+                  className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm font-medium text-bip-text hover:bg-bip-fill"
                 >
                   <FileDown className="h-4 w-4" />
                   Export PDF
@@ -265,7 +265,7 @@ export default function SiteAuditManager({ initialRuns, userEmail }: Props) {
                     type="button"
                     disabled={loading || Boolean(runningStage)}
                     onClick={() => void runStage(selectedRun.id, stage)}
-                    className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] hover:bg-white/[0.06] disabled:opacity-60"
+                    className="rounded-md border border-bip-border px-2 py-1 text-[11px] hover:bg-bip-fill disabled:opacity-60"
                   >
                     
                     {runningStage === stage ? "…" : stage.replace("_", "")}

@@ -33,7 +33,7 @@ function BoardColumn({
 }) {
   return (
     <div
-      className="flex min-w-[14rem] flex-1 flex-col rounded-lg border border-white/10 bg-bip-page/50"
+      className="flex min-w-[14rem] flex-1 flex-col rounded-lg border border-bip-border bg-bip-page/50"
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault();
@@ -44,10 +44,10 @@ function BoardColumn({
       }}
     >
       
-      <div className="border-b border-white/10 px-3 py-2">
+      <div className="border-b border-bip-border px-3 py-2">
         
-        <p className="text-sm font-medium text-white">{title}</p>
-        <p className="text-[11px] text-white/50">{tasks.length} tasks</p>
+        <p className="text-sm font-medium text-bip-text">{title}</p>
+        <p className="text-[11px] text-bip-muted">{tasks.length} tasks</p>
       </div>
       <ul className="min-h-[8rem] space-y-1.5 p-2">
         

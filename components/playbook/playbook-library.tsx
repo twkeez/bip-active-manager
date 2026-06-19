@@ -118,7 +118,7 @@ function ItemRow({
           </div>
         ) : (
           <>
-            <p className="text-sm text-white">{item.title}</p>
+            <p className="text-sm text-bip-text">{item.title}</p>
             {item.body && (
               <p className="mt-0.5 text-xs text-[rgba(255,255,255,0.45)] leading-relaxed">{item.body}</p>
             )}
@@ -276,7 +276,7 @@ function TierPanel({
       >
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <div className="flex-1 text-left">
-          <p className="text-sm font-medium text-white">{tier.tier_label}</p>
+          <p className="text-sm font-medium text-bip-text">{tier.tier_label}</p>
           <p className="text-xs text-[rgba(255,255,255,0.4)] line-clamp-1">{tier.objective}</p>
         </div>
         <span className="text-xs text-[rgba(255,255,255,0.35)]">{items.length} items</span>
@@ -348,8 +348,8 @@ export default function PlaybookLibrary({ tiers, initialItems, isAdmin }: Props)
             onClick={() => setActiveService(svc)}
             className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
               activeService === svc
-                ? "border-[var(--bip-accent)] text-white"
-                : "border-transparent text-[rgba(255,255,255,0.4)] hover:text-white"
+                ? "border-[var(--bip-accent)] text-bip-text"
+                : "border-transparent text-[rgba(255,255,255,0.4)] hover:text-bip-text"
             }`}
           >
             {SERVICE_LABELS[svc] ?? svc}

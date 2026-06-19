@@ -36,7 +36,7 @@ const PRIORITY_BADGE: Record<
   },
   medium: {
     label: "Minor Adjust",
-    className: "bg-slate-700 text-white/75 border-slate-600",
+    className: "bg-slate-700 text-bip-text border-slate-600",
   },
 };
 export default function AuditInspector({
@@ -87,7 +87,7 @@ export default function AuditInspector({
     });
   }
   return (
-    <div className="font-sans text-white">
+    <div className="font-sans text-bip-text">
       
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
         
@@ -108,27 +108,27 @@ export default function AuditInspector({
           tone="emerald"
         />
       </div>
-      <div className="mb-6 flex gap-2 border-b border-white/[0.08] text-sm">
+      <div className="mb-6 flex gap-2 border-b border-bip-border text-sm">
         
         {(Object.keys(TAB_LABELS) as InspectorTab[]).map((tab) => (
           <button
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
-            className={`border-b-2 px-2 pb-3 font-medium transition ${activeTab === tab ? "border-indigo-500 text-bip-accent" : "border-transparent text-white/50 hover:text-white/75"}`}
+            className={`border-b-2 px-2 pb-3 font-medium transition ${activeTab === tab ? "border-indigo-500 text-bip-accent" : "border-transparent text-bip-muted hover:text-bip-text"}`}
           >
             
             {TAB_LABELS[tab]}
-            <span className="ml-1.5 text-xs text-white/50">
+            <span className="ml-1.5 text-xs text-bip-muted">
               ({tabCounts[tab]})
             </span>
           </button>
         ))}
       </div>
-      <div className="divide-y divide-slate-800/60 rounded-xl border border-white/[0.08] bg-bip-card/40">
+      <div className="divide-y divide-slate-800/60 rounded-xl border border-bip-border bg-bip-card/40">
         
         {filteredIssues.length === 0 ? (
-          <div className="flex items-center gap-3 p-6 text-sm text-white/50">
+          <div className="flex items-center gap-3 p-6 text-sm text-bip-muted">
             
             <CheckCircle2 className="shrink-0 text-bip-accent" size={18} /> No
             open issues in this category.
@@ -150,7 +150,7 @@ export default function AuditInspector({
                     type="checkbox"
                     checked={selected}
                     onChange={() => toggleIssue(issue)}
-                    className="mt-0.5 rounded border-white/[0.08] bg-bip-card text-bip-accent focus:ring-0"
+                    className="mt-0.5 rounded border-bip-border bg-bip-card text-bip-accent focus:ring-0"
                   />
                   <Icon
                     className={
@@ -158,17 +158,17 @@ export default function AuditInspector({
                         ? "shrink-0 text-red-400"
                         : issue.priority === "high"
                           ? "shrink-0 text-amber-400"
-                          : "shrink-0 text-white/50"
+                          : "shrink-0 text-bip-muted"
                     }
                     size={18}
                   />
                   <div className="min-w-0">
                     
-                    <p className="text-sm font-medium text-white/75">
+                    <p className="text-sm font-medium text-bip-text">
                       {issue.title}
                     </p>
                     {issue.description && (
-                      <p className="mt-0.5 line-clamp-2 text-xs text-white/50">
+                      <p className="mt-0.5 line-clamp-2 text-xs text-bip-muted">
                         
                         {issue.description}
                       </p>
@@ -214,9 +214,9 @@ function SummaryPill({
       count: "text-amber-400 bg-amber-500/20",
     },
     slate: {
-      wrap: "bg-bip-card border-white/[0.08]",
-      label: "text-white/50",
-      count: "text-white/75 bg-slate-700",
+      wrap: "bg-bip-card border-bip-border",
+      label: "text-bip-muted",
+      count: "text-bip-text bg-slate-700",
     },
     emerald: {
       wrap: "bg-emerald-500/10 border-emerald-500/20",

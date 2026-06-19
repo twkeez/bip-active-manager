@@ -283,7 +283,7 @@ export default function ReportingOverview({
     }
   }
   return (
-    <div className="space-y-6 bg-bip-card font-sans text-white">
+    <div className="space-y-6 bg-bip-card font-sans text-bip-text">
       
       <ReportingCanvas
         allKpis={allKpis}
@@ -298,17 +298,17 @@ export default function ReportingOverview({
         onRunAllSync={onRunAllSync}
         onGenerateReport={onGenerateReport}
       />
-      <section className="rounded-xl border border-white/[0.08] bg-bip-card/50 p-4">
+      <section className="rounded-xl border border-bip-border bg-bip-card/50 p-4">
         
         <div className="flex flex-wrap items-center justify-between gap-2">
           
           <div>
             
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
               
               Google Business Profile
             </p>
-            <p className="mt-0.5 text-xs text-white/75">
+            <p className="mt-0.5 text-xs text-bip-text">
               
               {gbpSnapshot?.place_name
                 ? `${gbpSnapshot.place_name} • ${gbpSnapshot.rating?.toFixed(2) ?? "N/A"} (${gbpSnapshot.user_ratings_total ?? 0} reviews)`
@@ -320,7 +320,7 @@ export default function ReportingOverview({
               type="button"
               onClick={onSyncGbp}
               disabled={gbpLoading}
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-xs font-medium text-white/75 transition hover:bg-bip-card disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md border border-bip-border px-2.5 py-1 text-xs font-medium text-bip-text transition hover:bg-bip-card disabled:opacity-60"
             >
               
               {gbpLoading ? (
@@ -333,14 +333,14 @@ export default function ReportingOverview({
           )}
         </div>
         {gbpError && <p className="mt-1.5 text-xs text-red-400">{gbpError}</p>}
-        <p className="mt-1 text-xs text-white/50">
+        <p className="mt-1 text-xs text-bip-muted">
           
           Recent reviews (30d): {gbpRecentReviewCountLabel}
         </p>
         {gbpSyncDiagnostics && (
           <>
             
-            <p className="mt-1 text-xs text-white/50">
+            <p className="mt-1 text-xs text-bip-muted">
               
               Last sync diagnostics: fetched
               {gbpSyncDiagnostics.fetchedReviewCount}, stored{""}
@@ -352,7 +352,7 @@ export default function ReportingOverview({
                 : "N/A"}
             </p>
             {gbpSyncDiagnostics.topReviews.length > 0 && (
-              <p className="mt-1 text-xs text-white/50">
+              <p className="mt-1 text-xs text-bip-muted">
                 
                 Latest synced reviews:{""}
                 {gbpSyncDiagnostics.topReviews
@@ -365,7 +365,7 @@ export default function ReportingOverview({
                   .join(" •")}
               </p>
             )}
-            <p className="mt-1 text-xs text-white/50">
+            <p className="mt-1 text-xs text-bip-muted">
               
               Source breakdown: Places
               {gbpSyncDiagnostics.sourceBreakdown.placesReviewCount},{""} Legacy
@@ -400,12 +400,12 @@ export default function ReportingOverview({
       </section>
       <section className="space-y-2">
         
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+        <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
           
           Top actions this week
         </p>
         {actions.length === 0 ? (
-          <p className="rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2 text-sm text-white/75">
+          <p className="rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text">
             
             No prioritized actions right now.
           </p>
@@ -415,24 +415,24 @@ export default function ReportingOverview({
             {actions.map((action) => (
               <li
                 key={action.id}
-                className="rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2"
+                className="rounded-lg border border-bip-border bg-bip-card px-3 py-2"
               >
                 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-bip-text">
                     
                     {action.title}
                   </p>
                   <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${action.priority === "high" ? "border border-red-500/20 bg-red-500/10 text-red-400" : action.priority === "medium" ? "border border-amber-500/20 bg-amber-500/10 text-amber-400" : "bg-white/[0.06] text-white/75"}`}
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${action.priority === "high" ? "border border-red-500/20 bg-red-500/10 text-red-400" : action.priority === "medium" ? "border border-amber-500/20 bg-amber-500/10 text-amber-400" : "bg-bip-fill text-white"}`}
                   >
                     
                     {action.priority}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-white/75">{action.detail}</p>
-                <p className="mt-1 text-[11px] text-white/50">
+                <p className="mt-1 text-xs text-bip-text">{action.detail}</p>
+                <p className="mt-1 text-[11px] text-bip-muted">
                   
                   Owner: {action.owner.replace("_", "")}
                 </p>
@@ -441,31 +441,31 @@ export default function ReportingOverview({
           </ul>
         )}
       </section>
-      <section className="rounded-lg border border-white/[0.08] bg-bip-card p-3">
+      <section className="rounded-lg border border-bip-border bg-bip-card p-3">
         
         <div className="mb-2 flex items-center justify-between gap-2">
           
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+          <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
             
             Managed keywords
           </p>
           {keywordTargetsLoading && (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-white/50" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-bip-muted" />
           )}
         </div>
-        <p className="text-xs text-white/50">{keywordSection.summary}</p>
+        <p className="text-xs text-bip-muted">{keywordSection.summary}</p>
         <div className="mt-2 flex gap-2">
           
           <input
             value={keywordDraftInput}
             onChange={(event) => onKeywordDraftInputChange(event.target.value)}
             placeholder="Add keyword phrase..."
-            className="w-full rounded-md border border-white/[0.08] bg-bip-card px-2 py-1.5 text-xs text-white"
+            className="w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-xs text-bip-text"
           />
           <button
             type="button"
             onClick={() => onAddKeyword?.(keywordDraftInput)}
-            className="rounded-md border border-white/[0.08] px-2 py-1 text-xs font-medium text-white/75 hover:bg-white/[0.06]"
+            className="rounded-md border border-bip-border px-2 py-1 text-xs font-medium text-bip-text hover:bg-bip-fill"
           >
             
             Add
@@ -477,14 +477,14 @@ export default function ReportingOverview({
             {keywordTargets.map((row) => (
               <li
                 key={row.id}
-                className="flex items-center justify-between rounded-md border border-white/[0.08] px-2 py-1 text-xs"
+                className="flex items-center justify-between rounded-md border border-bip-border px-2 py-1 text-xs"
               >
                 
                 <span>{row.keyword}</span>
                 <button
                   type="button"
                   onClick={() => onRemoveKeyword?.(row.id)}
-                  className="text-white/50 hover:text-red-600"
+                  className="text-bip-muted hover:text-red-600"
                 >
                   
                   Remove
@@ -493,7 +493,7 @@ export default function ReportingOverview({
             ))}
           </ul>
         ) : (
-          <p className="mt-2 text-xs text-white/50">No tracked keywords yet.</p>
+          <p className="mt-2 text-xs text-bip-muted">No tracked keywords yet.</p>
         )}
       </section>
       {selectedClient ? (
@@ -504,11 +504,11 @@ export default function ReportingOverview({
           googlePlaceId={selectedClient.google_place_id}
         />
       ) : null}
-      <section className="rounded-lg border border-white/[0.08] bg-bip-card p-3">
+      <section className="rounded-lg border border-bip-border bg-bip-card p-3">
         
         <div className="mb-2 flex items-center justify-between gap-2">
           
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+          <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
             
             Keyword health (SEO decay tracker)
           </p>
@@ -516,7 +516,7 @@ export default function ReportingOverview({
             type="button"
             onClick={onLoadKeywordHealth}
             disabled={keywordHealthLoading || !onLoadKeywordHealth}
-            className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-xs font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+            className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
           >
             
             {keywordHealthLoading ? (
@@ -525,7 +525,7 @@ export default function ReportingOverview({
             Refresh keyword health
           </button>
         </div>
-        <p className="text-xs text-white/50">
+        <p className="text-xs text-bip-muted">
           
           Top 20 keywords from Search Console. Comparing last 7 days vs previous
           7 days.
@@ -542,26 +542,26 @@ export default function ReportingOverview({
           </p>
         )}
         {keywordHealthRows.length === 0 ? (
-          <p className="mt-2 text-sm text-white/75">
+          <p className="mt-2 text-sm text-bip-text">
             
             No keyword health data yet. Click refresh to load.
           </p>
         ) : (
-          <div className="mt-2 overflow-auto rounded-lg border border-white/[0.08]">
+          <div className="mt-2 overflow-auto rounded-lg border border-bip-border">
             
-            <table className="w-full min-w-[900px] border-collapse text-left text-xs"><thead><tr className="border-b border-white/[0.08] bg-bip-page"><th className="px-2 py-2 font-semibold text-white/75">
+            <table className="w-full min-w-[900px] border-collapse text-left text-xs"><thead><tr className="border-b border-bip-border bg-bip-page"><th className="px-2 py-2 font-semibold text-bip-text">
                     Keyword
-                  </th><th className="px-2 py-2 font-semibold text-white/75">
+                  </th><th className="px-2 py-2 font-semibold text-bip-text">
                     Page
-                  </th><th className="px-2 py-2 font-semibold text-white/75">
+                  </th><th className="px-2 py-2 font-semibold text-bip-text">
                     Prev pos
-                  </th><th className="px-2 py-2 font-semibold text-white/75">
+                  </th><th className="px-2 py-2 font-semibold text-bip-text">
                     Current pos
-                  </th><th className="px-2 py-2 font-semibold text-white/75">
+                  </th><th className="px-2 py-2 font-semibold text-bip-text">
                     Drop
-                  </th><th className="px-2 py-2 font-semibold text-white/75">
+                  </th><th className="px-2 py-2 font-semibold text-bip-text">
                     Clicks
-                  </th><th className="px-2 py-2 font-semibold text-white/75">
+                  </th><th className="px-2 py-2 font-semibold text-bip-text">
                     Why did this drop?
                   </th></tr></thead><tbody>{keywordHealthRows.map((row) => {
                   const rowKey = `${row.keyword}::${row.page_url ?? ""}`;
@@ -572,18 +572,18 @@ export default function ReportingOverview({
                   return (
                     <tr
                       key={rowKey}
-                      className={`border-b border-white/[0.08] ${row.dropped_by_3_plus ? "bg-amber-500/10" : ""}`}
-                    ><td className="px-2 py-2 font-medium text-white">
+                      className={`border-b border-bip-border ${row.dropped_by_3_plus ? "bg-amber-500/10" : ""}`}
+                    ><td className="px-2 py-2 font-medium text-bip-text">
                         
                         {row.keyword}
-                      </td><td className="px-2 py-2 text-white/75">
+                      </td><td className="px-2 py-2 text-bip-text">
                         
                         {row.page_url ? (
                           <a
                             href={row.page_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex max-w-[260px] truncate text-white/75 underline decoration-zinc-300 underline-offset-2 hover:text-white"
+                            className="inline-flex max-w-[260px] truncate text-bip-text underline decoration-zinc-300 underline-offset-2 hover:text-bip-text"
                           >
                             
                             {row.page_url}
@@ -591,12 +591,12 @@ export default function ReportingOverview({
                         ) : (
                           "—"
                         )}
-                      </td><td className="px-2 py-2 text-white/75">
+                      </td><td className="px-2 py-2 text-bip-text">
                         
                         {row.previous_position == null
                           ? "—"
                           : row.previous_position.toFixed(1)}
-                      </td><td className="px-2 py-2 text-white/75">
+                      </td><td className="px-2 py-2 text-bip-text">
                         
                         {row.current_position == null
                           ? "—"
@@ -604,12 +604,12 @@ export default function ReportingOverview({
                       </td><td className="px-2 py-2">
                         
                         <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${row.dropped_by_3_plus ? "border border-red-500/20 bg-red-500/10 text-red-400" : "bg-white/[0.06] text-white/75"}`}
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${row.dropped_by_3_plus ? "border border-red-500/20 bg-red-500/10 text-red-400" : "bg-bip-fill text-white"}`}
                         >
                           
                           {row.position_delta.toFixed(1)}
                         </span>
-                      </td><td className="px-2 py-2 text-white/75">
+                      </td><td className="px-2 py-2 text-bip-text">
                         
                         {row.previous_clicks} {"->"} {row.current_clicks}
                       </td><td className="px-2 py-2">
@@ -621,7 +621,7 @@ export default function ReportingOverview({
                               type="button"
                               onClick={() => onExplainKeywordDrop?.(row)}
                               disabled={loadingTheory || !onExplainKeywordDrop}
-                              className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-[11px] font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+                              className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-[11px] font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
                             >
                               
                               {loadingTheory ? (
@@ -630,7 +630,7 @@ export default function ReportingOverview({
                               Why did this drop?
                             </button>
                             {theory && (
-                              <p className="text-[11px] text-white/75">
+                              <p className="text-[11px] text-bip-text">
                                 
                                 {theory.theory}
                                 {""}
@@ -641,7 +641,7 @@ export default function ReportingOverview({
                             )}
                           </div>
                         ) : (
-                          <span className="text-[11px] text-white/40">
+                          <span className="text-[11px] text-bip-muted">
                             Stable
                           </span>
                         )}
@@ -652,11 +652,11 @@ export default function ReportingOverview({
           </div>
         )}
       </section>
-      <section className="rounded-lg border border-white/[0.08] bg-bip-card p-3">
+      <section className="rounded-lg border border-bip-border bg-bip-card p-3">
         
         <div className="mb-2 flex items-center justify-between gap-2">
           
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+          <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
             
             Gemini strategist summary
           </p>
@@ -667,7 +667,7 @@ export default function ReportingOverview({
               onGenerateStrategistSummary?.();
             }}
             disabled={strategistSummaryLoading || !onGenerateStrategistSummary}
-            className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-xs font-medium text-white/75 hover:bg-white/[0.06] disabled:opacity-60"
+            className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs font-medium text-bip-text hover:bg-bip-fill disabled:opacity-60"
           >
             
             {strategistSummaryLoading ? (
@@ -678,7 +678,7 @@ export default function ReportingOverview({
         </div>
         <label className="block">
           
-          <span className="text-xs text-white/50">Client goals</span>
+          <span className="text-xs text-bip-muted">Client goals</span>
           <textarea
             value={strategistSummaryGoals}
             onChange={(event) => {
@@ -686,7 +686,7 @@ export default function ReportingOverview({
               if (strategistCopied) setStrategistCopied(null);
             }}
             rows={2}
-            className="mt-1 w-full rounded-md border border-white/[0.08] bg-bip-card px-2 py-1.5 text-xs text-white focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
+            className="mt-1 w-full rounded-md border border-bip-border bg-bip-card px-2 py-1.5 text-xs text-bip-text focus:border-bip-accent focus:outline-none focus:ring-2 focus:ring-bip-accent/30"
             placeholder="Example: Increase new puppy appointments."
           />
         </label>
@@ -694,50 +694,50 @@ export default function ReportingOverview({
           <p className="mt-2 text-sm text-red-600">{strategistSummaryError}</p>
         )}
         {!strategistSummary ? (
-          <p className="mt-2 text-sm text-white/75">
+          <p className="mt-2 text-sm text-bip-text">
             
             Generate to produce The Win, The Concern, and The Next Move from
             Search Console and Facebook data.
           </p>
         ) : (
-          <div className="mt-2 space-y-2 rounded-lg border border-white/[0.08] p-3">
+          <div className="mt-2 space-y-2 rounded-lg border border-bip-border p-3">
             
             <div className="flex justify-end">
               
               <button
                 type="button"
                 onClick={() => void handleCopyStrategistSummary()}
-                className="rounded-md border border-white/[0.08] px-2 py-1 text-xs font-medium text-white/75 hover:bg-white/[0.06]"
+                className="rounded-md border border-bip-border px-2 py-1 text-xs font-medium text-bip-text hover:bg-bip-fill"
               >
                 
                 Copy for email
               </button>
             </div>
-            <p className="text-sm text-white/75">
+            <p className="text-sm text-bip-text">
               
               <span className="font-semibold">The Win:</span>
               {strategistSummary.theWin}
             </p>
-            <p className="text-sm text-white/75">
+            <p className="text-sm text-bip-text">
               
               <span className="font-semibold">The Concern:</span>
               {strategistSummary.theConcern}
             </p>
-            <p className="text-sm text-white/75">
+            <p className="text-sm text-bip-text">
               
               <span className="font-semibold">The Next Move:</span>
               {strategistSummary.theNextMove}
             </p>
             {strategistCopied && (
-              <p className="text-xs text-white/50">{strategistCopied}</p>
+              <p className="text-xs text-bip-muted">{strategistCopied}</p>
             )}
           </div>
         )}
       </section>
       {/* Detailed Breakdown Charts */}
-      <section className="rounded-lg border border-white/[0.08] bg-bip-card p-3">
+      <section className="rounded-lg border border-bip-border bg-bip-card p-3">
         
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/50">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-bip-muted">
           
           Detailed Breakdown (Charts)
         </p>
@@ -758,7 +758,7 @@ export default function ReportingOverview({
               {/* Line Chart - Trend */}
               <div>
                 
-                <p className="mb-1 text-xs font-medium text-white/75">
+                <p className="mb-1 text-xs font-medium text-bip-text">
                   Trend (Last 14 days)
                 </p>
                 <div className="h-52 w-full">
@@ -796,7 +796,7 @@ export default function ReportingOverview({
               {/* Bar Chart - Channel Comparison */}
               <div>
                 
-                <p className="mb-1 text-xs font-medium text-white/75">
+                <p className="mb-1 text-xs font-medium text-bip-text">
                   Channel Comparison (Current)
                 </p>
                 <div className="h-52 w-full">
@@ -825,7 +825,7 @@ export default function ReportingOverview({
               {/* Waterfall-style Gains vs Dips */}
               <div className="md:col-span-2">
                 
-                <p className="mb-1 text-xs font-medium text-white/75">
+                <p className="mb-1 text-xs font-medium text-bip-text">
                   Gains vs Dips (Absolute Movement)
                 </p>
                 <div className="h-52 w-full">
@@ -844,7 +844,7 @@ export default function ReportingOverview({
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-                <p className="mt-1 text-[11px] text-white/50">
+                <p className="mt-1 text-[11px] text-bip-muted">
                   
                   Positive bars = total gains across tracked metrics. Negative
                   bars = total dips.
@@ -858,11 +858,11 @@ export default function ReportingOverview({
         client={selectedClient}
         adsSnapshot={selectedAdsSnapshot}
       />
-      <section className="rounded-lg border border-white/[0.08] bg-bip-card p-3">
+      <section className="rounded-lg border border-bip-border bg-bip-card p-3">
         
         <div className="mb-2 flex items-center justify-between gap-2">
           
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+          <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
             
             Weekly summary draft
           </p>
@@ -876,7 +876,7 @@ export default function ReportingOverview({
                 }
                 setSummaryCopied(null);
               }}
-              className="rounded-md border border-white/[0.08] px-2 py-1 text-xs font-medium text-white/75 hover:bg-white/[0.06]"
+              className="rounded-md border border-bip-border px-2 py-1 text-xs font-medium text-bip-text hover:bg-bip-fill"
             >
               
               Regenerate
@@ -884,7 +884,7 @@ export default function ReportingOverview({
             <button
               type="button"
               onClick={() => void handleCopySummary()}
-              className="rounded-md border border-white/[0.08] px-2 py-1 text-xs font-medium text-white/75 hover:bg-white/[0.06]"
+              className="rounded-md border border-bip-border px-2 py-1 text-xs font-medium text-bip-text hover:bg-bip-fill"
             >
               
               Copy
@@ -901,18 +901,18 @@ export default function ReportingOverview({
           className="w-full bip-input shadow-none"
         />
         {summaryCopied && (
-          <p className="mt-2 text-xs text-white/50">{summaryCopied}</p>
+          <p className="mt-2 text-xs text-bip-muted">{summaryCopied}</p>
         )}
       </section>
-      <section className="rounded-xl border border-white/[0.08] bg-bip-card/50 p-4">
+      <section className="rounded-xl border border-bip-border bg-bip-card/50 p-4">
         
         <div className="mb-2 flex items-center justify-between gap-2">
           
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+          <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
             
             Issue rollup
           </p>
-          <span className="text-xs text-white/50">
+          <span className="text-xs text-bip-muted">
             {alerts.length} issues
           </span>
         </div>
@@ -926,17 +926,17 @@ export default function ReportingOverview({
             {alerts.map((alert) => (
               <li
                 key={alert.id}
-                className="rounded-md border border-white/[0.08] px-2.5 py-2"
+                className="rounded-md border border-bip-border px-2.5 py-2"
               >
                 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   
-                  <p className="text-sm font-medium text-white/75">
+                  <p className="text-sm font-medium text-bip-text">
                     {alert.title}
                   </p>
                   <SeverityChip severity={alert.severity} />
                 </div>
-                <p className="mt-1 text-xs text-white/50">
+                <p className="mt-1 text-xs text-bip-muted">
                   
                   {reportingSourceLabel(alert.source)} •{""}
                   {alert.detected_at

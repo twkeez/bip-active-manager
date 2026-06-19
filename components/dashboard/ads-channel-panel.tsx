@@ -24,16 +24,16 @@ function AdsMetricTile({
   meta?: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-bip-card/40 px-3 py-2.5">
+    <div className="rounded-xl border border-bip-border bg-bip-card/40 px-3 py-2.5">
       
-      <p className="text-[11px] font-medium uppercase tracking-wide text-white/50">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-bip-muted">
         {label}
       </p>
-      <p className="mt-1 text-sm font-semibold tabular-nums text-white">
+      <p className="mt-1 text-sm font-semibold tabular-nums text-bip-text">
         {value}
       </p>
       {meta ? (
-        <p className="mt-0.5 text-[10px] text-white/50">{meta}</p>
+        <p className="mt-0.5 text-[10px] text-bip-muted">{meta}</p>
       ) : null}
     </div>
   );
@@ -72,7 +72,7 @@ export default function AdsChannelPanel({
         
         <aside className="space-y-4 lg:col-span-4">
           
-          <div className="rounded-xl border border-white/[0.08] bg-bip-card/50 p-5">
+          <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
             
             <div className="flex items-start justify-between gap-3">
               
@@ -84,7 +84,7 @@ export default function AdsChannelPanel({
                     className="shrink-0 text-bip-accent"
                     size={16}
                   />
-                  <h3 className="text-sm font-semibold text-white">
+                  <h3 className="text-sm font-semibold text-bip-text">
                     Google Ads reporting
                   </h3>
                   {playbookTaskCount > 0 ? (
@@ -95,7 +95,7 @@ export default function AdsChannelPanel({
                   ) : null}
                 </div>
                 {adsSnapshot ? (
-                  <p className="mt-2 text-xs text-white/50">
+                  <p className="mt-2 text-xs text-bip-muted">
                     
                     Last sync {formatDateTime(
                       adsSnapshot.updated_at,
@@ -103,12 +103,12 @@ export default function AdsChannelPanel({
                     {adsSnapshot.end_date}
                   </p>
                 ) : (
-                  <p className="mt-2 text-xs text-white/50">
+                  <p className="mt-2 text-xs text-bip-muted">
                     No snapshot synced yet.
                   </p>
                 )}
                 {playbookTaskCount > 0 ? (
-                  <p className="mt-1 text-xs text-white/50">
+                  <p className="mt-1 text-xs text-bip-muted">
                     
                     {playbookTaskCount} playbook intervention
                     {playbookTaskCount === 1 ? "" : "s"} ready
@@ -120,7 +120,7 @@ export default function AdsChannelPanel({
                 {adsClientId ? (
                   <a
                     href={`/ads-audit/${adsClientId}`}
-                    className="rounded-lg border border-white/[0.08] px-3 py-2 text-center text-xs font-medium text-white/75 transition hover:bg-bip-card/60"
+                    className="rounded-lg border border-bip-border px-3 py-2 text-center text-xs font-medium text-bip-text transition hover:bg-bip-card/60"
                   >
                     
                     Performance audit
@@ -130,7 +130,7 @@ export default function AdsChannelPanel({
                   type="button"
                   onClick={onSyncAds}
                   disabled={adsLoading || !onSyncAds}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-white transition hover:bg-bip-accent disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-accent disabled:opacity-60"
                 >
                   
                   {adsLoading ? (
@@ -144,9 +144,9 @@ export default function AdsChannelPanel({
             </div>
           </div>
           {keywordQuality.length > 0 ? (
-            <div className="rounded-xl border border-white/[0.08] bg-bip-card/50 p-5">
+            <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
               
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
                 
                 Quality Score flags
               </p>
@@ -154,46 +154,46 @@ export default function AdsChannelPanel({
                 
                 <div>
                   
-                  <dt className="text-white/50">Keywords tracked</dt>
-                  <dd className="font-medium text-white/75">
+                  <dt className="text-bip-muted">Keywords tracked</dt>
+                  <dd className="font-medium text-bip-text">
                     {qualitySummary.totalKeywords}
                   </dd>
                 </div>
                 <div>
                   
-                  <dt className="text-white/50">Flagged</dt>
-                  <dd className="font-medium text-white/75">
+                  <dt className="text-bip-muted">Flagged</dt>
+                  <dd className="font-medium text-bip-text">
                     {qualitySummary.flaggedKeywords}
                   </dd>
                 </div>
                 <div>
                   
-                  <dt className="text-white/50">LP below avg</dt>
-                  <dd className="font-medium text-white/75">
+                  <dt className="text-bip-muted">LP below avg</dt>
+                  <dd className="font-medium text-bip-text">
                     
                     {qualitySummary.landingPageBelowAverage}
                   </dd>
                 </div>
                 <div>
                   
-                  <dt className="text-white/50">Ad relevance</dt>
-                  <dd className="font-medium text-white/75">
+                  <dt className="text-bip-muted">Ad relevance</dt>
+                  <dd className="font-medium text-bip-text">
                     
                     {qualitySummary.adRelevanceBelowAverage}
                   </dd>
                 </div>
                 <div>
                   
-                  <dt className="text-white/50">Expected CTR</dt>
-                  <dd className="font-medium text-white/75">
+                  <dt className="text-bip-muted">Expected CTR</dt>
+                  <dd className="font-medium text-bip-text">
                     
                     {qualitySummary.expectedCtrBelowAverage}
                   </dd>
                 </div>
                 <div>
                   
-                  <dt className="text-white/50">QS ≤ 5</dt>
-                  <dd className="font-medium text-white/75">
+                  <dt className="text-bip-muted">QS ≤ 5</dt>
+                  <dd className="font-medium text-bip-text">
                     {qualitySummary.qualityScoreLow}
                   </dd>
                 </div>
@@ -204,7 +204,7 @@ export default function AdsChannelPanel({
         <div className="space-y-4 lg:col-span-8">
           
           {adsLoading ? (
-            <p className="text-sm text-white/50">Syncing Google Ads...</p>
+            <p className="text-sm text-bip-muted">Syncing Google Ads...</p>
           ) : null}
           {adsError ? <p className="text-sm text-red-400">{adsError}</p> : null}
           {!adsLoading && adsSnapshot ? (
@@ -253,21 +253,21 @@ export default function AdsChannelPanel({
                 />
               </div>
               {adsSnapshot.campaigns.length > 0 ? (
-                <div className="overflow-auto rounded-xl border border-white/[0.08] bg-bip-card/40">
+                <div className="overflow-auto rounded-xl border border-bip-border bg-bip-card/40">
                   
-                  <div className="border-b border-white/[0.08] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/50">
+                  <div className="border-b border-bip-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
                     
                     Campaign performance
                   </div>
-                  <table className="w-full min-w-[680px] border-collapse text-left text-xs"><thead><tr className="border-b border-white/[0.08] text-white/50"><th className="px-3 py-2 font-medium">Campaign</th><th className="px-3 py-2 font-medium">Impressions</th><th className="px-3 py-2 font-medium">Clicks</th><th className="px-3 py-2 font-medium">Conversions</th><th className="px-3 py-2 font-medium">CTR</th><th className="px-3 py-2 font-medium">Search IS</th><th className="px-3 py-2 font-medium">
+                  <table className="w-full min-w-[680px] border-collapse text-left text-xs"><thead><tr className="border-b border-bip-border text-bip-muted"><th className="px-3 py-2 font-medium">Campaign</th><th className="px-3 py-2 font-medium">Impressions</th><th className="px-3 py-2 font-medium">Clicks</th><th className="px-3 py-2 font-medium">Conversions</th><th className="px-3 py-2 font-medium">CTR</th><th className="px-3 py-2 font-medium">Search IS</th><th className="px-3 py-2 font-medium">
                           Lost IS (Rank)
                         </th><th className="px-3 py-2 font-medium">
                           Lost IS (Budget)
                         </th></tr></thead><tbody>{adsSnapshot.campaigns.slice(0, 10).map((campaign) => (
                         <tr
                           key={campaign.campaign_id}
-                          className="border-b border-white/[0.08]/50 text-white/75 last:border-0"
-                        ><td className="px-3 py-2 text-white/75">
+                          className="border-b border-bip-border text-bip-text last:border-0"
+                        ><td className="px-3 py-2 text-bip-text">
                             {campaign.campaign_name}
                           </td><td className="px-3 py-2">
                             {Math.round(campaign.impressions ?? 0)}
@@ -302,19 +302,19 @@ export default function AdsChannelPanel({
               ) : null}
               {Array.isArray(adsSnapshot.auction_insights) &&
               adsSnapshot.auction_insights.length > 0 ? (
-                <div className="overflow-auto rounded-xl border border-white/[0.08] bg-bip-card/40">
+                <div className="overflow-auto rounded-xl border border-bip-border bg-bip-card/40">
                   
-                  <div className="border-b border-white/[0.08] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/50">
+                  <div className="border-b border-bip-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
                     
                     Auction insights
                   </div>
-                  <table className="w-full min-w-[720px] border-collapse text-left text-xs"><thead><tr className="border-b border-white/[0.08] text-white/50"><th className="px-3 py-2 font-medium">Campaign</th><th className="px-3 py-2 font-medium">Domain</th><th className="px-3 py-2 font-medium">Impr. Share</th><th className="px-3 py-2 font-medium">Overlap</th></tr></thead><tbody>{adsSnapshot.auction_insights
+                  <table className="w-full min-w-[720px] border-collapse text-left text-xs"><thead><tr className="border-b border-bip-border text-bip-muted"><th className="px-3 py-2 font-medium">Campaign</th><th className="px-3 py-2 font-medium">Domain</th><th className="px-3 py-2 font-medium">Impr. Share</th><th className="px-3 py-2 font-medium">Overlap</th></tr></thead><tbody>{adsSnapshot.auction_insights
                         .slice(0, 15)
                         .map((row, index) => (
                           <tr
                             key={`${row.campaign_id}-${row.domain}-${index}`}
-                            className="border-b border-white/[0.08]/50 text-white/75 last:border-0"
-                          ><td className="px-3 py-2 text-white/75">
+                            className="border-b border-bip-border text-bip-text last:border-0"
+                          ><td className="px-3 py-2 text-bip-text">
                               {row.campaign_name}
                             </td><td className="px-3 py-2">{row.domain}</td><td className="px-3 py-2">
                               
@@ -332,29 +332,29 @@ export default function AdsChannelPanel({
                 </div>
               ) : null}
               {keywordQuality.length === 0 ? (
-                <p className="rounded-xl border border-white/[0.08] bg-bip-card/40 px-3 py-3 text-xs text-white/50">
+                <p className="rounded-xl border border-bip-border bg-bip-card/40 px-3 py-3 text-xs text-bip-muted">
                   
                   No Search keyword Quality Score data in this sync. PMax-heavy
                   accounts may not return keyword-level QS metrics.
                 </p>
               ) : (
-                <div className="overflow-auto rounded-xl border border-white/[0.08] bg-bip-card/40">
+                <div className="overflow-auto rounded-xl border border-bip-border bg-bip-card/40">
                   
-                  <div className="border-b border-white/[0.08] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/50">
+                  <div className="border-b border-bip-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
                     
                     Keyword Quality Score
                   </div>
-                  <table className="w-full min-w-[980px] border-collapse text-left text-xs"><thead><tr className="border-b border-white/[0.08] text-white/50"><th className="px-3 py-2 font-medium">Campaign</th><th className="px-3 py-2 font-medium">Ad group</th><th className="px-3 py-2 font-medium">Keyword</th><th className="px-3 py-2 font-medium">QS</th><th className="px-3 py-2 font-medium">Ad relevance</th><th className="px-3 py-2 font-medium">Landing page</th><th className="px-3 py-2 font-medium">Expected CTR</th><th className="px-3 py-2 font-medium">
+                  <table className="w-full min-w-[980px] border-collapse text-left text-xs"><thead><tr className="border-b border-bip-border text-bip-muted"><th className="px-3 py-2 font-medium">Campaign</th><th className="px-3 py-2 font-medium">Ad group</th><th className="px-3 py-2 font-medium">Keyword</th><th className="px-3 py-2 font-medium">QS</th><th className="px-3 py-2 font-medium">Ad relevance</th><th className="px-3 py-2 font-medium">Landing page</th><th className="px-3 py-2 font-medium">Expected CTR</th><th className="px-3 py-2 font-medium">
                           Cost (30d)
                         </th></tr></thead><tbody>{keywordQuality.slice(0, 25).map((row) => {
                         const flagged = hasQualityIssue(row);
                         return (
                           <tr
                             key={`${row.campaign_id}-${row.ad_group_id}-${row.criterion_id}`}
-                            className={`border-b border-white/[0.08]/50 last:border-0 ${flagged ? "bg-amber-950/20 text-white/75" : "text-white/75"}`}
+                            className={`border-b border-bip-border last:border-0 ${flagged ? "bg-amber-950/20 text-white" : "text-white"}`}
                           ><td className="px-3 py-2">
                               {row.campaign_name}
-                            </td><td className="px-3 py-2">{row.ad_group_name}</td><td className="px-3 py-2 font-medium text-white/75">
+                            </td><td className="px-3 py-2">{row.ad_group_name}</td><td className="px-3 py-2 font-medium text-bip-text">
                               {row.keyword}
                             </td><td className="px-3 py-2">
                               {row.quality_score ?? "—"}

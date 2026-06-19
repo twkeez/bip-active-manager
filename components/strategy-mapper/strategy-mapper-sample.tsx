@@ -11,7 +11,7 @@ import {
 export default function StrategyMapperSampleView() {
   return (
     <div>
-      <div className="vet-output-no-print mb-6 rounded-lg border border-bip-accent/30 bg-bip-accent/10 px-4 py-3 text-sm text-white/80">
+      <div className="vet-output-no-print mb-6 rounded-lg border border-bip-accent/30 bg-bip-accent/10 px-4 py-3 text-sm text-bip-text">
         <strong className="text-bip-accent">Sample preview</strong> — placeholder
         data only. No AI was used. Use{" "}
         <strong>Copy for Google Docs</strong> below to test branded export, or{" "}

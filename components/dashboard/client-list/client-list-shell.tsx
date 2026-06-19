@@ -554,13 +554,13 @@ export default function ClientListShell({
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bip-page">
       
-      <header className="flex shrink-0 items-center justify-between border-b border-white/[0.08] bg-bip-card px-6 py-4">
+      <header className="flex shrink-0 items-center justify-between border-b border-bip-border bg-bip-card px-6 py-4">
         
         <div className="flex items-center gap-3">
           
           <Link
             href="/dashboard"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-bip-card text-white/75 transition hover:bg-bip-page"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-bip-border bg-bip-card text-bip-text transition hover:bg-bip-page"
             title="Control panel"
           >
             
@@ -572,11 +572,11 @@ export default function ClientListShell({
           </div>
           <div>
             
-            <h1 className="text-lg font-semibold tracking-tight text-white">
+            <h1 className="text-lg font-semibold tracking-tight text-bip-text">
               
               Clients
             </h1>
-            <p className="text-xs text-white/50">
+            <p className="text-xs text-bip-muted">
               {userEmail ?? "Signed in"}
             </p>
           </div>
@@ -604,7 +604,7 @@ export default function ClientListShell({
             type="button"
             onClick={() => void handleShareViewSummary()}
             disabled={filtered.length === 0}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-white/[0.12] bg-transparent px-4 py-2.5 text-sm font-medium text-white shadow-none transition hover:bg-bip-card/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-bip-border bg-transparent px-4 py-2.5 text-sm font-medium text-bip-text shadow-none transition hover:bg-bip-card/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
           >
             
             <Share2 className="h-4 w-4" /> Share view
@@ -632,9 +632,9 @@ export default function ClientListShell({
             updateView({ serviceFilters: value })
           }
         />
-        <details className="mb-4 rounded-xl border border-white/[0.08] bg-bip-card px-4 py-3 shadow-none">
+        <details className="mb-4 rounded-xl border border-bip-border bg-bip-card px-4 py-3 shadow-none">
           
-          <summary className="cursor-pointer text-sm font-medium text-white/75">
+          <summary className="cursor-pointer text-sm font-medium text-bip-text">
             
             Advanced filters
           </summary>
@@ -668,7 +668,7 @@ export default function ClientListShell({
                 </option>
               ))}
             </select>
-            <label className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2 text-sm text-white/75">
+            <label className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text">
               
               <input
                 type="checkbox"
@@ -676,11 +676,11 @@ export default function ClientListShell({
                 onChange={(event) =>
                   updateView({ showMineOnly: event.target.checked })
                 }
-                className="h-4 w-4 rounded border-white/[0.12]"
+                className="h-4 w-4 rounded border-bip-border"
               />
               My accounts
             </label>
-            <label className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2 text-sm text-white/75">
+            <label className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text">
               
               <input
                 type="checkbox"
@@ -688,11 +688,11 @@ export default function ClientListShell({
                 onChange={(event) =>
                   updateView({ prioritizeUrgent: event.target.checked })
                 }
-                className="h-4 w-4 rounded border-white/[0.12]"
+                className="h-4 w-4 rounded border-bip-border"
               />
               Prioritize urgent
             </label>
-            <label className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-bip-card px-3 py-2 text-sm text-white/75">
+            <label className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text">
               
               <input
                 type="checkbox"
@@ -700,7 +700,7 @@ export default function ClientListShell({
                 onChange={(event) =>
                   updateView({ showStaleOnly: event.target.checked })
                 }
-                className="h-4 w-4 rounded border-white/[0.12]"
+                className="h-4 w-4 rounded border-bip-border"
               />
               15+ days quiet
             </label>
@@ -724,12 +724,12 @@ export default function ClientListShell({
             </select>
           </div>
         </details>
-        <p className="mb-3 text-sm text-white/50">
+        <p className="mb-3 text-sm text-bip-muted">
           
           Showing {filtered.length} of {clientRows.length} clients
         </p>
         {userEmail ? (
-          <p className="mb-3 text-xs text-white/50">
+          <p className="mb-3 text-xs text-bip-muted">
             
             My account matches: {likelyOwnedCount}
           </p>
@@ -742,30 +742,30 @@ export default function ClientListShell({
             {shareCopyStatus.message}
           </p>
         ) : null}
-        <p className="mb-3 text-xs text-white/50">
+        <p className="mb-3 text-xs text-bip-muted">
           
           Last Basecamp sync: {formatDateTime(syncState?.last_synced_at)}
         </p>
-        <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-white/[0.08] bg-bip-card shadow-none">
+        <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-bip-border bg-bip-card shadow-none">
           
-          <table className="w-full min-w-[1080px] border-collapse text-left text-sm"><thead><tr className="sticky top-0 z-10 border-b border-white/[0.08] bg-bip-page/95 backdrop-blur"><th className="px-4 py-3 font-semibold text-white/75">
+          <table className="w-full min-w-[1080px] border-collapse text-left text-sm"><thead><tr className="sticky top-0 z-10 border-b border-bip-border bg-bip-page/95 backdrop-blur"><th className="px-4 py-3 font-semibold text-bip-text">
                   Account
-                </th><th className="px-4 py-3 font-semibold text-white/75">
+                </th><th className="px-4 py-3 font-semibold text-bip-text">
                   
                   Strategist
-                </th><th className="px-4 py-3 font-semibold text-white/75">
+                </th><th className="px-4 py-3 font-semibold text-bip-text">
                   Tier
-                </th><th className="px-4 py-3 font-semibold text-white/75">
+                </th><th className="px-4 py-3 font-semibold text-bip-text">
                   Website
-                </th><th className="px-4 py-3 font-semibold text-white/75">
+                </th><th className="px-4 py-3 font-semibold text-bip-text">
                   
                   Technical
-                </th><th className="px-4 py-3 font-semibold text-white/75">
+                </th><th className="px-4 py-3 font-semibold text-bip-text">
                   
                   Priority
-                </th><th className="px-4 py-3 font-semibold text-white/75">
+                </th><th className="px-4 py-3 font-semibold text-bip-text">
                   Status
-                </th><th className="px-4 py-3 font-semibold text-white/75">
+                </th><th className="px-4 py-3 font-semibold text-bip-text">
                   
                   Last comms
                 </th></tr></thead><tbody>{filtered.map((c) => {
@@ -778,9 +778,9 @@ export default function ClientListShell({
                 return (
                   <tr
                     key={c.id}
-                    className="cursor-pointer border-b border-white/[0.08] transition hover:bg-white/[0.06]"
+                    className="cursor-pointer border-b border-bip-border transition hover:bg-bip-fill"
                     onClick={() => openRow(c)}
-                  ><td className="px-4 py-3 font-medium text-white">
+                  ><td className="px-4 py-3 font-medium text-bip-text">
                       
                       <div className="flex items-center gap-2">
                         
@@ -873,12 +873,12 @@ export default function ClientListShell({
                           </span>
                         ) : null}
                       </div>
-                    </td><td className="px-4 py-3 text-white/75">
+                    </td><td className="px-4 py-3 text-bip-text">
                       
                       {norm(c.marketing_strategist) || "—"}
                     </td><td className="px-4 py-3">
                       
-                      <span className="inline-flex rounded-full bg-white/[0.06] px-2.5 py-0.5 text-xs font-medium text-white/75">
+                      <span className="inline-flex rounded-full bg-bip-fill px-2.5 py-0.5 text-xs font-medium text-bip-text">
                         
                         {norm(c.tier) || "—"}
                       </span>
@@ -894,13 +894,13 @@ export default function ClientListShell({
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-flex max-w-[220px] truncate text-white/75 underline decoration-white/30 underline-offset-2 hover:text-white"
+                          className="inline-flex max-w-[220px] truncate text-bip-text underline decoration-bip-muted underline-offset-2 hover:text-bip-text"
                         >
                           
                           {websiteLabel(c.website)}
                         </a>
                       ) : (
-                        <span className="text-white/40">—</span>
+                        <span className="text-bip-muted">—</span>
                       )}
                     </td><td className="px-4 py-3">
                       
@@ -912,7 +912,7 @@ export default function ClientListShell({
                           
                           {technical?.health ?? "Good"}
                         </span>
-                        <span className="text-xs text-white/50">
+                        <span className="text-xs text-bip-muted">
                           
                           {technical?.openCount ?? 0} open
                         </span>
@@ -956,7 +956,7 @@ export default function ClientListShell({
                                 void handleListNoReplyNeeded(c, event)
                               }
                               disabled={acknowledgingClientId === c.id}
-                              className="inline-flex items-center gap-1 rounded-md border border-white/[0.12] bg-bip-card px-2 py-1 text-[11px] font-medium text-white/75 transition hover:bg-bip-page disabled:opacity-60"
+                              className="inline-flex items-center gap-1 rounded-md border border-bip-border bg-bip-card px-2 py-1 text-[11px] font-medium text-bip-text transition hover:bg-bip-page disabled:opacity-60"
                             >
                               
                               {acknowledgingClientId === c.id ? (
@@ -973,7 +973,7 @@ export default function ClientListShell({
                           </>
                         ) : null}
                       </div>
-                    </td><td className="px-4 py-3 text-white/75">
+                    </td><td className="px-4 py-3 text-bip-text">
                       
                       {c.last_communication_at ? (
                         <div className="space-y-0.5">
@@ -983,7 +983,7 @@ export default function ClientListShell({
                               c.last_communication_at,
                             ).toLocaleDateString()}
                           </p>
-                          <p className="text-xs text-white/50">
+                          <p className="text-xs text-bip-muted">
                             
                             {c.days_stale == null
                               ? "Unknown"
@@ -991,13 +991,13 @@ export default function ClientListShell({
                           </p>
                         </div>
                       ) : (
-                        <span className="text-white/40">Never</span>
+                        <span className="text-bip-muted">Never</span>
                       )}
                     </td></tr>
                 );
               })}</tbody></table>
           {filtered.length === 0 ? (
-            <p className="px-4 py-12 text-center text-sm text-white/50">
+            <p className="px-4 py-12 text-center text-sm text-bip-muted">
               
               No clients match your filters.
             </p>
