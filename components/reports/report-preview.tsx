@@ -2,8 +2,12 @@
 import { useRef, useState } from "react";
 import type { ClientReportModel } from "@/lib/reporting/types";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
-import type { ReportConfig } from "@/lib/reporting/report-config-types";
+import { METRIC_LABELS, type ReportConfig } from "@/lib/reporting/report-config-types";
 import type { ReportPeriodMetric } from "@/lib/reporting/types";
+
+const adsLabelToKey: Record<string, string> = Object.fromEntries(
+  Object.entries(METRIC_LABELS.google_ads ?? {}).map(([k, v]) => [v, k]),
+);
 
 const BI_BLUE = "#3D52C4";
 const BI_PURPLE = "#7B35B0";
@@ -131,7 +135,20 @@ export default function ReportPreview({ report, config, draft }: Props) {
 
   const { ads, searchConsole, ga4, keywords } = report.channels;
 
-  const adsMetrics = ads.metrics.filter((m) => m.current != null && m.current !== 0);
+  const kpisSection = config.sections.find((s) => s.key === "kpis");
+  const kpisVisible = kpisSection?.visible ?? false;
+
+  const adsSubsection = kpisSection?.key === "kpis"
+    ? kpisSection.subsections.find((s) => s.key === "google_ads")
+    : undefined;
+  const adsMetricVis = adsSubsection?.metrics ?? null;
+  const adsMetrics = ads.metrics.filter((m) => {
+    if (m.current == null || Number.isNaN(m.current)) return false;
+    if (!adsMetricVis) return m.current !== 0;
+    const configKey = adsLabelToKey[m.label];
+    if (!configKey) return true;
+    return adsMetricVis[configKey] !== false;
+  });
   const gscMetrics = searchConsole.metrics.filter((m) => m.current != null && m.current !== 0);
   const ga4Metrics = ga4.metrics.filter((m) => m.current != null && m.current !== 0);
 
@@ -167,9 +184,6 @@ export default function ReportPreview({ report, config, draft }: Props) {
 
   const hasAnyData =
     hasAds || hasGsc || hasGa4 || hasGscTopPages || hasKeywords || hasSocialData;
-
-  const kpisSection = config.sections.find((s) => s.key === "kpis");
-  const kpisVisible = kpisSection?.visible ?? false;
   function subsectionVisible(subKey: string) {
     if (!kpisSection || kpisSection.key !== "kpis") return true;
     const sub = kpisSection.subsections.find((s) => s.key === subKey);

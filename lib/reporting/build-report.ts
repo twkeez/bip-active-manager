@@ -894,6 +894,11 @@ function buildAdsChannelBlock(params: {
     };
   }
   const totals = snapshot.totals;
+  const prev = params.previousAdsSnapshot?.totals ?? null;
+  function safeN(v: number | null | undefined): number | null {
+    if (v == null || Number.isNaN(v)) return null;
+    return v;
+  }
   return {
     source: "ads",
     title: "Google Ads",
@@ -901,33 +906,63 @@ function buildAdsChannelBlock(params: {
     status: "ready",
     summary: `Ads snapshot ${snapshot.start_date} to ${snapshot.end_date}.`,
     metrics: [
-      toPeriodMetric("Clicks", totals.clicks, params.previousAdsSnapshot?.totals.clicks ?? null),
+      toPeriodMetric("Ad Clicks", safeN(totals.clicks), safeN(prev?.clicks)),
+      toPeriodMetric("Impressions", safeN(totals.impressions), safeN(prev?.impressions)),
+      toPeriodMetric("Conversions", safeN(totals.conversions), safeN(prev?.conversions)),
       toPeriodMetric(
-        "Impressions",
-        totals.impressions,
-        params.previousAdsSnapshot?.totals.impressions ?? null,
-      ),
-      toPeriodMetric(
-        "Conversions",
-        totals.conversions,
-        params.previousAdsSnapshot?.totals.conversions ?? null,
-      ),
-      toPeriodMetric(
-        "CTR",
-        totals.ctr * 100,
-        typeof params.previousAdsSnapshot?.totals?.ctr === "number"
-          ? params.previousAdsSnapshot.totals.ctr * 100
-          : null,
+        "Click-Through Rate",
+        safeN(totals.ctr) != null ? (totals.ctr as number) * 100 : null,
+        safeN(prev?.ctr) != null ? (prev!.ctr as number) * 100 : null,
         "%",
       ),
       toPeriodMetric(
-        "Avg CPC",
-        totals.average_cpc / 1_000_000,
-        params.previousAdsSnapshot?.totals.average_cpc != null
-          ? params.previousAdsSnapshot.totals.average_cpc / 1_000_000
-          : null,
+        "Avg Cost Per Click",
+        safeN(totals.average_cpc) != null ? (totals.average_cpc as number) / 1_000_000 : null,
+        safeN(prev?.average_cpc) != null ? (prev!.average_cpc as number) / 1_000_000 : null,
         undefined,
         "$",
+      ),
+      toPeriodMetric("Cost Per Conversion", safeN(totals.cost_per_conversion), safeN(prev?.cost_per_conversion), undefined, "$"),
+      toPeriodMetric("ROAS", safeN(totals.roas), safeN(prev?.roas)),
+      toPeriodMetric("Interactions", safeN(totals.interactions), safeN(prev?.interactions)),
+      toPeriodMetric("All Conversions", safeN(totals.all_conversions), safeN(prev?.all_conversions)),
+      toPeriodMetric("View-Through Conv.", safeN(totals.view_through_conversions), safeN(prev?.view_through_conversions)),
+      toPeriodMetric("Conversion Value", safeN(totals.conversions_value), safeN(prev?.conversions_value), undefined, "$"),
+      toPeriodMetric(
+        "Conversion Rate",
+        safeN(totals.conversion_rate) != null ? (totals.conversion_rate as number) * 100 : null,
+        safeN(prev?.conversion_rate) != null ? (prev!.conversion_rate as number) * 100 : null,
+        "%",
+      ),
+      toPeriodMetric(
+        "Impression Share",
+        safeN(totals.search_impression_share) != null ? (totals.search_impression_share as number) * 100 : null,
+        safeN(prev?.search_impression_share) != null ? (prev!.search_impression_share as number) * 100 : null,
+        "%",
+      ),
+      toPeriodMetric(
+        "Top Impression Share",
+        safeN(totals.search_top_impression_share) != null ? (totals.search_top_impression_share as number) * 100 : null,
+        safeN(prev?.search_top_impression_share) != null ? (prev!.search_top_impression_share as number) * 100 : null,
+        "%",
+      ),
+      toPeriodMetric(
+        "Abs. Top IS",
+        safeN(totals.search_absolute_top_impression_share) != null ? (totals.search_absolute_top_impression_share as number) * 100 : null,
+        safeN(prev?.search_absolute_top_impression_share) != null ? (prev!.search_absolute_top_impression_share as number) * 100 : null,
+        "%",
+      ),
+      toPeriodMetric(
+        "Lost IS (Rank)",
+        safeN(totals.search_rank_lost_impression_share) != null ? (totals.search_rank_lost_impression_share as number) * 100 : null,
+        safeN(prev?.search_rank_lost_impression_share) != null ? (prev!.search_rank_lost_impression_share as number) * 100 : null,
+        "%",
+      ),
+      toPeriodMetric(
+        "Lost IS (Budget)",
+        safeN(totals.search_budget_lost_impression_share) != null ? (totals.search_budget_lost_impression_share as number) * 100 : null,
+        safeN(prev?.search_budget_lost_impression_share) != null ? (prev!.search_budget_lost_impression_share as number) * 100 : null,
+        "%",
       ),
     ],
   };
