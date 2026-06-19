@@ -1,6 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
+import { Lock, Unlock } from "lucide-react";
+import ReportConfigEditor from "./report-config-editor";
+import {
+  DEFAULT_REPORT_CONFIG,
+  type ReportConfig,
+  type SectionConfig,
+} from "@/lib/reporting/report-config-types";
 
 const BI_BLUE = "#3D52C4";
 const BI_PURPLE = "#7B35B0";
@@ -20,28 +27,28 @@ A couple of things to keep an eye on: your average search position improved from
 
 – Melissa`;
 
-type Metric = { label: string; value: string; delta: number | null };
+type Metric = { key: string; label: string; value: string; delta: number | null };
 
 const GSC_METRICS: Metric[] = [
-  { label: "Organic Clicks", value: "284", delta: 12.4 },
-  { label: "Impressions", value: "18,340", delta: 8.7 },
-  { label: "Click-Through Rate", value: "1.55%", delta: 3.2 },
-  { label: "Avg Search Position", value: "9.2", delta: -19.3 }, // position improved = negative delta (lower is better)
+  { key: "clicks", label: "Organic Clicks", value: "284", delta: 12.4 },
+  { key: "impressions", label: "Impressions", value: "18,340", delta: 8.7 },
+  { key: "ctr", label: "Click-Through Rate", value: "1.55%", delta: 3.2 },
+  { key: "avg_position", label: "Avg Search Position", value: "9.2", delta: -19.3 },
 ];
 
 const ADS_METRICS: Metric[] = [
-  { label: "Ad Clicks", value: "312", delta: 7.3 },
-  { label: "Impressions", value: "4,120", delta: -2.1 },
-  { label: "Conversions", value: "67", delta: 18.5 },
-  { label: "Click-Through Rate", value: "7.57%", delta: 9.6 },
-  { label: "Avg Cost Per Click", value: "$3.12", delta: -4.2 },
-  { label: "Cost Per Conversion", value: "$14.50", delta: -18.9 },
+  { key: "ad_clicks", label: "Ad Clicks", value: "312", delta: 7.3 },
+  { key: "impressions", label: "Impressions", value: "4,120", delta: -2.1 },
+  { key: "conversions", label: "Conversions", value: "67", delta: 18.5 },
+  { key: "ctr", label: "Click-Through Rate", value: "7.57%", delta: 9.6 },
+  { key: "avg_cpc", label: "Avg Cost Per Click", value: "$3.12", delta: -4.2 },
+  { key: "cost_per_conversion", label: "Cost Per Conversion", value: "$14.50", delta: -18.9 },
 ];
 
 const GA4_METRICS: Metric[] = [
-  { label: "Sessions", value: "1,847", delta: 9.2 },
-  { label: "New Users", value: "1,203", delta: 14.6 },
-  { label: "Avg Session Duration", value: "2m 14s", delta: 5.1 },
+  { key: "sessions", label: "Sessions", value: "1,847", delta: 9.2 },
+  { key: "new_users", label: "New Users", value: "1,203", delta: 14.6 },
+  { key: "avg_session_duration", label: "Avg Session Duration", value: "2m 14s", delta: 5.1 },
 ];
 
 const TOP_PAGES = [
@@ -63,12 +70,12 @@ const KEYWORDS = [
   { keyword: "emergency vet lakewood", tag: "local", position: 6.7, prevPosition: 6.5, clicks: 8, prevClicks: 9 },
 ];
 
-const SOCIAL = [
-  { label: "People reached", value: 2847 },
-  { label: "Engagements", value: 312 },
-  { label: "Impressions", value: 8920 },
-  { label: "Link clicks", value: 87 },
-  { label: "New followers", value: 23 },
+const SOCIAL_DATA: { key: string; label: string; value: number }[] = [
+  { key: "reach", label: "People reached", value: 2847 },
+  { key: "engagements", label: "Engagements", value: 312 },
+  { key: "impressions", label: "Impressions", value: 8920 },
+  { key: "link_clicks", label: "Link clicks", value: 87 },
+  { key: "new_followers", label: "New followers", value: 23 },
 ];
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -117,6 +124,99 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default function ReportTemplate() {
   const mainRef = useRef<HTMLElement>(null);
   const [exporting, setExporting] = useState(false);
+
+  // Config state
+  const [config, setConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
+  const [configLoading, setConfigLoading] = useState(true);
+
+  // Edit-mode state
+  const [editMode, setEditMode] = useState(false);
+  const [draftConfig, setDraftConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
+  const [saving, setSaving] = useState(false);
+
+  // Password lock
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [checkingPassword, setCheckingPassword] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/reporting/template-config")
+      .then((r) => r.json())
+      .then((d: { config?: ReportConfig }) => {
+        if (d.config) setConfig(d.config);
+      })
+      .catch(() => {})
+      .finally(() => setConfigLoading(false));
+  }, []);
+
+  async function checkPassword() {
+    setCheckingPassword(true);
+    setPasswordError("");
+    try {
+      const res = await fetch("/api/reporting/template-config/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: passwordInput }),
+      });
+      if (res.ok) {
+        setShowPasswordModal(false);
+        setPasswordInput("");
+        setDraftConfig(config);
+        setEditMode(true);
+      } else {
+        setPasswordError("Incorrect password");
+      }
+    } catch {
+      setPasswordError("Could not verify password");
+    } finally {
+      setCheckingPassword(false);
+    }
+  }
+
+  async function saveConfig() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/reporting/template-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: draftConfig }),
+      });
+      if (res.ok) {
+        setConfig(draftConfig);
+        setEditMode(false);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const activeConfig = editMode ? draftConfig : config;
+
+  function sectionVisible(key: string) {
+    return activeConfig.sections.find((s) => s.key === key)?.visible ?? true;
+  }
+
+  function getKips() {
+    return activeConfig.sections.find((s): s is Extract<SectionConfig, { key: "kpis" }> => s.key === "kpis");
+  }
+
+  function getSocial() {
+    return activeConfig.sections.find((s): s is Extract<SectionConfig, { key: "social" }> => s.key === "social");
+  }
+
+  function subVisible(subKey: string) {
+    return getKips()?.subsections.find((s) => s.key === subKey)?.visible ?? true;
+  }
+
+  function metricVisible(subKey: string, metricKey: string) {
+    return getKips()?.subsections.find((s) => s.key === subKey)?.metrics[metricKey] ?? true;
+  }
+
+  function socialMetricVisible(metricKey: string) {
+    return getSocial()?.metrics[metricKey] ?? true;
+  }
+
   const maxClicks = Math.max(...TOP_PAGES.map((p) => p.clicks));
 
   async function downloadPdf() {
@@ -153,17 +253,90 @@ export default function ReportTemplate() {
     } finally { setExporting(false); }
   }
 
+  if (configLoading) {
+    return <div className="flex items-center justify-center min-h-screen text-sm text-gray-400">Loading template…</div>;
+  }
+
   return (
     <div className="min-h-screen bg-white">
-      <style>{`body { background: white; }`}</style>
 
-      {/* Design-mode banner — screen only */}
+      {/* Password modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-80 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-800">Unlock master template</h2>
+            <p className="text-xs text-gray-500">Enter the template password to enable editing.</p>
+            <input
+              type="password"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              style={{ "--tw-ring-color": BI_BLUE } as React.CSSProperties}
+              placeholder="Password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !checkingPassword && passwordInput) void checkPassword(); }}
+              autoFocus
+            />
+            {passwordError && <p className="text-xs text-red-600">{passwordError}</p>}
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => { setShowPasswordModal(false); setPasswordInput(""); setPasswordError(""); }}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void checkPassword()}
+                disabled={checkingPassword || !passwordInput}
+                className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                style={{ background: BI_BLUE }}
+              >
+                {checkingPassword ? "Checking…" : "Unlock"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top banner */}
       <div className="no-print bg-amber-50 border-b border-amber-200 px-8 py-2 flex items-center justify-between">
         <p className="text-xs text-amber-700 font-medium">
-          ⚠ Template view — placeholder data only. This is not a real client report.
+          ⚠ Master template — placeholder data. Changes here become the default layout for all clients.
         </p>
-        <a href="/reports/template" className="text-xs text-amber-600 underline">Reload</a>
+        <div className="flex items-center gap-3">
+          {editMode ? (
+            <button
+              type="button"
+              onClick={() => { setDraftConfig(config); setEditMode(false); }}
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-800"
+            >
+              <Lock size={12} /> Lock &amp; discard
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowPasswordModal(true)}
+              className="flex items-center gap-1.5 text-xs font-medium hover:opacity-80"
+              style={{ color: BI_BLUE }}
+            >
+              <Unlock size={12} /> Edit master template
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Edit panel */}
+      {editMode && (
+        <div className="no-print border-b border-blue-100 bg-blue-50 px-8 py-4">
+          <ReportConfigEditor
+            config={draftConfig}
+            onChange={setDraftConfig}
+            saving={saving}
+            onSave={() => void saveConfig()}
+          />
+        </div>
+      )}
 
       <main ref={mainRef} className="mx-auto max-w-4xl space-y-8 px-8 py-6 text-gray-800">
 
@@ -206,131 +379,147 @@ export default function ReportTemplate() {
         </section>
 
         {/* ── Performance Overview ── */}
-        <section>
-          <SectionLabel>Performance Overview</SectionLabel>
-          <p className="text-xs text-gray-400 mb-4">{WINDOW} · changes vs prior period</p>
+        {sectionVisible("kpis") && (
+          <section>
+            <SectionLabel>Performance Overview</SectionLabel>
+            <p className="text-xs text-gray-400 mb-4">{WINDOW} · changes vs prior period</p>
 
-          <div className="mb-6">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Organic Search</p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {GSC_METRICS.map((m) => (
-                <MetricCard key={m.label} metric={m} invertGood={m.label === "Avg Search Position"} />
-              ))}
-            </div>
-          </div>
+            {subVisible("organic_search") && (
+              <div className="mb-6">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Organic Search</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {GSC_METRICS.filter((m) => metricVisible("organic_search", m.key)).map((m) => (
+                    <MetricCard key={m.key} metric={m} invertGood={m.key === "avg_position"} />
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <div className="mb-6">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Google Ads</p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {ADS_METRICS.map((m) => (
-                <MetricCard key={m.label} metric={m}
-                  invertGood={m.label === "Avg Cost Per Click" || m.label === "Cost Per Conversion"} />
-              ))}
-            </div>
-          </div>
+            {subVisible("google_ads") && (
+              <div className="mb-6">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Google Ads</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {ADS_METRICS.filter((m) => metricVisible("google_ads", m.key)).map((m) => (
+                    <MetricCard key={m.key} metric={m}
+                      invertGood={m.key === "avg_cpc" || m.key === "cost_per_conversion"} />
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Website Traffic (GA4)</p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {GA4_METRICS.map((m) => <MetricCard key={m.label} metric={m} />)}
-            </div>
-          </div>
-        </section>
+            {subVisible("ga4") && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Website Traffic (GA4)</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {GA4_METRICS.filter((m) => metricVisible("ga4", m.key)).map((m) => (
+                    <MetricCard key={m.key} metric={m} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* ── Search Traffic ── */}
-        <section>
-          <SectionLabel>Search Traffic</SectionLabel>
-          <p className="text-xs text-gray-400 mb-4">Your top-performing pages in organic search this period</p>
-          <div className="rounded-2xl border border-gray-200 px-6 py-5">
-            <div className="space-y-2.5">
-              {TOP_PAGES.map((page) => {
-                const pct = Math.round((page.clicks / maxClicks) * 100);
-                return (
-                  <div key={page.url} className="grid items-center gap-3" style={{ gridTemplateColumns: "minmax(0,1.8fr) minmax(0,1fr) 44px" }}>
-                    <span className="truncate text-xs text-gray-700">{page.label}</span>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: BI_BLUE }} />
+        {sectionVisible("gsc_top_pages") && (
+          <section>
+            <SectionLabel>Search Traffic</SectionLabel>
+            <p className="text-xs text-gray-400 mb-4">Your top-performing pages in organic search this period</p>
+            <div className="rounded-2xl border border-gray-200 px-6 py-5">
+              <div className="space-y-2.5">
+                {TOP_PAGES.map((page) => {
+                  const pct = Math.round((page.clicks / maxClicks) * 100);
+                  return (
+                    <div key={page.url} className="grid items-center gap-3" style={{ gridTemplateColumns: "minmax(0,1.8fr) minmax(0,1fr) 44px" }}>
+                      <span className="truncate text-xs text-gray-700">{page.label}</span>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: BI_BLUE }} />
+                      </div>
+                      <span className="text-right text-xs text-gray-500">{page.clicks}</span>
                     </div>
-                    <span className="text-right text-xs text-gray-500">{page.clicks}</span>
+                  );
+                })}
+              </div>
+              <div className="mt-5 grid grid-cols-3 gap-3 border-t border-gray-100 pt-4">
+                {[
+                  { label: "Total clicks", value: TOP_PAGES.reduce((s, p) => s + p.clicks, 0).toLocaleString() },
+                  { label: "Total impressions", value: "18,340" },
+                  { label: "Avg position", value: "9.2" },
+                ].map((stat) => (
+                  <div key={stat.label} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                    <p className="text-xs text-gray-400">{stat.label}</p>
+                    <p className="mt-1 text-xl font-bold text-gray-900">{stat.value}</p>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
-            <div className="mt-5 grid grid-cols-3 gap-3 border-t border-gray-100 pt-4">
-              {[
-                { label: "Total clicks", value: TOP_PAGES.reduce((s, p) => s + p.clicks, 0).toLocaleString() },
-                { label: "Total impressions", value: "18,340" },
-                { label: "Avg position", value: "9.2" },
-              ].map((stat) => (
-                <div key={stat.label} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                  <p className="text-xs text-gray-400">{stat.label}</p>
-                  <p className="mt-1 text-xl font-bold text-gray-900">{stat.value}</p>
+          </section>
+        )}
+
+        {/* ── Keyword Rankings ── */}
+        {sectionVisible("keywords") && (
+          <section>
+            <SectionLabel>Keyword Rankings</SectionLabel>
+            <p className="text-xs text-gray-400 mb-4">Tracked keywords — position and click trends vs prior period</p>
+            <div className="rounded-2xl border border-gray-200 overflow-hidden">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50 text-left text-[10px] uppercase tracking-wider text-gray-400">
+                    <th className="px-5 pb-3 pt-3">Keyword</th>
+                    <th className="px-3 pb-3 pt-3 text-right">Position</th>
+                    <th className="px-3 pb-3 pt-3 text-right">Change</th>
+                    <th className="px-5 pb-3 pt-3 text-right">Clicks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {KEYWORDS.map((kw) => {
+                    const delta = kw.position - kw.prevPosition;
+                    const improved = delta < 0;
+                    const worsened = delta > 0;
+                    return (
+                      <tr key={kw.keyword} className="border-b border-gray-100 last:border-0">
+                        <td className="px-5 py-3">
+                          <span className="font-medium text-gray-800">{kw.keyword}</span>
+                          {kw.tag && <span className="ml-2 text-[10px] text-gray-400">{kw.tag}</span>}
+                        </td>
+                        <td className="px-3 py-3 text-right text-gray-700">{kw.position.toFixed(1)}</td>
+                        <td className="px-3 py-3 text-right">
+                          <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            improved ? "bg-emerald-50 text-emerald-700"
+                            : worsened ? "bg-red-50 text-red-600"
+                            : "bg-gray-100 text-gray-500"
+                          }`}>
+                            {improved ? "▲" : worsened ? "▼" : "—"}{Math.abs(delta).toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-right text-xs">
+                          <span className="font-medium text-gray-800">{kw.clicks}</span>
+                          <span className="ml-1 text-gray-400">/ {kw.prevClicks}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* ── Social Media ── */}
+        {sectionVisible("social") && (
+          <section>
+            <SectionLabel>Social Media</SectionLabel>
+            <p className="text-xs text-gray-400 mb-4">30-day totals across connected platforms</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {SOCIAL_DATA.filter((s) => socialMetricVisible(s.key)).map((s) => (
+                <div key={s.key} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  <p className="text-xs text-gray-500">{s.label}</p>
+                  <p className="mt-1 text-2xl font-bold text-gray-900">{s.value.toLocaleString()}</p>
                 </div>
               ))}
             </div>
-          </div>
-        </section>
-
-        {/* ── Keyword Rankings ── */}
-        <section>
-          <SectionLabel>Keyword Rankings</SectionLabel>
-          <p className="text-xs text-gray-400 mb-4">Tracked keywords — position and click trends vs prior period</p>
-          <div className="rounded-2xl border border-gray-200 overflow-hidden">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-left text-[10px] uppercase tracking-wider text-gray-400">
-                  <th className="px-5 pb-3 pt-3">Keyword</th>
-                  <th className="px-3 pb-3 pt-3 text-right">Position</th>
-                  <th className="px-3 pb-3 pt-3 text-right">Change</th>
-                  <th className="px-5 pb-3 pt-3 text-right">Clicks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {KEYWORDS.map((kw) => {
-                  const delta = kw.position - kw.prevPosition;
-                  const improved = delta < 0;
-                  const worsened = delta > 0;
-                  return (
-                    <tr key={kw.keyword} className="border-b border-gray-100 last:border-0">
-                      <td className="px-5 py-3">
-                        <span className="font-medium text-gray-800">{kw.keyword}</span>
-                        {kw.tag && <span className="ml-2 text-[10px] text-gray-400">{kw.tag}</span>}
-                      </td>
-                      <td className="px-3 py-3 text-right text-gray-700">{kw.position.toFixed(1)}</td>
-                      <td className="px-3 py-3 text-right">
-                        <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                          improved ? "bg-emerald-50 text-emerald-700"
-                          : worsened ? "bg-red-50 text-red-600"
-                          : "bg-gray-100 text-gray-500"
-                        }`}>
-                          {improved ? "▲" : worsened ? "▼" : "—"}{Math.abs(delta).toFixed(1)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-right text-xs">
-                        <span className="font-medium text-gray-800">{kw.clicks}</span>
-                        <span className="ml-1 text-gray-400">/ {kw.prevClicks}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* ── Social Media ── */}
-        <section>
-          <SectionLabel>Social Media</SectionLabel>
-          <p className="text-xs text-gray-400 mb-4">30-day totals across connected platforms</p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {SOCIAL.map((s) => (
-              <div key={s.label} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <p className="text-xs text-gray-500">{s.label}</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{s.value.toLocaleString()}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* ── Footer ── */}
         <footer className="border-t border-gray-200 pt-4 pb-8 flex items-center justify-between text-xs text-gray-400">
