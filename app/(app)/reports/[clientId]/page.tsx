@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import ClientReportPage from "@/components/reports/client-report-page";
+import ClientReportWorkspace from "@/components/reports/client-report-workspace";
 import { loadClientWorkspaceData } from "@/lib/dashboard/load-client-workspace-data";
 import { createClient } from "@/lib/supabase/server";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
@@ -21,8 +21,11 @@ import {
   buildReportingKpis,
   computeClientUrgencyScore,
 } from "@/lib/reporting/build-report";
+import { DEFAULT_REPORT_CONFIG, type ReportConfig } from "@/lib/reporting/report-config-types";
+
 type Params = Promise<{ clientId: string }>;
 type SearchParams = Promise<{ range?: string }>;
+
 export default async function ReportClientPage({
   params,
   searchParams,
@@ -34,14 +37,36 @@ export default async function ReportClientPage({
   const { range } = await searchParams;
   const id = Number(clientId);
   if (!Number.isInteger(id) || id <= 0) notFound();
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
   const workspace = await loadClientWorkspaceData(supabase, id);
   if (!workspace) notFound();
   const { client } = workspace;
+
+  // ── Layout config ──────────────────────────────────────────────────────────
+  const [{ data: clientConfigRaw }, { data: masterConfigRaw }] = await Promise.all([
+    supabase
+      .from("client_report_configs")
+      .select("config")
+      .eq("client_id", id)
+      .maybeSingle(),
+    supabase
+      .from("report_template_config")
+      .select("config")
+      .eq("key", "master")
+      .maybeSingle(),
+  ]);
+  const layoutConfig: ReportConfig =
+    (clientConfigRaw?.config as ReportConfig | null) ??
+    (masterConfigRaw?.config as ReportConfig | null) ??
+    DEFAULT_REPORT_CONFIG;
+
+  // ── Keywords ───────────────────────────────────────────────────────────────
   const { data: keywordsRaw } = await supabase
     .from("client_keyword_targets")
     .select("*")
@@ -49,6 +74,7 @@ export default async function ReportClientPage({
     .eq("client_id", id)
     .order("priority", { ascending: false })
     .order("created_at", { ascending: false });
+
   const managedKeywordsRaw = (keywordsRaw ?? []) as ClientKeywordTarget[];
   const managedKeywords = managedKeywordsRaw.map((row) => ({
     id: row.id,
@@ -58,9 +84,10 @@ export default async function ReportClientPage({
     isActive: row.is_active,
   }));
 
-  // Fetch playbook items for this client's active service tiers
-  const activeTierKeys = [client.seo, client.ppc, client.smm, client.orm, client.blog]
-    .filter((v): v is string => Boolean(v?.trim()));
+  // ── Playbook ───────────────────────────────────────────────────────────────
+  const activeTierKeys = [client.seo, client.ppc, client.smm, client.orm, client.blog].filter(
+    (v): v is string => Boolean(v?.trim()),
+  );
   const { data: playbookRaw } = activeTierKeys.length > 0
     ? await supabase
         .from("playbook_items")
@@ -83,8 +110,8 @@ export default async function ReportClientPage({
       tier_key: item.tier_key,
       type: item.type,
       status: verifyResult
-        ? (verifyResult.pass ? "pass" : "fail") as "pass" | "fail"
-        : "manual" as "manual",
+        ? ((verifyResult.pass ? "pass" : "fail") as "pass" | "fail")
+        : ("manual" as "manual"),
       verify_label: verifyResult?.label ?? null,
     };
   });
@@ -94,7 +121,6 @@ export default async function ReportClientPage({
     adsSignals,
     gscPageMetrics,
     gscSignals,
-    gscQueryMetrics,
     socialDailySnapshots: socialDailyRows,
     socialSignals,
     seoCrawlIssues: crawlIssues,
@@ -105,24 +131,18 @@ export default async function ReportClientPage({
     gbpReviews,
     threadEvents,
   } = workspace;
+
   const technicalFindings = buildBaselineTechnicalFindings(client);
   const freshness = buildReportingFreshness({
     adsUpdatedAt: adsSnapshot?.updated_at ?? null,
-    gscUpdatedAt:
-      workspace.gscSnapshot?.updated_at ?? gscSignals[0]?.created_at ?? null,
+    gscUpdatedAt: workspace.gscSnapshot?.updated_at ?? gscSignals[0]?.created_at ?? null,
     socialUpdatedAt: socialDailyRows[0]?.created_at ?? null,
-    lighthouseOrCrawlUpdatedAt:
-      lighthouse?.fetched_at ?? crawlSnapshot?.updated_at ?? null,
+    lighthouseOrCrawlUpdatedAt: lighthouse?.fetched_at ?? crawlSnapshot?.updated_at ?? null,
     sitemapUpdatedAt: sitemapSnapshot?.updated_at ?? null,
     gbpUpdatedAt: gbpSnapshot?.updated_at ?? null,
     hasGa4Property: Boolean((client.ga4_property_id ?? "").trim()),
   });
-  const alerts = buildReportingAlerts({
-    technicalFindings,
-    gscSignals,
-    adsSignals,
-    socialSignals,
-  });
+  const alerts = buildReportingAlerts({ technicalFindings, gscSignals, adsSignals, socialSignals });
   const kpis = buildReportingKpis({
     adsSnapshot,
     gscPageMetrics,
@@ -134,9 +154,7 @@ export default async function ReportClientPage({
     socialConnected: workspace.socialConnections.length > 0,
     crawlIssueCount: crawlIssues.length,
     technicalFindingCount: technicalFindings.length,
-    technicalCriticalCount: technicalFindings.filter(
-      (finding) => finding.severity === "critical",
-    ).length,
+    technicalCriticalCount: technicalFindings.filter((f) => f.severity === "critical").length,
     sitemapSnapshot,
     gbpSnapshot,
     gbpReviews,
@@ -150,16 +168,15 @@ export default async function ReportClientPage({
   const urgencyScore = computeClientUrgencyScore({
     needsReply: client.needs_reply,
     staleDays: client.days_stale,
-    hasCriticalTechnical: technicalFindings.some(
-      (finding) => finding.severity === "critical",
-    ),
-    hasCriticalAds: adsSignals.some((signal) => signal.severity === "critical"),
-    hasCriticalGsc: gscSignals.some((signal) => signal.severity === "critical"),
+    hasCriticalTechnical: technicalFindings.some((f) => f.severity === "critical"),
+    hasCriticalAds: adsSignals.some((s) => s.severity === "critical"),
+    hasCriticalGsc: gscSignals.some((s) => s.severity === "critical"),
     missingScUrl: !(client.sc_url ?? "").trim(),
     missingAdsCustomerId: !(client.ads_customer_id ?? "").trim(),
     staleSourceCount,
   });
-  // Load query metrics across all snapshots for keyword position history
+
+  // ── Keyword position history (cross-snapshot) ──────────────────────────────
   const { data: historicalQueryMetricsRaw } = await supabase
     .from("client_gsc_query_metrics")
     .select("query, clicks, impressions, position, created_at")
@@ -176,30 +193,21 @@ export default async function ReportClientPage({
   const keywordRows = managedKeywords
     .map((target) => {
       const matches = queryRows.filter(
-        (row) =>
-          row.query.trim().toLowerCase() ===
-          target.keyword.trim().toLowerCase(),
+        (row) => row.query.trim().toLowerCase() === target.keyword.trim().toLowerCase(),
       );
       const current = matches.slice(0, 7);
       const previous = matches.slice(7, 14);
       const currentClicks = current.reduce((sum, row) => sum + row.clicks, 0);
       const previousClicks = previous.reduce((sum, row) => sum + row.clicks, 0);
-      const currentImpressions = current.reduce(
-        (sum, row) => sum + row.impressions,
-        0,
-      );
-      const previousImpressions = previous.reduce(
-        (sum, row) => sum + row.impressions,
-        0,
-      );
+      const currentImpressions = current.reduce((sum, row) => sum + row.impressions, 0);
+      const previousImpressions = previous.reduce((sum, row) => sum + row.impressions, 0);
       const currentPosition =
         current.length > 0
           ? current.reduce((sum, row) => sum + row.position, 0) / current.length
           : null;
       const previousPosition =
         previous.length > 0
-          ? previous.reduce((sum, row) => sum + row.position, 0) /
-            previous.length
+          ? previous.reduce((sum, row) => sum + row.position, 0) / previous.length
           : null;
       const positionDelta =
         currentPosition == null || previousPosition == null
@@ -219,6 +227,7 @@ export default async function ReportClientPage({
       } satisfies KeywordHealthRow;
     })
     .sort((a, b) => b.current_impressions - a.current_impressions);
+
   const report = buildClientReportModel({
     client,
     generatedAt: new Date().toISOString(),
@@ -232,7 +241,7 @@ export default async function ReportClientPage({
     socialDailyRows,
     adsSnapshot,
     gscPageMetrics: gscPageMetrics as GscPageMetric[],
-    gscQueryMetrics: queryRows, // cross-snapshot for keyword position history
+    gscQueryMetrics: queryRows,
     managedKeywords,
     strategistSummary: null as StrategistSummaryResult | null,
     playbookChecklist,
@@ -247,7 +256,8 @@ export default async function ReportClientPage({
       thread_url: e.thread_url,
     })),
   });
-  // Load draft to apply overrides
+
+  // ── Draft ──────────────────────────────────────────────────────────────────
   const { data: draftRow } = await supabase
     .from("report_drafts")
     .select("*")
@@ -255,5 +265,22 @@ export default async function ReportClientPage({
     .maybeSingle();
   const draft: ReportDraft | null = draftRow ?? null;
 
-  return <ClientReportPage report={report} draft={draft} />;
+  // ── Sync timestamps ────────────────────────────────────────────────────────
+  const syncTimestamps = {
+    gsc: workspace.gscSnapshot?.updated_at ?? null,
+    ads: workspace.adsSnapshot?.updated_at ?? null,
+    social: workspace.socialDailySnapshots[0]?.created_at ?? null,
+    gbp: workspace.gbpSnapshot?.updated_at ?? null,
+  };
+
+  return (
+    <ClientReportWorkspace
+      report={report}
+      clientId={id}
+      initialConfig={layoutConfig}
+      initialDraft={draft}
+      initialKeywords={managedKeywords}
+      syncTimestamps={syncTimestamps}
+    />
+  );
 }
