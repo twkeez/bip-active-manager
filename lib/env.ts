@@ -153,7 +153,7 @@ export function getMetaGraphConfig() {
 export function getGoogleAdsConfig() {
   const developerToken = normalizeSecret(process.env.GOOGLE_ADS_DEVELOPER_TOKEN);
   const loginCustomerId = normalizeSecret(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID);
-  const apiVersion = normalizeSecret(process.env.GOOGLE_ADS_API_VERSION) || "v20";
+  const apiVersion = normalizeSecret(process.env.GOOGLE_ADS_API_VERSION) || "v21";
   if (!developerToken) {
     throw new Error("Missing GOOGLE_ADS_DEVELOPER_TOKEN");
   }
