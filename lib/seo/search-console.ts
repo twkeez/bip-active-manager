@@ -141,6 +141,7 @@ async function fetchSearchAnalytics(
   startDate: string,
   endDate: string,
   dimension: "page" | "query",
+  rowLimit = 25,
 ): Promise<GscMetricRow[]> {
   const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(propertyUrl)}/searchAnalytics/query`;
   const response = await fetch(endpoint, {
@@ -153,7 +154,7 @@ async function fetchSearchAnalytics(
       startDate,
       endDate,
       dimensions: [dimension],
-      rowLimit: 25,
+      rowLimit,
     }),
     cache: "no-store",
   });
@@ -367,7 +368,7 @@ export async function runSearchConsoleSync(
 
   const [pageRows, queryRows, dailyRows, sitemaps] = await Promise.all([
     fetchSearchAnalytics(accessToken, propertyUrl, startDate, endDate, "page"),
-    fetchSearchAnalytics(accessToken, propertyUrl, startDate, endDate, "query"),
+    fetchSearchAnalytics(accessToken, propertyUrl, startDate, endDate, "query", 100),
     fetchDailyTrend(accessToken, propertyUrl, startDate, endDate),
     fetchSitemaps(accessToken, propertyUrl).catch(() => [] as GscSitemapEntry[]),
   ]);

@@ -159,12 +159,19 @@ export default async function ReportClientPage({
     missingAdsCustomerId: !(client.ads_customer_id ?? "").trim(),
     staleSourceCount,
   });
-  const queryRows = gscQueryMetrics.map((row) => ({
-    query: row.query,
-    clicks: row.clicks,
-    impressions: row.impressions,
-    position: row.position,
-    created_at: row.created_at,
+  // Load query metrics across all snapshots for keyword position history
+  const { data: historicalQueryMetricsRaw } = await supabase
+    .from("client_gsc_query_metrics")
+    .select("query, clicks, impressions, position, created_at")
+    .eq("client_id", id)
+    .order("created_at", { ascending: false })
+    .limit(2000);
+  const queryRows = (historicalQueryMetricsRaw ?? []).map((row) => ({
+    query: row.query as string,
+    clicks: row.clicks as number,
+    impressions: row.impressions as number,
+    position: row.position as number,
+    created_at: row.created_at as string,
   }));
   const keywordRows = managedKeywords
     .map((target) => {
@@ -225,7 +232,7 @@ export default async function ReportClientPage({
     socialDailyRows,
     adsSnapshot,
     gscPageMetrics: gscPageMetrics as GscPageMetric[],
-    gscQueryMetrics: queryRows,
+    gscQueryMetrics: queryRows, // cross-snapshot for keyword position history
     managedKeywords,
     strategistSummary: null as StrategistSummaryResult | null,
     playbookChecklist,
