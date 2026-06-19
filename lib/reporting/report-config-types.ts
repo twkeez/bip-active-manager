@@ -12,7 +12,9 @@ export type SectionConfig =
   | { key: "gsc_trend"; visible: boolean }
   | { key: "gsc_top_pages"; visible: boolean }
   | { key: "keywords"; visible: boolean }
-  | { key: "social"; visible: boolean; metrics: MetricVisibility };
+  | { key: "social"; visible: boolean; metrics: MetricVisibility }
+  | { key: "social_trend"; visible: boolean }
+  | { key: "social_posts"; visible: boolean };
 
 export type ReportConfig = {
   sections: SectionConfig[];
@@ -24,6 +26,8 @@ export const SECTION_LABELS: Record<string, string> = {
   gsc_top_pages: "Search Traffic",
   keywords: "Keyword Rankings",
   social: "Social Media",
+  social_trend: "Social Trend",
+  social_posts: "Top Posts",
 };
 
 export const DEFAULT_REPORT_CONFIG: ReportConfig = {
@@ -93,6 +97,8 @@ export const DEFAULT_REPORT_CONFIG: ReportConfig = {
         new_followers: true,
       },
     },
+    { key: "social_trend", visible: true },
+    { key: "social_posts", visible: true },
   ],
 };
 

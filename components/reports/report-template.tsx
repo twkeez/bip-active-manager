@@ -84,12 +84,57 @@ const KEYWORDS = [
   { keyword: "emergency vet lakewood", tag: "local", position: 6.7, prevPosition: 6.5, clicks: 8, prevClicks: 9 },
 ];
 
-const SOCIAL_DATA: { key: string; label: string; value: number }[] = [
-  { key: "reach", label: "People reached", value: 2847 },
-  { key: "engagements", label: "Engagements", value: 312 },
-  { key: "impressions", label: "Impressions", value: 8920 },
-  { key: "link_clicks", label: "Link clicks", value: 87 },
-  { key: "new_followers", label: "New followers", value: 23 },
+const FB_TOTALS: Record<string, number> = {
+  reach: 1842, impressions: 5240, engagements: 187, link_clicks: 34, new_followers: 8,
+};
+const IG_TOTALS: Record<string, number> = {
+  reach: 1005, impressions: 3680, engagements: 125, link_clicks: 53, new_followers: 15,
+};
+const SOCIAL_METRIC_LABELS: Record<string, string> = {
+  reach: "People Reached", impressions: "Impressions", engagements: "Engagements",
+  link_clicks: "Link Clicks", new_followers: "New Followers",
+};
+
+const SOCIAL_TREND = [
+  { date: "May 20", reach: 178, engagement: 29 },
+  { date: "May 21", reach: 203, engagement: 41 },
+  { date: "May 22", reach: 156, engagement: 22 },
+  { date: "May 23", reach: 134, engagement: 18 },
+  { date: "May 24", reach: 92,  engagement: 14 },
+  { date: "May 25", reach: 88,  engagement: 12 },
+  { date: "May 26", reach: 241, engagement: 53 },
+  { date: "May 27", reach: 267, engagement: 61 },
+  { date: "May 28", reach: 219, engagement: 47 },
+  { date: "May 29", reach: 184, engagement: 38 },
+  { date: "May 30", reach: 162, engagement: 31 },
+  { date: "May 31", reach: 101, engagement: 16 },
+  { date: "Jun 1",  reach: 97,  engagement: 13 },
+  { date: "Jun 2",  reach: 258, engagement: 58 },
+  { date: "Jun 3",  reach: 289, engagement: 67 },
+  { date: "Jun 4",  reach: 312, engagement: 74 },
+  { date: "Jun 5",  reach: 244, engagement: 52 },
+  { date: "Jun 6",  reach: 198, engagement: 43 },
+  { date: "Jun 7",  reach: 118, engagement: 19 },
+  { date: "Jun 8",  reach: 109, engagement: 15 },
+  { date: "Jun 9",  reach: 271, engagement: 62 },
+  { date: "Jun 10", reach: 304, engagement: 71 },
+  { date: "Jun 11", reach: 328, engagement: 79 },
+  { date: "Jun 12", reach: 256, engagement: 56 },
+  { date: "Jun 13", reach: 201, engagement: 44 },
+  { date: "Jun 14", reach: 121, engagement: 20 },
+  { date: "Jun 15", reach: 114, engagement: 17 },
+  { date: "Jun 16", reach: 287, engagement: 65 },
+  { date: "Jun 17", reach: 341, engagement: 83 },
+  { date: "Jun 18", reach: 318, engagement: 76 },
+];
+
+const TOP_POSTS = [
+  { platform: "instagram", date: "Jun 11", caption: "Summer pet safety tips every dog owner needs to know this season 🐶☀️", impressions: 1240, engagement: 187, permalink: "#" },
+  { platform: "facebook",  date: "Jun 4",  caption: "Dental health month reminder — book your pet's cleaning before July and save!", impressions: 892,  engagement: 134, permalink: "#" },
+  { platform: "instagram", date: "Jun 17", caption: "Meet our newest team member, Dr. Patel! She specializes in feline care and surgery.", impressions: 1104, engagement: 121, permalink: "#" },
+  { platform: "facebook",  date: "May 28", caption: "We're open on Memorial Day weekend. Call ahead to reserve your spot.", impressions: 741,  engagement: 98,  permalink: "#" },
+  { platform: "instagram", date: "May 26", caption: "Behind the scenes: a day in our surgery suite 🏥 (client-approved)", impressions: 983,  engagement: 156, permalink: "#" },
+  { platform: "facebook",  date: "Jun 9",  caption: "Puppy vaccine schedule — what every new dog owner should know in their first year.", impressions: 628,  engagement: 77,  permalink: "#" },
 ];
 
 const DAILY_TREND = [
@@ -616,14 +661,113 @@ export default function ReportTemplate() {
         {sectionVisible("social") && (
           <section>
             <SectionLabel>Social Media</SectionLabel>
-            <p className="text-xs text-gray-400 mb-4">30-day totals across connected platforms</p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {SOCIAL_DATA.filter((s) => socialMetricVisible(s.key)).map((s) => (
-                <div key={s.key} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                  <p className="text-xs text-gray-500">{s.label}</p>
-                  <p className="mt-1 text-2xl font-bold text-gray-900">{s.value.toLocaleString()}</p>
-                </div>
-              ))}
+            <p className="text-xs text-gray-400 mb-4">30-day totals by platform</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {(["facebook", "instagram"] as const).map((platform) => {
+                const totals = platform === "facebook" ? FB_TOTALS : IG_TOTALS;
+                const color = platform === "facebook" ? "#1877F2" : "#E1306C";
+                const label = platform === "facebook" ? "Facebook" : "Instagram";
+                const visibleMetrics = Object.keys(SOCIAL_METRIC_LABELS).filter((k) => socialMetricVisible(k));
+                return (
+                  <div key={platform} className="rounded-2xl border border-gray-200 p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="h-2 w-2 rounded-full" style={{ background: color }} />
+                      <p className="text-xs font-semibold text-gray-700">{label}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {visibleMetrics.map((k) => (
+                        <div key={k} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                          <p className="text-[10px] text-gray-400">{SOCIAL_METRIC_LABELS[k]}</p>
+                          <p className="mt-1 text-lg font-bold text-gray-900">{(totals[k] ?? 0).toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── Social Trend ── */}
+        {sectionVisible("social_trend") && (
+          <section>
+            <SectionLabel>Social Trend</SectionLabel>
+            <p className="text-xs text-gray-400 mb-4">Daily reach and engagement across platforms — past 30 days</p>
+            <div className="rounded-2xl border border-gray-200 px-6 py-5">
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={SOCIAL_TREND} margin={{ top: 5, right: 16, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={6}
+                  />
+                  <YAxis
+                    yAxisId="reach"
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={36}
+                  />
+                  <YAxis
+                    yAxisId="engagement"
+                    orientation="right"
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={32}
+                  />
+                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb" }} />
+                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                  <Line yAxisId="reach" type="monotone" dataKey="reach" name="Reach" stroke={BI_BLUE} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                  <Line yAxisId="engagement" type="monotone" dataKey="engagement" name="Engagement" stroke={BI_MAGENTA} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        )}
+
+        {/* ── Top Posts ── */}
+        {sectionVisible("social_posts") && (
+          <section>
+            <SectionLabel>Top Posts</SectionLabel>
+            <p className="text-xs text-gray-400 mb-4">Highest-performing posts this period</p>
+            <div className="rounded-2xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="px-4 py-3 text-left font-semibold text-gray-500">Platform</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-500">Date</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-500">Post</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-500">Impressions</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-500">Engagement</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {TOP_POSTS.map((post, i) => {
+                    const color = post.platform === "facebook" ? "#1877F2" : "#E1306C";
+                    const label = post.platform === "facebook" ? "FB" : "IG";
+                    return (
+                      <tr key={i} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-white" style={{ background: color }}>
+                            {label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{post.date}</td>
+                        <td className="px-4 py-3 text-gray-700 max-w-xs">
+                          <span className="line-clamp-2">{post.caption}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-gray-900">{post.impressions.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right font-medium text-gray-900">{post.engagement.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </section>
         )}
