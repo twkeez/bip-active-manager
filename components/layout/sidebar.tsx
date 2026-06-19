@@ -48,6 +48,7 @@ const TOOLS: NavItem[] = [
   { label: "PPC Defense", href: "/ppc-defense", icon: Flame },
   { label: "Conversion Radar", href: "/conversion-integrity", icon: ShieldAlert },
   { label: "Ads Audit", href: "/ads-audit/", icon: Megaphone },
+  { label: "Report Template", href: "/reports/template", icon: FileText },
   { label: "llms.txt", href: "/llms-txt", icon: FileText },
 ];
 
