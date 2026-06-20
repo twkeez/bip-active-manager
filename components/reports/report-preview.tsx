@@ -96,7 +96,8 @@ export default function ReportPreview({ report, config, draft }: Props) {
 
   function sectionVisible(key: string): boolean {
     const s = config.sections.find((sec) => sec.key === key);
-    return s ? s.visible : false;
+    if (!s) return true; // new sections not yet in saved config default to visible
+    return s.visible;
   }
 
   function SectionCallout({ sectionKey }: { sectionKey: string }) {
