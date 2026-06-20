@@ -658,6 +658,101 @@ export default function ReportPreview({ report, config, draft }: Props) {
         </section>
       )}
 
+      {/* ── Google Business Profile ── */}
+      {sectionVisible("gbp") && report.gbpSnapshot && (() => {
+        const snap = report.gbpSnapshot!;
+        const C_GBP = "#F59E0B"; // amber
+        const nowUnix = Math.floor(Date.now() / 1000);
+        const thirtyDaysAgo = nowUnix - 30 * 24 * 60 * 60;
+        const recentReviews = report.gbpReviews.filter(
+          (r) => r.review_time_unix != null && r.review_time_unix >= thirtyDaysAgo,
+        );
+        const recentAvg =
+          recentReviews.length > 0
+            ? recentReviews.reduce((s, r) => s + (r.rating ?? 0), 0) / recentReviews.length
+            : null;
+        return (
+          <section>
+            <h2 className="text-base font-bold text-gray-900 mb-1">Google Business Profile</h2>
+            <p className="text-xs text-gray-400 mb-4">Reviews &amp; local listing metrics</p>
+
+            <div className="grid gap-3 sm:grid-cols-3 mb-5" style={{ breakInside: "avoid" }}>
+              {[
+                {
+                  label: "Overall rating",
+                  value: snap.rating != null ? snap.rating.toFixed(1) : "—",
+                  sub: snap.rating != null
+                    ? "★".repeat(Math.round(snap.rating)) + "☆".repeat(5 - Math.round(snap.rating))
+                    : null,
+                },
+                {
+                  label: "Total reviews",
+                  value: snap.user_ratings_total != null
+                    ? snap.user_ratings_total.toLocaleString()
+                    : "—",
+                  sub: null,
+                },
+                {
+                  label: "New reviews (30d)",
+                  value: recentReviews.length.toString(),
+                  sub: recentAvg != null ? `Avg ${recentAvg.toFixed(1)} ★` : null,
+                },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  className="rounded-xl bg-white p-4 shadow-sm"
+                  style={{ border: "1px solid #e5e7eb", borderLeft: `4px solid ${C_GBP}` }}
+                >
+                  <p className="text-xs text-gray-500">{card.label}</p>
+                  <p className="mt-1 text-3xl font-bold text-gray-900 leading-none">{card.value}</p>
+                  {card.sub && <p className="mt-1 text-xs text-amber-500">{card.sub}</p>}
+                </div>
+              ))}
+            </div>
+
+            {report.gbpReviews.length > 0 && (
+              <div style={{ breakInside: "avoid" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                  Recent reviews
+                </p>
+                <div className="space-y-3">
+                  {report.gbpReviews.slice(0, 5).map((review, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl bg-white p-4"
+                      style={{ border: "1px solid #e5e7eb" }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-gray-700">
+                          {review.author_name ?? "Anonymous"}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {review.review_time_unix
+                            ? new Date(review.review_time_unix * 1000).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })
+                            : ""}
+                        </span>
+                      </div>
+                      <p className="text-xs text-amber-500 mb-1">
+                        {"★".repeat(review.rating ?? 0)}{"☆".repeat(5 - (review.rating ?? 0))}
+                      </p>
+                      {review.text && (
+                        <p className="text-xs text-gray-600 line-clamp-3">{review.text}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <SectionCallout sectionKey="gbp" />
+          </section>
+        );
+      })()}
+
       {/* ── Empty state ── */}
       {!hasAnyData && (
         <section className="rounded-2xl px-6 py-12 text-center" style={{ border: "1px solid #e5e7eb" }}>
