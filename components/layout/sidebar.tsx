@@ -22,13 +22,16 @@ import {
   Sparkles,
   Stethoscope,
   Sun,
+  User,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import type { UserRole } from "@/lib/auth/profile";
 
 type NavItem = {
   label: string;
   href: string;
   icon: React.ElementType;
+  adminOnly?: boolean;
 };
 
 const PRIMARY: NavItem[] = [
@@ -40,7 +43,7 @@ const PRIMARY: NavItem[] = [
 
 const TOOLS: NavItem[] = [
   { label: "Service Playbook", href: "/playbook", icon: BookOpen },
-  { label: "Bulk Auto-Discover", href: "/bulk-discover", icon: ScanSearch },
+  { label: "Bulk Auto-Discover", href: "/bulk-discover", icon: ScanSearch, adminOnly: true },
   { label: "SEO Ops", href: "/seo-ops", icon: ClipboardCheck },
   { label: "Site Audit", href: "/site-audit", icon: Globe },
   { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
@@ -48,18 +51,19 @@ const TOOLS: NavItem[] = [
   { label: "PPC Defense", href: "/ppc-defense", icon: Flame },
   { label: "Conversion Radar", href: "/conversion-integrity", icon: ShieldAlert },
   { label: "Ads Audit", href: "/ads-audit/", icon: Megaphone },
-  { label: "Report Template", href: "/reports/template", icon: FileText },
-  { label: "llms.txt", href: "/llms-txt", icon: FileText },
+  { label: "Report Template", href: "/reports/template", icon: FileText, adminOnly: true },
+  { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
 ];
 
 const SALES: NavItem[] = [
-  { label: "Sales Lab", href: "/sales-lab", icon: Sparkles },
-  { label: "Strategy Mapper", href: "/onboarding-strategy-mapper", icon: Compass },
-  { label: "Vet Onboarding", href: "/vet-onboarding", icon: Stethoscope },
+  { label: "Sales Lab", href: "/sales-lab", icon: Sparkles, adminOnly: true },
+  { label: "Strategy Mapper", href: "/onboarding-strategy-mapper", icon: Compass, adminOnly: true },
+  { label: "Vet Onboarding", href: "/vet-onboarding", icon: Stethoscope, adminOnly: true },
 ];
 
-function NavLink({ item }: { item: NavItem }) {
+function NavLink({ item, role }: { item: NavItem; role: UserRole }) {
   const pathname = usePathname();
+  if (item.adminOnly && role !== "admin") return null;
   const active =
     item.href === "/dashboard"
       ? pathname === "/dashboard"
@@ -83,13 +87,17 @@ function NavLink({ item }: { item: NavItem }) {
 function SectionGroup({
   label,
   items,
+  role,
   defaultOpen = true,
 }: {
   label: string;
   items: NavItem[];
+  role: UserRole;
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const visible = items.filter((i) => !i.adminOnly || role === "admin");
+  if (visible.length === 0) return null;
   return (
     <div>
       <button
@@ -105,7 +113,7 @@ function SectionGroup({
       {open && (
         <div className="mt-0.5 flex flex-col gap-0.5">
           {items.map((item) => (
-            <NavLink key={item.href} item={item} />
+            <NavLink key={item.href} item={item} role={role} />
           ))}
         </div>
       )}
@@ -141,7 +149,13 @@ function ThemeToggle() {
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  role,
+  userName,
+}: {
+  role: UserRole;
+  userName: string;
+}) {
   return (
     <aside className="flex h-screen w-56 flex-shrink-0 flex-col border-r border-[var(--bip-border)] bg-[var(--bip-card)]">
       {/* Logo */}
@@ -157,21 +171,32 @@ export default function Sidebar() {
         {/* Primary */}
         <div className="flex flex-col gap-0.5">
           {PRIMARY.map((item) => (
-            <NavLink key={item.href} item={item} />
+            <NavLink key={item.href} item={item} role={role} />
           ))}
         </div>
 
         <div className="border-t border-[var(--bip-border)]" />
 
-        <SectionGroup label="Tools" items={TOOLS} />
+        <SectionGroup label="Tools" items={TOOLS} role={role} />
 
         <div className="border-t border-[var(--bip-border)]" />
 
-        <SectionGroup label="Sales" items={SALES} defaultOpen={false} />
+        <SectionGroup label="Sales" items={SALES} role={role} defaultOpen={false} />
       </nav>
 
-      {/* Theme toggle */}
-      <div className="border-t border-[var(--bip-border)] p-3">
+      {/* User + theme */}
+      <div className="border-t border-[var(--bip-border)] p-3 flex flex-col gap-1">
+        {userName && (
+          <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-subtle)]">
+            <User size={13} />
+            <span>{userName}</span>
+            {role === "admin" && (
+              <span className="ml-auto text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--primary)]">
+                Admin
+              </span>
+            )}
+          </div>
+        )}
         <ThemeToggle />
       </div>
 
