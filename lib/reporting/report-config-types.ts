@@ -11,6 +11,7 @@ export type SectionConfig =
   | { key: "kpis"; visible: boolean; subsections: SubsectionConfig[] }
   | { key: "gsc_trend"; visible: boolean }
   | { key: "gsc_top_pages"; visible: boolean }
+  | { key: "blog"; visible: boolean }
   | { key: "keywords"; visible: boolean }
   | { key: "social"; visible: boolean; metrics: MetricVisibility }
   | { key: "social_trend"; visible: boolean }
@@ -24,6 +25,7 @@ export const SECTION_LABELS: Record<string, string> = {
   kpis: "Performance Overview",
   gsc_trend: "Search Performance Trend",
   gsc_top_pages: "Search Traffic",
+  blog: "Blog Performance",
   keywords: "Keyword Rankings",
   social: "Social Media",
   social_trend: "Social Trend",
@@ -85,6 +87,7 @@ export const DEFAULT_REPORT_CONFIG: ReportConfig = {
     },
     { key: "gsc_trend", visible: true },
     { key: "gsc_top_pages", visible: true },
+    { key: "blog", visible: true },
     { key: "keywords", visible: true },
     {
       key: "social",

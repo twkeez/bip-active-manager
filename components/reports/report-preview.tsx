@@ -384,6 +384,106 @@ export default function ReportPreview({ report, config, draft }: Props) {
         </section>
       )}
 
+      {/* ── Blog Performance ── */}
+      {(() => {
+        if (!sectionVisible("blog")) return null;
+        const blogPages = report.gscTopPages
+          .filter((p) => p.page_url.includes("/blog/"))
+          .slice(0, 10);
+        if (blogPages.length === 0) return null;
+
+        const totalClicks      = blogPages.reduce((s, p) => s + p.clicks, 0);
+        const totalImpressions = blogPages.reduce((s, p) => s + p.impressions, 0);
+        const page1Count       = blogPages.filter((p) => p.position <= 10).length;
+        const blogMaxClicks    = Math.max(...blogPages.map((p) => p.clicks), 1);
+
+        function postTitle(url: string) {
+          const slug = url.replace(/^https?:\/\/[^/]+/, "").replace(/^\/blog\//, "").replace(/\/$/, "");
+          return slug
+            .split("-")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" ");
+        }
+
+        const C_BLOG = "#0891b2"; // cyan-600 — distinct from search blue
+
+        return (
+          <section style={{ breakInside: "avoid" }}>
+            <h2 className="text-base font-bold text-gray-900 mb-1">Blog Performance</h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Organic search traffic driven by blog content
+            </p>
+
+            {/* Hero numbers */}
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              {[
+                { label: "Blog clicks",       value: totalClicks.toLocaleString() },
+                { label: "Blog impressions",  value: totalImpressions.toLocaleString() },
+                { label: "Posts on page 1",   value: page1Count.toString() },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-xl bg-white p-4 shadow-sm"
+                  style={{ border: "1px solid #e5e7eb", borderLeft: `4px solid ${C_BLOG}` }}
+                >
+                  <p className="text-xs text-gray-500 mb-1">{stat.label}</p>
+                  <p className="text-3xl font-bold text-gray-900 leading-none">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Top posts bar chart */}
+            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid #e5e7eb" }}>
+              <div className="border-b border-gray-100 px-6 py-3" style={{ background: "#f9fafb" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C_BLOG }}>
+                  Top posts by clicks
+                </p>
+              </div>
+              <div className="px-6 py-4 space-y-3.5">
+                {blogPages.map((page, i) => {
+                  const pct   = Math.round((page.clicks / blogMaxClicks) * 100);
+                  const title = postTitle(page.page_url);
+                  return (
+                    <div key={page.page_url} className="space-y-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <span
+                          className="text-xs text-gray-700 truncate"
+                          style={{ fontWeight: i === 0 ? 600 : 400, color: i === 0 ? C_BLOG : undefined }}
+                          title={title}
+                        >
+                          {title}
+                        </span>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <span className="text-[10px] text-gray-400">
+                            pos {page.position.toFixed(1)}
+                          </span>
+                          <span className="text-xs font-medium text-gray-700 w-10 text-right">
+                            {page.clicks.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${pct}%`,
+                            background: i === 0
+                              ? `linear-gradient(90deg, ${C_BLOG}, #06b6d4)`
+                              : C_BLOG,
+                            opacity: i === 0 ? 1 : 0.5 + i * 0.02,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <SectionCallout sectionKey="blog" />
+          </section>
+        );
+      })()}
+
       {/* ── Keyword Rankings ── */}
       {sectionVisible("keywords") && hasKeywords && (
         <section style={{ breakInside: "avoid" }}>
