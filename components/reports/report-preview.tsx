@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import type { ClientReportModel } from "@/lib/reporting/types";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
 import { METRIC_LABELS, type ReportConfig } from "@/lib/reporting/report-config-types";
@@ -60,8 +60,6 @@ type Props = {
 
 export default function ReportPreview({ report, config, draft }: Props) {
   const mainRef = useRef<HTMLElement>(null);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
 
   function sectionVisible(key: string): boolean {
     const s = config.sections.find((sec) => sec.key === key);
@@ -81,44 +79,8 @@ export default function ReportPreview({ report, config, draft }: Props) {
     );
   }
 
-  async function downloadPdf() {
-    if (!mainRef.current || exporting) return;
-    setExporting(true);
-    setExportError(null);
-    try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-      const canvas = await html2canvas(mainRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-        ignoreElements: (el) => el.classList.contains("no-print"),
-      });
-      const imgData = canvas.toDataURL("image/jpeg", 0.92);
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const imgH = (canvas.height * pageW) / canvas.width;
-      let remaining = imgH;
-      let offset = 0;
-      pdf.addImage(imgData, "JPEG", 0, offset, pageW, imgH);
-      remaining -= pageH;
-      while (remaining > 0) {
-        offset -= pageH;
-        pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, offset, pageW, imgH);
-        remaining -= pageH;
-      }
-      const slug = report.client.account_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-      pdf.save(`bip-report-${slug}.pdf`);
-    } catch (err) {
-      setExportError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setExporting(false);
-    }
+  function downloadPdf() {
+    window.print();
   }
 
   const { ads, searchConsole, ga4, keywords } = report.channels;
@@ -179,7 +141,7 @@ export default function ReportPreview({ report, config, draft }: Props) {
   }
 
   return (
-    <main ref={mainRef} className="mx-auto max-w-4xl space-y-8 px-8 py-6 text-gray-800 bg-white min-h-full">
+    <main ref={mainRef} className="report-print-target mx-auto max-w-4xl space-y-8 px-8 py-6 text-gray-800 bg-white min-h-full">
 
       {/* ── Header ── */}
       <header className="rounded-2xl overflow-hidden shadow-sm">
@@ -212,19 +174,15 @@ export default function ReportPreview({ report, config, draft }: Props) {
               <p>Strategist: {report.client.marketing_strategist || "Unassigned"}</p>
             </div>
           </div>
-          <div className="no-print mt-4 flex flex-col items-end gap-2">
+          <div className="no-print mt-4 flex justify-end">
             <button
               type="button"
-              onClick={() => void downloadPdf()}
-              disabled={exporting}
-              className="rounded-lg border px-3 py-2 text-sm font-medium transition hover:bg-gray-50 disabled:opacity-50"
+              onClick={downloadPdf}
+              className="rounded-lg border px-3 py-2 text-sm font-medium transition hover:bg-gray-50"
               style={{ borderColor: BI_BLUE, color: BI_BLUE }}
             >
-              {exporting ? "Generating PDF…" : "Download PDF"}
+              Download PDF
             </button>
-            {exportError && (
-              <p className="text-xs text-red-600 max-w-xs text-right">{exportError}</p>
-            )}
           </div>
         </div>
       </header>

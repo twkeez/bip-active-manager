@@ -381,3 +381,15 @@
     color: var(--primary);
   }
 }
+
+@media print {
+  body * { visibility: hidden; }
+  .report-print-target,
+  .report-print-target * { visibility: visible; }
+  .report-print-target {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+  .no-print { display: none !important; }
+}
