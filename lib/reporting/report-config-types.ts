@@ -15,7 +15,8 @@ export type SectionConfig =
   | { key: "keywords"; visible: boolean }
   | { key: "social"; visible: boolean; metrics: MetricVisibility }
   | { key: "social_trend"; visible: boolean }
-  | { key: "social_posts"; visible: boolean };
+  | { key: "social_posts"; visible: boolean }
+  | { key: "gbp"; visible: boolean };
 
 export type ReportConfig = {
   sections: SectionConfig[];
@@ -30,6 +31,7 @@ export const SECTION_LABELS: Record<string, string> = {
   social: "Social Media",
   social_trend: "Social Trend",
   social_posts: "Top Posts",
+  gbp: "Google Business Profile",
 };
 
 export const DEFAULT_REPORT_CONFIG: ReportConfig = {
@@ -102,6 +104,7 @@ export const DEFAULT_REPORT_CONFIG: ReportConfig = {
     },
     { key: "social_trend", visible: true },
     { key: "social_posts", visible: true },
+    { key: "gbp", visible: true },
   ],
 };
 

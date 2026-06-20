@@ -1103,6 +1103,8 @@ export function buildClientReportModel(params: {
   keywordRows: KeywordHealthRow[];
   socialDailyRows: SocialDailySnapshot[];
   adsSnapshot: AdsSnapshot | null;
+  gbpSnapshot?: GbpSnapshot | null;
+  gbpReviews?: GbpReviewRow[];
   previousAdsSnapshot?: AdsSnapshot | null;
   gscPageMetrics?: GscPageMetric[];
   gscPreviousPageMetrics?: GscPageMetric[];
@@ -1237,6 +1239,8 @@ export function buildClientReportModel(params: {
     socialDailyRows: params.socialDailyRows,
     topSocialPosts,
     adsSnapshot: params.adsSnapshot,
+    gbpSnapshot: params.gbpSnapshot ?? null,
+    gbpReviews: params.gbpReviews ?? [],
     strategistSummary: params.strategistSummary,
     perfRows,
     charts,

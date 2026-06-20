@@ -1,6 +1,8 @@
 import type {
   AdsSnapshot,
   ClientRow,
+  GbpReviewRow,
+  GbpSnapshot,
   KeywordHealthRow,
   ReportingAlertItem,
   ReportingFreshnessItem,
@@ -57,6 +59,8 @@ export type ClientReportModel = {
   socialDailyRows: SocialDailySnapshot[];
   topSocialPosts: SocialPostSnapshot[];
   adsSnapshot: AdsSnapshot | null;
+  gbpSnapshot: GbpSnapshot | null;
+  gbpReviews: GbpReviewRow[];
   strategistSummary: StrategistSummaryResult | null;
   perfRows: WeeklyPerfRow[];
   charts: DetailedBreakdownChartData;

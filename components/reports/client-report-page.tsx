@@ -456,6 +456,81 @@ export default function ClientReportPage({ report, draft }: Props) {
           </section>
         )}
 
+        {/* ── Google Business Profile ── */}
+        {isVisible("gbp") && report.gbpSnapshot && (
+          <section>
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: BI_BLUE }}>
+              Google Business Profile
+            </h2>
+            <p className="text-xs text-gray-400 mb-4">Reviews &amp; local listing metrics</p>
+            <div className="grid gap-3 sm:grid-cols-3 mb-5">
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <p className="text-xs text-gray-500">Overall rating</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+                  {report.gbpSnapshot.rating != null ? report.gbpSnapshot.rating.toFixed(1) : "—"}
+                  <span className="ml-1 text-sm font-normal text-gray-400">/ 5</span>
+                </p>
+                {report.gbpSnapshot.rating != null && (
+                  <p className="mt-1 text-xs text-yellow-500">
+                    {"★".repeat(Math.round(report.gbpSnapshot.rating))}{"☆".repeat(5 - Math.round(report.gbpSnapshot.rating))}
+                  </p>
+                )}
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <p className="text-xs text-gray-500">Total reviews</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+                  {report.gbpSnapshot.user_ratings_total != null
+                    ? report.gbpSnapshot.user_ratings_total.toLocaleString()
+                    : "—"}
+                </p>
+              </div>
+              {report.gbpReviews.length > 0 && (() => {
+                const cutoff = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
+                const recent = report.gbpReviews.filter(
+                  (r) => typeof r.review_time_unix === "number" && r.review_time_unix >= cutoff,
+                );
+                const rated = recent.filter((r) => typeof r.rating === "number");
+                const avg = rated.length > 0
+                  ? rated.reduce((s, r) => s + (r.rating ?? 0), 0) / rated.length
+                  : null;
+                return (
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <p className="text-xs text-gray-500">New reviews (30d)</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">{recent.length}</p>
+                    {avg != null && (
+                      <p className="mt-0.5 text-xs text-gray-400">avg {avg.toFixed(1)} / 5</p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+            {report.gbpReviews.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Recent reviews</p>
+                {report.gbpReviews.slice(0, 5).map((review, i) => (
+                  <div key={i} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-xs font-medium text-gray-700">{review.author_name ?? "Anonymous"}</span>
+                      <span className="flex items-center gap-1 text-xs text-gray-400">
+                        {review.rating != null && (
+                          <span className="text-yellow-500">{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span>
+                        )}
+                        {review.relative_time_description && (
+                          <span className="text-gray-400">· {review.relative_time_description}</span>
+                        )}
+                      </span>
+                    </div>
+                    {review.text && (
+                      <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{review.text}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <SectionComment sectionKey="gbp" />
+          </section>
+        )}
+
         {/* ── Empty state ── */}
         {!hasAnyData && (
           <section className="rounded-2xl border border-gray-200 px-6 py-12 text-center">
