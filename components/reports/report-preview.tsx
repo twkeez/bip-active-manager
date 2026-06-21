@@ -140,6 +140,33 @@ export default function ReportPreview({ report, config, draft }: Props) {
         logging: false,
         backgroundColor: "#ffffff",
         ignoreElements: (el) => el.classList.contains("no-print"),
+        onclone: (clonedDoc) => {
+          // html2canvas can't parse oklch() used by Tailwind v4 — override with hex
+          const s = clonedDoc.createElement("style");
+          s.textContent = `
+            :root {
+              --color-white:#fff; --color-black:#000;
+              --color-gray-50:#f9fafb; --color-gray-100:#f3f4f6; --color-gray-200:#e5e7eb;
+              --color-gray-300:#d1d5db; --color-gray-400:#9ca3af; --color-gray-500:#6b7280;
+              --color-gray-600:#4b5563; --color-gray-700:#374151; --color-gray-800:#1f2937;
+              --color-gray-900:#111827;
+              --color-slate-50:#f8fafc; --color-slate-100:#f1f5f9; --color-slate-200:#e2e8f0;
+              --color-slate-300:#cbd5e1; --color-slate-400:#94a3b8; --color-slate-500:#64748b;
+              --color-slate-600:#475569; --color-slate-700:#334155; --color-slate-800:#1e293b;
+              --color-slate-900:#0f172a;
+              --color-red-300:#fca5a5; --color-red-400:#f87171; --color-red-500:#ef4444;
+              --color-red-600:#dc2626; --color-red-700:#b91c1c;
+              --color-amber-400:#fbbf24; --color-amber-500:#f59e0b; --color-amber-600:#d97706;
+              --color-green-500:#22c55e; --color-green-600:#16a34a;
+              --color-emerald-500:#10b981; --color-emerald-600:#059669;
+              --color-cyan-600:#0891b2; --color-cyan-700:#0e7490;
+              --color-blue-500:#3b82f6; --color-blue-600:#2563eb;
+              --color-purple-500:#a855f7; --color-purple-600:#9333ea;
+              --color-pink-500:#ec4899; --color-pink-600:#db2777;
+            }
+          `;
+          clonedDoc.head.appendChild(s);
+        },
       });
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
