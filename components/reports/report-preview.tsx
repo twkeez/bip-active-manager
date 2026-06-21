@@ -1,5 +1,5 @@
 "use client";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { ClientReportModel } from "@/lib/reporting/types";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
 import { METRIC_LABELS, type ReportConfig } from "@/lib/reporting/report-config-types";
@@ -93,6 +93,7 @@ type Props = {
 
 export default function ReportPreview({ report, config, draft }: Props) {
   const mainRef = useRef<HTMLElement>(null);
+  const [exporting, setExporting] = useState(false);
 
   function sectionVisible(key: string): boolean {
     const s = config.sections.find((sec) => sec.key === key);
@@ -123,8 +124,53 @@ export default function ReportPreview({ report, config, draft }: Props) {
     );
   }
 
-  function downloadPdf() {
-    window.print();
+  async function downloadPdf() {
+    if (!mainRef.current || exporting) return;
+    setExporting(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(mainRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        ignoreElements: (el) => el.classList.contains("no-print"),
+      });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgH = (canvas.height * pageW) / canvas.width;
+      let remaining = imgH;
+      let offset = 0;
+      pdf.addImage(imgData, "JPEG", 0, offset, pageW, imgH);
+      remaining -= pageH;
+      while (remaining > 0) {
+        offset -= pageH;
+        pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, offset, pageW, imgH);
+        remaining -= pageH;
+      }
+      const slug = report.client.account_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      const fileName = `bip-report-${slug}.pdf`;
+      if ("showSaveFilePicker" in window) {
+        const blob = pdf.output("blob");
+        const handle = await (window as unknown as { showSaveFilePicker: (o: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: "PDF Document", accept: { "application/pdf": [".pdf"] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } else {
+        pdf.save(fileName);
+      }
+    } finally {
+      setExporting(false);
+    }
   }
 
   const { ads, searchConsole, ga4, keywords } = report.channels;
@@ -238,14 +284,15 @@ export default function ReportPreview({ report, config, draft }: Props) {
             <button
               type="button"
               onClick={downloadPdf}
-              className="rounded-lg px-4 py-2 text-sm font-medium transition"
+              disabled={exporting}
+              className="rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-60"
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
                 color: "#fff",
                 background: "rgba(255,255,255,0.12)",
               }}
             >
-              Download PDF
+              {exporting ? "Generating PDF…" : "Download PDF"}
             </button>
           </div>
         </div>
