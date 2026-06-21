@@ -94,6 +94,7 @@ type Props = {
 export default function ReportPreview({ report, config, draft }: Props) {
   const mainRef = useRef<HTMLElement>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   function sectionVisible(key: string): boolean {
     const s = config.sections.find((sec) => sec.key === key);
@@ -127,6 +128,7 @@ export default function ReportPreview({ report, config, draft }: Props) {
   async function downloadPdf() {
     if (!mainRef.current || exporting) return;
     setExporting(true);
+    setExportError(null);
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import("html2canvas"),
@@ -156,18 +158,38 @@ export default function ReportPreview({ report, config, draft }: Props) {
       }
       const slug = report.client.account_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
       const fileName = `bip-report-${slug}.pdf`;
+      const blob = pdf.output("blob");
       if ("showSaveFilePicker" in window) {
-        const blob = pdf.output("blob");
-        const handle = await (window as unknown as { showSaveFilePicker: (o: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
-          suggestedName: fileName,
-          types: [{ description: "PDF Document", accept: { "application/pdf": [".pdf"] } }],
-        });
-        const writable = await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
+        try {
+          const handle = await (window as unknown as { showSaveFilePicker: (o: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+            suggestedName: fileName,
+            types: [{ description: "PDF Document", accept: { "application/pdf": [".pdf"] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+        } catch (pickerErr: unknown) {
+          // User cancelled the picker — fall back to auto-download
+          if ((pickerErr as { name?: string }).name !== "AbortError") {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+        }
       } else {
-        pdf.save(fileName);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
       }
+    } catch (err: unknown) {
+      console.error("PDF export failed:", err);
+      setExportError(err instanceof Error ? err.message : "PDF generation failed. Please try again.");
     } finally {
       setExporting(false);
     }
@@ -280,7 +302,7 @@ export default function ReportPreview({ report, config, draft }: Props) {
           </div>
 
           {/* Download button */}
-          <div className="no-print mt-6 flex justify-end">
+          <div className="no-print mt-6 flex flex-col items-end gap-2">
             <button
               type="button"
               onClick={downloadPdf}
@@ -294,6 +316,9 @@ export default function ReportPreview({ report, config, draft }: Props) {
             >
               {exporting ? "Generating PDF…" : "Download PDF"}
             </button>
+            {exportError && (
+              <p className="text-xs text-red-300">{exportError}</p>
+            )}
           </div>
         </div>
       </header>
