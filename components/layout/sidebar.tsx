@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ClipboardCheck,
   Compass,
+  FileDown,
   FileText,
   Flame,
   Globe,
@@ -54,6 +55,7 @@ const TOOLS: NavItem[] = [
   { label: "Conversion Radar", href: "/conversion-integrity", icon: ShieldAlert },
   { label: "Ads Audit", href: "/ads-audit/", icon: Megaphone },
   { label: "Report Template", href: "/reports/template", icon: FileText, adminOnly: true },
+  { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
   { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
 ];
 
