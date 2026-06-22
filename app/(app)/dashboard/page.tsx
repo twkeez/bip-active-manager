@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getProfile } from "@/lib/auth/profile";
+import { resolveEffectiveRole, VIEW_AS_COOKIE } from "@/lib/auth/effective-role";
 import { fetchPriorityTasks } from "@/lib/tasks/priority-tasks";
 import { loadClientListData } from "@/lib/dashboard/load-client-list-data";
 import CommsMonitor from "@/components/dashboard/comms-monitor";
@@ -27,6 +30,16 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  // The dashboard is admin-only; users (and admins previewing the user view)
+  // land on Clients instead.
+  const profile = await getProfile(supabase);
+  const cookieStore = await cookies();
+  const effectiveRole = resolveEffectiveRole(
+    profile?.role ?? "strategist",
+    cookieStore.get(VIEW_AS_COOKIE)?.value,
+  );
+  if (effectiveRole !== "admin") redirect("/dashboard/clients");
 
   const [{ clients, syncState }, priorityTasks, openTasksRaw] = await Promise.all([
     loadClientListData(supabase),
