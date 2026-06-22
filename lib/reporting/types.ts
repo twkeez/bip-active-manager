@@ -1,6 +1,13 @@
 import type {
   AdsSnapshot,
   ClientRow,
+  Ga4ConversionRow,
+  Ga4DeviceRow,
+  Ga4GeoRow,
+  Ga4LandingPageRow,
+  Ga4NewVsReturningRow,
+  Ga4SourceMediumRow,
+  Ga4TrendPoint,
   GbpReviewRow,
   GbpSnapshot,
   KeywordHealthRow,
@@ -130,6 +137,13 @@ export type ReportChannelBlock = {
   // GA4-only enrichments (full-depth website analytics)
   channelBreakdown?: ReportChannelBreakdownRow[];
   topPages?: ReportTopPageRow[];
+  conversionsByEvent?: Ga4ConversionRow[];
+  geoBreakdown?: Ga4GeoRow[];
+  deviceBreakdown?: Ga4DeviceRow[];
+  sourceMediumBreakdown?: Ga4SourceMediumRow[];
+  newVsReturning?: Ga4NewVsReturningRow[];
+  sessionsTrend?: Ga4TrendPoint[];
+  landingPages?: Ga4LandingPageRow[];
 };
 
 export type ManagedKeyword = {

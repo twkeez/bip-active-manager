@@ -9,12 +9,81 @@ const adsLabelToKey: Record<string, string> = Object.fromEntries(
   Object.entries(METRIC_LABELS.google_ads ?? {}).map(([k, v]) => [v, k]),
 );
 
+const ga4LabelToKey: Record<string, string> = Object.fromEntries(
+  Object.entries(METRIC_LABELS.ga4 ?? {}).map(([k, v]) => [v, k]),
+);
+
 const BI_BLUE    = "#3D52C4";
 const BI_PURPLE  = "#7B35B0";
 const BI_MAGENTA = "#E4177F";
 const C_SEARCH   = "#3D52C4";
 const C_ADS      = "#059669";
 const C_SOCIAL   = "#7B35B0";
+
+// ── GA4 breakdown helpers (inline-styled for html2canvas/PDF safety) ──────────
+function Ga4TableSection({
+  title, subtitle, headers, rows,
+}: {
+  title: string;
+  subtitle?: string;
+  headers: string[];
+  rows: string[][];
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <section style={{ breakInside: "avoid" }} className="mb-7">
+      <SectionLabel title={title} color={C_SEARCH} />
+      {subtitle && <p className="text-xs text-gray-400 mb-2 -mt-1">{subtitle}</p>}
+      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid #e5e7eb" }}>
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr style={{ background: "#f9fafb" }}>
+              {headers.map((h, i) => (
+                <th key={i} className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, ri) => (
+              <tr key={ri} style={{ borderTop: ri === 0 ? "none" : "1px solid #f3f4f6" }}>
+                {r.map((c, ci) => (
+                  <td
+                    key={ci}
+                    className={`px-4 py-2 text-gray-700 ${ci === 0 ? "" : "text-right"}`}
+                    style={ci === 0 ? { maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } : undefined}
+                  >
+                    {c}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function Ga4TrendChart({ points }: { points: Array<{ date: string; sessions: number }> }) {
+  if (points.length < 2) return null;
+  const w = 680, h = 130, pad = 6;
+  const max = Math.max(...points.map((p) => p.sessions), 1);
+  const stepX = (w - pad * 2) / (points.length - 1);
+  const xy = points.map((p, i) => [pad + i * stepX, h - pad - (p.sessions / max) * (h - pad * 2)] as const);
+  const line = xy.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const area = `${line} L ${xy[xy.length - 1][0].toFixed(1)} ${h - pad} L ${xy[0][0].toFixed(1)} ${h - pad} Z`;
+  return (
+    <section style={{ breakInside: "avoid" }} className="mb-7">
+      <SectionLabel title="Website Sessions — 30-day trend" color={C_SEARCH} />
+      <div className="rounded-2xl p-4" style={{ border: "1px solid #e5e7eb" }}>
+        <svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ display: "block" }}>
+          <path d={area} fill={`${C_SEARCH}14`} stroke="none" />
+          <path d={line} fill="none" stroke={C_SEARCH} strokeWidth={2} />
+        </svg>
+      </div>
+    </section>
+  );
+}
 
 // ── Small helpers ────────────────────────────────────────────────────────────
 
@@ -306,7 +375,19 @@ export default function ReportPreview({ report, config, draft }: Props) {
     return adsMetricVis[configKey] !== false;
   });
   const gscMetrics = searchConsole.metrics.filter((m) => m.current != null && m.current !== 0);
-  const ga4Metrics  = ga4.metrics.filter((m) => m.current != null && m.current !== 0);
+
+  const ga4Subsection =
+    kpisSection?.key === "kpis"
+      ? kpisSection.subsections.find((s) => s.key === "ga4")
+      : undefined;
+  const ga4MetricVis = ga4Subsection?.metrics ?? null;
+  const ga4Metrics = ga4.metrics.filter((m) => {
+    if (m.current == null || Number.isNaN(m.current)) return false;
+    if (!ga4MetricVis) return m.current !== 0;
+    const configKey = ga4LabelToKey[m.label];
+    if (!configKey) return m.current !== 0;
+    return ga4MetricVis[configKey] !== false;
+  });
 
   function subsectionVisible(subKey: string) {
     if (!kpisSection || kpisSection.key !== "kpis") return true;
@@ -535,6 +616,63 @@ export default function ReportPreview({ report, config, draft }: Props) {
 
           <SectionCallout sectionKey="kpis" />
         </section>
+      )}
+
+      {/* ── GA4 deep-dive breakdowns (each toggleable in Layout) ── */}
+      {sectionVisible("ga4_conversions") && (ga4.conversionsByEvent?.length ?? 0) > 0 && (
+        <Ga4TableSection
+          title="Conversions by Event (GA4)"
+          subtitle="Which key events drove conversions this period"
+          headers={["Event", "Conversions"]}
+          rows={(ga4.conversionsByEvent ?? []).slice(0, 12).map((r) => [r.event_name, Math.round(r.conversions).toLocaleString()])}
+        />
+      )}
+      {sectionVisible("ga4_geography") && (ga4.geoBreakdown?.length ?? 0) > 0 && (
+        <Ga4TableSection
+          title="Geography (GA4)"
+          subtitle="Where your website traffic comes from"
+          headers={["Location", "Sessions", "Users"]}
+          rows={(ga4.geoBreakdown ?? []).slice(0, 12).map((r) => [
+            [r.city, r.region].filter(Boolean).join(", ") || "(not set)",
+            r.sessions.toLocaleString(),
+            r.users.toLocaleString(),
+          ])}
+        />
+      )}
+      {sectionVisible("ga4_device") && (ga4.deviceBreakdown?.length ?? 0) > 0 && (
+        <Ga4TableSection
+          title="Device (GA4)"
+          subtitle="Sessions by device category"
+          headers={["Device", "Sessions", "Engagement"]}
+          rows={(ga4.deviceBreakdown ?? []).map((r) => [r.device || "(unknown)", r.sessions.toLocaleString(), `${(r.engagement_rate * 100).toFixed(1)}%`])}
+        />
+      )}
+      {sectionVisible("ga4_source_medium") && (ga4.sourceMediumBreakdown?.length ?? 0) > 0 && (
+        <Ga4TableSection
+          title="Source / Medium (GA4)"
+          subtitle="Detailed acquisition sources"
+          headers={["Source / Medium", "Sessions", "Conversions"]}
+          rows={(ga4.sourceMediumBreakdown ?? []).slice(0, 12).map((r) => [r.source_medium || "(not set)", r.sessions.toLocaleString(), Math.round(r.conversions).toLocaleString()])}
+        />
+      )}
+      {sectionVisible("ga4_new_vs_returning") && (ga4.newVsReturning?.length ?? 0) > 0 && (
+        <Ga4TableSection
+          title="New vs Returning (GA4)"
+          subtitle="Visitor loyalty this period"
+          headers={["Visitor Type", "Sessions", "Users"]}
+          rows={(ga4.newVsReturning ?? []).map((r) => [r.cohort, r.sessions.toLocaleString(), r.users.toLocaleString()])}
+        />
+      )}
+      {sectionVisible("ga4_trend") && (ga4.sessionsTrend?.length ?? 0) > 1 && (
+        <Ga4TrendChart points={ga4.sessionsTrend ?? []} />
+      )}
+      {sectionVisible("ga4_landing") && (ga4.landingPages?.length ?? 0) > 0 && (
+        <Ga4TableSection
+          title="Landing Pages (GA4)"
+          subtitle="Where visitors enter your site"
+          headers={["Landing Page", "Sessions", "Engagement"]}
+          rows={(ga4.landingPages ?? []).slice(0, 12).map((r) => [r.landing_page, r.sessions.toLocaleString(), `${(r.engagement_rate * 100).toFixed(1)}%`])}
+        />
       )}
 
       {/* ── Search Traffic — Top Pages ── */}

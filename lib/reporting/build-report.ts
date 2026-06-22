@@ -925,6 +925,17 @@ function buildGa4ChannelBlock(params: {
       "s",
     ),
     toPeriodMetric("Conversions", gaNum(t.conversions), gaNum(prev?.conversions)),
+    toPeriodMetric("Engaged Sessions", gaNum(t.engaged_sessions), gaNum(prev?.engaged_sessions)),
+    toPeriodMetric("Bounce Rate", rate(t.bounce_rate), rate(prev?.bounce_rate), "%"),
+    toPeriodMetric("Conversion Rate", rate(t.session_key_event_rate), rate(prev?.session_key_event_rate), "%"),
+    toPeriodMetric(
+      "Avg Session Duration",
+      gaNum(t.avg_session_duration_seconds) == null ? null : Math.round(t.avg_session_duration_seconds!),
+      gaNum(prev?.avg_session_duration_seconds) == null ? null : Math.round(prev!.avg_session_duration_seconds!),
+      "s",
+    ),
+    toPeriodMetric("Views per Session", gaNum(t.views_per_session), gaNum(prev?.views_per_session)),
+    toPeriodMetric("Events per Session", gaNum(t.events_per_session), gaNum(prev?.events_per_session)),
   ];
 
   return {
@@ -946,6 +957,14 @@ function buildGa4ChannelBlock(params: {
       engagementRate: gaNum(row.engagement_rate) ?? 0,
       avgEngagementTimeSeconds: gaNum(row.avg_engagement_time_seconds) ?? 0,
     })),
+    // Pass-through breakdowns for the new toggleable report sections.
+    conversionsByEvent: snapshot.conversions_by_event ?? [],
+    geoBreakdown: snapshot.geo_breakdown ?? [],
+    deviceBreakdown: snapshot.device_breakdown ?? [],
+    sourceMediumBreakdown: snapshot.source_medium_breakdown ?? [],
+    newVsReturning: snapshot.new_vs_returning ?? [],
+    sessionsTrend: snapshot.sessions_trend ?? [],
+    landingPages: snapshot.landing_pages ?? [],
   };
 }
 

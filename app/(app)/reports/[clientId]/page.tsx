@@ -21,7 +21,7 @@ import {
   buildReportingKpis,
   computeClientUrgencyScore,
 } from "@/lib/reporting/build-report";
-import { DEFAULT_REPORT_CONFIG, type ReportConfig } from "@/lib/reporting/report-config-types";
+import { DEFAULT_REPORT_CONFIG, mergeReportConfig, type ReportConfig } from "@/lib/reporting/report-config-types";
 
 type Params = Promise<{ clientId: string }>;
 type SearchParams = Promise<{ range?: string }>;
@@ -61,10 +61,11 @@ export default async function ReportClientPage({
       .eq("key", "master")
       .maybeSingle(),
   ]);
-  const layoutConfig: ReportConfig =
+  const layoutConfig: ReportConfig = mergeReportConfig(
     (clientConfigRaw?.config as ReportConfig | null) ??
-    (masterConfigRaw?.config as ReportConfig | null) ??
-    DEFAULT_REPORT_CONFIG;
+      (masterConfigRaw?.config as ReportConfig | null) ??
+      DEFAULT_REPORT_CONFIG,
+  );
 
   // ── Keywords ───────────────────────────────────────────────────────────────
   const { data: keywordsRaw } = await supabase

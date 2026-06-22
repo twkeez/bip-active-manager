@@ -16,7 +16,14 @@ export type SectionConfig =
   | { key: "social"; visible: boolean; metrics: MetricVisibility }
   | { key: "social_trend"; visible: boolean }
   | { key: "social_posts"; visible: boolean }
-  | { key: "gbp"; visible: boolean };
+  | { key: "gbp"; visible: boolean }
+  | { key: "ga4_conversions"; visible: boolean }
+  | { key: "ga4_geography"; visible: boolean }
+  | { key: "ga4_device"; visible: boolean }
+  | { key: "ga4_source_medium"; visible: boolean }
+  | { key: "ga4_new_vs_returning"; visible: boolean }
+  | { key: "ga4_trend"; visible: boolean }
+  | { key: "ga4_landing"; visible: boolean };
 
 export type ReportConfig = {
   sections: SectionConfig[];
@@ -32,6 +39,13 @@ export const SECTION_LABELS: Record<string, string> = {
   social_trend: "Social Trend",
   social_posts: "Top Posts",
   gbp: "Google Business Profile",
+  ga4_conversions: "GA4 — Conversions by Event",
+  ga4_geography: "GA4 — Geography",
+  ga4_device: "GA4 — Device",
+  ga4_source_medium: "GA4 — Source / Medium",
+  ga4_new_vs_returning: "GA4 — New vs Returning",
+  ga4_trend: "GA4 — Sessions Trend",
+  ga4_landing: "GA4 — Landing Pages",
 };
 
 export const DEFAULT_REPORT_CONFIG: ReportConfig = {
@@ -81,8 +95,17 @@ export const DEFAULT_REPORT_CONFIG: ReportConfig = {
           visible: true,
           metrics: {
             sessions: true,
+            users: true,
             new_users: true,
-            avg_session_duration: true,
+            engagement_rate: true,
+            avg_engagement_time: true,
+            conversions: true,
+            engaged_sessions: true,
+            bounce_rate: true,
+            conversion_rate: true,
+            avg_session_duration: false,
+            views_per_session: false,
+            events_per_session: false,
           },
         },
       ],
@@ -105,6 +128,13 @@ export const DEFAULT_REPORT_CONFIG: ReportConfig = {
     { key: "social_trend", visible: true },
     { key: "social_posts", visible: true },
     { key: "gbp", visible: true },
+    { key: "ga4_conversions", visible: true },
+    { key: "ga4_geography", visible: true },
+    { key: "ga4_device", visible: true },
+    { key: "ga4_source_medium", visible: false },
+    { key: "ga4_new_vs_returning", visible: true },
+    { key: "ga4_trend", visible: true },
+    { key: "ga4_landing", visible: false },
   ],
 };
 
@@ -137,8 +167,17 @@ export const METRIC_LABELS: Record<string, Record<string, string>> = {
   },
   ga4: {
     sessions: "Sessions",
+    users: "Users",
     new_users: "New Users",
+    engagement_rate: "Engagement Rate",
+    avg_engagement_time: "Avg Engagement Time",
+    conversions: "Conversions",
+    engaged_sessions: "Engaged Sessions",
+    bounce_rate: "Bounce Rate",
+    conversion_rate: "Conversion Rate",
     avg_session_duration: "Avg Session Duration",
+    views_per_session: "Views per Session",
+    events_per_session: "Events per Session",
   },
   social: {
     reach: "People Reached",
@@ -148,3 +187,41 @@ export const METRIC_LABELS: Record<string, Record<string, string>> = {
     new_followers: "New Followers",
   },
 };
+
+/**
+ * Merges a saved config with DEFAULT_REPORT_CONFIG so newly-added sections and
+ * metric toggles appear for clients whose saved config predates them. Saved
+ * visibility choices win; new keys take their default value.
+ */
+export function mergeReportConfig(saved: ReportConfig | null | undefined): ReportConfig {
+  if (!saved?.sections?.length) return DEFAULT_REPORT_CONFIG;
+  const savedByKey = new Map(saved.sections.map((s) => [s.key, s]));
+  const sections: SectionConfig[] = [];
+
+  for (const def of DEFAULT_REPORT_CONFIG.sections) {
+    const existing = savedByKey.get(def.key);
+    if (!existing) {
+      sections.push(def);
+      continue;
+    }
+    if (def.key === "kpis" && existing.key === "kpis") {
+      const exSubByKey = new Map(existing.subsections.map((s) => [s.key, s]));
+      const subsections = def.subsections.map((defSub) => {
+        const exSub = exSubByKey.get(defSub.key);
+        if (!exSub) return defSub;
+        // Default keys present (so new metrics get a toggle); saved values win.
+        return { ...exSub, metrics: { ...defSub.metrics, ...exSub.metrics } };
+      });
+      sections.push({ ...existing, subsections });
+    } else {
+      sections.push(existing);
+    }
+  }
+
+  // Preserve any saved sections not present in defaults.
+  for (const s of saved.sections) {
+    if (!DEFAULT_REPORT_CONFIG.sections.some((d) => d.key === s.key)) sections.push(s);
+  }
+
+  return { sections };
+}

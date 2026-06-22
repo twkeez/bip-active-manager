@@ -454,6 +454,55 @@ export type Ga4Totals = {
   engagement_rate: number;
   avg_engagement_time_seconds: number;
   conversions: number;
+  // Engagement-quality metrics (added with the expanded GA4 reporting). Optional
+  // so snapshots synced before the expansion still type-check.
+  engaged_sessions?: number;
+  bounce_rate?: number;
+  avg_session_duration_seconds?: number;
+  views_per_session?: number;
+  events_per_session?: number;
+  session_key_event_rate?: number; // conversions ÷ sessions
+};
+
+export type Ga4ConversionRow = {
+  event_name: string;
+  conversions: number;
+};
+
+export type Ga4GeoRow = {
+  city: string;
+  region: string;
+  sessions: number;
+  users: number;
+};
+
+export type Ga4DeviceRow = {
+  device: string;
+  sessions: number;
+  engagement_rate: number;
+};
+
+export type Ga4SourceMediumRow = {
+  source_medium: string;
+  sessions: number;
+  conversions: number;
+};
+
+export type Ga4NewVsReturningRow = {
+  cohort: string; // "new" | "returning" | "(unknown)"
+  sessions: number;
+  users: number;
+};
+
+export type Ga4TrendPoint = {
+  date: string; // YYYY-MM-DD
+  sessions: number;
+};
+
+export type Ga4LandingPageRow = {
+  landing_page: string;
+  sessions: number;
+  engagement_rate: number;
 };
 
 export type Ga4Snapshot = {
@@ -468,6 +517,14 @@ export type Ga4Snapshot = {
   previous_totals: Ga4Totals | null;
   channel_breakdown: Ga4ChannelRow[];
   top_pages: Ga4PageRow[];
+  // Expanded breakdowns (optional — older snapshots predate these columns).
+  conversions_by_event?: Ga4ConversionRow[];
+  geo_breakdown?: Ga4GeoRow[];
+  device_breakdown?: Ga4DeviceRow[];
+  source_medium_breakdown?: Ga4SourceMediumRow[];
+  new_vs_returning?: Ga4NewVsReturningRow[];
+  sessions_trend?: Ga4TrendPoint[];
+  landing_pages?: Ga4LandingPageRow[];
   created_at: string;
   updated_at: string;
 };
