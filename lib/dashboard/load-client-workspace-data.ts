@@ -302,6 +302,7 @@ export function workspaceDataToManagerProps(data: ClientWorkspaceInitialData) {
     initialSocialSignals: data.socialSignals,
     initialAdsSnapshots: data.adsSnapshot ? [data.adsSnapshot] : [],
     initialAdsSignals: data.adsSignals,
+    initialGa4Snapshots: data.ga4Snapshot ? [data.ga4Snapshot] : [],
     initialGbpSnapshots: data.gbpSnapshot ? [data.gbpSnapshot] : [],
     initialGbpReviews: data.gbpReviews,
     duplicateProjectIdCounts: data.hasDuplicateBasecampProjectId

@@ -468,6 +468,56 @@ export default function ReportPreview({ report, config, draft }: Props) {
                   <MetricCard key={m.label} metric={m} accent={C_SEARCH} />
                 ))}
               </div>
+
+              {ga4.channelBreakdown && ga4.channelBreakdown.length > 0 && (
+                <div className="mt-4 rounded-2xl overflow-hidden" style={{ border: "1px solid #e5e7eb" }}>
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr style={{ background: "#f9fafb" }}>
+                        <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400">Channel</th>
+                        <th className="px-3 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-400">Sessions</th>
+                        <th className="px-3 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-400">Users</th>
+                        <th className="px-5 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-400">Engagement</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ga4.channelBreakdown.slice(0, 8).map((row, i) => (
+                        <tr key={row.channel} style={{ borderTop: i === 0 ? "none" : "1px solid #f3f4f6" }}>
+                          <td className="px-5 py-2.5 text-gray-700">{row.channel}</td>
+                          <td className="px-3 py-2.5 text-right text-gray-700">{row.sessions.toLocaleString()}</td>
+                          <td className="px-3 py-2.5 text-right text-gray-700">{row.users.toLocaleString()}</td>
+                          <td className="px-5 py-2.5 text-right text-gray-700">{(row.engagementRate * 100).toFixed(1)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {ga4.topPages && ga4.topPages.length > 0 && (
+                <div className="mt-4 rounded-2xl overflow-hidden" style={{ border: "1px solid #e5e7eb" }}>
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr style={{ background: "#f9fafb" }}>
+                        <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400">Top Page</th>
+                        <th className="px-3 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-400">Sessions</th>
+                        <th className="px-3 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-400">Engagement</th>
+                        <th className="px-5 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-400">Avg time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ga4.topPages.slice(0, 8).map((row, i) => (
+                        <tr key={row.pagePath} style={{ borderTop: i === 0 ? "none" : "1px solid #f3f4f6" }}>
+                          <td className="px-5 py-2.5 text-gray-700" style={{ maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.pagePath}</td>
+                          <td className="px-3 py-2.5 text-right text-gray-700">{row.sessions.toLocaleString()}</td>
+                          <td className="px-3 py-2.5 text-right text-gray-700">{(row.engagementRate * 100).toFixed(1)}%</td>
+                          <td className="px-5 py-2.5 text-right text-gray-700">{Math.floor(row.avgEngagementTimeSeconds / 60)}m {Math.round(row.avgEngagementTimeSeconds % 60)}s</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 

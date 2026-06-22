@@ -106,6 +106,20 @@ export type ReportPeriodMetric = {
   valuePrefix?: string;
 };
 
+export type ReportChannelBreakdownRow = {
+  channel: string;
+  sessions: number;
+  users: number;
+  engagementRate: number; // 0–1 fraction
+};
+
+export type ReportTopPageRow = {
+  pagePath: string;
+  sessions: number;
+  engagementRate: number; // 0–1 fraction
+  avgEngagementTimeSeconds: number;
+};
+
 export type ReportChannelBlock = {
   source: "ga4" | "ads" | "search_console";
   title: string;
@@ -113,6 +127,9 @@ export type ReportChannelBlock = {
   status: "ready" | "not_connected" | "no_data";
   summary: string;
   metrics: ReportPeriodMetric[];
+  // GA4-only enrichments (full-depth website analytics)
+  channelBreakdown?: ReportChannelBreakdownRow[];
+  topPages?: ReportTopPageRow[];
 };
 
 export type ManagedKeyword = {

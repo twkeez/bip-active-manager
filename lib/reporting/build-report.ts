@@ -1,6 +1,7 @@
 import { websiteLabel } from "@/lib/reporting/format";
 import type {
   AdsSnapshot,
+  Ga4Snapshot,
   GbpReviewRow,
   GbpSnapshot,
   KeywordHealthRow,
@@ -312,6 +313,7 @@ export type TechnicalReportingFinding = {
 
 export function buildReportingKpis(params: {
   adsSnapshot: AdsSnapshot | null;
+  ga4Snapshot?: Ga4Snapshot | null;
   gscPageMetrics: GscPageMetric[];
   gscSignals: GscSignal[];
   gscSnapshotUpdatedAt: string | null;
@@ -601,31 +603,31 @@ export function buildReportingKpis(params: {
     },
     "website-total-sessions": {
       label: "Website Sessions (30d)",
-      value: "Coming soon",
+      value: ga4Value(params.ga4Snapshot, (t) => t.sessions.toLocaleString()),
       source: "ga4",
       definition: "Total GA4 sessions for the latest reporting window.",
-      updated_at: null,
+      updated_at: params.ga4Snapshot?.updated_at ?? null,
     },
     "website-users": {
       label: "Website Users (30d)",
-      value: "Coming soon",
+      value: ga4Value(params.ga4Snapshot, (t) => t.users.toLocaleString()),
       source: "ga4",
       definition: "Total GA4 users for the latest reporting window.",
-      updated_at: null,
+      updated_at: params.ga4Snapshot?.updated_at ?? null,
     },
     "website-engagement-rate": {
       label: "Website Engagement Rate (30d)",
-      value: "Coming soon",
+      value: ga4Value(params.ga4Snapshot, (t) => `${(t.engagement_rate * 100).toFixed(1)}%`),
       source: "ga4",
       definition: "GA4 engagement rate for the latest reporting window.",
-      updated_at: null,
+      updated_at: params.ga4Snapshot?.updated_at ?? null,
     },
     "website-avg-engagement-time": {
       label: "Website Avg Engagement Time",
-      value: "Coming soon",
+      value: ga4Value(params.ga4Snapshot, (t) => formatEngagementTime(t.avg_engagement_time_seconds)),
       source: "ga4",
       definition: "Average engagement time per session from GA4.",
-      updated_at: null,
+      updated_at: params.ga4Snapshot?.updated_at ?? null,
     },
     "gbp-rating": {
       label: "GBP Rating",
@@ -854,8 +856,26 @@ function avg(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+/** Formats a GA4 KPI value, falling back to a clear status when not available. */
+function ga4Value(
+  snapshot: Ga4Snapshot | null | undefined,
+  fmt: (totals: Ga4Snapshot["totals"]) => string,
+): string {
+  if (!snapshot) return "Not synced";
+  return fmt(snapshot.totals);
+}
+
+/** Seconds → "1m 23s" / "45s". */
+function formatEngagementTime(seconds: number): string {
+  const total = Math.round(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+}
+
 function buildGa4ChannelBlock(params: {
   hasGa4Property: boolean;
+  ga4Snapshot?: Ga4Snapshot | null;
 }): ReportChannelBlock {
   if (!params.hasGa4Property) {
     return {
@@ -867,14 +887,58 @@ function buildGa4ChannelBlock(params: {
       metrics: [],
     };
   }
+  const snapshot = params.ga4Snapshot;
+  if (!snapshot) {
+    return {
+      source: "ga4",
+      title: "Google Analytics 4",
+      connected: true,
+      status: "no_data",
+      summary: "GA4 property is configured but no snapshot has been synced for this window.",
+      metrics: [],
+    };
+  }
+
+  const t = snapshot.totals;
+  const prev = snapshot.previous_totals;
+  const metrics: ReportPeriodMetric[] = [
+    toPeriodMetric("Sessions", t.sessions, prev?.sessions ?? null),
+    toPeriodMetric("Users", t.users, prev?.users ?? null),
+    toPeriodMetric("New Users", t.new_users, prev?.new_users ?? null),
+    toPeriodMetric(
+      "Engagement Rate",
+      t.engagement_rate * 100,
+      prev ? prev.engagement_rate * 100 : null,
+      "%",
+    ),
+    toPeriodMetric(
+      "Avg Engagement Time",
+      Math.round(t.avg_engagement_time_seconds),
+      prev ? Math.round(prev.avg_engagement_time_seconds) : null,
+      "s",
+    ),
+    toPeriodMetric("Conversions", t.conversions, prev?.conversions ?? null),
+  ];
+
   return {
     source: "ga4",
     title: "Google Analytics 4",
     connected: true,
-    status: "no_data",
-    summary:
-      "GA4 property is configured. Direct GA4 snapshots are not yet synced into this report model.",
-    metrics: [],
+    status: "ready",
+    summary: `GA4 snapshot ${snapshot.start_date} to ${snapshot.end_date}.`,
+    metrics,
+    channelBreakdown: snapshot.channel_breakdown.map((row) => ({
+      channel: row.channel,
+      sessions: row.sessions,
+      users: row.users,
+      engagementRate: row.engagement_rate,
+    })),
+    topPages: snapshot.top_pages.map((row) => ({
+      pagePath: row.page_path,
+      sessions: row.sessions,
+      engagementRate: row.engagement_rate,
+      avgEngagementTimeSeconds: row.avg_engagement_time_seconds,
+    })),
   };
 }
 
@@ -1103,6 +1167,7 @@ export function buildClientReportModel(params: {
   keywordRows: KeywordHealthRow[];
   socialDailyRows: SocialDailySnapshot[];
   adsSnapshot: AdsSnapshot | null;
+  ga4Snapshot?: Ga4Snapshot | null;
   gbpSnapshot?: GbpSnapshot | null;
   gbpReviews?: GbpReviewRow[];
   previousAdsSnapshot?: AdsSnapshot | null;
@@ -1189,6 +1254,7 @@ export function buildClientReportModel(params: {
       : executiveRows.reduce((sum, row) => sum + (row.deltaPercent ?? 0), 0) / executiveRows.length;
   const ga4 = buildGa4ChannelBlock({
     hasGa4Property: hasText(params.client.ga4_property_id),
+    ga4Snapshot: params.ga4Snapshot ?? null,
   });
   const ads = buildAdsChannelBlock({
     adsSnapshot: params.adsSnapshot,

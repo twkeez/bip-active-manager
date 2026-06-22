@@ -145,6 +145,7 @@ export default async function ReportClientPage({
   const alerts = buildReportingAlerts({ technicalFindings, gscSignals, adsSignals, socialSignals });
   const kpis = buildReportingKpis({
     adsSnapshot,
+    ga4Snapshot: workspace.ga4Snapshot,
     gscPageMetrics,
     gscSignals,
     gscSnapshotUpdatedAt:
@@ -241,6 +242,7 @@ export default async function ReportClientPage({
     socialDailyRows,
     socialPostSnapshots: workspace.socialPostSnapshots,
     adsSnapshot,
+    ga4Snapshot: workspace.ga4Snapshot,
     gbpSnapshot,
     gbpReviews,
     gscPageMetrics: gscPageMetrics as GscPageMetric[],
