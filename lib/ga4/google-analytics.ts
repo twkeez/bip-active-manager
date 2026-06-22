@@ -72,12 +72,16 @@ function dim(row: Ga4Row, index: number): string {
 }
 
 function parseTotalsRow(row: Ga4Row | undefined): Ga4Totals {
+  const sessions = num(row, 0);
+  // GA4 returns userEngagementDuration (total seconds). Average engagement time
+  // per session = total ÷ sessions.
+  const totalEngagementSeconds = num(row, 4);
   return {
-    sessions: num(row, 0),
+    sessions,
     users: num(row, 1),
     new_users: num(row, 2),
     engagement_rate: num(row, 3),
-    avg_engagement_time_seconds: num(row, 4),
+    avg_engagement_time_seconds: sessions > 0 ? totalEngagementSeconds / sessions : 0,
     conversions: num(row, 5),
   };
 }
@@ -144,12 +148,16 @@ export async function runGa4Sync(
     orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
   });
 
-  const topPages: Ga4PageRow[] = (pagesReport.rows ?? []).map((row) => ({
-    page_path: dim(row, 0),
-    sessions: num(row, 0),
-    engagement_rate: num(row, 1),
-    avg_engagement_time_seconds: num(row, 2),
-  }));
+  const topPages: Ga4PageRow[] = (pagesReport.rows ?? []).map((row) => {
+    const pageSessions = num(row, 0);
+    const pageEngagementSeconds = num(row, 2); // total userEngagementDuration
+    return {
+      page_path: dim(row, 0),
+      sessions: pageSessions,
+      engagement_rate: num(row, 1),
+      avg_engagement_time_seconds: pageSessions > 0 ? pageEngagementSeconds / pageSessions : 0,
+    };
+  });
 
   return {
     propertyId,
