@@ -274,6 +274,7 @@ export default async function ReportClientPage({
   const syncTimestamps = {
     gsc: workspace.gscSnapshot?.updated_at ?? null,
     ads: workspace.adsSnapshot?.updated_at ?? null,
+    ga4: workspace.ga4Snapshot?.updated_at ?? null,
     social: workspace.socialDailySnapshots[0]?.created_at ?? null,
     gbp: workspace.gbpSnapshot?.updated_at ?? null,
   };
