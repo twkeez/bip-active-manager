@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BookOpen,
   Building2,
@@ -9,6 +9,8 @@ import {
   ChevronDown,
   ClipboardCheck,
   Compass,
+  Eye,
+  EyeOff,
   FileDown,
   FileText,
   Flame,
@@ -28,6 +30,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { UserRole } from "@/lib/auth/profile";
+import { VIEW_AS_COOKIE } from "@/lib/auth/effective-role";
 
 type NavItem = {
   label: string;
@@ -63,6 +66,13 @@ const SALES: NavItem[] = [
   { label: "Sales Lab", href: "/sales-lab", icon: Sparkles, adminOnly: true },
   { label: "Strategy Mapper", href: "/onboarding-strategy-mapper", icon: Compass, adminOnly: true },
   { label: "Vet Onboarding", href: "/vet-onboarding", icon: Stethoscope, adminOnly: true },
+];
+
+// The trimmed navigation non-admin users (strategists) see.
+const USER_NAV: NavItem[] = [
+  { label: "Clients", href: "/dashboard/clients", icon: Building2 },
+  { label: "My Tasks", href: "/my-tasks", icon: CheckSquare },
+  { label: "Reporting", href: "/reports/doc-to-pdf", icon: FileDown },
 ];
 
 function NavLink({ item, role }: { item: NavItem; role: UserRole }) {
@@ -153,13 +163,45 @@ function ThemeToggle() {
   );
 }
 
+function ViewAsToggle({ previewing }: { previewing: boolean }) {
+  const router = useRouter();
+
+  function toggle() {
+    if (previewing) {
+      document.cookie = `${VIEW_AS_COOKIE}=; path=/; max-age=0`;
+    } else {
+      document.cookie = `${VIEW_AS_COOKIE}=strategist; path=/; max-age=86400`;
+    }
+    router.refresh();
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+        previewing
+          ? "bg-[var(--bip-accent)] text-white hover:opacity-90"
+          : "text-[var(--text-muted)] hover:bg-[var(--bip-hover)] hover:text-[var(--text)]"
+      }`}
+    >
+      {previewing ? <EyeOff size={15} /> : <Eye size={15} />}
+      {previewing ? "Exit user view" : "View as user"}
+    </button>
+  );
+}
+
 export default function Sidebar({
   role,
+  actualRole,
   userName,
 }: {
   role: UserRole;
+  actualRole: UserRole;
   userName: string;
 }) {
+  const isUserView = role !== "admin";
+  const previewing = actualRole === "admin" && role !== "admin";
+
   return (
     <aside className="flex h-screen w-56 flex-shrink-0 flex-col border-r border-[var(--bip-border)] bg-[var(--bip-card)]">
       {/* Logo */}
@@ -172,20 +214,30 @@ export default function Sidebar({
 
       {/* Nav */}
       <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3 pt-4">
-        {/* Primary */}
-        <div className="flex flex-col gap-0.5">
-          {PRIMARY.map((item) => (
-            <NavLink key={item.href} item={item} role={role} />
-          ))}
-        </div>
+        {isUserView ? (
+          <div className="flex flex-col gap-0.5">
+            {USER_NAV.map((item) => (
+              <NavLink key={item.href} item={item} role={role} />
+            ))}
+          </div>
+        ) : (
+          <>
+            {/* Primary */}
+            <div className="flex flex-col gap-0.5">
+              {PRIMARY.map((item) => (
+                <NavLink key={item.href} item={item} role={role} />
+              ))}
+            </div>
 
-        <div className="border-t border-[var(--bip-border)]" />
+            <div className="border-t border-[var(--bip-border)]" />
 
-        <SectionGroup label="Tools" items={TOOLS} role={role} />
+            <SectionGroup label="Tools" items={TOOLS} role={role} />
 
-        <div className="border-t border-[var(--bip-border)]" />
+            <div className="border-t border-[var(--bip-border)]" />
 
-        <SectionGroup label="Sales" items={SALES} role={role} defaultOpen={false} />
+            <SectionGroup label="Sales" items={SALES} role={role} defaultOpen={false} />
+          </>
+        )}
       </nav>
 
       {/* User + theme */}
@@ -194,13 +246,19 @@ export default function Sidebar({
           <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-subtle)]">
             <User size={13} />
             <span>{userName}</span>
-            {role === "admin" && (
+            {actualRole === "admin" && !previewing && (
               <span className="ml-auto text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--primary)]">
                 Admin
               </span>
             )}
+            {previewing && (
+              <span className="ml-auto text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--bip-accent)]">
+                User view
+              </span>
+            )}
           </div>
         )}
+        {actualRole === "admin" && <ViewAsToggle previewing={previewing} />}
         <ThemeToggle />
       </div>
 

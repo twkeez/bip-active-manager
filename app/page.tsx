@@ -1,13 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getProfile } from "@/lib/auth/profile";
+import { landingPathForRole } from "@/lib/auth/effective-role";
 export default async function Home() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (user) {
-    redirect("/dashboard");
+    const profile = await getProfile(supabase);
+    redirect(landingPathForRole(profile?.role ?? "strategist"));
   }
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-bip-page px-6">
