@@ -39,6 +39,8 @@ import type { BasecampThreadEvent } from "@/lib/types/client";
 import NotifyStrategistButton from "@/components/dashboard/notify-strategist-button";
 import type { ClientSetupItem } from "@/lib/clients/types";
 import type { StrategistContact } from "@/lib/team/strategist-roster";
+import { StrategistCockpit } from "@/components/dashboard/strategist-cockpit";
+import { toCockpitViewModel } from "@/lib/dashboard/cockpit-view-model";
 
 const DETAIL_TABS: Array<{ id: ClientDetailTab; label: string }> = [
   { id: "comms", label: "Comms" },
@@ -265,6 +267,11 @@ export default function ClientWorkspaceDashboard({
           ))}
         </div>
       </header>
+
+      {/* Strategist Cockpit */}
+      <div className="mb-8">
+        <StrategistCockpit data={toCockpitViewModel(data)} />
+      </div>
 
       {/* Tab nav */}
       <nav className="mb-6 flex flex-wrap gap-2">
