@@ -35,6 +35,13 @@ export async function syncClientGa4(
       previous_totals: null,
       channel_breakdown: [],
       top_pages: [],
+      conversions_by_event: [],
+      geo_breakdown: [],
+      device_breakdown: [],
+      source_medium_breakdown: [],
+      new_vs_returning: [],
+      sessions_trend: [],
+      landing_pages: [],
     })
     .select("*")
     .single<Ga4Snapshot>();
@@ -54,6 +61,13 @@ export async function syncClientGa4(
         previous_totals: sync.previousTotals,
         channel_breakdown: sync.channelBreakdown,
         top_pages: sync.topPages,
+        conversions_by_event: sync.conversionsByEvent,
+        geo_breakdown: sync.geoBreakdown,
+        device_breakdown: sync.deviceBreakdown,
+        source_medium_breakdown: sync.sourceMediumBreakdown,
+        new_vs_returning: sync.newVsReturning,
+        sessions_trend: sync.sessionsTrend,
+        landing_pages: sync.landingPages,
         updated_at: new Date().toISOString(),
       })
       .eq("id", createdSnapshot.id);

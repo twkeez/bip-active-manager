@@ -1,6 +1,17 @@
 import { JWT } from "google-auth-library";
 import { getGoogleServiceAccountConfig } from "@/lib/env";
-import type { Ga4ChannelRow, Ga4PageRow, Ga4Totals } from "@/lib/types/client";
+import type {
+  Ga4ChannelRow,
+  Ga4ConversionRow,
+  Ga4DeviceRow,
+  Ga4GeoRow,
+  Ga4LandingPageRow,
+  Ga4NewVsReturningRow,
+  Ga4PageRow,
+  Ga4SourceMediumRow,
+  Ga4Totals,
+  Ga4TrendPoint,
+} from "@/lib/types/client";
 
 const GA4_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
 const GA4_BASE = "https://analyticsdata.googleapis.com/v1beta";
@@ -13,6 +24,13 @@ export type Ga4SyncResult = {
   previousTotals: Ga4Totals;
   channelBreakdown: Ga4ChannelRow[];
   topPages: Ga4PageRow[];
+  conversionsByEvent: Ga4ConversionRow[];
+  geoBreakdown: Ga4GeoRow[];
+  deviceBreakdown: Ga4DeviceRow[];
+  sourceMediumBreakdown: Ga4SourceMediumRow[];
+  newVsReturning: Ga4NewVsReturningRow[];
+  sessionsTrend: Ga4TrendPoint[];
+  landingPages: Ga4LandingPageRow[];
 };
 
 async function getAccessToken(): Promise<string> {
@@ -29,7 +47,11 @@ type Ga4RunReportBody = {
   dimensions?: Array<{ name: string }>;
   metrics: Array<{ name: string }>;
   limit?: number;
-  orderBys?: Array<{ metric?: { metricName: string }; desc?: boolean }>;
+  orderBys?: Array<{
+    metric?: { metricName: string };
+    dimension?: { dimensionName: string };
+    desc?: boolean;
+  }>;
 };
 
 type Ga4Row = {
@@ -76,14 +98,35 @@ function parseTotalsRow(row: Ga4Row | undefined): Ga4Totals {
   // GA4 returns userEngagementDuration (total seconds). Average engagement time
   // per session = total ÷ sessions.
   const totalEngagementSeconds = num(row, 4);
+  const conversions = num(row, 5);
   return {
     sessions,
     users: num(row, 1),
     new_users: num(row, 2),
     engagement_rate: num(row, 3),
     avg_engagement_time_seconds: sessions > 0 ? totalEngagementSeconds / sessions : 0,
-    conversions: num(row, 5),
+    conversions,
+    engaged_sessions: num(row, 6),
+    bounce_rate: num(row, 7),
+    avg_session_duration_seconds: num(row, 8),
+    views_per_session: num(row, 9),
+    events_per_session: num(row, 10),
+    session_key_event_rate: sessions > 0 ? conversions / sessions : 0,
   };
+}
+
+/** Runs a report and returns a fallback on failure, so an unsupported metric or
+ *  dimension on a given property never breaks the whole sync. */
+async function safeReport(
+  propertyId: string,
+  token: string,
+  body: Ga4RunReportBody,
+): Promise<Ga4ReportResponse> {
+  try {
+    return await runReport(propertyId, token, body);
+  } catch {
+    return { rows: [] };
+  }
 }
 
 export async function runGa4Sync(
@@ -111,6 +154,11 @@ export async function runGa4Sync(
       { name: "engagementRate" },
       { name: "userEngagementDuration" },
       { name: "conversions" },
+      { name: "engagedSessions" },
+      { name: "bounceRate" },
+      { name: "averageSessionDuration" },
+      { name: "screenPageViewsPerSession" },
+      { name: "eventsPerSession" },
     ],
     // returnPropertyQuota: true — not needed here
   });
@@ -159,6 +207,104 @@ export async function runGa4Sync(
     };
   });
 
+  // Conversions by key event (the "what converted" breakdown).
+  const conversionsReport = await safeReport(propertyId, token, {
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: "eventName" }],
+    metrics: [{ name: "conversions" }],
+    limit: 25,
+    orderBys: [{ metric: { metricName: "conversions" }, desc: true }],
+  });
+  const conversionsByEvent: Ga4ConversionRow[] = (conversionsReport.rows ?? [])
+    .map((row) => ({ event_name: dim(row, 0), conversions: num(row, 0) }))
+    .filter((r) => r.conversions > 0);
+
+  // Geography (city + region) by sessions.
+  const geoReport = await safeReport(propertyId, token, {
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: "city" }, { name: "region" }],
+    metrics: [{ name: "sessions" }, { name: "totalUsers" }],
+    limit: 15,
+    orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+  });
+  const geoBreakdown: Ga4GeoRow[] = (geoReport.rows ?? []).map((row) => ({
+    city: dim(row, 0),
+    region: dim(row, 1),
+    sessions: num(row, 0),
+    users: num(row, 1),
+  }));
+
+  // Device category.
+  const deviceReport = await safeReport(propertyId, token, {
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: "deviceCategory" }],
+    metrics: [{ name: "sessions" }, { name: "engagementRate" }],
+    limit: 10,
+    orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+  });
+  const deviceBreakdown: Ga4DeviceRow[] = (deviceReport.rows ?? []).map((row) => ({
+    device: dim(row, 0),
+    sessions: num(row, 0),
+    engagement_rate: num(row, 1),
+  }));
+
+  // Source / medium (finer than channel group).
+  const sourceMediumReport = await safeReport(propertyId, token, {
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: "sessionSourceMedium" }],
+    metrics: [{ name: "sessions" }, { name: "conversions" }],
+    limit: 15,
+    orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+  });
+  const sourceMediumBreakdown: Ga4SourceMediumRow[] = (sourceMediumReport.rows ?? []).map((row) => ({
+    source_medium: dim(row, 0),
+    sessions: num(row, 0),
+    conversions: num(row, 1),
+  }));
+
+  // New vs returning.
+  const nvrReport = await safeReport(propertyId, token, {
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: "newVsReturning" }],
+    metrics: [{ name: "sessions" }, { name: "totalUsers" }],
+    limit: 5,
+    orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+  });
+  const newVsReturning: Ga4NewVsReturningRow[] = (nvrReport.rows ?? []).map((row) => ({
+    cohort: dim(row, 0) || "(unknown)",
+    sessions: num(row, 0),
+    users: num(row, 1),
+  }));
+
+  // Sessions trend by date (for the line chart).
+  const trendReport = await safeReport(propertyId, token, {
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: "date" }],
+    metrics: [{ name: "sessions" }],
+    limit: 60,
+    orderBys: [{ dimension: { dimensionName: "date" }, desc: false }],
+  });
+  const sessionsTrend: Ga4TrendPoint[] = (trendReport.rows ?? []).map((row) => {
+    const raw = dim(row, 0); // YYYYMMDD
+    const date =
+      raw.length === 8 ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}` : raw;
+    return { date, sessions: num(row, 0) };
+  });
+
+  // Landing pages (entry points).
+  const landingReport = await safeReport(propertyId, token, {
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: "landingPage" }],
+    metrics: [{ name: "sessions" }, { name: "engagementRate" }],
+    limit: 15,
+    orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+  });
+  const landingPages: Ga4LandingPageRow[] = (landingReport.rows ?? []).map((row) => ({
+    landing_page: dim(row, 0),
+    sessions: num(row, 0),
+    engagement_rate: num(row, 1),
+  }));
+
   return {
     propertyId,
     startDate,
@@ -167,5 +313,12 @@ export async function runGa4Sync(
     previousTotals,
     channelBreakdown,
     topPages,
+    conversionsByEvent,
+    geoBreakdown,
+    deviceBreakdown,
+    sourceMediumBreakdown,
+    newVsReturning,
+    sessionsTrend,
+    landingPages,
   };
 }
