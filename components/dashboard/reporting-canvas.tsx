@@ -1,6 +1,7 @@
 "use client";
 import {
   AlertCircle,
+  Globe,
   Link2Off,
   Loader2,
   RefreshCw,
@@ -11,6 +12,7 @@ import { useMemo } from "react";
 import type {
   AdsSignal,
   AdsSnapshot,
+  Ga4Snapshot,
   ClientKeywordTarget,
   KeywordHealthRow,
   ReportingFreshnessItem,
@@ -120,6 +122,7 @@ function buildQualityAlerts(adsSignals: AdsSignal[]) {
 export default function ReportingCanvas({
   allKpis,
   adsSnapshot = null,
+  ga4Snapshot = null,
   adsSignals = [],
   keywordTargets = [],
   keywordHealthRows = [],
@@ -132,6 +135,7 @@ export default function ReportingCanvas({
 }: {
   allKpis: ReportingKpiCard[];
   adsSnapshot?: AdsSnapshot | null;
+  ga4Snapshot?: Ga4Snapshot | null;
   adsSignals?: AdsSignal[];
   keywordTargets?: ClientKeywordTarget[];
   keywordHealthRows?: KeywordHealthRow[];
@@ -229,9 +233,76 @@ export default function ReportingCanvas({
         </div>
       </section>
       <section className="mb-8">
-        
         <h3 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-bip-accent">
-          
+          <Globe size={16} /> Website Analytics (GA4)
+        </h3>
+        {!ga4Snapshot ? (
+          <p className="rounded-xl border border-dashed border-bip-border p-5 text-sm text-bip-muted">
+            No GA4 snapshot synced yet. Run a sync to populate website analytics.
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <MetricTile label="Sessions (30d)" value={ga4Snapshot.totals.sessions.toLocaleString("en-US")} />
+              <MetricTile label="Users (30d)" value={ga4Snapshot.totals.users.toLocaleString("en-US")} accent="indigo" />
+              <MetricTile label="Engagement Rate" value={`${(ga4Snapshot.totals.engagement_rate * 100).toFixed(1)}%`} accent="emerald" />
+              <MetricTile label="Avg Engagement Time" value={formatGa4Time(ga4Snapshot.totals.avg_engagement_time_seconds)} />
+            </div>
+            {ga4Snapshot.channel_breakdown.length > 0 && (
+              <div className="mt-4 overflow-hidden rounded-xl border border-bip-border">
+                <table className="w-full text-sm">
+                  <thead className="bg-bip-card/50 text-[11px] uppercase tracking-wide text-bip-muted">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-semibold">Channel</th>
+                      <th className="px-3 py-2 text-right font-semibold">Sessions</th>
+                      <th className="px-3 py-2 text-right font-semibold">Users</th>
+                      <th className="px-4 py-2 text-right font-semibold">Engagement</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ga4Snapshot.channel_breakdown.slice(0, 8).map((row) => (
+                      <tr key={row.channel} className="border-t border-bip-border">
+                        <td className="px-4 py-2 text-bip-text">{row.channel}</td>
+                        <td className="px-3 py-2 text-right text-bip-muted">{row.sessions.toLocaleString("en-US")}</td>
+                        <td className="px-3 py-2 text-right text-bip-muted">{row.users.toLocaleString("en-US")}</td>
+                        <td className="px-4 py-2 text-right text-bip-muted">{(row.engagement_rate * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {ga4Snapshot.top_pages.length > 0 && (
+              <div className="mt-4 overflow-hidden rounded-xl border border-bip-border">
+                <table className="w-full text-sm">
+                  <thead className="bg-bip-card/50 text-[11px] uppercase tracking-wide text-bip-muted">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-semibold">Top Page</th>
+                      <th className="px-3 py-2 text-right font-semibold">Sessions</th>
+                      <th className="px-3 py-2 text-right font-semibold">Engagement</th>
+                      <th className="px-4 py-2 text-right font-semibold">Avg Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ga4Snapshot.top_pages.slice(0, 8).map((row) => (
+                      <tr key={row.page_path} className="border-t border-bip-border">
+                        <td className="max-w-[240px] truncate px-4 py-2 text-bip-text" title={row.page_path}>{row.page_path}</td>
+                        <td className="px-3 py-2 text-right text-bip-muted">{row.sessions.toLocaleString("en-US")}</td>
+                        <td className="px-3 py-2 text-right text-bip-muted">{(row.engagement_rate * 100).toFixed(1)}%</td>
+                        <td className="px-4 py-2 text-right text-bip-muted">{formatGa4Time(row.avg_engagement_time_seconds)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+      <section className="mb-8">
+
+        <h3 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-bip-accent">
+
           <TrendingUp size={16} /> Organic Search &amp; Reach Performance
         </h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -306,6 +377,13 @@ export default function ReportingCanvas({
     </div>
   );
 }
+function formatGa4Time(seconds: number): string {
+  const total = Math.round(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+}
+
 function MetricTile({
   label,
   value,

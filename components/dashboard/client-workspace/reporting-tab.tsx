@@ -21,6 +21,7 @@ import type {
 import type {
   AdsSignal,
   AdsSnapshot,
+  Ga4Snapshot,
   ClientKeywordTarget,
   ClientRow,
   GbpSnapshot,
@@ -84,6 +85,7 @@ export default function ReportingOverview({
   keywordHealthRows,
   selectedSocialDailyRows,
   selectedAdsSnapshot,
+  selectedGa4Snapshot,
   selectedAdsSignals,
   keywordHealthLoading,
   keywordHealthError,
@@ -129,6 +131,7 @@ export default function ReportingOverview({
   keywordHealthRows: KeywordHealthRow[];
   selectedSocialDailyRows: SocialDailySnapshot[];
   selectedAdsSnapshot: AdsSnapshot | null;
+  selectedGa4Snapshot: Ga4Snapshot | null;
   selectedAdsSignals: AdsSignal[];
   keywordHealthLoading: boolean;
   keywordHealthError: string | null;
@@ -288,6 +291,7 @@ export default function ReportingOverview({
       <ReportingCanvas
         allKpis={allKpis}
         adsSnapshot={selectedAdsSnapshot}
+        ga4Snapshot={selectedGa4Snapshot}
         adsSignals={selectedAdsSignals}
         keywordTargets={keywordTargets}
         keywordHealthRows={keywordHealthRows}
