@@ -83,6 +83,57 @@ function PlatformBadge({ platform }: { platform: string }) {
   );
 }
 
+// ── PDF page-cut helper ───────────────────────────────────────────────────────
+// Scans the bottom 15% of each nominal page for a fully-white row and cuts
+// there instead, so page breaks always land in whitespace rather than mid-text.
+function findSmartPageCuts(
+  canvas: HTMLCanvasElement,
+  pageHeightPx: number,
+): Array<{ start: number; end: number }> {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return [{ start: 0, end: canvas.height }];
+
+  const slices: Array<{ start: number; end: number }> = [];
+  let start = 0;
+
+  while (start < canvas.height) {
+    const nominalEnd = Math.min(start + pageHeightPx, canvas.height);
+    if (nominalEnd === canvas.height) {
+      slices.push({ start, end: canvas.height });
+      break;
+    }
+
+    // Read the bottom 15% of this page in one getImageData call
+    const searchHeight = Math.max(1, Math.floor(pageHeightPx * 0.15));
+    const searchFrom = nominalEnd - searchHeight;
+    const region = ctx.getImageData(0, searchFrom, canvas.width, searchHeight);
+    const w4 = canvas.width * 4;
+
+    let cutAt = nominalEnd;
+    // Scan rows bottom-up looking for a fully-white row
+    for (let row = searchHeight - 1; row >= 0; row--) {
+      let isWhite = true;
+      const rowBase = row * w4;
+      for (let px = 0; px < w4; px += 4) {
+        const i = rowBase + px;
+        if (region.data[i] < 245 || region.data[i + 1] < 245 || region.data[i + 2] < 245) {
+          isWhite = false;
+          break;
+        }
+      }
+      if (isWhite) {
+        cutAt = searchFrom + row;
+        break;
+      }
+    }
+
+    slices.push({ start, end: cutAt });
+    start = cutAt;
+  }
+
+  return slices;
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 
 type Props = {
@@ -168,20 +219,34 @@ export default function ReportPreview({ report, config, draft }: Props) {
           clonedDoc.head.appendChild(s);
         },
       });
-      const imgData = canvas.toDataURL("image/jpeg", 0.92);
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
-      const imgH = (canvas.height * pageW) / canvas.width;
-      let remaining = imgH;
-      let offset = 0;
-      pdf.addImage(imgData, "JPEG", 0, offset, pageW, imgH);
-      remaining -= pageH;
-      while (remaining > 0) {
-        offset -= pageH;
-        pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, offset, pageW, imgH);
-        remaining -= pageH;
+
+      // px per mm on the canvas
+      const pxPerMm = canvas.width / pageW;
+      const pageHeightPx = Math.floor(pageH * pxPerMm);
+
+      // Find page cut points that fall in whitespace, not mid-text
+      const cuts = findSmartPageCuts(canvas, pageHeightPx);
+
+      let firstPage = true;
+      for (const { start, end } of cuts) {
+        if (!firstPage) pdf.addPage();
+        firstPage = false;
+
+        const sliceH = end - start;
+        const sliceCanvas = document.createElement("canvas");
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = sliceH;
+        const ctx2d = sliceCanvas.getContext("2d")!;
+        ctx2d.fillStyle = "#ffffff";
+        ctx2d.fillRect(0, 0, canvas.width, sliceH);
+        ctx2d.drawImage(canvas, 0, start, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+
+        const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
+        const sliceHeightMm = sliceH / pxPerMm;
+        pdf.addImage(sliceData, "JPEG", 0, 0, pageW, sliceHeightMm);
       }
       const slug = report.client.account_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
       const fileName = `bip-report-${slug}.pdf`;
