@@ -41,6 +41,10 @@ import type { ClientSetupItem } from "@/lib/clients/types";
 import type { StrategistContact } from "@/lib/team/strategist-roster";
 import { StrategistCockpit } from "@/components/dashboard/strategist-cockpit";
 import { toCockpitViewModel } from "@/lib/dashboard/cockpit-view-model";
+import {
+  affectedKeywordsForAdsSignal,
+  type AffectedKeyword,
+} from "@/lib/dashboard/signal-mapping";
 
 const DETAIL_TABS: Array<{ id: ClientDetailTab; label: string }> = [
   { id: "comms", label: "Comms" },
@@ -60,13 +64,6 @@ function formatRelativeDays(value: string | null | undefined) {
   if (days === 1) return "1 day ago";
   return `${days} days ago`;
 }
-
-type AffectedKeyword = {
-  keyword: string;
-  match_type: string;
-  campaign_name: string;
-  ad_group_name: string;
-};
 
 type AttentionItem = {
   id: string;
@@ -97,32 +94,13 @@ function buildAttentionItems(
     });
   }
 
-  const kq = data.adsSnapshot?.keyword_quality ?? [];
-
-  function affectedForSignal(signalId: string): AffectedKeyword[] {
-    let rows: typeof kq = [];
-    if (signalId === "ads_qs_landing_page_rollup") {
-      rows = kq.filter((r) => r.landing_page_experience === "BELOW_AVERAGE");
-    } else if (signalId === "ads_qs_ad_relevance_rollup") {
-      rows = kq.filter((r) => r.ad_relevance === "BELOW_AVERAGE");
-    } else if (signalId === "ads_qs_expected_ctr_rollup") {
-      rows = kq.filter((r) => r.expected_ctr === "BELOW_AVERAGE");
-    } else if (signalId === "ads_qs_overall_low_rollup") {
-      rows = kq.filter((r) => typeof r.quality_score === "number" && r.quality_score <= 5);
-    }
-    return rows
-      .sort((a, b) => b.cost_micros - a.cost_micros)
-      .slice(0, 8)
-      .map((r) => ({ keyword: r.keyword, match_type: r.match_type, campaign_name: r.campaign_name, ad_group_name: r.ad_group_name }));
-  }
-
   // Ads signals
   for (const s of data.adsSignals.filter((s) => s.severity === "critical").slice(0, 4)) {
-    const affectedKeywords = affectedForSignal(s.signal_id);
+    const affectedKeywords = affectedKeywordsForAdsSignal(data.adsSnapshot, s.signal_id);
     items.push({ id: `ads-${s.id}`, area: "Ads", severity: "critical", title: s.title, tab: "ads", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value, affectedKeywords: affectedKeywords.length > 0 ? affectedKeywords : undefined });
   }
   for (const s of data.adsSignals.filter((s) => s.severity === "watch").slice(0, 2)) {
-    const affectedKeywords = affectedForSignal(s.signal_id);
+    const affectedKeywords = affectedKeywordsForAdsSignal(data.adsSnapshot, s.signal_id);
     items.push({ id: `ads-watch-${s.id}`, area: "Ads", severity: "watch", title: s.title, tab: "ads", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value, affectedKeywords: affectedKeywords.length > 0 ? affectedKeywords : undefined });
   }
 

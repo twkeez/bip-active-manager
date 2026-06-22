@@ -173,6 +173,7 @@
   --color-bip-page:    var(--bip-page);
   --color-bip-card:    var(--bip-card);
   --color-bip-accent:  var(--bip-accent);
+  --color-bip-highlight: var(--bip-highlight);
   --color-bip-danger:  var(--bip-danger);
   --color-bip-border:  var(--bip-border);
   /* Semantic text tokens — adapt to dark/light theme */
