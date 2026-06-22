@@ -73,7 +73,7 @@ const OKLCH_OVERRIDE = `
   }
 `;
 
-async function saveBlob(blob: Blob, fileName: string) {
+export async function savePdfBlob(blob: Blob, fileName: string) {
   if ("showSaveFilePicker" in window) {
     try {
       const handle = await (
@@ -155,5 +155,5 @@ export async function exportElementToPdf(
     pdf.addImage(sliceData, "JPEG", 0, 0, pageW, sliceHeightMm);
   }
 
-  await saveBlob(pdf.output("blob"), fileName);
+  await savePdfBlob(pdf.output("blob"), fileName);
 }

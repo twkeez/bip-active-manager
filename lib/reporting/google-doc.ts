@@ -3,6 +3,7 @@ import {
   getGoogleOAuthRefreshConfig,
   getGoogleServiceAccountConfig,
 } from "@/lib/env";
+import { refineBlocks } from "@/lib/reporting/block-refine";
 
 // Read-only access to Docs (and Drive for export-as-fallback / metadata).
 const DOC_SCOPES = [
@@ -10,7 +11,7 @@ const DOC_SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",
 ];
 
-export type DocBlockType = "h1" | "h2" | "h3" | "p" | "bullet";
+export type DocBlockType = "h1" | "h2" | "h3" | "label" | "p" | "bullet";
 
 export type DocBlock = {
   /** Stable id for React keys + edit tracking. */
@@ -224,6 +225,6 @@ export async function fetchGoogleDoc(urlOrId: string): Promise<ParsedGoogleDoc> 
 
   return {
     title: doc.title?.trim() || "Untitled document",
-    blocks,
+    blocks: refineBlocks(blocks),
   };
 }

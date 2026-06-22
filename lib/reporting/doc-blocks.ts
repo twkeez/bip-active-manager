@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { DocBlock, DocBlockType } from "@/lib/reporting/google-doc";
+import { refineBlocks } from "@/lib/reporting/block-refine";
 
 let seq = 0;
 function nextId() {
@@ -41,7 +42,7 @@ export function htmlToBlocks(html: string): DocBlock[] {
       blocks.push({ id: nextId(), type, text });
     });
 
-  return blocks;
+  return refineBlocks(blocks);
 }
 
 /**
@@ -74,5 +75,5 @@ export function textToBlocks(text: string): DocBlock[] {
     blocks.push({ id: nextId(), type: "p", text: clean(line) });
   }
 
-  return blocks;
+  return refineBlocks(blocks);
 }
