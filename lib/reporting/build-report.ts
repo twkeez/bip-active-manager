@@ -603,28 +603,28 @@ export function buildReportingKpis(params: {
     },
     "website-total-sessions": {
       label: "Website Sessions (30d)",
-      value: ga4Value(params.ga4Snapshot, (t) => t.sessions.toLocaleString()),
+      value: ga4Kpi(params.ga4Snapshot, (t) => t.sessions, (v) => v.toLocaleString()),
       source: "ga4",
       definition: "Total GA4 sessions for the latest reporting window.",
       updated_at: params.ga4Snapshot?.updated_at ?? null,
     },
     "website-users": {
       label: "Website Users (30d)",
-      value: ga4Value(params.ga4Snapshot, (t) => t.users.toLocaleString()),
+      value: ga4Kpi(params.ga4Snapshot, (t) => t.users, (v) => v.toLocaleString()),
       source: "ga4",
       definition: "Total GA4 users for the latest reporting window.",
       updated_at: params.ga4Snapshot?.updated_at ?? null,
     },
     "website-engagement-rate": {
       label: "Website Engagement Rate (30d)",
-      value: ga4Value(params.ga4Snapshot, (t) => `${(t.engagement_rate * 100).toFixed(1)}%`),
+      value: ga4Kpi(params.ga4Snapshot, (t) => t.engagement_rate, (v) => `${(v * 100).toFixed(1)}%`),
       source: "ga4",
       definition: "GA4 engagement rate for the latest reporting window.",
       updated_at: params.ga4Snapshot?.updated_at ?? null,
     },
     "website-avg-engagement-time": {
       label: "Website Avg Engagement Time",
-      value: ga4Value(params.ga4Snapshot, (t) => formatEngagementTime(t.avg_engagement_time_seconds)),
+      value: ga4Kpi(params.ga4Snapshot, (t) => t.avg_engagement_time_seconds, (v) => formatEngagementTime(v)),
       source: "ga4",
       definition: "Average engagement time per session from GA4.",
       updated_at: params.ga4Snapshot?.updated_at ?? null,
@@ -856,13 +856,21 @@ function avg(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+/** Coerces a possibly-missing GA4 number (real snapshots can have undefined
+ *  totals fields even though the type says number). */
+function gaNum(v: number | null | undefined): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
 /** Formats a GA4 KPI value, falling back to a clear status when not available. */
-function ga4Value(
+function ga4Kpi(
   snapshot: Ga4Snapshot | null | undefined,
-  fmt: (totals: Ga4Snapshot["totals"]) => string,
+  pick: (totals: Ga4Snapshot["totals"]) => number | null | undefined,
+  fmt: (value: number) => string,
 ): string {
   if (!snapshot) return "Not synced";
-  return fmt(snapshot.totals);
+  const value = gaNum(pick(snapshot.totals));
+  return value == null ? "—" : fmt(value);
 }
 
 /** Seconds → "1m 23s" / "45s". */
@@ -899,25 +907,24 @@ function buildGa4ChannelBlock(params: {
     };
   }
 
-  const t = snapshot.totals;
+  const t = snapshot.totals ?? ({} as Ga4Snapshot["totals"]);
   const prev = snapshot.previous_totals;
+  const rate = (v: number | null | undefined) => {
+    const n = gaNum(v);
+    return n == null ? null : n * 100;
+  };
   const metrics: ReportPeriodMetric[] = [
-    toPeriodMetric("Sessions", t.sessions, prev?.sessions ?? null),
-    toPeriodMetric("Users", t.users, prev?.users ?? null),
-    toPeriodMetric("New Users", t.new_users, prev?.new_users ?? null),
-    toPeriodMetric(
-      "Engagement Rate",
-      t.engagement_rate * 100,
-      prev ? prev.engagement_rate * 100 : null,
-      "%",
-    ),
+    toPeriodMetric("Sessions", gaNum(t.sessions), gaNum(prev?.sessions)),
+    toPeriodMetric("Users", gaNum(t.users), gaNum(prev?.users)),
+    toPeriodMetric("New Users", gaNum(t.new_users), gaNum(prev?.new_users)),
+    toPeriodMetric("Engagement Rate", rate(t.engagement_rate), rate(prev?.engagement_rate), "%"),
     toPeriodMetric(
       "Avg Engagement Time",
-      Math.round(t.avg_engagement_time_seconds),
-      prev ? Math.round(prev.avg_engagement_time_seconds) : null,
+      gaNum(t.avg_engagement_time_seconds) == null ? null : Math.round(t.avg_engagement_time_seconds),
+      gaNum(prev?.avg_engagement_time_seconds) == null ? null : Math.round(prev!.avg_engagement_time_seconds),
       "s",
     ),
-    toPeriodMetric("Conversions", t.conversions, prev?.conversions ?? null),
+    toPeriodMetric("Conversions", gaNum(t.conversions), gaNum(prev?.conversions)),
   ];
 
   return {
@@ -927,17 +934,17 @@ function buildGa4ChannelBlock(params: {
     status: "ready",
     summary: `GA4 snapshot ${snapshot.start_date} to ${snapshot.end_date}.`,
     metrics,
-    channelBreakdown: snapshot.channel_breakdown.map((row) => ({
+    channelBreakdown: (snapshot.channel_breakdown ?? []).map((row) => ({
       channel: row.channel,
-      sessions: row.sessions,
-      users: row.users,
-      engagementRate: row.engagement_rate,
+      sessions: gaNum(row.sessions) ?? 0,
+      users: gaNum(row.users) ?? 0,
+      engagementRate: gaNum(row.engagement_rate) ?? 0,
     })),
-    topPages: snapshot.top_pages.map((row) => ({
+    topPages: (snapshot.top_pages ?? []).map((row) => ({
       pagePath: row.page_path,
-      sessions: row.sessions,
-      engagementRate: row.engagement_rate,
-      avgEngagementTimeSeconds: row.avg_engagement_time_seconds,
+      sessions: gaNum(row.sessions) ?? 0,
+      engagementRate: gaNum(row.engagement_rate) ?? 0,
+      avgEngagementTimeSeconds: gaNum(row.avg_engagement_time_seconds) ?? 0,
     })),
   };
 }

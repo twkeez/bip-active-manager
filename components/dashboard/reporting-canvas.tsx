@@ -243,12 +243,12 @@ export default function ReportingCanvas({
         ) : (
           <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <MetricTile label="Sessions (30d)" value={ga4Snapshot.totals.sessions.toLocaleString("en-US")} />
-              <MetricTile label="Users (30d)" value={ga4Snapshot.totals.users.toLocaleString("en-US")} accent="indigo" />
-              <MetricTile label="Engagement Rate" value={`${(ga4Snapshot.totals.engagement_rate * 100).toFixed(1)}%`} accent="emerald" />
-              <MetricTile label="Avg Engagement Time" value={formatGa4Time(ga4Snapshot.totals.avg_engagement_time_seconds)} />
+              <MetricTile label="Sessions (30d)" value={gaCount(ga4Snapshot.totals?.sessions)} />
+              <MetricTile label="Users (30d)" value={gaCount(ga4Snapshot.totals?.users)} accent="indigo" />
+              <MetricTile label="Engagement Rate" value={gaPct(ga4Snapshot.totals?.engagement_rate)} accent="emerald" />
+              <MetricTile label="Avg Engagement Time" value={formatGa4Time(ga4Snapshot.totals?.avg_engagement_time_seconds)} />
             </div>
-            {ga4Snapshot.channel_breakdown.length > 0 && (
+            {(ga4Snapshot.channel_breakdown ?? []).length > 0 && (
               <div className="mt-4 overflow-hidden rounded-xl border border-bip-border">
                 <table className="w-full text-sm">
                   <thead className="bg-bip-card/50 text-[11px] uppercase tracking-wide text-bip-muted">
@@ -260,19 +260,19 @@ export default function ReportingCanvas({
                     </tr>
                   </thead>
                   <tbody>
-                    {ga4Snapshot.channel_breakdown.slice(0, 8).map((row) => (
+                    {(ga4Snapshot.channel_breakdown ?? []).slice(0, 8).map((row) => (
                       <tr key={row.channel} className="border-t border-bip-border">
                         <td className="px-4 py-2 text-bip-text">{row.channel}</td>
-                        <td className="px-3 py-2 text-right text-bip-muted">{row.sessions.toLocaleString("en-US")}</td>
-                        <td className="px-3 py-2 text-right text-bip-muted">{row.users.toLocaleString("en-US")}</td>
-                        <td className="px-4 py-2 text-right text-bip-muted">{(row.engagement_rate * 100).toFixed(1)}%</td>
+                        <td className="px-3 py-2 text-right text-bip-muted">{gaCount(row.sessions)}</td>
+                        <td className="px-3 py-2 text-right text-bip-muted">{gaCount(row.users)}</td>
+                        <td className="px-4 py-2 text-right text-bip-muted">{gaPct(row.engagement_rate)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
-            {ga4Snapshot.top_pages.length > 0 && (
+            {(ga4Snapshot.top_pages ?? []).length > 0 && (
               <div className="mt-4 overflow-hidden rounded-xl border border-bip-border">
                 <table className="w-full text-sm">
                   <thead className="bg-bip-card/50 text-[11px] uppercase tracking-wide text-bip-muted">
@@ -284,11 +284,11 @@ export default function ReportingCanvas({
                     </tr>
                   </thead>
                   <tbody>
-                    {ga4Snapshot.top_pages.slice(0, 8).map((row) => (
+                    {(ga4Snapshot.top_pages ?? []).slice(0, 8).map((row) => (
                       <tr key={row.page_path} className="border-t border-bip-border">
                         <td className="max-w-[240px] truncate px-4 py-2 text-bip-text" title={row.page_path}>{row.page_path}</td>
-                        <td className="px-3 py-2 text-right text-bip-muted">{row.sessions.toLocaleString("en-US")}</td>
-                        <td className="px-3 py-2 text-right text-bip-muted">{(row.engagement_rate * 100).toFixed(1)}%</td>
+                        <td className="px-3 py-2 text-right text-bip-muted">{gaCount(row.sessions)}</td>
+                        <td className="px-3 py-2 text-right text-bip-muted">{gaPct(row.engagement_rate)}</td>
                         <td className="px-4 py-2 text-right text-bip-muted">{formatGa4Time(row.avg_engagement_time_seconds)}</td>
                       </tr>
                     ))}
@@ -377,8 +377,22 @@ export default function ReportingCanvas({
     </div>
   );
 }
-function formatGa4Time(seconds: number): string {
-  const total = Math.round(seconds);
+// Real GA4 snapshots can have undefined totals/row fields — guard everything.
+function gaNum(v: number | null | undefined): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+function gaCount(v: number | null | undefined): string {
+  const n = gaNum(v);
+  return n == null ? "—" : n.toLocaleString("en-US");
+}
+function gaPct(v: number | null | undefined): string {
+  const n = gaNum(v);
+  return n == null ? "—" : `${(n * 100).toFixed(1)}%`;
+}
+function formatGa4Time(seconds: number | null | undefined): string {
+  const n = gaNum(seconds);
+  if (n == null) return "—";
+  const total = Math.round(n);
   const mins = Math.floor(total / 60);
   const secs = total % 60;
   return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
