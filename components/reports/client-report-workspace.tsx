@@ -21,6 +21,7 @@ type ManagedKeyword = {
 type SyncTimestamps = {
   gsc: string | null;
   ads: string | null;
+  ga4: string | null;
   social: string | null;
   gbp: string | null;
 };
@@ -256,10 +257,11 @@ export default function ClientReportWorkspace({
   const [syncErrors, setSyncErrors] = useState<Record<string, string>>({});
 
   const syncChannel = useCallback(
-    async (channel: "gsc" | "ads" | "social" | "gbp") => {
+    async (channel: "gsc" | "ads" | "ga4" | "social" | "gbp") => {
       const endpoints: Record<string, string> = {
         gsc: "/api/seo/search-console/sync",
         ads: "/api/ads/sync",
+        ga4: "/api/ga4/sync",
         social: "/api/social/sync",
         gbp: "/api/gbp/sync",
       };
@@ -396,15 +398,16 @@ function SyncPanel({
   syncTimestamps: SyncTimestamps;
   syncing: Record<string, boolean>;
   syncErrors: Record<string, string>;
-  onSync: (ch: "gsc" | "ads" | "social" | "gbp") => void;
+  onSync: (ch: "gsc" | "ads" | "ga4" | "social" | "gbp") => void;
 }) {
   const channels: Array<{
-    id: "gsc" | "ads" | "social" | "gbp";
+    id: "gsc" | "ads" | "ga4" | "social" | "gbp";
     label: string;
     description: string;
   }> = [
     { id: "gsc", label: "Search Console", description: "Organic rankings & clicks" },
     { id: "ads", label: "Google Ads", description: "Ad spend & conversions" },
+    { id: "ga4", label: "Google Analytics", description: "Sessions, users & engagement" },
     { id: "social", label: "Social Media", description: "Facebook & Instagram" },
     { id: "gbp", label: "Google Business", description: "Reviews & local metrics" },
   ];
