@@ -93,24 +93,28 @@ function dim(row: Ga4Row, index: number): string {
   return row.dimensionValues?.[index]?.value ?? "";
 }
 
-function parseTotalsRow(row: Ga4Row | undefined): Ga4Totals {
-  const sessions = num(row, 0);
+function parseTotalsRow(
+  core: Ga4Row | undefined,
+  quality: Ga4Row | undefined,
+): Ga4Totals {
+  const sessions = num(core, 0);
   // GA4 returns userEngagementDuration (total seconds). Average engagement time
   // per session = total ÷ sessions.
-  const totalEngagementSeconds = num(row, 4);
-  const conversions = num(row, 5);
+  const totalEngagementSeconds = num(core, 4);
+  const conversions = num(core, 5);
   return {
     sessions,
-    users: num(row, 1),
-    new_users: num(row, 2),
-    engagement_rate: num(row, 3),
+    users: num(core, 1),
+    new_users: num(core, 2),
+    engagement_rate: num(core, 3),
     avg_engagement_time_seconds: sessions > 0 ? totalEngagementSeconds / sessions : 0,
     conversions,
-    engaged_sessions: num(row, 6),
-    bounce_rate: num(row, 7),
-    avg_session_duration_seconds: num(row, 8),
-    views_per_session: num(row, 9),
-    events_per_session: num(row, 10),
+    // From the second (engagement-quality) request.
+    engaged_sessions: num(quality, 0),
+    bounce_rate: num(quality, 1),
+    avg_session_duration_seconds: num(quality, 2),
+    views_per_session: num(quality, 3),
+    events_per_session: num(quality, 4),
     session_key_event_rate: sessions > 0 ? conversions / sessions : 0,
   };
 }
@@ -154,18 +158,29 @@ export async function runGa4Sync(
       { name: "engagementRate" },
       { name: "userEngagementDuration" },
       { name: "conversions" },
+    ],
+    // returnPropertyQuota: true — not needed here
+  });
+
+  // Engagement-quality metrics in a second request (GA4 caps one request at 10
+  // metrics). safeReport so an unsupported metric just yields zeros.
+  const qualityReport = await safeReport(propertyId, token, {
+    dateRanges: [
+      { startDate, endDate, name: "current" },
+      { startDate: prevStartDate, endDate: prevEndDate, name: "previous" },
+    ],
+    metrics: [
       { name: "engagedSessions" },
       { name: "bounceRate" },
       { name: "averageSessionDuration" },
       { name: "screenPageViewsPerSession" },
       { name: "eventsPerSession" },
     ],
-    // returnPropertyQuota: true — not needed here
   });
 
   // With two date ranges and no dimensions, the API returns two rows (one per range)
-  const currentTotals = parseTotalsRow(totalsReport.rows?.[0]);
-  const previousTotals = parseTotalsRow(totalsReport.rows?.[1]);
+  const currentTotals = parseTotalsRow(totalsReport.rows?.[0], qualityReport.rows?.[0]);
+  const previousTotals = parseTotalsRow(totalsReport.rows?.[1], qualityReport.rows?.[1]);
 
   // Channel breakdown (current period only)
   const channelReport = await runReport(propertyId, token, {

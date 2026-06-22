@@ -248,6 +248,12 @@ export default function ReportingCanvas({
               <MetricTile label="Engagement Rate" value={gaPct(ga4Snapshot.totals?.engagement_rate)} accent="emerald" />
               <MetricTile label="Avg Engagement Time" value={formatGa4Time(ga4Snapshot.totals?.avg_engagement_time_seconds)} />
             </div>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <MetricTile label="Engaged Sessions" value={gaCount(ga4Snapshot.totals?.engaged_sessions)} />
+              <MetricTile label="Bounce Rate" value={gaPct(ga4Snapshot.totals?.bounce_rate)} />
+              <MetricTile label="Conversion Rate" value={gaPct(ga4Snapshot.totals?.session_key_event_rate)} accent="emerald" />
+              <MetricTile label="Avg Session Duration" value={formatGa4Time(ga4Snapshot.totals?.avg_session_duration_seconds)} />
+            </div>
             {(ga4Snapshot.channel_breakdown ?? []).length > 0 && (
               <div className="mt-4 overflow-hidden rounded-xl border border-bip-border">
                 <table className="w-full text-sm">
@@ -296,6 +302,40 @@ export default function ReportingCanvas({
                 </table>
               </div>
             )}
+            <Ga4CanvasTable
+              title="Conversions by Event"
+              headers={["Event", "Conversions"]}
+              rows={(ga4Snapshot.conversions_by_event ?? []).slice(0, 10).map((r) => [r.event_name, gaCount(r.conversions)])}
+            />
+            <Ga4CanvasTable
+              title="Geography"
+              headers={["Location", "Sessions", "Users"]}
+              rows={(ga4Snapshot.geo_breakdown ?? []).slice(0, 10).map((r) => [
+                [r.city, r.region].filter(Boolean).join(", ") || "(not set)",
+                gaCount(r.sessions),
+                gaCount(r.users),
+              ])}
+            />
+            <Ga4CanvasTable
+              title="Device"
+              headers={["Device", "Sessions", "Engagement"]}
+              rows={(ga4Snapshot.device_breakdown ?? []).map((r) => [r.device || "(unknown)", gaCount(r.sessions), gaPct(r.engagement_rate)])}
+            />
+            <Ga4CanvasTable
+              title="Source / Medium"
+              headers={["Source / Medium", "Sessions", "Conversions"]}
+              rows={(ga4Snapshot.source_medium_breakdown ?? []).slice(0, 10).map((r) => [r.source_medium || "(not set)", gaCount(r.sessions), gaCount(r.conversions)])}
+            />
+            <Ga4CanvasTable
+              title="New vs Returning"
+              headers={["Visitor Type", "Sessions", "Users"]}
+              rows={(ga4Snapshot.new_vs_returning ?? []).map((r) => [r.cohort, gaCount(r.sessions), gaCount(r.users)])}
+            />
+            <Ga4CanvasTable
+              title="Landing Pages"
+              headers={["Landing Page", "Sessions", "Engagement"]}
+              rows={(ga4Snapshot.landing_pages ?? []).slice(0, 10).map((r) => [r.landing_page, gaCount(r.sessions), gaPct(r.engagement_rate)])}
+            />
           </>
         )}
       </section>
@@ -389,6 +429,47 @@ function gaPct(v: number | null | undefined): string {
   const n = gaNum(v);
   return n == null ? "—" : `${(n * 100).toFixed(1)}%`;
 }
+function Ga4CanvasTable({
+  title, headers, rows,
+}: {
+  title: string;
+  headers: string[];
+  rows: string[][];
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="mt-4">
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">{title}</p>
+      <div className="overflow-hidden rounded-xl border border-bip-border">
+        <table className="w-full text-sm">
+          <thead className="bg-bip-card/50 text-[11px] uppercase tracking-wide text-bip-muted">
+            <tr>
+              {headers.map((h, i) => (
+                <th key={i} className={`px-4 py-2 font-semibold ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, ri) => (
+              <tr key={ri} className="border-t border-bip-border">
+                {r.map((c, ci) => (
+                  <td
+                    key={ci}
+                    className={`px-4 py-2 ${ci === 0 ? "max-w-[240px] truncate text-bip-text" : "text-right text-bip-muted"}`}
+                    title={ci === 0 ? c : undefined}
+                  >
+                    {c}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function formatGa4Time(seconds: number | null | undefined): string {
   const n = gaNum(seconds);
   if (n == null) return "—";
