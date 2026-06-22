@@ -13,7 +13,8 @@ import {
   Upload,
 } from "lucide-react";
 import type { DocBlock, DocBlockType } from "@/lib/reporting/google-doc";
-import { exportElementToPdf } from "@/lib/reporting/pdf-export";
+import { refineBlocks } from "@/lib/reporting/block-refine";
+import { renderReportPdf } from "@/lib/reporting/pdf-render";
 
 // ── Brand palette (hex — html2canvas cannot read CSS oklch vars) ─────────────
 const INDIGO = "#3350a2";
@@ -33,6 +34,7 @@ const BLOCK_TYPES: { value: DocBlockType; label: string }[] = [
   { value: "h1", label: "Heading 1" },
   { value: "h2", label: "Heading 2" },
   { value: "h3", label: "Heading 3" },
+  { value: "label", label: "Label" },
   { value: "p", label: "Body" },
   { value: "bullet", label: "Bullet" },
 ];
@@ -72,6 +74,17 @@ function blockStyle(type: DocBlockType): React.CSSProperties {
         lineHeight: 1.35,
         color: INDIGO,
         margin: "16px 0 4px",
+      };
+    case "label":
+      return {
+        fontFamily: FONT_HEADING,
+        fontSize: 10.5,
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+        lineHeight: 1.3,
+        color: PINK,
+        margin: "14px 0 2px",
       };
     case "bullet":
       return {
@@ -114,7 +127,7 @@ function pastedTextToBlocks(text: string): DocBlock[] {
     }
     out.push({ id: newId(), type: "p", text: line });
   }
-  return out;
+  return refineBlocks(out);
 }
 
 export default function DocToPdf() {
@@ -230,14 +243,11 @@ export default function DocToPdf() {
   }
 
   async function downloadPdf() {
-    if (!pageRef.current || exporting) return;
+    if (exporting) return;
     setExporting(true);
     setExportError(null);
     try {
-      const slug =
-        (title || "document").replace(/[^a-z0-9]+/gi, "-").toLowerCase().replace(/^-|-$/g, "") ||
-        "document";
-      await exportElementToPdf(pageRef.current, `bip-${slug}.pdf`);
+      await renderReportPdf({ title, subtitle, preparedFor, dateLabel }, blocks);
     } catch (e) {
       console.error("PDF export failed:", e);
       setExportError(e instanceof Error ? e.message : "PDF generation failed.");
@@ -664,7 +674,7 @@ function BlockRow({
           </span>
         )}
         <EditableText
-          as={block.type === "p" || block.type === "bullet" ? "p" : block.type}
+          as={block.type === "h1" || block.type === "h2" || block.type === "h3" ? block.type : "p"}
           value={block.text}
           onCommit={(v) => onCommit(block.id, v)}
           style={{ ...blockStyle(block.type), flex: 1, margin: isBullet ? "3px 0" : blockStyle(block.type).margin }}
