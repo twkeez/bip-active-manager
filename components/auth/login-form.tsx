@@ -37,14 +37,6 @@ export default function LoginForm({ error }: { error?: string }) {
     <AuthCard
       title="Welcome back"
       subtitle="Sign in to BIP Client Manager"
-      footer={
-        <>
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="font-medium underline" style={{ color: "#00c9a7" }}>
-            Create one
-          </Link>
-        </>
-      }
     >
       <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4">
         <AuthError message={formError ?? callbackError ?? null} />
