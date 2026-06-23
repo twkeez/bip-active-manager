@@ -23,6 +23,7 @@ import {
   Moon,
   ScanSearch,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Stethoscope,
   Sun,
@@ -44,6 +45,7 @@ const PRIMARY: NavItem[] = [
   { label: "Comms Monitor", href: "/dashboard/comms", icon: MessageSquare },
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "My Tasks", href: "/my-tasks", icon: CheckSquare },
+  { label: "Team", href: "/team", icon: ShieldCheck, adminOnly: true },
 ];
 
 const TOOLS: NavItem[] = [
