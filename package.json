@@ -20,7 +20,8 @@
     "seo:reconcile-sc-properties": "node --env-file=.env.local scripts/reconcile-search-console-properties.mjs",
     "gbp:list-locations": "node --env-file=.env.local scripts/list-gbp-locations.mjs",
     "reporting:bq:sync": "node --env-file=.env.local scripts/run-bigquery-sync.mjs",
-    "ga4:audit-access": "node --env-file=.env.local scripts/ga4-access-audit.mjs"
+    "ga4:audit-access": "node --env-file=.env.local scripts/ga4-access-audit.mjs",
+    "clients:sync-strategists": "node --env-file=.env.local scripts/sync-client-strategists.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
