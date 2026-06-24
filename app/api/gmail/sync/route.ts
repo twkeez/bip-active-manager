@@ -3,11 +3,15 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProfile } from "@/lib/auth/profile";
 import { getGmailAccessTokenForUser } from "@/lib/gmail/token-manager";
-import { syncInboxPageForUser } from "@/lib/gmail/sync";
+import { syncInboxForUser } from "@/lib/gmail/sync";
 import { scoreUnassessedEmails } from "@/lib/gmail/ai-priority";
 
+// A "full" pull can fetch a few hundred messages (one Gmail call each), so give
+// the function more headroom than the default.
+export const maxDuration = 120;
+
 type SyncBody = {
-  pageToken?: string;
+  full?: boolean;
 };
 
 export async function POST(request: Request) {
@@ -33,11 +37,12 @@ export async function POST(request: Request) {
   try {
     const admin = createAdminClient();
     const token = await getGmailAccessTokenForUser(admin, user.id);
-    const result = await syncInboxPageForUser({
+    const result = await syncInboxForUser({
       admin,
       userId: user.id,
       accessToken: token.accessToken,
-      pageToken: body.pageToken,
+      full: body.full === true,
+      maxMessages: body.full === true ? 300 : 100,
     });
     // AI-score newly-synced emails (resilient — never fails the sync).
     const ai = await scoreUnassessedEmails(admin, user.id);
