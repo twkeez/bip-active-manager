@@ -17,11 +17,11 @@ export default async function Home() {
       
       <main className="max-w-md text-center">
         
-        <h1 className="text-2xl font-semibold tracking-tight text-white">
+        <h1 className="text-2xl font-semibold tracking-tight text-bip-text">
           
           BIP Control Panel
         </h1>
-        <p className="mt-2 text-sm text-white/50">
+        <p className="mt-2 text-sm text-bip-muted">
           
           Internal dashboard for client accounts, integrations, and marketing
           ops.

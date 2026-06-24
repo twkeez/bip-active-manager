@@ -105,7 +105,7 @@ export default function AuditReport({ run }: Props) {
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium ${tab === item.id ? "bg-bip-accent text-bip-page" : "bg-bip-fill text-white hover:bg-zinc-200"}`}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium ${tab === item.id ? "bg-bip-accent text-bip-page" : "bg-bip-fill text-bip-text hover:bg-bip-hover"}`}
           >
             
             {item.label}

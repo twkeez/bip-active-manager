@@ -184,7 +184,7 @@ export default function BulkDiscoverView() {
                 <th className="px-4 py-3 text-right text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.04]">
+            <tbody className="divide-y divide-bip-border">
               {clients.map((client) => {
                 const status = statuses[client.id] ?? { state: "pending" };
                 const doneStatus = status.state === "done" ? status : null;

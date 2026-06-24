@@ -356,7 +356,7 @@ export default function GlobalAdsOptimizationCenter({
                     <th className="px-4 py-3 text-right">Fix</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.04]">
+                <tbody className="divide-y divide-bip-border">
                   {filteredIssues.map((item) => {
                     const target = buildGoogleAdsOptimizeTarget(item);
                     return (

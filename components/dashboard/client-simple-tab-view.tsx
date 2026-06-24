@@ -513,7 +513,7 @@ function CommsTab({ data }: { data: ClientWorkspaceInitialData }) {
       {threadEvents.length > 0 && (
         <div className="bip-card overflow-hidden">
           <p className="bip-section-label px-5 pt-5 pb-3">Recent threads</p>
-          <ul className="divide-y divide-white/[0.05]">
+          <ul className="divide-y divide-bip-border">
             {threadEvents.slice(0, 12).map((event) => (
               <li key={event.id} className="flex items-start gap-3 px-5 py-3">
                 <div className="flex-1 min-w-0">

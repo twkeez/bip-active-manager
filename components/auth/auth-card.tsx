@@ -13,7 +13,7 @@ export default function AuthCard({
   footer?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4" style={{ background: "linear-gradient(135deg, #0f1117 0%, #131929 100%)" }}>
+    <div className="flex min-h-screen flex-col items-center justify-center px-4" style={{ background: "var(--bg)" }}>
       {/* Logo mark */}
       <div className="mb-6 flex flex-col items-center gap-2">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl" style={{ background: "var(--primary, #3350a2)" }}>
@@ -21,7 +21,7 @@ export default function AuthCard({
             <path d="M12 2L3 7v10l9 5 9-5V7L12 2z" fill="white" fillOpacity="0.9" />
           </svg>
         </div>
-        <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.4)" }}>
+        <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "var(--text-subtle)" }}>
           Beyond Indigo Pets
         </span>
       </div>
@@ -30,16 +30,16 @@ export default function AuthCard({
       <div
         className="w-full max-w-sm rounded-2xl p-8"
         style={{
-          background: "#1a1f2e",
-          border: "1px solid rgba(255,255,255,0.1)",
-          boxShadow: "0 25px 50px rgba(0,0,0,0.5)",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          boxShadow: "var(--shadow-lg)",
         }}
       >
-        <h1 className="text-center text-xl font-semibold" style={{ color: "#ffffff" }}>
+        <h1 className="text-center text-xl font-semibold" style={{ color: "var(--text)" }}>
           {title}
         </h1>
         {subtitle && (
-          <p className="mt-1.5 text-center text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+          <p className="mt-1.5 text-center text-sm" style={{ color: "var(--text-muted)" }}>
             {subtitle}
           </p>
         )}
@@ -48,7 +48,7 @@ export default function AuthCard({
       </div>
 
       {footer && (
-        <div className="mt-5 text-center text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
+        <div className="mt-5 text-center text-xs" style={{ color: "var(--text-muted)" }}>
           {footer}
         </div>
       )}
@@ -75,7 +75,7 @@ export function AuthInput({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
+      <span className="mb-1.5 block text-xs font-medium" style={{ color: "var(--text-muted)" }}>
         {label}
       </span>
       <input
@@ -87,16 +87,16 @@ export function AuthInput({
         placeholder={placeholder}
         className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none transition-all"
         style={{
-          background: "rgba(255,255,255,0.06)",
-          border: "1px solid rgba(255,255,255,0.15)",
-          color: "#ffffff",
+          background: "var(--surface-2)",
+          border: "1px solid var(--border-strong)",
+          color: "var(--text)",
         }}
         onFocus={(e) => {
           e.currentTarget.style.border = "1px solid var(--primary, #6075bf)";
-          e.currentTarget.style.boxShadow = "0 0 0 3px rgba(96,117,191,0.2)";
+          e.currentTarget.style.boxShadow = "var(--ring)";
         }}
         onBlur={(e) => {
-          e.currentTarget.style.border = "1px solid rgba(255,255,255,0.15)";
+          e.currentTarget.style.border = "1px solid var(--border-strong)";
           e.currentTarget.style.boxShadow = "none";
         }}
       />
@@ -134,7 +134,7 @@ export function AuthError({ message }: { message: string | null }) {
   return (
     <div
       className="rounded-lg px-3.5 py-2.5 text-sm"
-      style={{ background: "rgba(255,77,79,0.12)", border: "1px solid rgba(255,77,79,0.3)", color: "#ff6b6b" }}
+      style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", color: "var(--danger-fg)" }}
     >
       {message}
     </div>
