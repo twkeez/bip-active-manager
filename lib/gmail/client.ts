@@ -26,10 +26,15 @@ async function gmailFetch<T>(
   return data as T;
 }
 
-export async function listInboxMessageIds(accessToken: string, pageToken?: string) {
+export async function listInboxMessageIds(
+  accessToken: string,
+  pageToken?: string,
+  afterEpoch?: number,
+) {
   // Path is relative to BASE_URL (which gmailFetch prepends) — do NOT include
   // the base path here or the request URL gets doubled (→ 404).
-  const params = new URLSearchParams({ maxResults: "50", q: "in:inbox" });
+  const q = afterEpoch ? `in:inbox after:${afterEpoch}` : "in:inbox";
+  const params = new URLSearchParams({ maxResults: "100", q });
   if (pageToken) params.set("pageToken", pageToken);
   return gmailFetch<GmailMessageListResponse>(accessToken, `/messages?${params.toString()}`);
 }

@@ -6,6 +6,7 @@ type ConnectStatusResponse = {
   connected: boolean;
   expiresAt: string | null;
   scope: string;
+  lastSyncedAt: string | null;
 };
 
 export async function GET() {
@@ -31,11 +32,18 @@ export async function GET() {
       connected: false,
       expiresAt: null,
       scope: "",
+      lastSyncedAt: null,
     });
   }
+  const { data: cursor } = await admin
+    .from("user_email_sync_cursors")
+    .select("last_synced_at")
+    .eq("owner_user_id", user.id)
+    .maybeSingle<{ last_synced_at: string | null }>();
   return NextResponse.json<ConnectStatusResponse>({
     connected: true,
     expiresAt: data.expires_at,
     scope: String(data.metadata?.scope ?? ""),
+    lastSyncedAt: cursor?.last_synced_at ?? null,
   });
 }
