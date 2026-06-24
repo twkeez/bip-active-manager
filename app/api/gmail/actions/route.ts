@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAdmin } from "@/lib/auth/require-admin";
 import { getGmailAccessTokenForUser } from "@/lib/gmail/token-manager";
 import { modifyMessageLabels, trashMessage } from "@/lib/gmail/client";
 import { upsertSenderRule } from "@/lib/gmail/rules";
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdmin(supabase))) return NextResponse.json({ error: "Admins only." }, { status: 403 });
 
   let body: ActionBody;
   try {

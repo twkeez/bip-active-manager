@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/auth/require-admin";
 import {
   buildGmailAuthorizationUrl,
   generateOAuthState,
@@ -12,6 +13,9 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url), 302);
+  }
+  if (!(await isAdmin(supabase))) {
+    return NextResponse.redirect(new URL("/dashboard", request.url), 302);
   }
 
   const state = generateOAuthState();

@@ -17,6 +17,7 @@ import type {
 } from "@/lib/types/client";
 import { joinTasksWithSources } from "@/lib/tasks/shared";
 import { batchProjectMeta } from "@/lib/projects/access";
+import { getProfile } from "@/lib/auth/profile";
 import MyTasksManager from "@/components/tasks/my-tasks-manager";
 export default async function MyTasksPage() {
   const supabase = await createClient();
@@ -26,6 +27,8 @@ export default async function MyTasksPage() {
   if (!user) {
     redirect("/login");
   }
+  const profile = await getProfile(supabase);
+  const isAdmin = profile?.role === "admin";
   const { data: tasksRaw } = await supabase
     .from("user_tasks")
     .select("*")
@@ -173,6 +176,7 @@ export default async function MyTasksPage() {
       initialProjects={initialProjects}
       initialPeople={people}
       userEmail={user.email}
+      isAdmin={isAdmin}
       initialEmailMessages={gmailMessages}
       initialEmailRules={gmailRules}
     />
