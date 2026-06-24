@@ -245,7 +245,7 @@ export default function ClientWorkspaceDashboard({
               type="button"
               onClick={() => void handleNoReplyNeeded()}
               disabled={acknowledging}
-              className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-slate-600/80 bg-bip-card/80 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700/80 disabled:opacity-60"
+              className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-bip-border bg-bip-card px-4 py-2 text-sm font-medium text-bip-text transition hover:bg-bip-hover disabled:opacity-60"
             >
               {acknowledging && <Loader2 size={14} className="animate-spin" />}
               No reply needed

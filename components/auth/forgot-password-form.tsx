@@ -32,7 +32,7 @@ export default function ForgotPasswordForm() {
             style={{ background: "rgba(0,201,167,0.15)" }}
           >
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path d="M20 6L9 17l-5-5" stroke="#00c9a7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M20 6L9 17l-5-5" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
           <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -41,7 +41,7 @@ export default function ForgotPasswordForm() {
           <Link
             href="/login"
             className="mt-5 inline-block text-sm font-medium underline"
-            style={{ color: "#00c9a7" }}
+            style={{ color: "var(--primary)" }}
           >
             Back to sign in
           </Link>
@@ -55,7 +55,7 @@ export default function ForgotPasswordForm() {
       title="Reset password"
       subtitle="Enter your email and we'll send you a link."
       footer={
-        <Link href="/login" className="font-medium underline" style={{ color: "#00c9a7" }}>
+        <Link href="/login" className="font-medium underline" style={{ color: "var(--primary)" }}>
           Back to sign in
         </Link>
       }

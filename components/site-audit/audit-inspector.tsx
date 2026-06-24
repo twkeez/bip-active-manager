@@ -36,7 +36,7 @@ const PRIORITY_BADGE: Record<
   },
   medium: {
     label: "Minor Adjust",
-    className: "bg-slate-700 text-bip-text border-slate-600",
+    className: "bg-bip-fill text-bip-text border-bip-border",
   },
 };
 export default function AuditInspector({
@@ -216,7 +216,7 @@ function SummaryPill({
     slate: {
       wrap: "bg-bip-card border-bip-border",
       label: "text-bip-muted",
-      count: "text-bip-text bg-slate-700",
+      count: "text-bip-text bg-bip-fill",
     },
     emerald: {
       wrap: "bg-emerald-500/10 border-emerald-500/20",

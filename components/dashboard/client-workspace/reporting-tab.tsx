@@ -429,7 +429,7 @@ export default function ReportingOverview({
                     {action.title}
                   </p>
                   <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${action.priority === "high" ? "border border-red-500/20 bg-red-500/10 text-red-400" : action.priority === "medium" ? "border border-amber-500/20 bg-amber-500/10 text-amber-400" : "bg-bip-fill text-white"}`}
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${action.priority === "high" ? "border border-red-500/20 bg-red-500/10 text-red-400" : action.priority === "medium" ? "border border-amber-500/20 bg-amber-500/10 text-amber-400" : "bg-bip-fill text-bip-text"}`}
                   >
                     
                     {action.priority}
@@ -608,7 +608,7 @@ export default function ReportingOverview({
                       </td><td className="px-2 py-2">
                         
                         <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${row.dropped_by_3_plus ? "border border-red-500/20 bg-red-500/10 text-red-400" : "bg-bip-fill text-white"}`}
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${row.dropped_by_3_plus ? "border border-red-500/20 bg-red-500/10 text-red-400" : "bg-bip-fill text-bip-text"}`}
                         >
                           
                           {row.position_delta.toFixed(1)}

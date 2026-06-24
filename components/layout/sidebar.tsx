@@ -20,16 +20,14 @@ import {
   MapPinned,
   Megaphone,
   MessageSquare,
-  Moon,
   ScanSearch,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
   Stethoscope,
-  Sun,
   User,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { UserRole } from "@/lib/auth/profile";
 import { VIEW_AS_COOKIE } from "@/lib/auth/effective-role";
 
@@ -137,33 +135,6 @@ function SectionGroup({
   );
 }
 
-function ThemeToggle() {
-  const [dark, setDark] = useState(true);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("bip-theme");
-    const prefersDark = !saved || saved !== "light";
-    document.documentElement.dataset.theme = prefersDark ? "dark" : "light";
-    setDark(prefersDark);
-  }, []);
-
-  function toggle() {
-    const next = dark ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    localStorage.setItem("bip-theme", next);
-    setDark(!dark);
-  }
-
-  return (
-    <button
-      onClick={toggle}
-      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors text-[var(--text-muted)] hover:bg-[var(--bip-hover)] hover:text-[var(--text)]"
-    >
-      {dark ? <Sun size={15} /> : <Moon size={15} />}
-      {dark ? "Light mode" : "Dark mode"}
-    </button>
-  );
-}
 
 function ViewAsToggle({ previewing }: { previewing: boolean }) {
   const router = useRouter();
@@ -261,7 +232,6 @@ export default function Sidebar({
           </div>
         )}
         {actualRole === "admin" && <ViewAsToggle previewing={previewing} />}
-        <ThemeToggle />
       </div>
 
       {/* Build stamp */}

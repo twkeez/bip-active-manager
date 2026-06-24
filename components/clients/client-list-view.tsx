@@ -306,7 +306,7 @@ export default function ClientListView({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.04]">
+            <tbody className="divide-y divide-bip-border">
               {filtered.map(({ client, status, services, lastThread }) => (
                 <tr
                   key={client.id}
