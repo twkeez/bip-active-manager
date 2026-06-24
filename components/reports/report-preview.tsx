@@ -326,7 +326,11 @@ export default function ReportPreview({ report, config, draft }: Props) {
       // so page breaks land between them rather than through them.
       const el = mainRef.current;
       const cRect = el.getBoundingClientRect();
-      const scaleY = cRect.height > 0 ? canvas.height / cRect.height : 1;
+      // html2canvas renders at a single uniform scale = canvas.width / element width.
+      // Its canvas.height can be slightly less than element height × scale (it may
+      // omit trailing whitespace), so deriving the vertical scale from height
+      // mis-positions every block. Use the true (width-based) render scale.
+      const scaleY = cRect.width > 0 ? canvas.width / cRect.width : 1;
       const avoidEls = Array.from(el.querySelectorAll<HTMLElement>("*")).filter((n) => {
         const r = n.getBoundingClientRect();
         return r.height > 0 && getComputedStyle(n).breakInside === "avoid";
