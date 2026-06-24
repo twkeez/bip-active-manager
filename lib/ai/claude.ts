@@ -34,7 +34,7 @@ export async function generateClaudeContent(
   const stream = await client.messages.stream({
     model: MODEL,
     max_tokens: options?.maxOutputTokens ?? 2048,
-    thinking: { type: "adaptive" },
+    temperature: options?.temperature,
     messages: [{ role: "user", content: toClaudeContent(parts) }],
   });
   const message = await stream.finalMessage();
