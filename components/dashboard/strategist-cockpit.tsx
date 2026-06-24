@@ -1,10 +1,11 @@
 // components/dashboard/strategist-cockpit.tsx
 "use client";
 
-// Internal-only cockpit. Render inside the (already staff-gated) client workspace.
-// Styling uses the bip tokens defined in app/globals.css — no hardcoded colors.
+// Internal-only cockpit. Rendered inside the (staff-gated) client workspace
+// overview. Flat UI, sentence case, no gradients/shadows. Red/amber/blue encode
+// P1/P2/P3 only; green is reserved for the win card.
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { CockpitData, FocusItem, ChannelStatus, Priority } from "@/types/cockpit";
 
 const STATUS_BADGE: Record<ChannelStatus, string> = {
@@ -12,147 +13,97 @@ const STATUS_BADGE: Record<ChannelStatus, string> = {
   warn: "bip-badge-warning",
   bad: "bip-badge-danger",
 };
-const PRIORITY_BADGE: Record<Priority, string> = {
-  P1: "bip-badge-danger",
-  P2: "bip-badge-warning",
-  P3: "bip-badge-info",
-};
 const PRIORITY_BORDER: Record<Priority, string> = {
   P1: "border-l-bip-danger",
   P2: "border-l-bip-highlight",
   P3: "border-l-bip-accent",
 };
-function tagClass(tone?: "hi" | "lo" | "neutral") {
-  if (tone === "hi") return "bip-badge-danger";
-  if (tone === "lo") return "bip-badge-success";
-  return "bip-badge";
-}
+const PRIORITY_TEXT: Record<Priority, string> = {
+  P1: "text-bip-danger",
+  P2: "text-bip-highlight",
+  P3: "text-bip-accent",
+};
+const PRIORITY_WHEN: Record<Priority, string> = {
+  P1: "Do now",
+  P2: "This month",
+  P3: "Backlog",
+};
 
 function FocusCard({ item }: { item: FocusItem }) {
   const [done, setDone] = useState(false);
   const [open, setOpen] = useState(false);
   return (
     <div
-      className={`mb-3 rounded-[var(--radius-lg)] border border-l-4 border-bip-border p-3.5 transition ${PRIORITY_BORDER[item.priority]} ${
-        done ? "opacity-50" : "hover:-translate-y-px hover:shadow-md"
+      className={`mb-2.5 rounded-[var(--radius-md)] border-l-2 bg-bip-card p-3.5 ${PRIORITY_BORDER[item.priority]} ${
+        done ? "opacity-50" : ""
       }`}
     >
-      <div className="flex items-start gap-2.5">
-        <span className={`${PRIORITY_BADGE[item.priority]} mt-0.5 flex-none`}>{item.priority}</span>
-        <h3
-          className={`font-heading flex-1 text-[14.5px] font-bold leading-snug ${
-            done ? "text-bip-subtle line-through" : "text-bip-text"
-          }`}
-        >
-          {item.title}
-          {item.count > 1 && <span className="ml-1.5 font-sans text-bip-muted">×{item.count}</span>}
-        </h3>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h4 className={`text-sm font-semibold leading-snug ${done ? "text-bip-subtle line-through" : "text-bip-text"}`}>
+            {item.title}
+            {item.count > 1 && <span className="ml-1.5 font-normal text-bip-muted">×{item.count}</span>}
+          </h4>
+          {item.fix && (
+            <p className="mt-1 text-[13px] text-bip-muted">
+              <span className="font-medium text-bip-text">Fix:</span> {item.fix}
+            </p>
+          )}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="bip-badge">{item.channel}</span>
+            {item.entries.length > 0 && (
+              <button onClick={() => setOpen((v) => !v)} className="text-[12px] font-medium text-bip-accent hover:underline">
+                {open ? "Hide" : `Show ${item.entries.length} affected`}
+              </button>
+            )}
+            {item.link && (
+              <a href={item.link.href} className="text-[12px] font-medium text-bip-accent hover:underline">
+                {item.link.label} →
+              </a>
+            )}
+          </div>
+          {open && item.entries.length > 0 && (
+            <ul className="mt-2 space-y-1 rounded-[var(--radius-sm)] border border-bip-border p-2.5">
+              {item.entries.map((e, i) => (
+                <li key={i} className="text-[12px]">
+                  {e.label && <span className="text-bip-text">{e.label}</span>}
+                  {e.metrics && <span className="ml-2 font-mono text-bip-subtle">{e.metrics}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <button
           onClick={() => setDone((v) => !v)}
-          className="flex flex-none items-center gap-1.5 text-[11px] font-semibold text-bip-muted hover:text-bip-text"
+          className="flex flex-none items-center gap-1.5 text-[11px] font-medium text-bip-muted hover:text-bip-text"
         >
           <span
-            className={`grid h-[18px] w-[18px] place-items-center rounded-[var(--radius-sm)] border-[1.6px] text-[11px] font-extrabold ${
-              done ? "border-bip-accent bg-bip-accent text-white" : "border-bip-border bg-bip-card text-transparent"
+            className={`grid h-[16px] w-[16px] place-items-center rounded-[var(--radius-sm)] border text-[10px] ${
+              done ? "border-bip-accent bg-bip-accent text-white" : "border-bip-border text-transparent"
             }`}
           >
             ✓
           </span>
-          {done ? "Handled" : "Mark done"}
+          {done ? "Done" : "Mark done"}
         </button>
       </div>
-
-      {item.why && <p className="mt-1.5 text-[13px] text-bip-muted">{item.why}</p>}
-
-      {item.fix && (
-        <p className="mt-2 text-[13px] text-bip-text">
-          <span className="font-semibold text-bip-accent">Fix:</span> {item.fix}
-        </p>
-      )}
-
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        {item.tags.map((t, i) => (
-          <span key={i} className={tagClass(t.tone)}>
-            {t.label}
-          </span>
-        ))}
-        {item.entries.length > 0 && (
-          <button onClick={() => setOpen((v) => !v)} className="text-[12px] font-semibold text-bip-accent hover:underline">
-            {open ? "Hide" : `Show ${item.entries.length} affected`}
-          </button>
-        )}
-        {item.link && (
-          <a href={item.link.href} className="ml-auto text-[12px] font-semibold text-bip-accent hover:underline">
-            {item.link.label} →
-          </a>
-        )}
-      </div>
-
-      {open && item.entries.length > 0 && (
-        <ul className="mt-2.5 space-y-1 rounded-[var(--radius-md)] border border-bip-border p-2.5">
-          {item.entries.map((e, i) => (
-            <li key={i} className="text-[12px]">
-              {e.label && <span className="text-bip-text">{e.label}</span>}
-              {e.metrics && <span className="ml-2 font-mono text-bip-subtle">{e.metrics}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
 
 export function StrategistCockpit({ data }: { data: CockpitData }) {
-  const { client, counts } = data;
-  const [pri, setPri] = useState<"all" | Priority>("all");
-  const [chan, setChan] = useState<string>("all");
-
-  const channels = useMemo(
-    () => Array.from(new Set(data.focus.map((f) => f.channel))),
-    [data.focus],
-  );
-  const visible = data.focus.filter(
-    (f) => (pri === "all" || f.priority === pri) && (chan === "all" || f.channel === chan),
-  );
-
-  const priChip = (key: "all" | Priority, label: string) => (
-    <button
-      onClick={() => setPri(key)}
-      className={`rounded-full px-2.5 py-1 text-[12px] font-semibold transition ${
-        pri === key ? "bg-bip-accent text-white" : "bg-bip-page text-bip-muted hover:text-bip-text"
-      }`}
-    >
-      {label}
-    </button>
-  );
+  const { client, counts, features } = data;
+  const groups: Priority[] = ["P1", "P2", "P3"];
+  const hasRealWin = features.length > 0 && !features[0].title.startsWith("No clean wins");
+  const pinnedWin = hasRealWin ? features[0] : null;
 
   return (
     <div className="text-bip-text">
-      {/* Header — no client name (the page H1 already shows it) */}
-      <div className="bip-card flex flex-wrap items-start justify-between gap-4 border-t-[3px] border-t-bip-accent p-5">
-        <div>
-          <span className="text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-bip-accent">
-            Strategist Cockpit · Internal
-          </span>
-          <div className="mt-1 text-[12.5px] text-bip-muted">
-            {[client.strategists && `Strategists: ${client.strategists}`, `Window: ${client.window.toLowerCase()}`]
-              .filter(Boolean)
-              .join(" · ")}
-          </div>
-        </div>
-        <div className="text-right text-xs text-bip-subtle">
-          <span className="inline-block rounded-[var(--radius-sm)] bg-bip-text px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-bip-card">
-            Not client-facing
-          </span>
-          {client.syncedAt && <div className="mt-1.5">Synced {client.syncedAt}</div>}
-        </div>
-      </div>
-
-      {/* Health strip */}
-      <div className="mt-3.5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+      {/* Channel health row */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         {data.health.map((h, i) => (
-          <div key={i} className="bip-card p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">{h.channel}</div>
+          <div key={i} className="rounded-[var(--radius-md)] border border-bip-border bg-bip-card p-3">
+            <div className="text-[12px] text-bip-muted">{h.channel}</div>
             <div className="mt-1.5">
               <span className={STATUS_BADGE[h.status]}>{h.label}</span>
             </div>
@@ -160,81 +111,82 @@ export function StrategistCockpit({ data }: { data: CockpitData }) {
         ))}
       </div>
 
-      {/* Work area */}
-      <div className="mt-5 grid items-start gap-[18px] lg:grid-cols-[1.55fr_1fr]">
+      {/* Two-column body */}
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[3fr_1fr]">
         {/* Focus queue */}
-        <div className="bip-card p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="font-heading text-base font-extrabold tracking-tight">Focus queue</h2>
-            <span className="text-[12.5px] font-semibold text-bip-muted">
-              <span className="text-bip-danger">{counts.P1} P1</span> ·{" "}
-              <span className="text-bip-highlight">{counts.P2} P2</span> ·{" "}
-              <span className="text-bip-accent">{counts.P3} P3</span>
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-base font-semibold">Focus queue</h2>
+            <span className="text-[12px] text-bip-subtle">
+              Not client facing{client.syncedAt ? ` · synced ${client.syncedAt}` : ""}
             </span>
           </div>
-          <p className="mb-3 mt-1 text-[12.5px] text-bip-muted">
-            Channel signals, grouped by type and ranked by priority. Internal — none of this appears in the client report.
-          </p>
 
-          {/* Filters */}
-          <div className="mb-4 flex flex-wrap gap-1.5">
-            {priChip("all", "All")}
-            {priChip("P1", "P1")}
-            {priChip("P2", "P2")}
-            {priChip("P3", "P3")}
-            <span className="mx-1 self-center text-bip-subtle">|</span>
-            <button
-              onClick={() => setChan("all")}
-              className={`rounded-full px-2.5 py-1 text-[12px] font-semibold transition ${
-                chan === "all" ? "bg-bip-accent text-white" : "bg-bip-page text-bip-muted hover:text-bip-text"
-              }`}
-            >
-              All channels
-            </button>
-            {channels.map((c) => (
-              <button
-                key={c}
-                onClick={() => setChan(c)}
-                className={`rounded-full px-2.5 py-1 text-[12px] font-semibold transition ${
-                  chan === c ? "bg-bip-accent text-white" : "bg-bip-page text-bip-muted hover:text-bip-text"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
+          {pinnedWin && (
+            <div className="mb-4 rounded-[var(--radius-md)] border-l-2 border-l-emerald-500 bg-emerald-500/10 p-3.5">
+              <h4 className="text-sm font-semibold text-emerald-400">{pinnedWin.title}</h4>
+              <p className="mt-0.5 text-[13px] text-bip-muted">{pinnedWin.detail} · Feature to client.</p>
+            </div>
+          )}
 
-          {visible.length === 0 ? (
-            <p className="rounded-[var(--radius-lg)] border border-dashed border-bip-border p-6 text-center text-sm text-bip-muted">
-              Nothing matches this filter.
+          {data.focus.length === 0 ? (
+            <p className="rounded-[var(--radius-md)] border border-dashed border-bip-border p-6 text-center text-sm text-bip-muted">
+              No open signals this period.
             </p>
           ) : (
-            visible.map((item) => <FocusCard key={item.id} item={item} />)
+            groups.map((p) => {
+              const items = data.focus.filter((f) => f.priority === p);
+              if (items.length === 0) return null;
+              return (
+                <div key={p} className="mb-5">
+                  <div className={`mb-2 flex items-center gap-2 border-l-2 pl-2 ${PRIORITY_BORDER[p]}`}>
+                    <span className={`text-[13px] font-semibold ${PRIORITY_TEXT[p]}`}>{p}</span>
+                    <span className="text-[12px] text-bip-subtle">{PRIORITY_WHEN[p]} · {items.length}</span>
+                  </div>
+                  {items.map((item) => (
+                    <FocusCard key={item.id} item={item} />
+                  ))}
+                </div>
+              );
+            })
           )}
         </div>
 
-        {/* Feature to client */}
-        <div className="bip-card p-5">
-          <h2 className="font-heading text-base font-extrabold tracking-tight">Feature to the client</h2>
-          <p className="mb-3.5 mt-1 text-[12.5px] text-bip-muted">
-            Spotlight these wins in the report — keeps it positive and on-message.
-          </p>
-          {data.features.map((w, i) => (
-            <div key={i} className="flex gap-2.5 border-b border-bip-border py-2.5 last:border-b-0">
-              <span className="bip-badge-success grid h-[22px] w-[22px] flex-none place-items-center">✓</span>
-              <div className="text-[13.5px]">
-                <b className="font-bold">{w.title}</b>
-                <span className="mt-0.5 block text-xs text-bip-muted">{w.detail}</span>
-              </div>
+        {/* Sidebar */}
+        <aside className="space-y-4">
+          <div className="rounded-[var(--radius-md)] border border-bip-border bg-bip-card p-4">
+            <div className="text-[12px] text-bip-muted">Priority</div>
+            <div className="mt-2 space-y-1 text-sm">
+              <div className={PRIORITY_TEXT.P1}>P1: {counts.P1}</div>
+              <div className={PRIORITY_TEXT.P2}>P2: {counts.P2}</div>
+              <div className={PRIORITY_TEXT.P3}>P3: {counts.P3}</div>
             </div>
-          ))}
-          <div className="mt-4 flex flex-wrap items-center gap-3.5 text-[11.5px] text-bip-subtle">
-            <span className="font-semibold text-bip-muted">Priority:</span>
-            <span className="text-bip-danger">● P1 do now</span>
-            <span className="text-bip-highlight">● P2 this month</span>
-            <span className="text-bip-accent">● P3 backlog</span>
           </div>
-        </div>
+
+          <div className="rounded-[var(--radius-md)] border border-bip-border bg-bip-card p-4">
+            <span className="inline-block rounded-[var(--radius-sm)] bg-bip-text px-2 py-0.5 text-[11px] font-medium text-bip-card">
+              Not client facing
+            </span>
+            {client.syncedAt && <p className="mt-2 text-[12px] text-bip-muted">Last synced {client.syncedAt}</p>}
+            <p className="mt-2 text-[12px] text-bip-subtle">
+              Strategist cockpit · internal{client.strategists ? ` · ${client.strategists}` : ""}
+            </p>
+          </div>
+
+          {features.length > 0 && (
+            <div className="rounded-[var(--radius-md)] border border-bip-border bg-bip-card p-4">
+              <div className="mb-2 text-[12px] text-bip-muted">Feature to the client</div>
+              <ul className="space-y-2.5">
+                {features.map((w, i) => (
+                  <li key={i} className="text-[13px]">
+                    <span className="font-medium text-bip-text">{w.title}</span>
+                    <span className="mt-0.5 block text-[12px] text-bip-subtle">{w.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </aside>
       </div>
     </div>
   );

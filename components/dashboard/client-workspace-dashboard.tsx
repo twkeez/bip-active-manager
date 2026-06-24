@@ -9,11 +9,9 @@ import {
   CheckCircle2,
   ExternalLink,
   Loader2,
-  MessageSquare,
   Share2,
   XCircle,
   BookOpen,
-  Wifi,
   WifiOff,
 } from "lucide-react";
 import { previewText, openableBasecampUrl } from "@/lib/basecamp/display";
@@ -35,16 +33,10 @@ import type {
   ClientDetailTab,
   ClientWorkspaceInitialData,
 } from "@/lib/dashboard/client-workspace-types";
-import type { BasecampThreadEvent } from "@/lib/types/client";
 import NotifyStrategistButton from "@/components/dashboard/notify-strategist-button";
-import type { ClientSetupItem } from "@/lib/clients/types";
 import type { StrategistContact } from "@/lib/team/strategist-roster";
 import { StrategistCockpit } from "@/components/dashboard/strategist-cockpit";
 import { toCockpitViewModel } from "@/lib/dashboard/cockpit-view-model";
-import {
-  affectedKeywordsForAdsSignal,
-  type AffectedKeyword,
-} from "@/lib/dashboard/signal-mapping";
 
 const DETAIL_TABS: Array<{ id: ClientDetailTab; label: string }> = [
   { id: "comms", label: "Comms" },
@@ -65,82 +57,6 @@ function formatRelativeDays(value: string | null | undefined) {
   return `${days} days ago`;
 }
 
-type AttentionItem = {
-  id: string;
-  area: string;
-  severity: "critical" | "watch";
-  title: string;
-  tab: ClientDetailTab;
-  description?: string | null;
-  suggestion?: string | null;
-  metricValue?: string | null;
-  affectedKeywords?: AffectedKeyword[];
-};
-
-function buildAttentionItems(
-  data: ClientWorkspaceInitialData,
-  setupGaps: ClientSetupItem[],
-): AttentionItem[] {
-  const items: AttentionItem[] = [];
-
-  // Connection gaps
-  for (const gap of setupGaps) {
-    items.push({
-      id: `gap-${gap.id}`,
-      area: "Connections",
-      severity: gap.severity === "required" ? "critical" : "watch",
-      title: `${gap.label}: ${gap.reason}`,
-      tab: "connections",
-    });
-  }
-
-  // Ads signals
-  for (const s of data.adsSignals.filter((s) => s.severity === "critical").slice(0, 4)) {
-    const affectedKeywords = affectedKeywordsForAdsSignal(data.adsSnapshot, s.signal_id);
-    items.push({ id: `ads-${s.id}`, area: "Ads", severity: "critical", title: s.title, tab: "ads", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value, affectedKeywords: affectedKeywords.length > 0 ? affectedKeywords : undefined });
-  }
-  for (const s of data.adsSignals.filter((s) => s.severity === "watch").slice(0, 2)) {
-    const affectedKeywords = affectedKeywordsForAdsSignal(data.adsSnapshot, s.signal_id);
-    items.push({ id: `ads-watch-${s.id}`, area: "Ads", severity: "watch", title: s.title, tab: "ads", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value, affectedKeywords: affectedKeywords.length > 0 ? affectedKeywords : undefined });
-  }
-
-  // GSC / SEO signals
-  for (const s of data.gscSignals.filter((s) => s.severity === "critical").slice(0, 3)) {
-    items.push({ id: `gsc-${s.id}`, area: "SEO", severity: "critical", title: s.title, tab: "seo", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
-  }
-  for (const s of data.gscSignals.filter((s) => s.severity === "watch").slice(0, 2)) {
-    items.push({ id: `gsc-watch-${s.id}`, area: "SEO", severity: "watch", title: s.title, tab: "seo", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
-  }
-
-  // GA4 signals
-  for (const s of data.ga4Signals.filter((s) => s.severity === "critical").slice(0, 3)) {
-    items.push({ id: `ga4-${s.id}`, area: "Analytics", severity: "critical", title: s.title, tab: "reporting", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
-  }
-  for (const s of data.ga4Signals.filter((s) => s.severity === "watch").slice(0, 2)) {
-    items.push({ id: `ga4-watch-${s.id}`, area: "Analytics", severity: "watch", title: s.title, tab: "reporting", description: s.description, suggestion: s.suggestion, metricValue: s.metric_value });
-  }
-
-  // Social signals
-  for (const s of data.socialSignals.filter((s) => s.severity === "critical").slice(0, 2)) {
-    items.push({ id: `social-${s.id}`, area: "Social", severity: "critical", title: s.title, tab: "social", description: s.description, suggestion: s.suggestion });
-  }
-
-  return items;
-}
-
-const AREA_COLORS: Record<string, string> = {
-  Connections: "text-violet-400",
-  Ads: "text-blue-400",
-  SEO: "text-emerald-400",
-  Analytics: "text-orange-400",
-  Social: "text-pink-400",
-  Comms: "text-amber-400",
-};
-
-function SeverityDot({ severity }: { severity: AttentionItem["severity"] }) {
-  const color = severity === "critical" ? "bg-red-400" : "bg-amber-400";
-  return <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />;
-}
 
 type IntegrationDot = {
   id: string;
@@ -186,8 +102,6 @@ export default function ClientWorkspaceDashboard({
   const setup = evaluateClientSetup(client, {
     socialConnectionCount: data.socialConnections.length,
   });
-  const setupGaps = [...setup.missingRequired, ...setup.missingRecommended];
-  const attentionItems = buildAttentionItems(data, setupGaps);
   const connectionDots = buildConnectionDots(data);
   const services = activeServiceLabels(getClientActiveServices(client));
   const clientThreads = data.threadEvents.filter((e) => !e.is_internal);
@@ -195,8 +109,6 @@ export default function ClientWorkspaceDashboard({
   const showReplyAlert = shouldShowReplyAlert(client);
   const tierLabel = norm(client.tier) || "Unassigned tier";
 
-  const criticalCount = attentionItems.filter((i) => i.severity === "critical").length;
-  const watchCount = attentionItems.filter((i) => i.severity === "watch").length;
 
   async function handleNoReplyNeeded() {
     setAckError(null);
@@ -246,10 +158,6 @@ export default function ClientWorkspaceDashboard({
         </div>
       </header>
 
-      {/* Strategist Cockpit */}
-      <div className="mb-8">
-        <StrategistCockpit data={toCockpitViewModel(data)} />
-      </div>
 
       {/* Tab nav */}
       <nav className="mb-6 flex flex-wrap gap-2">
@@ -366,16 +274,13 @@ export default function ClientWorkspaceDashboard({
         </div>
       )}
 
-      {/* Main two-panel layout */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-
-        {/* Left: Client snapshot */}
-        <aside className="space-y-5 lg:col-span-4">
+      {/* Connections · Account · Actions strip */}
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr_1fr]">
 
           {/* Connections */}
           <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-bip-muted">
+              <h3 className="text-xs font-semibold text-bip-muted">
                 Connections
               </h3>
               <Link
@@ -420,7 +325,7 @@ export default function ClientWorkspaceDashboard({
 
           {/* Account info */}
           <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
-            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-bip-muted">
+            <h3 className="mb-4 text-xs font-semibold text-bip-muted">
               Account
             </h3>
             <dl className="space-y-2.5 text-sm">
@@ -477,145 +382,10 @@ export default function ClientWorkspaceDashboard({
               <Share2 size={15} /> Generate PDF report
             </Link>
           </div>
-        </aside>
-
-        {/* Right: Attention needed */}
-        <section className="lg:col-span-8">
-          <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-bip-muted">
-                Attention Needed
-              </h3>
-              {attentionItems.length > 0 && (
-                <div className="flex items-center gap-2">
-                  {criticalCount > 0 && (
-                    <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-400">
-                      {criticalCount} critical
-                    </span>
-                  )}
-                  {watchCount > 0 && (
-                    <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
-                      {watchCount} watch
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {attentionItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <CheckCircle2 size={28} className="mb-3 text-emerald-500/60" />
-                <p className="text-sm font-medium text-bip-muted">All clear</p>
-                <p className="mt-1 text-xs text-bip-subtle">
-                  No critical or warning signals detected across connected services.
-                </p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-white/[0.05]">
-                {attentionItems.map((item) => (
-                  <li key={item.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                    <SeverityDot severity={item.severity} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-[10px] font-semibold uppercase tracking-wider ${AREA_COLORS[item.area] ?? "text-bip-muted"}`}>
-                          {item.area}
-                        </span>
-                        {item.metricValue && (
-                          <span className="text-[10px] font-mono text-bip-subtle border border-bip-border rounded px-1.5 py-0.5">
-                            {item.metricValue}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-sm text-bip-text">{item.title}</p>
-                      {item.description && (
-                        <p className="mt-0.5 text-xs text-bip-muted leading-relaxed">{item.description}</p>
-                      )}
-                      {item.suggestion && (
-                        <p className="mt-1 text-xs text-bip-accent/70">
-                          <span className="font-medium text-bip-accent/50">Fix: </span>{item.suggestion}
-                        </p>
-                      )}
-                      {item.affectedKeywords && item.affectedKeywords.length > 0 && (
-                        <div className="mt-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-bip-subtle mb-1">Affected keywords</p>
-                          <div className="rounded border border-bip-border bg-black/20 overflow-hidden">
-                            {item.affectedKeywords.map((kw, i) => (
-                              <div key={i} className="flex items-baseline gap-2 px-2 py-1 border-b border-bip-border last:border-0 text-[11px]">
-                                <span className="font-mono text-bip-muted truncate max-w-[180px] shrink-0">{kw.keyword}</span>
-                                <span className="text-bip-subtle shrink-0">{kw.match_type.toLowerCase()}</span>
-                                <span className="text-bip-subtle truncate min-w-0">{kw.campaign_name}</span>
-                                <span className="text-bip-subtle truncate min-w-0 hidden sm:block">{kw.ad_group_name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <Link
-                      href={`/dashboard/clients/${clientId}?tab=${item.tab}`}
-                      className="shrink-0 text-[11px] text-bip-subtle hover:text-bip-accent transition-colors whitespace-nowrap mt-0.5"
-                    >
-                      {item.tab} tab →
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {attentionItems.length > 0 && (
-              <p className="mt-5 border-t border-bip-border pt-4 text-xs text-bip-subtle">
-                These alerts are new — many clients will show warnings as this data is reviewed for the first time.
-                Drill into each tab to investigate.
-              </p>
-            )}
-          </div>
-
-          {/* Recent comms preview */}
-          {data.threadEvents.length > 0 && (
-            <div className="mt-5 rounded-xl border border-bip-border bg-bip-card/50 p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MessageSquare size={14} className="text-violet-400" />
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-bip-muted">
-                    Recent Comms
-                  </h3>
-                </div>
-                <Link
-                  href={`/dashboard/clients/${clientId}?tab=comms`}
-                  className="text-xs text-bip-subtle hover:text-bip-accent transition-colors"
-                >
-                  All comms →
-                </Link>
-              </div>
-              <ul className="space-y-2">
-                {data.threadEvents.slice(0, 4).map((event) => (
-                  <li
-                    key={event.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2.5"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-bip-text truncate">
-                        {norm(event.thread_title) || "Untitled thread"}
-                      </p>
-                      <p className="mt-0.5 text-xs text-bip-muted truncate">
-                        {previewText(event, 80)}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-[10px] text-bip-subtle">
-                        {event.is_internal ? "Internal" : "Client"}
-                      </p>
-                      <p className="text-[10px] text-bip-subtle">
-                        {formatRelativeDays(event.occurred_at) ?? "—"}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
       </div>
+
+      {/* Internal cockpit: channel health + focus queue */}
+      <StrategistCockpit data={toCockpitViewModel(data)} />
     </main>
   );
 }
