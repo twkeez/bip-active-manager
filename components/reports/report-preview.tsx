@@ -153,53 +153,79 @@ function PlatformBadge({ platform }: { platform: string }) {
 }
 
 // ── PDF page-cut helper ───────────────────────────────────────────────────────
-// Scans the bottom 15% of each nominal page for a fully-white row and cuts
-// there instead, so page breaks always land in whitespace rather than mid-text.
+// Page breaks are chosen to land in the gaps *between* content blocks rather
+// than slicing through them. `atomic` holds the canvas-px bounds of the report's
+// unbreakable blocks (the elements marked breakInside:"avoid"); a page break is
+// pulled up to the top of any block it would otherwise straddle. A whitespace
+// pixel scan is kept only as a fallback for blocks taller than a whole page.
 function findSmartPageCuts(
   canvas: HTMLCanvasElement,
   pageHeightPx: number,
+  atomic: Array<{ top: number; bottom: number }>,
 ): Array<{ start: number; end: number }> {
+  const H = canvas.height;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return [{ start: 0, end: canvas.height }];
+  const blocks = [...atomic].sort((a, b) => a.top - b.top);
 
-  const slices: Array<{ start: number; end: number }> = [];
-  let start = 0;
-
-  while (start < canvas.height) {
-    const nominalEnd = Math.min(start + pageHeightPx, canvas.height);
-    if (nominalEnd === canvas.height) {
-      slices.push({ start, end: canvas.height });
-      break;
-    }
-
-    // Read the bottom 15% of this page in one getImageData call
-    const searchHeight = Math.max(1, Math.floor(pageHeightPx * 0.15));
-    const searchFrom = nominalEnd - searchHeight;
-    const region = ctx.getImageData(0, searchFrom, canvas.width, searchHeight);
+  // Nearest fully-white row at or above `target`, searching up to ~45% of a page.
+  function whitespaceCut(target: number, minStart: number): number {
+    if (!ctx) return target;
+    const windowPx = Math.min(target - minStart, Math.floor(pageHeightPx * 0.45));
+    if (windowPx <= 1) return target;
+    const from = target - windowPx;
+    const region = ctx.getImageData(0, from, canvas.width, windowPx);
     const w4 = canvas.width * 4;
-
-    let cutAt = nominalEnd;
-    // Scan rows bottom-up looking for a fully-white row
-    for (let row = searchHeight - 1; row >= 0; row--) {
-      let isWhite = true;
-      const rowBase = row * w4;
+    for (let row = windowPx - 1; row >= 0; row--) {
+      let white = true;
+      const base = row * w4;
       for (let px = 0; px < w4; px += 4) {
-        const i = rowBase + px;
+        const i = base + px;
         if (region.data[i] < 245 || region.data[i + 1] < 245 || region.data[i + 2] < 245) {
-          isWhite = false;
+          white = false;
           break;
         }
       }
-      if (isWhite) {
-        cutAt = searchFrom + row;
-        break;
-      }
+      if (white) return from + row;
     }
-
-    slices.push({ start, end: cutAt });
-    start = cutAt;
+    return target;
   }
 
+  // Candidate break points = the gaps before/after each block (their top & bottom
+  // edges). Leaf blocks don't nest or overlap vertically, so these edges are safe
+  // places to cut. Sorted ascending, deduped.
+  const candidates = Array.from(
+    new Set(blocks.flatMap((b) => [b.top, b.bottom])),
+  ).sort((a, b) => a - b);
+
+  const slices: Array<{ start: number; end: number }> = [];
+  let start = 0;
+  let guard = 0;
+  while (start < H && guard++ < 5000) {
+    const limit = Math.min(start + pageHeightPx, H);
+    if (limit >= H) {
+      slices.push({ start, end: H });
+      break;
+    }
+
+    // Pack as many whole blocks as fit: take the largest block edge that lands in
+    // (start, limit]. That cuts in the gap after the last block that fits.
+    let end = -1;
+    for (const c of candidates) {
+      if (c > start && c <= limit) end = c;
+      else if (c > limit) break;
+    }
+
+    // No block edge fits — a single block spans the whole page (e.g. a tall
+    // table). Fall back to a whitespace row so the unavoidable cut misses text.
+    if (end <= start) {
+      end = whitespaceCut(limit, start);
+      if (end <= start) end = limit;
+    }
+
+    slices.push({ start, end });
+    start = end;
+  }
+  if (slices.length === 0) slices.push({ start: 0, end: H });
   return slices;
 }
 
@@ -296,8 +322,27 @@ export default function ReportPreview({ report, config, draft }: Props) {
       const pxPerMm = canvas.width / pageW;
       const pageHeightPx = Math.floor(pageH * pxPerMm);
 
-      // Find page cut points that fall in whitespace, not mid-text
-      const cuts = findSmartPageCuts(canvas, pageHeightPx);
+      // Measure the report's unbreakable blocks (breakInside:"avoid") in canvas px
+      // so page breaks land between them rather than through them.
+      const el = mainRef.current;
+      const cRect = el.getBoundingClientRect();
+      const scaleY = cRect.height > 0 ? canvas.height / cRect.height : 1;
+      const avoidEls = Array.from(el.querySelectorAll<HTMLElement>("*")).filter((n) => {
+        const r = n.getBoundingClientRect();
+        return r.height > 0 && getComputedStyle(n).breakInside === "avoid";
+      });
+      // Keep only leaf blocks (no nested avoid block) so oversized sections can
+      // still break at the gaps between their children.
+      const leaves = avoidEls.filter((n) => !avoidEls.some((o) => o !== n && n.contains(o)));
+      const atomic = leaves
+        .map((n) => {
+          const r = n.getBoundingClientRect();
+          return { top: (r.top - cRect.top) * scaleY, bottom: (r.bottom - cRect.top) * scaleY };
+        })
+        .sort((a, b) => a.top - b.top);
+
+      // Find page cut points that fall between blocks, not mid-text
+      const cuts = findSmartPageCuts(canvas, pageHeightPx, atomic);
 
       let firstPage = true;
       for (const { start, end } of cuts) {
