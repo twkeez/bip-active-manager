@@ -114,6 +114,7 @@ function DataSyncPanel({ clientId, client }: { clientId: number; client: Record<
   const jobs: SyncJob[] = [
     { label: "Search Console", endpoint: "/api/seo/search-console/sync", requiredField: "sc_url" },
     { label: "GA4", endpoint: "/api/ga4/sync", requiredField: "ga4_property_id" },
+    { label: "Google Ads", endpoint: "/api/ads/sync", requiredField: "ads_customer_id" },
     { label: "Social (Facebook)", endpoint: "/api/social/sync", requiredField: null },
     { label: "Google Business Profile", endpoint: "/api/gbp/sync", requiredField: "google_place_id" },
   ];
