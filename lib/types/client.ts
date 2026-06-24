@@ -918,6 +918,9 @@ export type UserEmailMessageRow = {
   triage_status: "inbox" | "needs_action" | "archived" | "deleted";
   needs_action: boolean;
   is_high_priority: boolean;
+  ai_priority: "high" | "medium" | "low" | null;
+  ai_priority_reason: string | null;
+  ai_assessed_at: string | null;
   task_id: number | null;
   raw_payload: Record<string, unknown>;
   last_synced_at: string;
