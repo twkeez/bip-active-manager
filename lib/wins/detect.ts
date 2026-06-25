@@ -6,6 +6,7 @@ import type {
   GscPageMetric,
   SocialPostSnapshot,
 } from "@/lib/types/client";
+import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import type { Win, WinSource } from "@/lib/wins/types";
 
 // Keep the latest row per client from a list already sorted newest-first.
@@ -297,7 +298,7 @@ async function detectSocial(admin: SupabaseClient, names: Map<number, string>): 
     if (!name || engagement < 50) continue;
     if (seen.has(post.client_id)) continue; // best post per client
     seen.add(post.client_id);
-    const snippet = (post.caption ?? "").trim().replace(/\s+/g, " ").slice(0, 60);
+    const snippet = stripLoneSurrogates((post.caption ?? "").trim().replace(/\s+/g, " ").slice(0, 60));
     wins.push({
       id: `social:${post.client_id}:social_post`,
       source: "social",

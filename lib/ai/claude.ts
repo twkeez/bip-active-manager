@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 
 type TextPart = { text: string };
 type InlineDataPart = { inlineData: { mimeType: string; data: string } };
@@ -14,7 +15,8 @@ function toClaudeContent(
 ): Anthropic.Messages.ContentBlockParam[] {
   return parts.map((part): Anthropic.Messages.ContentBlockParam => {
     if ("text" in part) {
-      return { type: "text", text: part.text };
+      // Strip unpaired surrogates so the serialized request body stays valid JSON.
+      return { type: "text", text: stripLoneSurrogates(part.text) };
     }
     return {
       type: "image",
