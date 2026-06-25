@@ -4,6 +4,7 @@ import KpiSummaryGrid, {
   type KpiSummaryItem,
 } from "@/components/dashboard/kpi-summary-grid";
 import SmartAdsPlaybook from "@/components/dashboard/smart-ads-playbook";
+import AdsAssessmentPanel from "@/components/dashboard/ads-assessment-panel";
 import {
   formatCostMicros,
   formatQualityBucketLabel,
@@ -384,6 +385,7 @@ export default function AdsChannelPanel({
       {adsSnapshot ? (
         <SmartAdsPlaybook adsSnapshot={adsSnapshot} clientName={clientName} />
       ) : null}
+      <AdsAssessmentPanel clientId={adsClientId} clientName={clientName} />
     </div>
   );
 }

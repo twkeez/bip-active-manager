@@ -725,6 +725,103 @@ export type AdsAuditSnapshot = {
   updated_at: string;
 };
 
+// ── Google Ads AI Assessment ───────────────────────────────────────────────
+// Structured, prioritized analysis produced by Claude from the audit data.
+// Rendered as an interactive section inside the client's Ads tab.
+export type AdsAssessmentPriority = "critical" | "high" | "medium" | "low";
+
+export type AdsAssessmentActionItem = {
+  priority: AdsAssessmentPriority;
+  title: string;
+  explanation: string;
+  estimated_monthly_impact: string;
+  category: "geography" | "keywords" | "negatives" | "placements" | "structure" | "bidding" | "creative";
+};
+
+export type AdsAssessmentGeoArea = {
+  name: string;
+  spend: number;
+  conversions: number;
+  cost_per_conv: number | null;
+  vs_best_area_multiplier: number | null;
+  recommendation: "keep" | "consider" | "remove";
+};
+
+export type AdsAssessmentKeywordFlag = {
+  keyword: string;
+  campaign: string;
+  spend: number;
+  conversions: number;
+  cost_per_conv: number | null;
+  issue: string;
+  action: "pause" | "switch_to_phrase" | "switch_to_exact" | "reduce_bid" | "monitor";
+};
+
+export type AdsAssessment = {
+  summary: {
+    period: string;
+    total_spend: number;
+    annualized_spend: number;
+    total_conversions: number;
+    avg_cost_per_conv: number | null;
+    impression_share: string;
+    headline: string;
+  };
+  campaigns: Array<{
+    name: string;
+    spend: number;
+    conversions: number;
+    cost_per_conv: number | null;
+    impression_share_lost_rank_pct: number | null;
+    impression_share_lost_budget_pct: number | null;
+    health: "good" | "fair" | "poor";
+  }>;
+  geographic: {
+    best_area: string;
+    best_area_cost_per_conv: number | null;
+    areas: AdsAssessmentGeoArea[];
+    estimated_monthly_waste_from_poor_areas: number;
+  };
+  search_term_waste: {
+    irrelevant_categories: Array<{
+      category: string;
+      term_count: number;
+      estimated_spend: number;
+      example_terms: string[];
+    }>;
+    total_estimated_waste: number;
+  };
+  keyword_flags: AdsAssessmentKeywordFlag[];
+  ad_schedule: {
+    best_hours: Array<{ hour: number; cost_per_conv: number | null }>;
+    worst_hours: Array<{ hour: number; cost_per_conv: number | null; spend: number }>;
+    best_days: string[];
+    worst_days: string[];
+    daypart_recommendation: string;
+  };
+  competitive_position: {
+    our_impression_share: string;
+    competitors: Array<{ domain: string; impression_share: string; position_above_rate: string }>;
+    summary: string;
+  };
+  service_gaps: Array<{ service: string; issue: string; recommendation: string }>;
+  action_items: AdsAssessmentActionItem[];
+};
+
+export type AdsAssessmentSnapshot = {
+  id: number;
+  client_id: number;
+  ads_snapshot_id: number | null;
+  audit_snapshot_id: number | null;
+  start_date: string;
+  end_date: string;
+  assessment: AdsAssessment | Record<string, never>;
+  run_status: "running" | "completed" | "failed";
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ReportingFreshnessItem = {
   source: "ads" | "search_console" | "social" | "seo" | "sitemaps" | "ga4" | "gbp";
   label: string;
