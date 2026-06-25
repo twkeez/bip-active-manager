@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   Sparkles,
   Stethoscope,
+  Trophy,
   User,
 } from "lucide-react";
 import { useState } from "react";
@@ -57,6 +58,7 @@ const TOOLS: NavItem[] = [
   { label: "PPC Defense", href: "/ppc-defense", icon: Flame },
   { label: "Conversion Radar", href: "/conversion-integrity", icon: ShieldAlert },
   { label: "Ads Audit", href: "/ads-audit/", icon: Megaphone },
+  { label: "Wins", href: "/wins", icon: Trophy, adminOnly: true },
   { label: "Report Template", href: "/reports/template", icon: FileText, adminOnly: true },
   { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
   { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
