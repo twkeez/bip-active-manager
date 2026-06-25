@@ -176,6 +176,14 @@ export default function ClientWorkspaceDashboard({
             {tab.label}
           </Link>
         ))}
+        {norm(client.ads_customer_id) && (
+          <Link
+            href={`/dashboard/clients/${clientId}?tab=ads`}
+            className="rounded-lg border border-bip-border bg-bip-card/50 px-3 py-1.5 text-xs font-medium text-bip-text transition hover:border-bip-border hover:text-bip-text"
+          >
+            Ads
+          </Link>
+        )}
       </nav>
 
       {/* Comms alert */}
