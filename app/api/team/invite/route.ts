@@ -82,11 +82,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: linkError.message }, { status: 400 });
   }
 
-  return NextResponse.json({
-    ok: true,
-    email,
-    role,
-    emailed,
-    actionLink: linkData?.properties?.action_link ?? null,
-  });
+  // Build the link against our own /auth/confirm route using the token_hash. This
+  // uses verifyOtp (no PKCE code_verifier needed), so the link works in any
+  // browser and doesn't depend on the Supabase redirect-URL allow-list — unlike
+  // the raw action_link, which routes through Supabase's verify endpoint.
+  const tokenHash = linkData?.properties?.hashed_token;
+  const actionLink = tokenHash
+    ? `${origin}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=recovery&next=${encodeURIComponent("/auth/update-password")}`
+    : (linkData?.properties?.action_link ?? null);
+
+  return NextResponse.json({ ok: true, email, role, emailed, actionLink });
 }
