@@ -36,29 +36,57 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const { origin } = new URL(req.url);
+  const redirectTo = `${origin}/auth/callback?next=/auth/update-password`;
 
-  // Send the Supabase invite email. The profile row is created by the
-  // on_auth_user_created trigger (defaults role='strategist').
+  // Try to create + email the user. The profile row is created by the
+  // on_auth_user_created trigger (defaults role='strategist'). If the user
+  // already exists, that's fine — we'll just re-issue a set-password link below
+  // (this is how we re-onboard people who never finished setting a password).
+  let emailed = false;
   const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { full_name: fullName || email.split("@")[0] },
-    redirectTo: `${origin}/auth/callback?next=/auth/update-password`,
+    redirectTo,
   });
-  if (inviteError || !invited?.user) {
-    return NextResponse.json(
-      { error: inviteError?.message ?? "Failed to send invite." },
-      { status: 400 },
-    );
+  if (inviteError) {
+    const msg = inviteError.message.toLowerCase();
+    const alreadyExists =
+      msg.includes("already") || msg.includes("registered") || msg.includes("exists");
+    if (!alreadyExists) {
+      return NextResponse.json({ error: inviteError.message }, { status: 400 });
+    }
+  } else {
+    emailed = true;
   }
 
-  // If they were invited as an admin, promote the auto-created profile.
-  if (role === "admin") {
-    await admin
-      .from("profiles")
-      .update({ role: "admin", full_name: fullName || null })
-      .eq("id", invited.user.id);
-  } else if (fullName) {
-    await admin.from("profiles").update({ full_name: fullName }).eq("id", invited.user.id);
+  // Apply role / name to the profile (match by id when we just created the user,
+  // otherwise by email for an existing one).
+  const profilePatch: { role?: "admin" | "strategist"; full_name?: string | null } = {};
+  if (role === "admin") profilePatch.role = "admin";
+  if (fullName) profilePatch.full_name = fullName;
+  if (Object.keys(profilePatch).length > 0) {
+    if (invited?.user?.id) {
+      await admin.from("profiles").update(profilePatch).eq("id", invited.user.id);
+    } else {
+      await admin.from("profiles").update(profilePatch).ilike("email", email);
+    }
   }
 
-  return NextResponse.json({ ok: true, email, role });
+  // Always generate a copyable set-password link so onboarding works even when
+  // email delivery is down. generateLink does NOT send an email itself.
+  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: { redirectTo },
+  });
+  if (linkError) {
+    return NextResponse.json({ error: linkError.message }, { status: 400 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    email,
+    role,
+    emailed,
+    actionLink: linkData?.properties?.action_link ?? null,
+  });
 }
