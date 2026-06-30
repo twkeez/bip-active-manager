@@ -63,6 +63,8 @@ export type ClientOnboardingTemplate = {
   verification: string;
   sort_order: number;
   required_for_graduation: boolean;
+  /** When set, the item is only seeded for clients with that service active. */
+  requires_service: ClientServiceKey | null;
   created_at: string;
   updated_at: string;
 };
@@ -77,6 +79,7 @@ export type ClientOnboardingItem = {
   verification: string;
   sort_order: number;
   required_for_graduation: boolean;
+  requires_service: ClientServiceKey | null;
   completed_at: string | null;
   completed_by: string | null;
   notes: string | null;

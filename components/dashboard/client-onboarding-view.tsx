@@ -9,6 +9,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { previewText } from "@/lib/basecamp/display";
+import OnboardingKickoffPanel from "@/components/dashboard/onboarding-kickoff-panel";
 import { ONBOARDING_CATEGORY_LABELS } from "@/lib/clients/onboarding";
 import type {
   ClientOnboardingEvaluation,
@@ -379,7 +380,7 @@ export default function ClientOnboardingView({
             </h3>
           </div>
           <ul className="px-4">
-            
+
             {group.items.map((item) => (
               <ItemRow
                 key={item.itemKey}
@@ -391,6 +392,11 @@ export default function ClientOnboardingView({
               />
             ))}
           </ul>
+          {group.category === "communication" && (
+            <div className="border-t border-bip-border p-4">
+              <OnboardingKickoffPanel clientId={clientId} />
+            </div>
+          )}
         </section>
       ))}
     </div>
