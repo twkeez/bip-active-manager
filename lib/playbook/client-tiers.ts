@@ -38,12 +38,20 @@ function smmTierKey(value: string | null): string | null {
   return "social-standard";
 }
 
+function blogTierKey(value: string | null): string | null {
+  if (!isActive(value)) return null;
+  const v = normalize(value);
+  if (v === "p" || v.includes("premium")) return "blog-premium";
+  return "blog-standard";
+}
+
 export function getClientTierKeys(client: ClientRow): string[] {
   const keys: (string | null)[] = [
     seoTierKey(client.seo),
     ppcTierKey(client.ppc),
     ormTierKey(client.orm),
     smmTierKey(client.smm),
+    blogTierKey(client.blog),
   ];
   return keys.filter((k): k is string => k !== null);
 }

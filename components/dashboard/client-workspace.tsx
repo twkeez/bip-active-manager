@@ -1,6 +1,5 @@
 "use client";
 import ClientWorkspaceTabs from "@/components/dashboard/client-workspace/client-workspace-tabs";
-import ClientWorkspaceDashboard from "@/components/dashboard/client-workspace-dashboard";
 import ClientSimpleTabView, { SIMPLE_TABS } from "@/components/dashboard/client-simple-tab-view";
 import type { BasecampSyncState } from "@/lib/types/client";
 import { workspaceDataToManagerProps } from "@/lib/dashboard/load-client-workspace-data";
@@ -47,20 +46,19 @@ export default function ClientWorkspace({
         {...managerProps}
         userEmail={userEmail}
         syncState={syncState}
-        initialDetailTab={initialTab}
+        initialDetailTab={initialTab === "overview" ? null : initialTab}
       />
     );
   }
 
-  // Overview (no tab)
+  // Default landing: the unified guided "Run of Show" Overview.
   return (
-    <div className="flex min-h-screen flex-col bg-bip-card">
-      <ClientWorkspaceDashboard
-        data={data}
-        userEmail={userEmail}
-        strategistRoster={strategistRoster}
-        appUrl={appUrl}
-      />
-    </div>
+    <ClientSimpleTabView
+      data={data}
+      activeTab="overview"
+      userEmail={userEmail}
+      strategistRoster={strategistRoster}
+      appUrl={appUrl}
+    />
   );
 }

@@ -18,6 +18,7 @@ import type {
   ClientWorkspaceInitialData,
 } from "@/lib/dashboard/client-workspace-types";
 import ClientPlaybookView from "@/components/playbook/client-playbook-view";
+import ClientRunOfShowView from "@/components/dashboard/client-run-of-show-view";
 import ClientOnboardingView from "@/components/dashboard/client-onboarding-view";
 import ClientProfileView from "@/components/dashboard/client-profile-view";
 import type { StrategistContact } from "@/lib/team/strategist-roster";
@@ -25,6 +26,7 @@ import { openableBasecampUrl, previewText } from "@/lib/basecamp/display";
 
 // Tabs handled by this clean shell (data-heavy tabs stay in legacy system)
 const SIMPLE_TABS = new Set<ClientDetailTab>([
+  "overview",
   "profile",
   "onboarding",
   "connections",
@@ -33,6 +35,7 @@ const SIMPLE_TABS = new Set<ClientDetailTab>([
 ]);
 
 const ALL_TABS: Array<{ id: ClientDetailTab; label: string }> = [
+  { id: "overview", label: "Overview" },
   { id: "comms", label: "Comms" },
   { id: "onboarding", label: "Onboarding" },
   { id: "playbook", label: "Playbook" },
@@ -581,6 +584,21 @@ export default function ClientSimpleTabView({
 
   function renderContent() {
     switch (activeTab) {
+      case "overview":
+        return (
+          <ClientRunOfShowView
+            client={client}
+            onOpenTab={(tab) => {
+              if (tab === "edit") {
+                router.push(`/dashboard/clients/${clientId}?tab=profile`);
+                return;
+              }
+              router.push(`/dashboard/clients/${clientId}?tab=${tab}`);
+            }}
+            onEditClient={() => router.push(`/dashboard/clients/${clientId}?tab=profile`)}
+            onGraduated={() => router.refresh()}
+          />
+        );
       case "profile":
         return (
           <ClientProfileView

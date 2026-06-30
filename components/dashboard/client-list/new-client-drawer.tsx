@@ -140,7 +140,7 @@ export default function NewClientDrawer({ open, onClose, onCreated }: NewClientD
       onCreated?.(onboarded);
       setForm(EMPTY_FORM);
       onClose();
-      router.push(`/dashboard/clients/${onboarded.id}?tab=onboarding`);
+      router.push(`/dashboard/clients/${onboarded.id}?tab=overview`);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Failed to create client");
     } finally {
