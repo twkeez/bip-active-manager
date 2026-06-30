@@ -65,6 +65,8 @@ export type ClientOnboardingTemplate = {
   required_for_graduation: boolean;
   /** When set, the item is only seeded for clients with that service active. */
   requires_service: ClientServiceKey | null;
+  /** Short "what to do / why" blurb shown in the onboarding wizard. */
+  guidance: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -80,6 +82,7 @@ export type ClientOnboardingItem = {
   sort_order: number;
   required_for_graduation: boolean;
   requires_service: ClientServiceKey | null;
+  guidance: string | null;
   completed_at: string | null;
   completed_by: string | null;
   notes: string | null;
@@ -100,6 +103,7 @@ export type OnboardingItemStatus = {
   done: boolean;
   autoVerified: boolean;
   hint: string | null;
+  guidance: string | null;
   completedAt: string | null;
   notes: string | null;
   actionTab: DetailTabLink | null;

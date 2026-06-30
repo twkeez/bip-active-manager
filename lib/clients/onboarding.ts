@@ -268,6 +268,7 @@ export function evaluateOnboardingItemStatus(
     done,
     autoVerified,
     hint,
+    guidance: item.guidance,
     completedAt: item.completed_at,
     notes: item.notes,
     actionTab: actionTabForVerification(item.verification),
@@ -454,6 +455,7 @@ export async function startOnboardingForClient(
       sort_order: template.sort_order,
       required_for_graduation: template.required_for_graduation,
       requires_service: template.requires_service,
+      guidance: template.guidance,
       completed_at:
         template.verification === "manual:record_created" ? now : null,
       completed_by:

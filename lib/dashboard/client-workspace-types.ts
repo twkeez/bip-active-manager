@@ -24,6 +24,7 @@ import type {
 } from "@/lib/types/client";
 
 export type ClientDetailTab =
+  | "overview"
   | "profile"
   | "onboarding"
   | "connections"
@@ -38,6 +39,7 @@ export type ClientDetailTab =
   | "playbook";
 
 export const CLIENT_DETAIL_TABS = new Set<string>([
+  "overview",
   "profile",
   "onboarding",
   "connections",

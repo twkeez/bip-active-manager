@@ -13,6 +13,7 @@ function tpl(item_key: string, requires_service: ClientOnboardingTemplate["requi
     sort_order: 10,
     required_for_graduation: true,
     requires_service,
+    guidance: null,
     created_at: "",
     updated_at: "",
   };
