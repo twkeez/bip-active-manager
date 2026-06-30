@@ -455,7 +455,10 @@ async function handleUpsertGmailRule( sender: string, ruleType:"blacklist" |"alw
   const response = await fetch("/api/gmail/rules", { method:"PUT", headers: {"Content-Type":"application/json" }, body: JSON.stringify({ sender, ruleType, isActive }), });
 const payload = (await response.json()) as { error?: string; rules?: UserEmailSenderRule[]; };
 if (!response.ok) throw new Error(payload.error ??"Failed to save Gmail rule");
-setGmailRules(payload.rules ?? []); }
+setGmailRules(payload.rules ?? []);
+// The rule is now applied to existing mail server-side; refresh so the
+// High Priority view reflects it without waiting for the next sync.
+if (ruleType ==="always_high_priority") { await reloadGmailMessages(gmailView, true); } }
 async function loadSenders() {
   setSendersLoading(true);
   try {

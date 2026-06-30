@@ -35,6 +35,48 @@ export function evaluateSenderRules(params: {
   return { isBlacklisted, isAlwaysHighPriority };
 }
 
+/**
+ * Retroactively reconciles the per-message `is_high_priority` flag for emails
+ * already in the inbox when an `always_high_priority` rule is toggled. Without
+ * this, a new "important sender/domain" rule only affects mail fetched on the
+ * next sync, so the High Priority view stays empty for existing threads.
+ *
+ * `sender` may be a full address (matches that address) or a bare domain
+ * (matches everyone @domain). Matching is case-insensitive.
+ *  - active:  flags every matching message.
+ *  - !active: clears the flag, but leaves messages that are still high priority
+ *             for another reason (starred, or AI-scored "high") untouched.
+ */
+export async function backfillHighPriorityForSender(
+  admin: SupabaseClient,
+  params: { userId: string; sender: string; active: boolean },
+) {
+  const sender = normalizeSenderKey(params.sender);
+  if (!sender) return;
+  const pattern = sender.includes("@") ? sender : `%@${sender}`;
+  const now = new Date().toISOString();
+
+  let query = admin
+    .from("user_email_messages")
+    .update({ is_high_priority: params.active, updated_at: now })
+    .eq("owner_user_id", params.userId)
+    .ilike("from_email", pattern);
+
+  if (!params.active) {
+    // Don't strip the flag from mail that's high priority for another reason.
+    // (NULL ai_priority must still be cleared, so match it explicitly — a bare
+    // `.neq` would drop NULL rows since `NULL != 'high'` is unknown in SQL.)
+    query = query
+      .eq("is_starred", false)
+      .or("ai_priority.is.null,ai_priority.neq.high");
+  }
+
+  const { error } = await query;
+  if (error) {
+    throw new Error(`Failed to backfill high-priority messages: ${error.message}`);
+  }
+}
+
 export async function upsertSenderRule(
   admin: SupabaseClient,
   params: {
