@@ -31,7 +31,7 @@ function mailto(to: string, clientName: string, appUrl: string, status: string) 
 
 /**
  * Dashboard panel listing clients whose recurring SEO audit is due or overdue.
- * Renders nothing when there's nothing to action, to keep the dashboard quiet.
+ * Always rendered (with an empty state) so it's a permanent, trusted section.
  */
 export default function SeoAuditsDuePanel({ schedules, roster, appUrl }: Props) {
   const actionable = schedules
@@ -39,17 +39,35 @@ export default function SeoAuditsDuePanel({ schedules, roster, appUrl }: Props) 
     .filter(({ status }) => status === "due" || status === "overdue")
     .sort((a, b) => (a.status === "overdue" && b.status !== "overdue" ? -1 : 1));
 
-  if (actionable.length === 0) return null;
+  // The soonest not-yet-due audit, shown in the empty state for context.
+  const nextUpcoming = schedules
+    .filter((s) => dueStatus(s.next_due_at) === "upcoming" && s.next_due_at)
+    .sort((a, b) => new Date(a.next_due_at!).getTime() - new Date(b.next_due_at!).getTime())[0];
 
   return (
     <div className="bip-card overflow-hidden">
       <div className="flex items-center gap-2.5 border-b border-[var(--bip-border)] px-4 py-3">
         <ClipboardCheck size={14} className="text-[var(--bip-accent)]" />
         <span className="text-sm font-medium text-[var(--text)]">SEO Audits Due</span>
+        {actionable.length > 0 && (
+          <span className="rounded-full bg-[var(--bip-accent)]/15 px-2 py-0.5 text-xs font-semibold text-[var(--bip-accent)]">
+            {actionable.length}
+          </span>
+        )}
         <Link href="/seo-audits" className="ml-auto text-xs text-[var(--bip-accent)] hover:underline">
           Open tool →
         </Link>
       </div>
+
+      {actionable.length === 0 ? (
+        <p className="px-4 py-6 text-center text-sm text-[var(--text-subtle)]">
+          {schedules.length === 0
+            ? "No clients enrolled yet. Open the tool to schedule recurring audits."
+            : nextUpcoming
+              ? `Nothing due right now. Next: ${nextUpcoming.account_name} on ${formatDate(nextUpcoming.next_due_at)}.`
+              : "Nothing due right now."}
+        </p>
+      ) : (
       <div className="divide-y divide-[var(--bip-border)]">
         {actionable.map(({ schedule, status }) => {
           const strategist = matchStrategistByName(schedule.marketing_strategist, roster);
@@ -89,6 +107,7 @@ export default function SeoAuditsDuePanel({ schedules, roster, appUrl }: Props) 
           );
         })}
       </div>
+      )}
     </div>
   );
 }
