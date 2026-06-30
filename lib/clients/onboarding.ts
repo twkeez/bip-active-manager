@@ -1,9 +1,11 @@
 import { evaluateClientSetup } from "@/lib/clients/setup-status";
-import { getClientActiveServices, isServiceActive, norm } from "@/lib/clients/service-active";
+import { getClientActiveServices, norm } from "@/lib/clients/service-active";
 import type {
+  ClientActiveServices,
   ClientOnboardingEvaluation,
   ClientOnboardingItem,
   ClientOnboardingTemplate,
+  ClientServiceKey,
   DetailTabLink,
   OnboardingCommsCadence,
   OnboardingItemStatus,
@@ -389,6 +391,19 @@ export async function listClientOnboardingItems(
   return (data ?? []) as ClientOnboardingItem[];
 }
 
+/**
+ * Filters template items down to those that apply to a client's purchased
+ * services: an item with no `requires_service` always applies; a service-tagged
+ * item applies only when that service is active.
+ */
+export function templatesForServices<
+  T extends { requires_service: ClientServiceKey | null },
+>(templates: T[], activeServices: ClientActiveServices): T[] {
+  return templates.filter(
+    (template) => !template.requires_service || activeServices[template.requires_service],
+  );
+}
+
 export async function startOnboardingForClient(
   supabase: SupabaseClient,
   clientId: number,
@@ -400,6 +415,17 @@ export async function startOnboardingForClient(
   }
 
   const now = new Date().toISOString();
+
+  // Load the client so we only seed items for the services they actually bought.
+  const { data: clientRow, error: loadError } = await supabase
+    .from("clients")
+    .select("*")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (loadError) throw new Error(loadError.message);
+  if (!clientRow) throw new Error("Client not found.");
+  const activeServices = getClientActiveServices(clientRow as ClientRow);
+
   const { error: clientError } = await supabase
     .from("clients")
     .update({
@@ -417,7 +443,8 @@ export async function startOnboardingForClient(
     .limit(1);
 
   if (!existingItems?.length) {
-    const rows = templates.map((template) => ({
+    const applicable = templatesForServices(templates, activeServices);
+    const rows = applicable.map((template) => ({
       client_id: clientId,
       item_key: template.item_key,
       label: template.label,
@@ -426,6 +453,7 @@ export async function startOnboardingForClient(
       verification: template.verification,
       sort_order: template.sort_order,
       required_for_graduation: template.required_for_graduation,
+      requires_service: template.requires_service,
       completed_at:
         template.verification === "manual:record_created" ? now : null,
       completed_by:

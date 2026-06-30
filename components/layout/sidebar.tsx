@@ -64,6 +64,7 @@ const TOOLS: NavItem[] = [
   { label: "Report Template", href: "/reports/template", icon: FileText, adminOnly: true },
   { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
   { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
+  { label: "Onboarding Settings", href: "/onboarding-settings", icon: ClipboardList, adminOnly: true },
 ];
 
 const SALES: NavItem[] = [
