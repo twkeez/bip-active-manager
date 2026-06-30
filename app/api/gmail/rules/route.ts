@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadSenderRules, upsertSenderRule } from "@/lib/gmail/rules";
+import {
+  backfillHighPriorityForSender,
+  loadSenderRules,
+  upsertSenderRule,
+} from "@/lib/gmail/rules";
 
 type RuleBody = {
   sender?: string;
@@ -43,13 +47,24 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "sender and ruleType are required" }, { status: 400 });
   }
   try {
-    await upsertSenderRule(createAdminClient(), {
+    const admin = createAdminClient();
+    const isActive = body.isActive !== false;
+    await upsertSenderRule(admin, {
       userId: user.id,
       sender: body.sender,
       ruleType: body.ruleType,
-      isActive: body.isActive !== false,
+      isActive,
     });
-    const rules = await loadSenderRules(createAdminClient(), user.id);
+    // Apply the rule to mail already in the inbox so the High Priority view
+    // reflects it immediately, not just on the next sync.
+    if (body.ruleType === "always_high_priority") {
+      await backfillHighPriorityForSender(admin, {
+        userId: user.id,
+        sender: body.sender,
+        active: isActive,
+      });
+    }
+    const rules = await loadSenderRules(admin, user.id);
     return NextResponse.json({ ok: true, rules });
   } catch (error) {
     return NextResponse.json(

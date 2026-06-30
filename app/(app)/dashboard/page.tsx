@@ -11,6 +11,12 @@ import MiniPad from "@/components/dashboard/mini-pad";
 import { Star, Calendar } from "lucide-react";
 import BasecampSyncButton from "@/components/dashboard/basecamp-sync-button";
 import DataSyncAllButton from "@/components/dashboard/data-sync-all-button";
+import SeoAuditsDuePanel from "@/components/dashboard/seo-audits-due-panel";
+import { getStrategistRoster } from "@/lib/team/strategist-roster";
+import type {
+  ClientSeoAuditSchedule,
+  ClientSeoAuditScheduleWithClient,
+} from "@/lib/site-audit/seo-audit-types";
 
 function formatDueDate(dateStr: string | null) {
   if (!dateStr) return null;
@@ -41,7 +47,7 @@ export default async function DashboardPage() {
   );
   if (effectiveRole !== "admin") redirect("/dashboard/clients");
 
-  const [{ clients, syncState }, priorityTasks, openTasksRaw] = await Promise.all([
+  const [{ clients, syncState }, priorityTasks, openTasksRaw, seoAuditSchedulesRaw] = await Promise.all([
     loadClientListData(supabase),
     fetchPriorityTasks(supabase, user.id).catch(() => []),
     supabase
@@ -52,7 +58,24 @@ export default async function DashboardPage() {
       .order("updated_at", { ascending: false })
       .limit(20)
       .then((r) => r.data ?? []),
+    supabase
+      .from("client_seo_audit_schedules")
+      .select("*, clients(account_name, marketing_strategist, website)")
+      .eq("owner_user_id", user.id)
+      .then((r) => r.data ?? []),
   ]);
+
+  const seoAuditSchedules: ClientSeoAuditScheduleWithClient[] = seoAuditSchedulesRaw.map((row) => {
+    const { clients: c, ...schedule } = row as ClientSeoAuditSchedule & {
+      clients: { account_name: string; marketing_strategist: string | null; website: string | null } | null;
+    };
+    return {
+      ...schedule,
+      account_name: c?.account_name ?? "Unknown client",
+      marketing_strategist: c?.marketing_strategist ?? null,
+      website: c?.website ?? null,
+    };
+  });
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -71,6 +94,15 @@ export default async function DashboardPage() {
       {/* My Tasks quick widget */}
       <section>
         <MiniPad initialTasks={openTasksRaw as { id: number; title: string; status: string; is_starred: boolean }[]} />
+      </section>
+
+      {/* SEO Audits due */}
+      <section>
+        <SeoAuditsDuePanel
+          schedules={seoAuditSchedules}
+          roster={getStrategistRoster()}
+          appUrl={process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}
+        />
       </section>
 
       {/* Comms Monitor */}
