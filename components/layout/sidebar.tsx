@@ -15,12 +15,13 @@ import {
   FileDown,
   FileText,
   Flame,
+  FolderOpen,
   Globe,
+  Layers,
   LayoutDashboard,
   Map,
   MapPinned,
   Megaphone,
-  MessageSquare,
   ScanSearch,
   ShieldAlert,
   ShieldCheck,
@@ -42,20 +43,21 @@ type NavItem = {
 
 const PRIMARY: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Comms Monitor", href: "/dashboard/comms", icon: MessageSquare },
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "My Tasks", href: "/my-tasks", icon: CheckSquare },
   { label: "Team", href: "/team", icon: ShieldCheck, adminOnly: true },
 ];
 
+// Brand magenta — makes the Services section stand out from the indigo nav.
+const SERVICES_ACCENT = "#ce2084";
+
+const SERVICES: NavItem[] = [
+  { label: "Services & Tiers", href: "/services", icon: Layers },
+  { label: "Reference Library", href: "/services/library", icon: FolderOpen },
+];
+
 const TOOLS: NavItem[] = [
-  { label: "Service Playbook", href: "/playbook", icon: BookOpen },
-  { label: "Bulk Auto-Discover", href: "/bulk-discover", icon: ScanSearch, adminOnly: true },
-  { label: "Sitemaps", href: "/sitemaps", icon: Map },
-  { label: "SEO Ops", href: "/seo-ops", icon: ClipboardCheck },
-  { label: "Site Audit", href: "/site-audit", icon: Globe },
   { label: "SEO Audits", href: "/seo-audits", icon: ClipboardList },
-  { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
   { label: "Global Ads", href: "/global-ads-optimization", icon: Megaphone },
   { label: "PPC Defense", href: "/ppc-defense", icon: Flame },
   { label: "Conversion Radar", href: "/conversion-integrity", icon: ShieldAlert },
@@ -65,6 +67,21 @@ const TOOLS: NavItem[] = [
   { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
   { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
   { label: "Onboarding Settings", href: "/onboarding-settings", icon: ClipboardList, adminOnly: true },
+];
+
+const FOR_REVIEW: NavItem[] = [
+  { label: "Sitemaps", href: "/sitemaps", icon: Map },
+  { label: "SEO Ops", href: "/seo-ops", icon: ClipboardCheck },
+  { label: "Site Audit", href: "/site-audit", icon: Globe },
+  { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
+];
+
+const UTILITIES: NavItem[] = [
+  { label: "Bulk Auto-Discover", href: "/bulk-discover", icon: ScanSearch, adminOnly: true },
+];
+
+const UNFINISHED: NavItem[] = [
+  { label: "Service Playbook", href: "/playbook", icon: BookOpen },
 ];
 
 const SALES: NavItem[] = [
@@ -80,7 +97,7 @@ const USER_NAV: NavItem[] = [
   { label: "Reporting", href: "/reports/doc-to-pdf", icon: FileDown },
 ];
 
-function NavLink({ item, role }: { item: NavItem; role: UserRole }) {
+function NavLink({ item, role, accentColor }: { item: NavItem; role: UserRole; accentColor?: string }) {
   const pathname = usePathname();
   if (item.adminOnly && role !== "admin") return null;
   const active =
@@ -97,7 +114,11 @@ function NavLink({ item, role }: { item: NavItem; role: UserRole }) {
           : "text-[var(--text-muted)] hover:bg-[var(--bip-hover)] hover:text-[var(--text)]"
       }`}
     >
-      <Icon size={15} className={active ? "text-[var(--bip-accent)]" : ""} />
+      <Icon
+        size={15}
+        className={active && !accentColor ? "text-[var(--bip-accent)]" : ""}
+        style={accentColor ? { color: accentColor } : undefined}
+      />
       {item.label}
     </Link>
   );
@@ -108,11 +129,13 @@ function SectionGroup({
   items,
   role,
   defaultOpen = true,
+  accentColor,
 }: {
   label: string;
   items: NavItem[];
   role: UserRole;
   defaultOpen?: boolean;
+  accentColor?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const visible = items.filter((i) => !i.adminOnly || role === "admin");
@@ -122,6 +145,7 @@ function SectionGroup({
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-[var(--text-subtle)] hover:text-[var(--text-muted)] transition-colors"
+        style={accentColor ? { color: accentColor } : undefined}
       >
         {label}
         <ChevronDown
@@ -132,7 +156,7 @@ function SectionGroup({
       {open && (
         <div className="mt-0.5 flex flex-col gap-0.5">
           {items.map((item) => (
-            <NavLink key={item.href} item={item} role={role} />
+            <NavLink key={item.href} item={item} role={role} accentColor={accentColor} />
           ))}
         </div>
       )}
@@ -209,7 +233,19 @@ export default function Sidebar({
 
             <div className="border-t border-[var(--bip-border)]" />
 
+            <SectionGroup label="Services" items={SERVICES} role={role} accentColor={SERVICES_ACCENT} />
+
+            <div className="border-t border-[var(--bip-border)]" />
+
             <SectionGroup label="Tools" items={TOOLS} role={role} />
+
+            <div className="border-t border-[var(--bip-border)]" />
+
+            <SectionGroup label="For Review" items={FOR_REVIEW} role={role} defaultOpen={false} />
+
+            <SectionGroup label="Utilities" items={UTILITIES} role={role} defaultOpen={false} />
+
+            <SectionGroup label="Unfinished" items={UNFINISHED} role={role} defaultOpen={false} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
