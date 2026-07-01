@@ -17,6 +17,7 @@ import {
   Flame,
   FolderOpen,
   Globe,
+  Handshake,
   Layers,
   LayoutDashboard,
   Map,
@@ -53,6 +54,7 @@ const SERVICES_ACCENT = "#ce2084";
 
 const SERVICES: NavItem[] = [
   { label: "Services & Tiers", href: "/services", icon: Layers },
+  { label: "Partnership & Boundaries", href: "/services/partnership", icon: Handshake },
   { label: "Reference Library", href: "/services/library", icon: FolderOpen },
 ];
 

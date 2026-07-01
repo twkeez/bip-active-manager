@@ -34,6 +34,7 @@ function ormTierKey(value: string | null): string | null {
 function smmTierKey(value: string | null): string | null {
   if (!isActive(value)) return null;
   const v = normalize(value);
+  if (v.includes("plus") || v.includes("+") || v === "pp") return "social-premium-plus";
   if (v === "p" || v.includes("premium")) return "social-premium";
   return "social-standard";
 }

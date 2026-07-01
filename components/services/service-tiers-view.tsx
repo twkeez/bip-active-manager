@@ -53,7 +53,9 @@ export default function ServiceTiersView() {
                   <div className="text-base font-bold" style={{ color: MAGENTA }}>
                     {tier.label}
                   </div>
-                  <div className="mt-0.5 text-sm font-semibold text-bip-text">{tier.price}</div>
+                  {tier.price && (
+                    <div className="mt-0.5 text-sm font-semibold text-bip-text">{tier.price}</div>
+                  )}
                 </th>
               ))}
             </tr>
