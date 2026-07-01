@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { Check } from "lucide-react";
-import { SERVICE_TIER_TABLES } from "@/lib/services/tier-content";
+import type { ServiceTierTable } from "@/lib/services/tier-content";
 
 const MAGENTA = "#ce2084";
 
-export default function ServiceTiersView() {
-  const [activeKey, setActiveKey] = useState(SERVICE_TIER_TABLES[0]?.key ?? "");
-  const table = SERVICE_TIER_TABLES.find((t) => t.key === activeKey) ?? SERVICE_TIER_TABLES[0];
+export default function ServiceTiersView({ tables }: { tables: ServiceTierTable[] }) {
+  const [activeKey, setActiveKey] = useState(tables[0]?.key ?? "");
+  const table = tables.find((t) => t.key === activeKey) ?? tables[0];
 
   if (!table) {
     return <p className="text-sm text-bip-muted">No service tiers defined yet.</p>;
@@ -18,7 +18,7 @@ export default function ServiceTiersView() {
     <div className="space-y-4">
       {/* Service switcher */}
       <div className="flex flex-wrap gap-2">
-        {SERVICE_TIER_TABLES.map((t) => {
+        {tables.map((t) => {
           const active = t.key === table.key;
           return (
             <button
