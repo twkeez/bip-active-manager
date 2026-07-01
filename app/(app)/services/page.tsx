@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FolderOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import ServiceTiersView from "@/components/services/service-tiers-view";
+import { getProfile } from "@/lib/auth/profile";
+import ServiceTiersManager from "@/components/services/service-tiers-manager";
+import { SERVICE_TIER_TABLES, type ServiceTierTable } from "@/lib/services/tier-content";
 
 export default async function ServicesPage() {
   const supabase = await createClient();
@@ -10,6 +12,16 @@ export default async function ServicesPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const profile = await getProfile(supabase);
+  const isAdmin = profile?.role === "admin";
+
+  const { data: row } = await supabase
+    .from("service_content")
+    .select("data")
+    .eq("content_key", "tiers")
+    .maybeSingle<{ data: ServiceTierTable[] }>();
+  const tables = row?.data ?? SERVICE_TIER_TABLES;
 
   return (
     <div className="mx-auto w-full max-w-6xl p-6">
@@ -28,7 +40,7 @@ export default async function ServicesPage() {
           <FolderOpen className="h-4 w-4" /> Reference Library
         </Link>
       </div>
-      <ServiceTiersView />
+      <ServiceTiersManager initial={tables} isAdmin={isAdmin} />
     </div>
   );
 }

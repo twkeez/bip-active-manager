@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import PartnershipView from "@/components/services/partnership-view";
+import { getProfile } from "@/lib/auth/profile";
+import PartnershipManager from "@/components/services/partnership-manager";
+import { PARTNERSHIP_DEFAULT, type PartnershipContent } from "@/lib/services/partnership-content";
 
 export default async function PartnershipPage() {
   const supabase = await createClient();
@@ -10,6 +12,16 @@ export default async function PartnershipPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const profile = await getProfile(supabase);
+  const isAdmin = profile?.role === "admin";
+
+  const { data: row } = await supabase
+    .from("service_content")
+    .select("data")
+    .eq("content_key", "partnership")
+    .maybeSingle<{ data: PartnershipContent }>();
+  const content = row?.data ?? PARTNERSHIP_DEFAULT;
 
   return (
     <div className="mx-auto w-full max-w-5xl p-6">
@@ -22,7 +34,7 @@ export default async function PartnershipPage() {
           How we partner at each level, on-demand rates, and the lines to hold when clients ask for more.
         </p>
       </div>
-      <PartnershipView />
+      <PartnershipManager initial={content} isAdmin={isAdmin} />
     </div>
   );
 }
