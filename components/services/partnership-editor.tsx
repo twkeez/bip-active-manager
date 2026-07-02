@@ -84,17 +84,6 @@ export default function PartnershipEditor({ initial, onSaved, onCancel }: Props)
         </button>
       </section>
 
-      {/* Sales framing */}
-      <section className="rounded-xl border border-bip-border bg-bip-card p-4 space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">Sales framing</p>
-        <label className="block text-[11px] text-bip-muted">Intro line
-          <textarea className={`${FIELD} mt-1`} value={c.salesFramingIntro} onChange={(e) => update((d) => { d.salesFramingIntro = e.target.value; })} />
-        </label>
-        <label className="block text-[11px] text-bip-muted">Quote
-          <textarea className={`${FIELD} mt-1 min-h-20`} value={c.salesFramingQuote} onChange={(e) => update((d) => { d.salesFramingQuote = e.target.value; })} />
-        </label>
-      </section>
-
       {/* On-demand */}
       <section className="rounded-xl border border-bip-border bg-bip-card p-4 space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">On-demand / à-la-carte</p>

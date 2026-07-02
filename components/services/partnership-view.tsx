@@ -54,15 +54,6 @@ export default function PartnershipView({ content }: { content: PartnershipConte
         </div>
       </section>
 
-      {/* The one move */}
-      <section className="rounded-xl border border-bip-border bg-bip-card p-4">
-        <SectionLabel>The one move that prevents 90% of the problem</SectionLabel>
-        <p className="text-sm text-bip-text">{content.salesFramingIntro}</p>
-        <blockquote className="mt-2 border-l-2 pl-3 text-sm italic text-bip-muted" style={{ borderColor: MAGENTA }}>
-          &ldquo;{content.salesFramingQuote}&rdquo;
-        </blockquote>
-      </section>
-
       {/* On-demand */}
       <section className="rounded-xl border border-bip-border bg-bip-card p-4">
         <SectionLabel>On-demand / à-la-carte (Foundation)</SectionLabel>

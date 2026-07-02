@@ -8,8 +8,6 @@ export type BoundaryLine = { when: string; say: string };
 export type PartnershipContent = {
   intro: string;
   partnerRows: PartnerRow[];
-  salesFramingIntro: string;
-  salesFramingQuote: string;
   onDemand: {
     intro: string;
     clientRate: string;
@@ -49,10 +47,6 @@ export const PARTNERSHIP_DEFAULT: PartnershipContent = {
     { label: "Business review", cells: ["—", "—", "Quarterly Business Review (QBR)"] },
     { label: "Posture", cells: ["Reactive", "Responsive + scheduled", "Proactive — we bring you opportunities before you ask"] },
   ],
-  salesFramingIntro:
-    "At close, say the “how we work together” part out loud and positively, so it’s agreed to — not assumed:",
-  salesFramingQuote:
-    "At Foundation, our specialists keep your campaigns optimized and send you a monthly performance report — it runs efficiently in the background. If you ever want a dedicated strategist and regular strategy calls, that’s exactly what Premium adds.",
   onDemand: {
     intro:
       "Foundation runs in the background — but clients are never boxed in. Want a call, a rush change, or extra work? We offer it on demand.",
