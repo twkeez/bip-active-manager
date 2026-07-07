@@ -33,6 +33,7 @@ export type ClientRow = {
   contact_name?: string | null;
   contact_email?: string | null;
   shared_drive_url?: string | null;
+  gtm_container_id?: string | null;
   created_at: string;
 };
 

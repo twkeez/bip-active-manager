@@ -17,6 +17,7 @@ import SeoAuditEditor from "@/components/seo-audit/seo-audit-editor";
 import { ArrowLeft, Bell, BarChart2, ExternalLink, FileText, Loader2, Play } from "lucide-react";
 import { getClientServiceTierDefs } from "@/lib/playbook/client-tiers";
 import { runVerifications } from "@/lib/playbook/verify";
+import { runSeoPlatformChecks, type PlatformCheck } from "@/lib/playbook/workspace-verify";
 import type { PlaybookItem } from "@/lib/playbook/types";
 
 type ClientStub = Pick<ClientRow, "id" | "account_name" | "marketing_strategist" | "tier">;
@@ -94,10 +95,48 @@ function avatarInitial(email: string | null): string {
 // ── Service Playbook tab ──────────────────────────────────────────────────────
 const CATEGORY_ORDER = ["Initial Setup", "Monthly Work", "Monthly Communications", "Guidelines"];
 
-function ServicePlaybookTab({ items, client }: { items: PlaybookItem[]; client: ClientRow }) {
-  if (items.length === 0) {
-    return <p className="text-xs text-neutral-400">No playbook items for this service tier.</p>;
-  }
+function PlatformCheckRow({ check }: { check: PlatformCheck }) {
+  return (
+    <div className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-neutral-50">
+      {check.pass ? (
+        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+          <svg className="h-2.5 w-2.5 text-emerald-600" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 6l3 3 5-5"/>
+          </svg>
+        </span>
+      ) : (
+        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-100">
+          <svg className="h-2.5 w-2.5 text-red-500" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M3 3l6 6M9 3l-6 6"/>
+          </svg>
+        </span>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-medium leading-snug ${check.pass ? "text-neutral-700" : "text-red-700"}`}>
+          {check.label}
+        </p>
+        <p className={`text-xs leading-snug mt-0.5 ${check.pass ? "text-neutral-400" : "text-red-500"}`}>
+          {check.detail}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ServicePlaybookTab({
+  items,
+  client,
+  tierKey,
+  workspace,
+}: {
+  items: PlaybookItem[];
+  client: ClientRow;
+  tierKey: string;
+  workspace?: ClientWorkspaceInitialData | null;
+}) {
+  const platformChecks = tierKey.startsWith("seo-") && workspace
+    ? runSeoPlatformChecks(workspace)
+    : null;
 
   const byCategory = new Map<string, PlaybookItem[]>();
   for (const item of items) {
@@ -111,8 +150,24 @@ function ServicePlaybookTab({ items, client }: { items: PlaybookItem[]; client: 
     return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
   });
 
+  if (!platformChecks && items.length === 0) {
+    return <p className="text-xs text-neutral-400">No playbook items for this service tier.</p>;
+  }
+
   return (
     <div className="space-y-5">
+      {/* Platform connection checks — SEO only */}
+      {platformChecks && (
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Platform Status</p>
+          <div className="space-y-0.5">
+            {platformChecks.map((check) => (
+              <PlatformCheckRow key={check.key} check={check} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {categories.map((cat) => (
         <div key={cat}>
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{cat}</p>
@@ -764,8 +819,10 @@ export default function CockpitSandbox({
                   {activeTab && (
                     <ServicePlaybookTab
                       key={activeTab}
+                      tierKey={activeTab}
                       items={playbookItems.filter((i) => i.tier_key === activeTab)}
                       client={client!}
+                      workspace={workspace}
                     />
                   )}
                 </div>
