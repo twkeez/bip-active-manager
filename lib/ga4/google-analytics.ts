@@ -33,7 +33,7 @@ export type Ga4SyncResult = {
   landingPages: Ga4LandingPageRow[];
 };
 
-async function getAccessToken(): Promise<string> {
+async function getServiceAccountToken(): Promise<string> {
   const { clientEmail, privateKey } = getGoogleServiceAccountConfig();
   const auth = new JWT({ email: clientEmail, key: privateKey, scopes: [GA4_SCOPE] });
   const token = await auth.getAccessToken();
@@ -146,11 +146,12 @@ export async function runGa4Sync(
   endDate: string,
   prevStartDate: string,
   prevEndDate: string,
+  userAccessToken?: string,
 ): Promise<Ga4SyncResult> {
   // Strip "properties/" prefix if present — we store just the numeric ID
   const propertyId = rawPropertyId.replace(/^properties\//, "");
 
-  const token = await getAccessToken();
+  const token = userAccessToken ?? await getServiceAccountToken();
 
   // Totals for current + previous period in one request (two date ranges)
   const totalsReport = await runReport(propertyId, token, {

@@ -17,6 +17,7 @@ export async function syncClientGa4(
   admin: SupabaseClient,
   clientId: number,
   propertyId: string,
+  userAccessToken?: string,
 ): Promise<SyncClientGa4Result> {
   const endDate = isoDate(new Date().toISOString());
   const startDate = isoDate(isoDaysAgo(30));
@@ -50,7 +51,7 @@ export async function syncClientGa4(
   }
 
   try {
-    const sync = await runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate);
+    const sync = await runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate, userAccessToken);
 
     const { error: updateError } = await admin
       .from("client_ga4_snapshots")

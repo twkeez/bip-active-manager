@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { syncClientGa4 } from "@/lib/ga4/sync-client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getGoogleAccessTokenForUser } from "@/lib/google/token-manager";
 
 type SyncRequestBody = { clientId?: number };
 
@@ -37,7 +38,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await syncClientGa4(admin, clientId, propertyId);
+    const userToken = await getGoogleAccessTokenForUser(admin, user.id).catch(() => null);
+    const result = await syncClientGa4(admin, clientId, propertyId, userToken ?? undefined);
     return NextResponse.json({ ok: true, snapshot: result.snapshot, signals: result.signals });
   } catch (error) {
     return NextResponse.json(

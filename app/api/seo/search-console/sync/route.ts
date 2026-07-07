@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runSearchConsoleSync } from "@/lib/seo/search-console";
+import { getGoogleAccessTokenForUser } from "@/lib/google/token-manager";
 import { buildGscSignals } from "@/lib/seo/gsc-signals";
 import type {
   GscPageMetric,
@@ -78,11 +79,13 @@ export async function POST(request: Request) {
   }
 
   try {
+    const userToken = await getGoogleAccessTokenForUser(admin, user.id).catch(() => null);
     const syncResult = await runSearchConsoleSync(
       clientRow.sc_url ?? "",
       clientRow.website ?? "",
       startDate,
       endDate,
+      userToken ?? undefined,
     );
 
     if (syncResult.pageRows.length > 0) {

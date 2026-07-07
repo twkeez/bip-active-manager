@@ -357,12 +357,13 @@ export async function runSearchConsoleSync(
   fallbackWebsite: string,
   startDate: string,
   endDate: string,
+  userAccessToken?: string,
 ): Promise<GscSyncResult> {
   const requestedPropertyUrl = normalizePropertyUrl(rawPropertyUrl, fallbackWebsite);
   if (!requestedPropertyUrl) {
     throw new Error("Search Console property URL is required.");
   }
-  const accessToken = await getAccessToken();
+  const accessToken = userAccessToken ?? await getAccessToken();
   const siteEntries = await listAccessibleSites(accessToken);
   const propertyUrl = resolvePreferredProperty(requestedPropertyUrl, siteEntries);
 
