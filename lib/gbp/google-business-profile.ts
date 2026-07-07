@@ -1,6 +1,14 @@
 import { OAuth2Client } from "google-auth-library";
 import { getGoogleOAuthRefreshConfig } from "@/lib/env";
 
+export type GbpProfileFields = {
+  phone: boolean;
+  hours: boolean;
+  description: boolean;
+  categories: boolean;
+  website: boolean;
+};
+
 export type GbpSyncResult = {
   placeId: string;
   placeName: string | null;
@@ -9,6 +17,8 @@ export type GbpSyncResult = {
   address: string | null;
   rating: number | null;
   userRatingsTotal: number | null;
+  lastPostAt: string | null;
+  profileFields: GbpProfileFields | null;
   reviews: Array<{
     authorName: string | null;
     rating: number | null;
@@ -67,6 +77,18 @@ type GbpReviewsResponse = {
     createTime?: string;
     updateTime?: string;
   }>;
+};
+
+type GbpLocalPostsResponse = {
+  localPosts?: Array<{ createTime?: string; updateTime?: string }>;
+};
+
+type GbpBusinessInfoResponse = {
+  phoneNumbers?: { primaryPhone?: string };
+  categories?: { primaryCategory?: { displayName?: string } };
+  regularHours?: { periods?: Array<unknown> };
+  profile?: { description?: string };
+  websiteUri?: string;
 };
 
 function isRetriableGbpError(status: number, message: string) {
@@ -343,6 +365,45 @@ function mergeAndSortReviews(primary: NormalizedReview[], secondary: NormalizedR
   return merged;
 }
 
+async function fetchLastPostAt(locationName: string, oauthToken: string): Promise<string | null> {
+  try {
+    const url = new URL(`https://mybusiness.googleapis.com/v4/${locationName}/localPosts`);
+    url.searchParams.set("pageSize", "1");
+    const payload = await fetchJsonWithRetry<GbpLocalPostsResponse>(
+      url,
+      { method: "GET", headers: { Authorization: `Bearer ${oauthToken}` }, cache: "no-store" },
+      { label: "GBP localPosts API", retries: 2, baseDelayMs: 600 },
+    );
+    const post = payload.localPosts?.[0];
+    return post?.updateTime ?? post?.createTime ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchProfileFields(locationName: string, oauthToken: string): Promise<GbpProfileFields | null> {
+  try {
+    const url = new URL(
+      `https://mybusinessbusinessinformation.googleapis.com/v1/${locationName}`,
+    );
+    url.searchParams.set("readMask", "phoneNumbers,categories,regularHours,profile,websiteUri");
+    const data = await fetchJsonWithRetry<GbpBusinessInfoResponse>(
+      url,
+      { method: "GET", headers: { Authorization: `Bearer ${oauthToken}` }, cache: "no-store" },
+      { label: "GBP business info API", retries: 2, baseDelayMs: 600 },
+    );
+    return {
+      phone: !!data.phoneNumbers?.primaryPhone,
+      categories: !!data.categories?.primaryCategory,
+      hours: Array.isArray(data.regularHours?.periods) && data.regularHours!.periods!.length > 0,
+      description: !!data.profile?.description,
+      website: !!data.websiteUri,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function runGbpSync(rawPlaceId: string): Promise<GbpSyncResult> {
   const placeId = parsePlaceId(rawPlaceId);
   if (!placeId) {
@@ -396,6 +457,8 @@ export async function runGbpSync(rawPlaceId: string): Promise<GbpSyncResult> {
   let gbpApiReviews: NormalizedReview[] = [];
   let matchedGbpLocationCount = 0;
   let gbpApiError: string | null = null;
+  let lastPostAt: string | null = null;
+  let profileFields: GbpProfileFields | null = null;
 
   try {
     const oauthToken = await getGoogleOAuthAccessTokenForGbp();
@@ -427,6 +490,13 @@ export async function runGbpSync(rawPlaceId: string): Promise<GbpSyncResult> {
     for (const locationName of locationNames) {
       const fetched = await fetchGbpApiReviewsForLocation(locationName, oauthToken);
       gbpApiReviews = mergeAndSortReviews(gbpApiReviews, fetched);
+
+      if (!lastPostAt) {
+        lastPostAt = await fetchLastPostAt(locationName, oauthToken);
+      }
+      if (!profileFields) {
+        profileFields = await fetchProfileFields(locationName, oauthToken);
+      }
     }
   } catch (error) {
     gbpApiError = error instanceof Error ? error.message : "unknown";
@@ -443,6 +513,8 @@ export async function runGbpSync(rawPlaceId: string): Promise<GbpSyncResult> {
     rating: typeof payload.rating === "number" ? payload.rating : null,
     userRatingsTotal:
       typeof payload.userRatingCount === "number" ? payload.userRatingCount : null,
+    lastPostAt,
+    profileFields,
     reviews: mergedReviews,
     diagnostics: {
       placesReviewCount: placesReviews.length,

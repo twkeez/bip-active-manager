@@ -80,6 +80,8 @@ export async function POST(request: Request) {
         address: result.address,
         rating: result.rating,
         user_ratings_total: result.userRatingsTotal,
+        last_post_at: result.lastPostAt ?? null,
+        profile_fields: result.profileFields ?? null,
         run_status: "completed",
         error_message: null,
         updated_at: updatedAt,
