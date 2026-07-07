@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FolderOpen } from "lucide-react";
+import { BookOpen, FolderOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth/profile";
 import ServiceTiersManager from "@/components/services/service-tiers-manager";
@@ -32,13 +32,22 @@ export default async function ServicesPage() {
             What we offer and how the Foundation / Premium / Premium Plus plans differ.
           </p>
         </div>
-        <Link
-          href="/services/library"
-          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
-          style={{ borderColor: "#ce2084", color: "#ce2084" }}
-        >
-          <FolderOpen className="h-4 w-4" /> Reference Library
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/playbook"
+            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
+            style={{ borderColor: "#ce2084", color: "#ce2084" }}
+          >
+            <BookOpen className="h-4 w-4" /> Service Playbook
+          </Link>
+          <Link
+            href="/services/library"
+            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
+            style={{ borderColor: "#ce2084", color: "#ce2084" }}
+          >
+            <FolderOpen className="h-4 w-4" /> Reference Library
+          </Link>
+        </div>
       </div>
       <ServiceTiersManager initial={tables} isAdmin={isAdmin} />
     </div>

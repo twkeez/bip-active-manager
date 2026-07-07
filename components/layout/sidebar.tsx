@@ -56,6 +56,7 @@ const SERVICES_ACCENT = "#ce2084";
 
 const SERVICES: NavItem[] = [
   { label: "Services & Tiers", href: "/services", icon: Layers },
+  { label: "Service Playbook", href: "/playbook", icon: BookOpen },
   { label: "Partnership & Boundaries", href: "/services/partnership", icon: Handshake },
   { label: "Reference Library", href: "/services/library", icon: FolderOpen },
 ];
@@ -84,9 +85,7 @@ const UTILITIES: NavItem[] = [
   { label: "Bulk Auto-Discover", href: "/bulk-discover", icon: ScanSearch, adminOnly: true },
 ];
 
-const UNFINISHED: NavItem[] = [
-  { label: "Service Playbook", href: "/playbook", icon: BookOpen },
-];
+const UNFINISHED: NavItem[] = [];
 
 const SALES: NavItem[] = [
   { label: "Sales Lab", href: "/sales-lab", icon: Sparkles, adminOnly: true },

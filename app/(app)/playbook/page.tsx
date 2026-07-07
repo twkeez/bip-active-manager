@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Layers } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchServiceTiers, fetchPlaybookItems } from "@/lib/playbook/queries";
@@ -27,12 +29,21 @@ export default async function PlaybookPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-lg font-semibold text-bip-text">Service Playbook</h1>
-        <p className="text-sm text-[rgba(255,255,255,0.4)]">
-          Best practices, deliverables, and guidelines by service tier.
-          {isAdmin && " Click any item to edit."}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold text-bip-text">Service Playbook</h1>
+          <p className="text-sm text-[rgba(255,255,255,0.4)]">
+            Best practices, deliverables, and guidelines by service tier.
+            {isAdmin && " Click any item to edit."}
+          </p>
+        </div>
+        <Link
+          href="/services"
+          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
+          style={{ borderColor: "#ce2084", color: "#ce2084" }}
+        >
+          <Layers className="h-4 w-4" /> Services &amp; Tiers
+        </Link>
       </div>
       <PlaybookLibrary tiers={tiers} initialItems={items} isAdmin={isAdmin} />
     </div>

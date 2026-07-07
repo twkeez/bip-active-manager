@@ -41,9 +41,17 @@ export const SERVICE_TIER_TABLES: ServiceTierTable[] = [
       {
         label: "Technical Setup",
         cells: [
-          ["GSC, GA4 & GTM connected", "Google Business Profile claimed + optimized", "Site audit", "XML sitemap submitted", "Title tag & meta optimization"],
+          ["GSC, GA4 & GTM connected", "Google Business Profile claimed + optimized", "XML sitemap submitted", "Title tag & meta optimization"],
           ["+ Keyword tracking configured", "+ Competitor tracking", "+ Custom reporting dashboard"],
           ["+ Regional keyword tracking", "+ llms.txt / AEO deployed", "+ Specialty landing-page opportunities mapped"],
+        ],
+      },
+      {
+        label: "Site Audit",
+        cells: [
+          ["Semi-annually"],
+          ["Quarterly"],
+          ["Quarterly"],
         ],
       },
       {
