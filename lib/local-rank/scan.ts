@@ -96,7 +96,9 @@ export async function fetchLocalPackAtCoordinate(
   cell: RankGridCell,
   searchRadiusKm: number = LOCAL_PACK_SEARCH_RADIUS_KM,
 ): Promise<LocalPackListing[]> {
-  const locationCoordinate = `${cell.lat},${cell.lng},${searchRadiusKm}`;
+  // DataForSEO rejects a non-integer radius ("Invalid Field: location_coordinate").
+  const radiusKm = Math.max(1, Math.round(searchRadiusKm));
+  const locationCoordinate = `${cell.lat},${cell.lng},${radiusKm}`;
   const response = await postDataForSeoLive(
     DATAFORSEO_ENDPOINTS.localPackAdvanced,
     creds.login,
