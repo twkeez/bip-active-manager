@@ -431,7 +431,7 @@ export default function CockpitSandbox({
         <div className="ml-auto flex items-center gap-3">
           {client && (
             <Link
-              href={`/reports/${client.id}`}
+              href={`/reports/${client.id}?back=cockpit`}
               className="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-600 shadow-sm hover:border-neutral-400 hover:text-neutral-800 transition-colors"
             >
               <BarChart2 size={14} /> Reporting

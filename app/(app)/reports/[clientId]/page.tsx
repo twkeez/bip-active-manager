@@ -24,7 +24,7 @@ import {
 import { DEFAULT_REPORT_CONFIG, mergeReportConfig, type ReportConfig } from "@/lib/reporting/report-config-types";
 
 type Params = Promise<{ clientId: string }>;
-type SearchParams = Promise<{ range?: string }>;
+type SearchParams = Promise<{ range?: string; back?: string }>;
 
 export default async function ReportClientPage({
   params,
@@ -34,7 +34,7 @@ export default async function ReportClientPage({
   searchParams: SearchParams;
 }) {
   const { clientId } = await params;
-  const { range } = await searchParams;
+  const { range, back } = await searchParams;
   const id = Number(clientId);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
@@ -280,6 +280,8 @@ export default async function ReportClientPage({
     gbp: workspace.gbpSnapshot?.updated_at ?? null,
   };
 
+  const backHref = back === "cockpit" ? `/dashboard/cockpit?client=${id}` : null;
+
   return (
     <ClientReportWorkspace
       report={report}
@@ -288,6 +290,7 @@ export default async function ReportClientPage({
       initialDraft={draft}
       initialKeywords={managedKeywords}
       syncTimestamps={syncTimestamps}
+      backHref={backHref}
     />
   );
 }

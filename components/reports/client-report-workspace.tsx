@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, RefreshCw, Trash2, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, RefreshCw, Trash2, Save, Sparkles } from "lucide-react";
 import ReportPreview from "@/components/reports/report-preview";
 import ReportConfigEditor from "@/components/reports/report-config-editor";
 import type { ClientReportModel } from "@/lib/reporting/types";
@@ -35,6 +36,7 @@ type Props = {
   initialDraft: ReportDraft | null;
   initialKeywords: ManagedKeyword[];
   syncTimestamps: SyncTimestamps;
+  backHref?: string | null;
 };
 
 function timeAgo(iso: string | null): string {
@@ -64,6 +66,7 @@ export default function ClientReportWorkspace({
   initialDraft,
   initialKeywords,
   syncTimestamps,
+  backHref,
 }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("sync");
@@ -307,6 +310,17 @@ export default function ClientReportWorkspace({
     <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* ── Left panel ── */}
       <div className="w-80 shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
+        {/* Back link */}
+        {backHref && (
+          <div className="shrink-0 border-b border-gray-100 px-3 py-2">
+            <Link
+              href={backHref}
+              className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 transition-colors"
+            >
+              <ArrowLeft size={12} /> Back to cockpit
+            </Link>
+          </div>
+        )}
         {/* Tab bar */}
         <div className="flex border-b border-gray-200 shrink-0">
           {tabs.map((tab) => (
