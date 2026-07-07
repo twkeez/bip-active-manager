@@ -1,6 +1,7 @@
 "use client";
 import ClientWorkspaceTabs from "@/components/dashboard/client-workspace/client-workspace-tabs";
 import ClientSimpleTabView, { SIMPLE_TABS } from "@/components/dashboard/client-simple-tab-view";
+import ClientWorkspaceDashboard from "@/components/dashboard/client-workspace-dashboard";
 import type { BasecampSyncState } from "@/lib/types/client";
 import { workspaceDataToManagerProps } from "@/lib/dashboard/load-client-workspace-data";
 import type {
@@ -51,11 +52,10 @@ export default function ClientWorkspace({
     );
   }
 
-  // Default landing: the unified guided "Run of Show" Overview.
+  // Default landing: new command-center overview.
   return (
-    <ClientSimpleTabView
+    <ClientWorkspaceDashboard
       data={data}
-      activeTab="overview"
       userEmail={userEmail}
       strategistRoster={strategistRoster}
       appUrl={appUrl}
