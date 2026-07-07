@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toCockpitViewModel } from "@/lib/dashboard/cockpit-view-model";
 import type { ClientWorkspaceInitialData } from "@/lib/dashboard/client-workspace-types";
 import type { ClientRow, BasecampThreadEvent } from "@/lib/types/client";
-import { norm, activeServiceLabels, getClientActiveServices } from "@/lib/clients/service-active";
+import { norm, isServiceActive, activeServiceLabels, getClientActiveServices } from "@/lib/clients/service-active";
 import { previewText, openableBasecampUrl } from "@/lib/basecamp/display";
 import { dueStatus } from "@/lib/site-audit/seo-audit-schedule";
 import { matchStrategistByName, type StrategistContact } from "@/lib/team/strategist-roster";
@@ -407,6 +407,15 @@ export default function CockpitSandbox({
   const wins = cockpit?.features.filter((f) => !f.title.startsWith("No clean wins")) ?? [];
 
   const services = client ? activeServiceLabels(getClientActiveServices(client)) : [];
+  const serviceTiers = client
+    ? [
+        { label: "SEO", value: client.seo },
+        { label: "PPC", value: client.ppc },
+        { label: "Social", value: client.smm },
+        { label: "Blog", value: client.blog },
+        { label: "ORM", value: client.orm },
+      ].filter(({ value }) => isServiceActive(value))
+    : [];
   const pkgHours = client?.total_package_hours ?? 0;
   const stratHours = client?.hours_for_strategist ?? 0;
   const hoursPercent = pkgHours > 0 ? Math.min(100, (stratHours / pkgHours) * 100) : 0;
@@ -483,11 +492,11 @@ export default function CockpitSandbox({
                 {norm(client.tier) && (
                   <p className="mt-1.5 text-[11px] text-neutral-400">{client.tier}</p>
                 )}
-                {services.length > 0 && (
+                {serviceTiers.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    {services.map((s) => (
-                      <span key={s} className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">
-                        {s}
+                    {serviceTiers.map(({ label, value }) => (
+                      <span key={label} className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">
+                        {label} · {norm(value)}
                       </span>
                     ))}
                   </div>
