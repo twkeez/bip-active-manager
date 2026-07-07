@@ -79,6 +79,9 @@ export async function PATCH(
     "google_place_id",
     "ga4_property_id",
     "ga4_id",
+    "contact_name",
+    "contact_email",
+    "shared_drive_url",
   ] as const;
 
   const patch: Record<string, string | null> = {};

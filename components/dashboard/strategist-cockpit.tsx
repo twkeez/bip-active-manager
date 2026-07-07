@@ -29,7 +29,7 @@ const PRIORITY_WHEN: Record<Priority, string> = {
   P3: "Backlog",
 };
 
-function FocusCard({ item }: { item: FocusItem }) {
+export function FocusCard({ item }: { item: FocusItem }) {
   const [done, setDone] = useState(false);
   const [open, setOpen] = useState(false);
   return (

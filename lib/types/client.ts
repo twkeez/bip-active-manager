@@ -30,6 +30,9 @@ export type ClientRow = {
   onboarding_completed_at: string | null;
   onboarding_target_date: string | null;
   strategist_user_id?: string | null;
+  contact_name?: string | null;
+  contact_email?: string | null;
+  shared_drive_url?: string | null;
   created_at: string;
 };
 
