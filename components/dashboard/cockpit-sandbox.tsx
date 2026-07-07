@@ -17,7 +17,7 @@ import SeoAuditEditor from "@/components/seo-audit/seo-audit-editor";
 import { ArrowLeft, Bell, BarChart2, ExternalLink, FileText, Loader2, Play } from "lucide-react";
 import { getClientServiceTierDefs } from "@/lib/playbook/client-tiers";
 import { runVerifications } from "@/lib/playbook/verify";
-import { runSeoPlatformChecks, type PlatformCheck } from "@/lib/playbook/workspace-verify";
+import { runSeoPlatformChecks, runGbpChecks, type PlatformCheck } from "@/lib/playbook/workspace-verify";
 import type { PlaybookItem } from "@/lib/playbook/types";
 
 type ClientStub = Pick<ClientRow, "id" | "account_name" | "marketing_strategist" | "tier">;
@@ -141,6 +141,7 @@ const SETTINGS_SECTIONS: { label: string; fields: SettingsField[] }[] = [
         placeholder: "ChIJ…",
         helpText: "Use Google's Place ID Finder — search for the business and copy the Place ID",
         helpUrl: "https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder",
+        syncEndpoint: "/api/gbp/sync",
       },
       {
         key: "ads_customer_id",
@@ -427,9 +428,12 @@ function ServicePlaybookTab({
   tierKey: string;
   workspace?: ClientWorkspaceInitialData | null;
 }) {
-  const platformChecks = tierKey.startsWith("seo-") && workspace
-    ? runSeoPlatformChecks(workspace)
-    : null;
+  const platformChecks = workspace ? (() => {
+    const checks: PlatformCheck[] = [];
+    if (tierKey.startsWith("seo-")) checks.push(...runSeoPlatformChecks(workspace));
+    if (tierKey.startsWith("seo-") || tierKey.startsWith("orm-")) checks.push(...runGbpChecks(workspace));
+    return checks.length > 0 ? checks : null;
+  })() : null;
 
   const byCategory = new Map<string, PlaybookItem[]>();
   for (const item of items) {
