@@ -917,35 +917,37 @@ export default function CockpitSandbox({
               </h2>
               <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
                 {/* Tab bar */}
-                <div className="flex border-b border-neutral-100 overflow-x-auto">
-                  {serviceTabs.map((tab) => (
-                    <button
-                      key={tab.tierKey}
-                      type="button"
-                      onClick={() => setActiveServiceTab(tab.tierKey)}
-                      className={`px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
-                        activeTab === tab.tierKey
-                          ? "border-indigo-500 text-indigo-700 bg-indigo-50/50"
-                          : "border-transparent text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50"
-                      }`}
-                    >
-                      {tab.label}
-                      {tab.tierLabel && (
-                        <span className={`ml-1.5 font-normal ${
-                          activeTab === tab.tierKey ? "text-indigo-400" : "text-neutral-400"
-                        }`}>
-                          {tab.tierLabel}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                <div className="flex border-b border-neutral-100">
+                  <div className="flex overflow-x-auto flex-1">
+                    {serviceTabs.map((tab) => (
+                      <button
+                        key={tab.tierKey}
+                        type="button"
+                        onClick={() => setActiveServiceTab(tab.tierKey)}
+                        className={`px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
+                          activeTab === tab.tierKey
+                            ? "border-indigo-500 text-indigo-700 bg-indigo-50/50"
+                            : "border-transparent text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50"
+                        }`}
+                      >
+                        {tab.label}
+                        {tab.tierLabel && (
+                          <span className={`ml-1.5 font-normal ${
+                            activeTab === tab.tierKey ? "text-indigo-400" : "text-neutral-400"
+                          }`}>
+                            {tab.tierLabel}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setActiveServiceTab(SETTINGS_TAB)}
-                    className={`ml-auto px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
+                    className={`shrink-0 px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 border-l border-l-neutral-100 transition-colors ${
                       activeTab === SETTINGS_TAB
-                        ? "border-neutral-400 text-neutral-700 bg-neutral-50"
-                        : "border-transparent text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50"
+                        ? "border-b-neutral-400 text-neutral-700 bg-neutral-50"
+                        : "border-b-transparent text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50"
                     }`}
                   >
                     Settings
