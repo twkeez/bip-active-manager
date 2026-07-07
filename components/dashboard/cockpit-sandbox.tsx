@@ -841,14 +841,27 @@ function LocalRankSection({ client }: { client: ClientRow }) {
               </div>
               {zone.last_results && zone.last_results.length > 0 ? (
                 <ul className="mt-1.5 space-y-0.5">
-                  {zone.last_results.map((r) => (
-                    <li key={r.keyword} className="flex items-center justify-between text-xs">
-                      <span className="truncate text-neutral-600">{r.keyword}</span>
-                      <span className={`ml-2 shrink-0 font-medium ${r.rank == null ? "text-neutral-400" : r.rank <= 3 ? "text-emerald-600" : "text-neutral-700"}`}>
-                        {r.rank == null ? "Not in pack" : `#${r.rank}`}
-                      </span>
-                    </li>
-                  ))}
+                  {zone.last_results.map((r) => {
+                    // Three distinct states: ranked (#N), a pack exists but we're
+                    // absent (real gap, red), or no pack at all for this term
+                    // (e.g. branded searches — neutral, nothing to compete for).
+                    const noPack = r.hasPack === false;
+                    const label = r.rank != null ? `#${r.rank}` : noPack ? "No local pack" : "Not in pack";
+                    const tone =
+                      r.rank != null
+                        ? r.rank <= 3
+                          ? "text-emerald-600"
+                          : "text-neutral-700"
+                        : noPack
+                          ? "text-neutral-400"
+                          : "text-red-500";
+                    return (
+                      <li key={r.keyword} className="flex items-center justify-between text-xs">
+                        <span className="truncate text-neutral-600">{r.keyword}</span>
+                        <span className={`ml-2 shrink-0 font-medium ${tone}`}>{label}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="mt-1 text-[11px] text-neutral-400">

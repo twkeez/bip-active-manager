@@ -20,6 +20,10 @@ export interface ZoneKeywordResult {
   keyword: string;
   rank: number | null;
   inLocalPack: boolean;
+  // Whether Google returned a local pack at all for this term. Branded searches
+  // (e.g. the practice's own name) produce a knowledge panel and no pack, which
+  // is different from a pack existing that we're absent from.
+  hasPack: boolean;
 }
 
 export interface ZoneScanResult {
@@ -78,7 +82,12 @@ export async function runZoneScan(
     });
     return {
       zoneId: zone.zoneId,
-      result: { keyword, rank: match.rank, inLocalPack: match.inLocalPack } satisfies ZoneKeywordResult,
+      result: {
+        keyword,
+        rank: match.rank,
+        inLocalPack: match.inLocalPack,
+        hasPack: listings.length > 0,
+      } satisfies ZoneKeywordResult,
     };
   });
 

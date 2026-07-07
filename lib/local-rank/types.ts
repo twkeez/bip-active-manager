@@ -73,6 +73,8 @@ export interface ZoneKeywordResultRow {
   keyword: string;
   rank: number | null;
   inLocalPack: boolean;
+  // Undefined on rows scanned before this field existed.
+  hasPack?: boolean;
 }
 
 export interface ClientRankZoneRow {
