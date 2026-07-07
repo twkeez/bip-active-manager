@@ -237,6 +237,35 @@ function GoogleConnectSection() {
   );
 }
 
+// Builds the Test-result message. For the GBP sync, surfaces whether the
+// connected Google account manages the listing — that determines whether
+// post & profile-completeness data are available (rating/reviews come from
+// the public Places API regardless).
+function gbpTestMessage(
+  endpoint: string,
+  payload: {
+    snapshot?: { last_post_at?: string | null; profile_fields?: Record<string, boolean> | null };
+    diagnostics?: { sourceBreakdown?: { matchedGbpLocationCount?: number; gbpApiError?: string | null } };
+  },
+): string {
+  if (endpoint !== "/api/gbp/sync") return "Connected — data synced successfully";
+
+  const matched = payload.diagnostics?.sourceBreakdown?.matchedGbpLocationCount ?? 0;
+  const apiError = payload.diagnostics?.sourceBreakdown?.gbpApiError ?? null;
+  const hasPostOrProfile =
+    Boolean(payload.snapshot?.last_post_at) || Boolean(payload.snapshot?.profile_fields);
+
+  if (matched > 0 && hasPostOrProfile) {
+    return "Connected — reviews plus posts & profile data synced";
+  }
+  if (matched > 0) {
+    return "Connected — listing is managed, but no posts/profile data returned yet";
+  }
+  const base =
+    "Reviews synced, but this Google account doesn't manage this listing — posts & profile completeness unavailable";
+  return apiError ? `${base} (GBP API: ${apiError})` : base;
+}
+
 function ClientSettingsTab({ client }: { client: ClientRow }) {
   const router = useRouter();
   const initial: Record<SettingsKey, string> = {
@@ -295,9 +324,14 @@ function ClientSettingsTab({ client }: { client: ClientRow }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId: client.id }),
       });
-      const payload = await res.json() as { ok?: boolean; error?: string };
+      const payload = await res.json() as {
+        ok?: boolean;
+        error?: string;
+        snapshot?: { last_post_at?: string | null; profile_fields?: Record<string, boolean> | null };
+        diagnostics?: { sourceBreakdown?: { matchedGbpLocationCount?: number; gbpApiError?: string | null } };
+      };
       if (!res.ok || !payload.ok) throw new Error(payload.error ?? "Sync failed");
-      setSyncState(fieldKey, { loading: false, ok: true, message: "Connected — data synced successfully" });
+      setSyncState(fieldKey, { loading: false, ok: true, message: gbpTestMessage(endpoint, payload) });
       router.refresh();
     } catch (e) {
       setSyncState(fieldKey, { loading: false, ok: false, message: e instanceof Error ? e.message : "Sync failed" });
@@ -392,7 +426,9 @@ const CATEGORY_ORDER = ["Initial Setup", "Monthly Work", "Monthly Communications
 function PlatformCheckRow({ check }: { check: PlatformCheck }) {
   return (
     <div className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-neutral-50">
-      {check.pass ? (
+      {check.neutral ? (
+        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-300" />
+      ) : check.pass ? (
         <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100">
           <svg className="h-2.5 w-2.5 text-emerald-600" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M2 6l3 3 5-5"/>
@@ -406,10 +442,10 @@ function PlatformCheckRow({ check }: { check: PlatformCheck }) {
         </span>
       )}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium leading-snug ${check.pass ? "text-neutral-700" : "text-red-700"}`}>
+        <p className={`text-sm font-medium leading-snug ${check.neutral ? "text-neutral-500" : check.pass ? "text-neutral-700" : "text-red-700"}`}>
           {check.label}
         </p>
-        <p className={`text-xs leading-snug mt-0.5 ${check.pass ? "text-neutral-400" : "text-red-500"}`}>
+        <p className={`text-xs leading-snug mt-0.5 ${check.neutral ? "text-neutral-400" : check.pass ? "text-neutral-400" : "text-red-500"}`}>
           {check.detail}
         </p>
       </div>

@@ -5,6 +5,9 @@ export type PlatformCheck = {
   label: string;
   pass: boolean;
   detail: string;
+  // When true, render as an informational (grey) row rather than pass/fail —
+  // used for rows we always show even when the data source can't provide them.
+  neutral?: boolean;
 };
 
 function daysSince(dateStr: string): number {
@@ -70,6 +73,37 @@ export function runSeoPlatformChecks(workspace: ClientWorkspaceInitialData): Pla
   return checks;
 }
 
+// ── GBP posts & profile checks ─────────────────────────────────────────────
+// These are always rendered (even when the data is unavailable) so the rows
+// are a permanent part of the checklist. Last-post and profile-completeness
+// data only arrive when the connected Google account manages the listing;
+// when it doesn't, we show a neutral "not available" row instead of hiding it.
+const GBP_DATA_UNAVAILABLE_HINT =
+  "Not available — connect a Google account that manages this listing, then sync";
+
+function gbpPostCheck(snapshot: ClientWorkspaceInitialData["gbpSnapshot"]): PlatformCheck {
+  if (snapshot?.last_post_at) {
+    const postDays = daysSince(snapshot.last_post_at);
+    if (postDays > 30) {
+      return { key: "gbp_posts", label: "GBP Posts", pass: false, detail: `No posts in ${postDays} days — aim for at least monthly` };
+    }
+    return { key: "gbp_posts", label: "GBP Posts", pass: true, detail: `Last post ${syncedLabel(postDays)}` };
+  }
+  return { key: "gbp_posts", label: "GBP Posts", pass: false, neutral: true, detail: GBP_DATA_UNAVAILABLE_HINT };
+}
+
+function gbpProfileCheck(snapshot: ClientWorkspaceInitialData["gbpSnapshot"]): PlatformCheck {
+  if (snapshot?.profile_fields) {
+    const fields = snapshot.profile_fields as Record<string, boolean>;
+    const missing = Object.entries(fields).filter(([, v]) => !v).map(([k]) => k);
+    if (missing.length > 0) {
+      return { key: "gbp_profile", label: "GBP Profile", pass: false, detail: `Incomplete: missing ${missing.join(", ")}` };
+    }
+    return { key: "gbp_profile", label: "GBP Profile", pass: true, detail: "Profile fields complete" };
+  }
+  return { key: "gbp_profile", label: "GBP Profile", pass: false, neutral: true, detail: GBP_DATA_UNAVAILABLE_HINT };
+}
+
 // ── GBP checks (used in both SEO and ORM tabs) ────────────────────────────
 export function runGbpChecks(workspace: ClientWorkspaceInitialData): PlatformCheck[] {
   const { client, gbpSnapshot, gbpReviews } = workspace;
@@ -77,69 +111,51 @@ export function runGbpChecks(workspace: ClientWorkspaceInitialData): PlatformChe
 
   // ── Connection ─────────────────────────────────────────────────────────────
   if (!client.google_place_id) {
+    // Nothing is configured — the posts/profile rows would be meaningless.
     checks.push({ key: "gbp", label: "Google Business Profile", pass: false, detail: "Place ID not on file — add it in client settings" });
     return checks;
   }
+
   if (!gbpSnapshot) {
     checks.push({ key: "gbp", label: "Google Business Profile", pass: false, detail: "Place ID on file but no data synced yet" });
-    return checks;
-  }
-  if (gbpSnapshot.run_status === "failed") {
+  } else if (gbpSnapshot.run_status === "failed") {
     checks.push({ key: "gbp", label: "Google Business Profile", pass: false, detail: gbpSnapshot.error_message ?? "Last sync failed" });
-    return checks;
-  }
-
-  const days = daysSince(gbpSnapshot.updated_at);
-  if (days > STALE_DAYS) {
-    checks.push({ key: "gbp", label: "Google Business Profile", pass: false, detail: `Data stale — last sync ${days} days ago` });
-    return checks;
-  }
-  checks.push({ key: "gbp", label: "Google Business Profile", pass: true, detail: `Connected · synced ${syncedLabel(days)}` });
-
-  // ── Rating ────────────────────────────────────────────────────────────────
-  const rating = gbpSnapshot.rating;
-  const reviewCount = gbpSnapshot.user_ratings_total ?? 0;
-  if (rating === null) {
-    checks.push({ key: "gbp_rating", label: "GBP Rating", pass: false, detail: "No rating data — profile may be new or unverified" });
-  } else if (rating < 4.0) {
-    checks.push({ key: "gbp_rating", label: "GBP Rating", pass: false, detail: `${rating.toFixed(1)} ★ across ${reviewCount.toLocaleString()} reviews — below 4.0 threshold` });
   } else {
-    checks.push({ key: "gbp_rating", label: "GBP Rating", pass: true, detail: `${rating.toFixed(1)} ★ · ${reviewCount.toLocaleString()} reviews` });
-  }
-
-  // ── Most recent review ────────────────────────────────────────────────────
-  const latestReview = gbpReviews[0];
-  if (!latestReview?.review_time_unix) {
-    checks.push({ key: "gbp_reviews", label: "GBP Reviews", pass: false, detail: "No reviews on record" });
-  } else {
-    const reviewDays = Math.floor((Date.now() - latestReview.review_time_unix * 1000) / 86_400_000);
-    if (reviewDays > 90) {
-      checks.push({ key: "gbp_reviews", label: "GBP Reviews", pass: false, detail: `No new reviews in ${reviewDays} days — encourage clients to ask for reviews` });
+    const days = daysSince(gbpSnapshot.updated_at);
+    if (days > STALE_DAYS) {
+      checks.push({ key: "gbp", label: "Google Business Profile", pass: false, detail: `Data stale — last sync ${days} days ago` });
     } else {
-      checks.push({ key: "gbp_reviews", label: "GBP Reviews", pass: true, detail: `Most recent review ${syncedLabel(reviewDays)}` });
+      checks.push({ key: "gbp", label: "Google Business Profile", pass: true, detail: `Connected · synced ${syncedLabel(days)}` });
+
+      // ── Rating ──────────────────────────────────────────────────────────────
+      const rating = gbpSnapshot.rating;
+      const reviewCount = gbpSnapshot.user_ratings_total ?? 0;
+      if (rating === null) {
+        checks.push({ key: "gbp_rating", label: "GBP Rating", pass: false, detail: "No rating data — profile may be new or unverified" });
+      } else if (rating < 4.0) {
+        checks.push({ key: "gbp_rating", label: "GBP Rating", pass: false, detail: `${rating.toFixed(1)} ★ across ${reviewCount.toLocaleString()} reviews — below 4.0 threshold` });
+      } else {
+        checks.push({ key: "gbp_rating", label: "GBP Rating", pass: true, detail: `${rating.toFixed(1)} ★ · ${reviewCount.toLocaleString()} reviews` });
+      }
+
+      // ── Most recent review ──────────────────────────────────────────────────
+      const latestReview = gbpReviews[0];
+      if (!latestReview?.review_time_unix) {
+        checks.push({ key: "gbp_reviews", label: "GBP Reviews", pass: false, detail: "No reviews on record" });
+      } else {
+        const reviewDays = Math.floor((Date.now() - latestReview.review_time_unix * 1000) / 86_400_000);
+        if (reviewDays > 90) {
+          checks.push({ key: "gbp_reviews", label: "GBP Reviews", pass: false, detail: `No new reviews in ${reviewDays} days — encourage clients to ask for reviews` });
+        } else {
+          checks.push({ key: "gbp_reviews", label: "GBP Reviews", pass: true, detail: `Most recent review ${syncedLabel(reviewDays)}` });
+        }
+      }
     }
   }
 
-  // ── Last post (populated after sync enhancement) ──────────────────────────
-  if (gbpSnapshot.last_post_at) {
-    const postDays = daysSince(gbpSnapshot.last_post_at);
-    if (postDays > 30) {
-      checks.push({ key: "gbp_posts", label: "GBP Posts", pass: false, detail: `No posts in ${postDays} days — aim for at least monthly` });
-    } else {
-      checks.push({ key: "gbp_posts", label: "GBP Posts", pass: true, detail: `Last post ${syncedLabel(postDays)}` });
-    }
-  }
-
-  // ── Profile completeness (populated after sync enhancement) ───────────────
-  if (gbpSnapshot.profile_fields) {
-    const fields = gbpSnapshot.profile_fields as Record<string, boolean>;
-    const missing = Object.entries(fields).filter(([, v]) => !v).map(([k]) => k);
-    if (missing.length > 0) {
-      checks.push({ key: "gbp_profile", label: "GBP Profile", pass: false, detail: `Incomplete: missing ${missing.join(", ")}` });
-    } else {
-      checks.push({ key: "gbp_profile", label: "GBP Profile", pass: true, detail: "Profile fields complete" });
-    }
-  }
+  // ── Last post & profile completeness — always shown, even when unavailable ──
+  checks.push(gbpPostCheck(gbpSnapshot));
+  checks.push(gbpProfileCheck(gbpSnapshot));
 
   return checks;
 }
