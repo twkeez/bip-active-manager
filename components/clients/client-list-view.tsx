@@ -19,6 +19,7 @@ import type { ClientRow } from "@/lib/types/client";
 import type { SignalSummary } from "@/lib/dashboard/snapshot-queries";
 
 type Filter = "all" | "needs_reply" | "alerts" | "onboarding";
+type SortKey = "default" | "activity_high" | "activity_low";
 
 const WEBSITE_ONLY_TIER = "Website Only";
 
@@ -107,6 +108,19 @@ function StatusLabel({ status, client }: { status: RowStatus; client: ClientRow 
   );
 }
 
+function MsgCountBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  const heat =
+    count >= 20 ? "bg-red-100 text-red-600" :
+    count >= 8  ? "bg-amber-100 text-amber-600" :
+    "bg-neutral-100 text-bip-subtle";
+  return (
+    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${heat}`}>
+      {count}
+    </span>
+  );
+}
+
 const STATUS_ORDER: Record<RowStatus, number> = {
   needs_reply: 0,
   alert: 1,
@@ -124,6 +138,7 @@ export default function ClientListView({
   const [filter, setFilter] = useState<Filter>("all");
   const [strategist, setStrategist] = useState<string>("all");
   const [showWebsiteOnly, setShowWebsiteOnly] = useState(false);
+  const [sort, setSort] = useState<SortKey>("default");
 
   const strategistOptions = useMemo(() => {
     const vals = new Set(clients.map((c) => c.marketing_strategist ?? "").filter(Boolean));
@@ -138,6 +153,14 @@ export default function ClientListView({
     return map;
   }, [threadPreviews]);
 
+  const msgCountByProject = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of threadPreviews) {
+      map.set(t.basecamp_project_id, (map.get(t.basecamp_project_id) ?? 0) + 1);
+    }
+    return map;
+  }, [threadPreviews]);
+
   const enriched = useMemo(
     () =>
       clients.map((c) => ({
@@ -147,8 +170,11 @@ export default function ClientListView({
         lastThread: c.basecamp_project_id
           ? threadByProject.get(c.basecamp_project_id) ?? null
           : null,
+        msgCount: c.basecamp_project_id
+          ? (msgCountByProject.get(c.basecamp_project_id) ?? 0)
+          : 0,
       })),
-    [clients, gscSignalSummariesByClient, adsSignalSummariesByClient, threadByProject],
+    [clients, gscSignalSummariesByClient, adsSignalSummariesByClient, threadByProject, msgCountByProject],
   );
 
   const filtered = useMemo(() => {
@@ -165,6 +191,8 @@ export default function ClientListView({
         return true;
       })
       .sort((a, b) => {
+        if (sort === "activity_high") return b.msgCount - a.msgCount;
+        if (sort === "activity_low") return a.msgCount - b.msgCount;
         const sd = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
         if (sd !== 0) return sd;
         return (a.client.account_name ?? "").localeCompare(b.client.account_name ?? "");
@@ -233,6 +261,15 @@ export default function ClientListView({
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            className="rounded-lg border border-bip-border bg-bip-card/50 py-2 pl-3 pr-7 text-xs text-bip-muted focus:border-bip-border focus:outline-none appearance-none cursor-pointer"
+          >
+            <option value="default">Sort: default</option>
+            <option value="activity_high">Sort: most active</option>
+            <option value="activity_low">Sort: least active</option>
+          </select>
           <button
             type="button"
             onClick={() => setShowWebsiteOnly((v) => !v)}
@@ -299,7 +336,7 @@ export default function ClientListView({
                   Status
                 </th>
                 <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-bip-subtle lg:table-cell">
-                  Last comms
+                  Basecamp · 30d
                 </th>
                 <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-bip-subtle md:table-cell">
                   Strategist
@@ -307,7 +344,7 @@ export default function ClientListView({
               </tr>
             </thead>
             <tbody className="divide-y divide-bip-border">
-              {filtered.map(({ client, status, services, lastThread }) => (
+              {filtered.map(({ client, status, services, lastThread, msgCount }) => (
                 <tr
                   key={client.id}
                   className="group transition hover:bg-bip-hover"
@@ -348,13 +385,16 @@ export default function ClientListView({
                     <StatusLabel status={status} client={client} />
                   </td>
 
-                  {/* Last comms */}
+                  {/* Last comms + message count */}
                   <td className="hidden px-4 py-3 lg:table-cell">
                     {lastThread ? (
                       <div>
-                        <p className="text-xs text-bip-muted truncate max-w-[200px]">
-                          {norm(lastThread.thread_title) || "Untitled thread"}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-bip-muted truncate max-w-[180px]">
+                            {norm(lastThread.thread_title) || "Untitled thread"}
+                          </p>
+                          <MsgCountBadge count={msgCount} />
+                        </div>
                         <p className="mt-0.5 text-[10px] text-bip-subtle">
                           {daysAgoLabel(lastThread.occurred_at)}
                         </p>
