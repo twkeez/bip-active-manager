@@ -201,6 +201,21 @@ export default function ReportingOverview({
   const watchAlerts = alerts.filter((alert) => alert.severity === "watch");
   const gbpRecentReviewCountLabel =
     allKpis.find((metric) => metric.id === "gbp-reviews-30d")?.value ?? "N/A";
+  const gbpLastPostLabel = gbpSnapshot?.last_post_at
+    ? (() => {
+        const days = Math.floor(
+          (Date.now() - new Date(gbpSnapshot.last_post_at).getTime()) /
+            86_400_000,
+        );
+        const ago = days === 0 ? "today" : `${days}d ago`;
+        return `${new Date(gbpSnapshot.last_post_at).toLocaleDateString()} (${ago})`;
+      })()
+    : null;
+  const gbpProfileMissing = gbpSnapshot?.profile_fields
+    ? Object.entries(gbpSnapshot.profile_fields)
+        .filter(([, present]) => !present)
+        .map(([field]) => field)
+    : null;
   const keywordRowsForReport = useMemo<KeywordHealthRow[]>(
     () =>
       managedKeywords.map((keyword) => {
@@ -338,9 +353,24 @@ export default function ReportingOverview({
         </div>
         {gbpError && <p className="mt-1.5 text-xs text-red-400">{gbpError}</p>}
         <p className="mt-1 text-xs text-bip-muted">
-          
+
           Recent reviews (30d): {gbpRecentReviewCountLabel}
         </p>
+        {gbpSnapshot && (
+          <p className="mt-1 text-xs text-bip-muted">
+            Last post: {gbpLastPostLabel ?? "No post data synced"}
+          </p>
+        )}
+        {gbpSnapshot && (
+          <p className="mt-1 text-xs text-bip-muted">
+            Profile completeness:{" "}
+            {gbpProfileMissing === null
+              ? "Not synced"
+              : gbpProfileMissing.length === 0
+                ? "Complete"
+                : `Missing ${gbpProfileMissing.join(", ")}`}
+          </p>
+        )}
         {gbpSyncDiagnostics && (
           <>
             
