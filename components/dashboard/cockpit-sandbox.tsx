@@ -1,12 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toCockpitViewModel } from "@/lib/dashboard/cockpit-view-model";
 import type { ClientWorkspaceInitialData } from "@/lib/dashboard/client-workspace-types";
 import type { ClientRow, BasecampThreadEvent } from "@/lib/types/client";
 import { norm, activeServiceLabels, getClientActiveServices } from "@/lib/clients/service-active";
 import { previewText, openableBasecampUrl } from "@/lib/basecamp/display";
-import { ExternalLink } from "lucide-react";
+import { dueStatus } from "@/lib/site-audit/seo-audit-schedule";
+import { matchStrategistByName, type StrategistContact } from "@/lib/team/strategist-roster";
+import type { ClientSeoAuditScheduleWithClient } from "@/lib/site-audit/seo-audit-types";
+import { Bell, ExternalLink } from "lucide-react";
 
 type ClientStub = Pick<ClientRow, "id" | "account_name" | "marketing_strategist" | "tier">;
 
@@ -80,15 +84,136 @@ function avatarInitial(email: string | null): string {
   return ((email ?? "?")[0] ?? "?").toUpperCase();
 }
 
+// ── SEO Audit section ─────────────────────────────────────────────────────────
+function formatAuditDate(value: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function seoMailto(to: string, clientName: string, appUrl: string, status: string) {
+  const subject = `SEO audit ${status} — ${clientName}`;
+  const body = [
+    "Hi,",
+    "",
+    `The recurring SEO site audit for ${clientName} is ${status}.`,
+    "",
+    `Run it here: ${appUrl.replace(/\/$/, "")}/seo-audits`,
+    "",
+    "Sent from BIP Control Panel",
+  ].join("\n");
+  return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function SeoAuditSection({
+  schedule,
+  roster,
+  appUrl,
+}: {
+  schedule: ClientSeoAuditScheduleWithClient | null;
+  roster: StrategistContact[];
+  appUrl: string;
+}) {
+  if (!schedule) {
+    return (
+      <div>
+        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+          SEO Audit
+        </h2>
+        <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-5 text-center text-sm text-neutral-400">
+          No recurring audit scheduled for this client.{" "}
+          <Link href="/seo-audits" className="text-indigo-600 hover:underline">
+            Set one up →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const status = dueStatus(schedule.next_due_at);
+  const strategist = matchStrategistByName(schedule.marketing_strategist, roster);
+
+  const statusConfig = {
+    overdue: { label: "Overdue", bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500", card: "border-red-200 bg-red-50" },
+    due:     { label: "Due soon", bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-400", card: "border-amber-200 bg-amber-50" },
+    upcoming:{ label: "Upcoming", bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-400", card: "border-neutral-200 bg-white" },
+    none:    { label: "Not scheduled", bg: "bg-neutral-100", text: "text-neutral-500", dot: "bg-neutral-300", card: "border-neutral-200 bg-white" },
+  }[status];
+
+  return (
+    <div>
+      <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+        SEO Audit
+      </h2>
+      <div className={`rounded-xl border p-5 ${statusConfig.card}`}>
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Status badge */}
+          <div className="flex items-center gap-2">
+            <span className={`h-2 w-2 rounded-full ${statusConfig.dot}`} />
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusConfig.bg} ${statusConfig.text}`}>
+              {statusConfig.label}
+            </span>
+          </div>
+
+          {/* Date info */}
+          <div className="flex gap-6">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Last completed</p>
+              <p className="mt-0.5 text-sm font-medium text-neutral-700">
+                {formatAuditDate(schedule.last_completed_at)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Next due</p>
+              <p className={`mt-0.5 text-sm font-medium ${status === "overdue" ? "text-red-700" : status === "due" ? "text-amber-700" : "text-neutral-700"}`}>
+                {formatAuditDate(schedule.next_due_at)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Cadence</p>
+              <p className="mt-0.5 text-sm font-medium text-neutral-700">
+                Every {schedule.cadence_months} months
+              </p>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="ml-auto flex items-center gap-2">
+            {strategist?.email && (
+              <a
+                href={seoMailto(strategist.email, schedule.account_name, appUrl, statusConfig.label.toLowerCase())}
+                className="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 shadow-sm hover:border-neutral-400 hover:text-neutral-800 transition-colors"
+              >
+                <Bell size={12} /> Notify
+              </a>
+            )}
+            <Link
+              href="/seo-audits"
+              className="flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 transition-colors"
+            >
+              Run Audit <ExternalLink size={11} />
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function CockpitSandbox({
   clients,
   selectedId,
   workspace,
+  seoSchedule = null,
+  roster = [],
+  appUrl = "",
 }: {
   clients: ClientStub[];
   selectedId: number | null;
   workspace: ClientWorkspaceInitialData | null;
+  seoSchedule?: ClientSeoAuditScheduleWithClient | null;
+  roster?: StrategistContact[];
+  appUrl?: string;
 }) {
   const router = useRouter();
 
@@ -271,6 +396,9 @@ export default function CockpitSandbox({
               </div>
             </div>
           </div>
+
+          {/* ── SEO Audit ────────────────────────────────────────── */}
+          <SeoAuditSection schedule={seoSchedule} roster={roster} appUrl={appUrl} />
 
           {/* ── Recent Activity ───────────────────────────────────── */}
           <div>
