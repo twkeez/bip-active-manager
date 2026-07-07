@@ -56,3 +56,26 @@ export function getClientTierKeys(client: ClientRow): string[] {
   ];
   return keys.filter((k): k is string => k !== null);
 }
+
+export type ClientServiceTierDef = {
+  label: string;
+  tierKey: string;
+  tierLabel: string;
+};
+
+export function getClientServiceTierDefs(client: ClientRow): ClientServiceTierDef[] {
+  const candidates: Array<{ label: string; tierKey: string | null; raw: string | null }> = [
+    { label: "SEO",    tierKey: seoTierKey(client.seo),   raw: client.seo },
+    { label: "PPC",    tierKey: ppcTierKey(client.ppc),   raw: client.ppc },
+    { label: "Social", tierKey: smmTierKey(client.smm),   raw: client.smm },
+    { label: "Blog",   tierKey: blogTierKey(client.blog), raw: client.blog },
+    { label: "ORM",    tierKey: ormTierKey(client.orm),   raw: client.orm },
+  ];
+  return candidates
+    .filter((c): c is { label: string; tierKey: string; raw: string | null } => c.tierKey !== null)
+    .map(({ label, tierKey, raw }) => ({
+      label,
+      tierKey,
+      tierLabel: (raw ?? "").trim(),
+    }));
+}

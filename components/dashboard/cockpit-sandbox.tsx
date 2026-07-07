@@ -15,6 +15,9 @@ import { AUDIT_STAGES } from "@/lib/site-audit/types";
 import type { WebsiteAuditRun } from "@/lib/site-audit/types";
 import SeoAuditEditor from "@/components/seo-audit/seo-audit-editor";
 import { ArrowLeft, Bell, BarChart2, ExternalLink, FileText, Loader2, Play } from "lucide-react";
+import { getClientServiceTierDefs } from "@/lib/playbook/client-tiers";
+import { runVerifications } from "@/lib/playbook/verify";
+import type { PlaybookItem } from "@/lib/playbook/types";
 
 type ClientStub = Pick<ClientRow, "id" | "account_name" | "marketing_strategist" | "tier">;
 
@@ -86,6 +89,92 @@ function authorLabel(email: string | null): string {
 
 function avatarInitial(email: string | null): string {
   return ((email ?? "?")[0] ?? "?").toUpperCase();
+}
+
+// ── Service Playbook tab ──────────────────────────────────────────────────────
+const CATEGORY_ORDER = ["Initial Setup", "Monthly Work", "Monthly Communications", "Guidelines"];
+
+function ServicePlaybookTab({ items, client }: { items: PlaybookItem[]; client: ClientRow }) {
+  if (items.length === 0) {
+    return <p className="text-xs text-neutral-400">No playbook items for this service tier.</p>;
+  }
+
+  const byCategory = new Map<string, PlaybookItem[]>();
+  for (const item of items) {
+    if (!byCategory.has(item.category)) byCategory.set(item.category, []);
+    byCategory.get(item.category)!.push(item);
+  }
+  const categories = [...byCategory.keys()].sort((a, b) => {
+    const ai = CATEGORY_ORDER.indexOf(a);
+    const bi = CATEGORY_ORDER.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+
+  return (
+    <div className="space-y-5">
+      {categories.map((cat) => (
+        <div key={cat}>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{cat}</p>
+          <div className="space-y-0.5">
+            {byCategory.get(cat)!.map((item) => {
+              const verifyResult = item.auto_verify_key
+                ? runVerifications([item.auto_verify_key], client)[0] ?? null
+                : null;
+              const pass = verifyResult?.pass ?? null;
+
+              return (
+                <div key={item.id} className="flex items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-neutral-50">
+                  {/* Status indicator */}
+                  {pass === true ? (
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                      <svg className="h-2.5 w-2.5 text-emerald-600" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 6l3 3 5-5"/>
+                      </svg>
+                    </span>
+                  ) : pass === false ? (
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-100">
+                      <svg className="h-2.5 w-2.5 text-red-500" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M3 3l6 6M9 3l-6 6"/>
+                      </svg>
+                    </span>
+                  ) : item.type === "guideline" ? (
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-200" />
+                  ) : item.type === "deliverable" ? (
+                    <span className="mt-0.5 h-4 w-4 shrink-0 text-neutral-300">
+                      <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5"><path d="M4 2h6l3 3v9H4V2z"/><path d="M10 2v3h3"/></svg>
+                    </span>
+                  ) : (
+                    <span className="mt-1.5 h-3 w-3 shrink-0 rounded-full border-2 border-neutral-300" />
+                  )}
+
+                  <p className={`flex-1 text-sm leading-snug ${
+                    pass === false ? "text-red-700 font-medium" :
+                    pass === true  ? "text-neutral-500 line-through" :
+                    item.type === "guideline" ? "text-neutral-400 italic" :
+                    "text-neutral-700"
+                  }`}>
+                    {item.title}
+                  </p>
+
+                  {item.auto_verify_key && (
+                    <span className="mt-0.5 shrink-0 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-500">
+                      auto
+                    </span>
+                  )}
+                  {item.type === "deliverable" && !item.auto_verify_key && (
+                    <span className="mt-0.5 shrink-0 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-500">
+                      deliverable
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ── SEO Audit section ─────────────────────────────────────────────────────────
@@ -308,6 +397,7 @@ export default function CockpitSandbox({
   clients,
   selectedId,
   workspace,
+  playbookItems = [],
   seoSchedule = null,
   pastAudits: initialPastAudits = [],
   roster = [],
@@ -316,6 +406,7 @@ export default function CockpitSandbox({
   clients: ClientStub[];
   selectedId: number | null;
   workspace: ClientWorkspaceInitialData | null;
+  playbookItems?: PlaybookItem[];
   seoSchedule?: ClientSeoAuditScheduleWithClient | null;
   pastAudits?: ClientSeoAudit[];
   roster?: StrategistContact[];
@@ -328,6 +419,8 @@ export default function CockpitSandbox({
 
   // Past audits state — prepended when new runs complete
   const [pastAudits, setPastAudits] = useState<ClientSeoAudit[]>(initialPastAudits);
+
+  const [activeServiceTab, setActiveServiceTab] = useState<string | null>(null);
 
   // Schedule state — held locally so saves reflect immediately without reload
   const [localSchedule, setLocalSchedule] = useState<ClientSeoAuditScheduleWithClient | null>(seoSchedule);
@@ -416,6 +509,11 @@ export default function CockpitSandbox({
         { label: "ORM", value: client.orm },
       ].filter(({ value }) => isServiceActive(value))
     : [];
+
+  const serviceTabs = client ? getClientServiceTierDefs(client) : [];
+  const activeTab = serviceTabs.find((t) => t.tierKey === activeServiceTab)?.tierKey
+    ?? serviceTabs[0]?.tierKey
+    ?? null;
   const pkgHours = client?.total_package_hours ?? 0;
   const stratHours = client?.hours_for_strategist ?? 0;
   const hoursPercent = pkgHours > 0 ? Math.min(100, (stratHours / pkgHours) * 100) : 0;
@@ -629,6 +727,51 @@ export default function CockpitSandbox({
               </div>
             </div>
           </div>
+
+          {/* ── Services ─────────────────────────────────────────── */}
+          {serviceTabs.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+                Services
+              </h2>
+              <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                {/* Tab bar */}
+                <div className="flex border-b border-neutral-100 overflow-x-auto">
+                  {serviceTabs.map((tab) => (
+                    <button
+                      key={tab.tierKey}
+                      type="button"
+                      onClick={() => setActiveServiceTab(tab.tierKey)}
+                      className={`px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
+                        activeTab === tab.tierKey
+                          ? "border-indigo-500 text-indigo-700 bg-indigo-50/50"
+                          : "border-transparent text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50"
+                      }`}
+                    >
+                      {tab.label}
+                      {tab.tierLabel && (
+                        <span className={`ml-1.5 font-normal ${
+                          activeTab === tab.tierKey ? "text-indigo-400" : "text-neutral-400"
+                        }`}>
+                          {tab.tierLabel}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                {/* Tab content */}
+                <div className="p-5">
+                  {activeTab && (
+                    <ServicePlaybookTab
+                      key={activeTab}
+                      items={playbookItems.filter((i) => i.tier_key === activeTab)}
+                      client={client!}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── SEO Audit ────────────────────────────────────────── */}
           <SeoAuditSection

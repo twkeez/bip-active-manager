@@ -4,6 +4,8 @@ import { loadClientWorkspaceData } from "@/lib/dashboard/load-client-workspace-d
 import { getStrategistRoster } from "@/lib/team/strategist-roster";
 import type { ClientRow } from "@/lib/types/client";
 import type { ClientSeoAudit, ClientSeoAuditSchedule, ClientSeoAuditScheduleWithClient } from "@/lib/site-audit/seo-audit-types";
+import { getClientTierKeys } from "@/lib/playbook/client-tiers";
+import type { PlaybookItem } from "@/lib/playbook/types";
 import CockpitSandbox from "@/components/dashboard/cockpit-sandbox";
 
 type SearchParams = Promise<{ client?: string }>;
@@ -37,6 +39,19 @@ export default async function CockpitPage({
     selectedId && Number.isInteger(selectedId) && selectedId > 0
       ? await loadClientWorkspaceData(supabase, selectedId)
       : null;
+
+  // Playbook items for selected client's service tiers
+  const tierKeys = workspace ? getClientTierKeys(workspace.client) : [];
+  const { data: playbookRaw } = tierKeys.length > 0
+    ? await supabase
+        .from("playbook_items")
+        .select("id, tier_key, category, type, title, body, auto_verify_key, sort_order, is_active, created_at, updated_at")
+        .in("tier_key", tierKeys)
+        .eq("is_active", true)
+        .order("sort_order")
+        .order("id")
+    : { data: [] as PlaybookItem[] };
+  const playbookItems = (playbookRaw ?? []) as PlaybookItem[];
 
   // SEO audit schedule + past audits for selected client
   let seoSchedule: ClientSeoAuditScheduleWithClient | null = null;
@@ -76,6 +91,7 @@ export default async function CockpitPage({
       clients={clients}
       selectedId={selectedId}
       workspace={workspace}
+      playbookItems={playbookItems}
       seoSchedule={seoSchedule}
       pastAudits={pastAudits}
       roster={roster}
