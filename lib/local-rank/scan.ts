@@ -91,8 +91,9 @@ export async function fetchLocalPackAtCoordinate(
   creds: Credentials,
   keyword: string,
   cell: RankGridCell,
+  searchRadiusKm: number = LOCAL_PACK_SEARCH_RADIUS_KM,
 ): Promise<LocalPackListing[]> {
-  const locationCoordinate = `${cell.lat},${cell.lng},${LOCAL_PACK_SEARCH_RADIUS_KM}`;
+  const locationCoordinate = `${cell.lat},${cell.lng},${searchRadiusKm}`;
   const response = await postDataForSeoLive(
     DATAFORSEO_ENDPOINTS.localPackAdvanced,
     creds.login,

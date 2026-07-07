@@ -92,6 +92,25 @@ export function defaultSeoKeywords(client: ClientRow): string[] {
   return result;
 }
 
+// ── Local rank zone allowance ──────────────────────────────────────────────
+// Geographic rank "zones" a client may track, by SEO tier: Premium 1,
+// Premium Plus 3, Foundation (or inactive) 0.
+export function localRankZoneAllowance(client: ClientRow): number {
+  switch (seoTierKey(client.seo)) {
+    case "seo-premium-plus":
+      return 3;
+    case "seo-premium":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+// Premium Plus additionally gets the 25-point local-pack heat map.
+export function hasLocalRankHeatmap(client: ClientRow): boolean {
+  return seoTierKey(client.seo) === "seo-premium-plus";
+}
+
 export type ClientServiceTierDef = {
   label: string;
   tierKey: string;

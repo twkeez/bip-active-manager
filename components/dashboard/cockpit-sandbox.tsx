@@ -15,10 +15,14 @@ import { AUDIT_STAGES } from "@/lib/site-audit/types";
 import type { WebsiteAuditRun } from "@/lib/site-audit/types";
 import SeoAuditEditor from "@/components/seo-audit/seo-audit-editor";
 import { ArrowLeft, Bell, BarChart2, ExternalLink, FileText, Loader2, Play } from "lucide-react";
-import { getClientServiceTierDefs, seoKeywordAllowance } from "@/lib/playbook/client-tiers";
+import { getClientServiceTierDefs, seoKeywordAllowance, localRankZoneAllowance, hasLocalRankHeatmap } from "@/lib/playbook/client-tiers";
 import { runVerifications } from "@/lib/playbook/verify";
 import { runSeoPlatformChecks, runGbpChecks, type PlatformCheck } from "@/lib/playbook/workspace-verify";
 import type { PlaybookItem } from "@/lib/playbook/types";
+import { ALLOWED_RADIUS_MILES } from "@/lib/local-rank/constants";
+import type { ClientRankZoneRow } from "@/lib/local-rank/types";
+import type { ClientKeywordTarget } from "@/lib/types/client";
+import LocalRankGridPanel from "@/components/local-rank/local-rank-grid-panel";
 
 type ClientStub = Pick<ClientRow, "id" | "account_name" | "marketing_strategist" | "tier">;
 
@@ -630,6 +634,249 @@ function TrackedKeywordsSection({ client }: { client: ClientRow }) {
   );
 }
 
+function LocalRankSection({ client }: { client: ClientRow }) {
+  const allowance = localRankZoneAllowance(client);
+  const showHeatmap = hasLocalRankHeatmap(client);
+  const [zones, setZones] = useState<ClientRankZoneRow[]>([]);
+  const [keywordTargets, setKeywordTargets] = useState<ClientKeywordTarget[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [addKind, setAddKind] = useState<"zip" | "radius">("zip");
+  const [zipDraft, setZipDraft] = useState("");
+  const [radiusDraft, setRadiusDraft] = useState<number>(ALLOWED_RADIUS_MILES[1]);
+
+  useEffect(() => {
+    if (allowance === 0) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([
+      fetch(`/api/local-rank/zones?clientId=${client.id}`).then((r) => r.json()),
+      showHeatmap
+        ? fetch(`/api/reporting/keywords?clientId=${client.id}`).then((r) => r.json())
+        : Promise.resolve({ rows: [] }),
+    ])
+      .then(([zoneData, kwData]: [{ zones?: ClientRankZoneRow[] }, { rows?: ClientKeywordTarget[] }]) => {
+        if (cancelled) return;
+        setZones(zoneData.zones ?? []);
+        setKeywordTargets(kwData.rows ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Failed to load local rank data");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client.id, allowance, showHeatmap]);
+
+  const atCap = zones.length >= allowance;
+
+  async function addZone() {
+    if (busy || atCap) return;
+    const add =
+      addKind === "zip"
+        ? { kind: "zip" as const, zip: zipDraft.trim() }
+        : { kind: "radius" as const, radiusMiles: radiusDraft };
+    if (addKind === "zip" && !zipDraft.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/local-rank/zones", {
+        method: "PUT",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ clientId: client.id, add }),
+      });
+      const data = (await res.json()) as { zones?: ClientRankZoneRow[]; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Failed to add zone");
+      setZones(data.zones ?? []);
+      setZipDraft("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to add zone");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeZone(id: number) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/local-rank/zones", {
+        method: "PUT",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ clientId: client.id, deleteId: id }),
+      });
+      const data = (await res.json()) as { zones?: ClientRankZoneRow[]; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Failed to remove zone");
+      setZones(data.zones ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to remove zone");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runScan() {
+    if (scanning || zones.length === 0) return;
+    setScanning(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/local-rank/zones/scan", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ clientId: client.id }),
+      });
+      const data = (await res.json()) as { zones?: ClientRankZoneRow[]; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Scan failed");
+      setZones(data.zones ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Scan failed");
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  if (allowance === 0) {
+    return (
+      <div>
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Local Rank</p>
+        <p className="text-xs text-neutral-400">
+          Local rank tracking is a Premium feature — upgrade the SEO tier to see how the practice ranks by area.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Local Rank</p>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-medium text-neutral-400">
+            {zones.length} of {allowance} zone{allowance === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            onClick={runScan}
+            disabled={scanning || zones.length === 0}
+            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1 text-xs font-medium text-neutral-600 shadow-sm hover:border-neutral-300 hover:text-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {scanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            {scanning ? "Scanning…" : "Run scan"}
+          </button>
+        </div>
+      </div>
+
+      {/* Add-zone controls */}
+      {!atCap && (
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={addKind}
+            onChange={(e) => setAddKind(e.target.value as "zip" | "radius")}
+            className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-xs text-neutral-700"
+          >
+            <option value="zip">ZIP code</option>
+            <option value="radius">Radius</option>
+          </select>
+          {addKind === "zip" ? (
+            <input
+              value={zipDraft}
+              onChange={(e) => setZipDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") addZone();
+              }}
+              placeholder="e.g. 80202"
+              className="w-28 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-800 placeholder-neutral-300 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-200"
+            />
+          ) : (
+            <select
+              value={radiusDraft}
+              onChange={(e) => setRadiusDraft(Number(e.target.value))}
+              className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-xs text-neutral-700"
+            >
+              {ALLOWED_RADIUS_MILES.map((m) => (
+                <option key={m} value={m}>{m} mi around practice</option>
+              ))}
+            </select>
+          )}
+          <button
+            type="button"
+            onClick={addZone}
+            disabled={busy || (addKind === "zip" && zipDraft.trim().length === 0)}
+            className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 shadow-sm hover:border-neutral-300 hover:text-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Add zone
+          </button>
+        </div>
+      )}
+
+      {error && <p className="mt-1.5 text-[11px] font-medium text-red-600">{error}</p>}
+
+      {loading ? (
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-neutral-400">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading zones…
+        </p>
+      ) : zones.length > 0 ? (
+        <div className="mt-2 space-y-2">
+          {zones.map((zone) => (
+            <div key={zone.id} className="rounded-lg border border-neutral-200 px-3 py-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-neutral-700">{zone.label}</p>
+                <button
+                  type="button"
+                  onClick={() => removeZone(zone.id)}
+                  disabled={busy}
+                  className="text-xs text-neutral-400 hover:text-red-600 disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              </div>
+              {zone.last_results && zone.last_results.length > 0 ? (
+                <ul className="mt-1.5 space-y-0.5">
+                  {zone.last_results.map((r) => (
+                    <li key={r.keyword} className="flex items-center justify-between text-xs">
+                      <span className="truncate text-neutral-600">{r.keyword}</span>
+                      <span className={`ml-2 shrink-0 font-medium ${r.rank == null ? "text-neutral-400" : r.rank <= 3 ? "text-emerald-600" : "text-neutral-700"}`}>
+                        {r.rank == null ? "Not in pack" : `#${r.rank}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-[11px] text-neutral-400">
+                  {zone.last_scanned_at ? "No rankings found in last scan" : "Not scanned yet — run a scan"}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-neutral-400">No zones yet — add a ZIP or radius above.</p>
+      )}
+
+      {/* Premium Plus heat map */}
+      {showHeatmap && (
+        <div className="mt-4">
+          <LocalRankGridPanel
+            clientId={client.id}
+            clientName={client.account_name}
+            keywordTargets={keywordTargets}
+            googlePlaceId={client.google_place_id}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ServicePlaybookTab({
   items,
   client,
@@ -680,6 +927,9 @@ function ServicePlaybookTab({
 
       {/* Tracked keywords — SEO only, gated on the SEO service tier */}
       {tierKey.startsWith("seo-") && <TrackedKeywordsSection client={client} />}
+
+      {/* Local rank (zones + heat map) — SEO only, gated on the SEO service tier */}
+      {tierKey.startsWith("seo-") && <LocalRankSection client={client} />}
 
       {categories.map((cat) => (
         <div key={cat}>

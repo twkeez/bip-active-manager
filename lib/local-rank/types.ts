@@ -69,6 +69,25 @@ export interface LocalRankGridRunDetail extends LocalRankGridRunRow {
   cells: LocalRankGridCellRow[];
 }
 
+export interface ZoneKeywordResultRow {
+  keyword: string;
+  rank: number | null;
+  inLocalPack: boolean;
+}
+
+export interface ClientRankZoneRow {
+  id: number;
+  owner_user_id: string;
+  client_id: number;
+  kind: "zip" | "radius";
+  zip: string | null;
+  radius_miles: number | null;
+  label: string;
+  last_results: ZoneKeywordResultRow[] | null;
+  last_scanned_at: string | null;
+  created_at: string;
+}
+
 export interface GridKeywordSummary {
   keyword: string;
   avgRank: number | null;
