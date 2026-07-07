@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toCockpitViewModel } from "@/lib/dashboard/cockpit-view-model";
@@ -9,8 +10,11 @@ import { norm, activeServiceLabels, getClientActiveServices } from "@/lib/client
 import { previewText, openableBasecampUrl } from "@/lib/basecamp/display";
 import { dueStatus } from "@/lib/site-audit/seo-audit-schedule";
 import { matchStrategistByName, type StrategistContact } from "@/lib/team/strategist-roster";
-import type { ClientSeoAuditScheduleWithClient } from "@/lib/site-audit/seo-audit-types";
-import { Bell, ExternalLink } from "lucide-react";
+import type { ClientSeoAuditScheduleWithClient, ClientSeoAudit } from "@/lib/site-audit/seo-audit-types";
+import { AUDIT_STAGES } from "@/lib/site-audit/types";
+import type { WebsiteAuditRun } from "@/lib/site-audit/types";
+import SeoAuditEditor from "@/components/seo-audit/seo-audit-editor";
+import { ArrowLeft, Bell, ExternalLink, Loader2, Play } from "lucide-react";
 
 type ClientStub = Pick<ClientRow, "id" | "account_name" | "marketing_strategist" | "tier">;
 
@@ -108,29 +112,22 @@ function SeoAuditSection({
   schedule,
   roster,
   appUrl,
+  onRunAudit,
+  isRunning,
+  auditProgress,
+  auditError,
 }: {
   schedule: ClientSeoAuditScheduleWithClient | null;
   roster: StrategistContact[];
   appUrl: string;
+  onRunAudit: () => void;
+  isRunning: boolean;
+  auditProgress: string | null;
+  auditError: string | null;
 }) {
-  if (!schedule) {
-    return (
-      <div>
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-          SEO Audit
-        </h2>
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-5 text-center text-sm text-neutral-400">
-          No recurring audit scheduled for this client.{" "}
-          <Link href="/seo-audits" className="text-indigo-600 hover:underline">
-            Set one up →
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const status = dueStatus(schedule.next_due_at);
-  const strategist = matchStrategistByName(schedule.marketing_strategist, roster);
+  const hasSchedule = !!schedule;
+  const status = schedule ? dueStatus(schedule.next_due_at) : "none";
+  const strategist = schedule ? matchStrategistByName(schedule.marketing_strategist, roster) : null;
 
   const statusConfig = {
     overdue: { label: "Overdue", bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500", card: "border-red-200 bg-red-50" },
@@ -146,6 +143,7 @@ function SeoAuditSection({
       </h2>
       <div className={`rounded-xl border p-5 ${statusConfig.card}`}>
         <div className="flex flex-wrap items-center gap-4">
+
           {/* Status badge */}
           <div className="flex items-center gap-2">
             <span className={`h-2 w-2 rounded-full ${statusConfig.dot}`} />
@@ -154,46 +152,76 @@ function SeoAuditSection({
             </span>
           </div>
 
-          {/* Date info */}
-          <div className="flex gap-6">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Last completed</p>
-              <p className="mt-0.5 text-sm font-medium text-neutral-700">
-                {formatAuditDate(schedule.last_completed_at)}
-              </p>
+          {/* Date info (only when enrolled) */}
+          {hasSchedule && (
+            <div className="flex gap-6">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Last completed</p>
+                <p className="mt-0.5 text-sm font-medium text-neutral-700">
+                  {formatAuditDate(schedule!.last_completed_at)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Next due</p>
+                <p className={`mt-0.5 text-sm font-medium ${status === "overdue" ? "text-red-700" : status === "due" ? "text-amber-700" : "text-neutral-700"}`}>
+                  {formatAuditDate(schedule!.next_due_at)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Cadence</p>
+                <p className="mt-0.5 text-sm font-medium text-neutral-700">
+                  Every {schedule!.cadence_months} months
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Next due</p>
-              <p className={`mt-0.5 text-sm font-medium ${status === "overdue" ? "text-red-700" : status === "due" ? "text-amber-700" : "text-neutral-700"}`}>
-                {formatAuditDate(schedule.next_due_at)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Cadence</p>
-              <p className="mt-0.5 text-sm font-medium text-neutral-700">
-                Every {schedule.cadence_months} months
-              </p>
-            </div>
-          </div>
+          )}
+          {!hasSchedule && (
+            <p className="text-sm text-neutral-400">
+              No recurring schedule.{" "}
+              <Link href="/seo-audits" className="text-indigo-600 hover:underline">
+                Set one up →
+              </Link>
+            </p>
+          )}
 
           {/* Actions */}
           <div className="ml-auto flex items-center gap-2">
-            {strategist?.email && (
+            {hasSchedule && strategist?.email && (
               <a
-                href={seoMailto(strategist.email, schedule.account_name, appUrl, statusConfig.label.toLowerCase())}
+                href={seoMailto(strategist.email, schedule!.account_name, appUrl, statusConfig.label.toLowerCase())}
                 className="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 shadow-sm hover:border-neutral-400 hover:text-neutral-800 transition-colors"
               >
                 <Bell size={12} /> Notify
               </a>
             )}
-            <Link
-              href="/seo-audits"
-              className="flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 transition-colors"
+            <button
+              type="button"
+              onClick={onRunAudit}
+              disabled={isRunning}
+              className="flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
-              Run Audit <ExternalLink size={11} />
-            </Link>
+              {isRunning ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+              {isRunning ? "Running…" : "Run Audit"}
+            </button>
           </div>
         </div>
+
+        {/* Progress bar */}
+        {isRunning && auditProgress && (
+          <div className="mt-4 border-t border-neutral-200 pt-4">
+            <div className="flex items-center gap-2 text-xs text-neutral-500">
+              <Loader2 size={12} className="animate-spin shrink-0" />
+              <span>{auditProgress}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {auditError && (
+          <div className="mt-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+            {auditError}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -216,10 +244,51 @@ export default function CockpitSandbox({
   appUrl?: string;
 }) {
   const router = useRouter();
+  const [auditProgress, setAuditProgress] = useState<string | null>(null);
+  const [auditError, setAuditError] = useState<string | null>(null);
+  const [auditDraft, setAuditDraft] = useState<ClientSeoAudit | null>(null);
 
   function handleSelect(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value;
+    setAuditDraft(null);
+    setAuditError(null);
     router.push(val ? `/dashboard/cockpit?client=${val}` : "/dashboard/cockpit");
+  }
+
+  async function handleRunAudit() {
+    if (!client) return;
+    const clientId = client.id;
+    const clientName = client.account_name;
+    setAuditError(null);
+    setAuditProgress(`Starting audit for ${clientName}…`);
+    try {
+      const createRes = await fetch("/api/client-seo-audits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      const created = (await createRes.json()) as { error?: string; audit?: ClientSeoAudit; run?: WebsiteAuditRun };
+      if (!createRes.ok || !created.audit || !created.run) throw new Error(created.error ?? "Failed to start audit");
+      const runId = created.run.id;
+
+      for (const stage of AUDIT_STAGES) {
+        setAuditProgress(`Running ${stage.replace(/_/g, " ")}…`);
+        const stageRes = await fetch(`/api/site-audit/runs/${runId}/stages/${stage}`, { method: "POST" });
+        const stagePayload = (await stageRes.json()) as { error?: string; run?: WebsiteAuditRun };
+        if (!stageRes.ok || !stagePayload.run) throw new Error(stagePayload.error ?? `Stage ${stage} failed`);
+      }
+
+      setAuditProgress("Building the draft from results…");
+      const buildRes = await fetch(`/api/client-seo-audits/${created.audit.id}/build`, { method: "POST" });
+      const built = (await buildRes.json()) as { error?: string; audit?: ClientSeoAudit };
+      if (!buildRes.ok || !built.audit) throw new Error(built.error ?? "Failed to build draft");
+
+      setAuditDraft(built.audit);
+      setAuditProgress(null);
+    } catch (e) {
+      setAuditError(e instanceof Error ? e.message : "Audit failed");
+      setAuditProgress(null);
+    }
   }
 
   const cockpit = workspace ? toCockpitViewModel(workspace) : null;
@@ -398,7 +467,15 @@ export default function CockpitSandbox({
           </div>
 
           {/* ── SEO Audit ────────────────────────────────────────── */}
-          <SeoAuditSection schedule={seoSchedule} roster={roster} appUrl={appUrl} />
+          <SeoAuditSection
+            schedule={seoSchedule}
+            roster={roster}
+            appUrl={appUrl}
+            onRunAudit={handleRunAudit}
+            isRunning={auditProgress !== null}
+            auditProgress={auditProgress}
+            auditError={auditError}
+          />
 
           {/* ── Recent Activity ───────────────────────────────────── */}
           <div>
@@ -516,6 +593,33 @@ export default function CockpitSandbox({
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* ── Audit editor overlay ─────────────────────────────── */}
+      {auditDraft && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-[var(--bip-page)]">
+          <div className="flex items-center justify-between border-b border-[var(--bip-border)] bg-[var(--bip-card)] px-6 py-4">
+            <div>
+              <h1 className="text-base font-semibold text-[var(--text)]">
+                {auditDraft.template_json.meta.client || "SEO Audit"}
+              </h1>
+              <p className="text-xs text-[var(--text-muted)]">SEO Site Audit · Draft</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAuditDraft(null)}
+              className="inline-flex items-center gap-2 rounded-lg border border-[var(--bip-border)] px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--bip-hover)] transition-colors"
+            >
+              <ArrowLeft size={15} /> Back to cockpit
+            </button>
+          </div>
+          <div className="mx-auto w-full max-w-4xl flex-1 overflow-y-auto p-6">
+            <SeoAuditEditor
+              audit={auditDraft}
+              onSaved={(updated) => setAuditDraft(updated)}
+            />
+          </div>
         </div>
       )}
     </div>
