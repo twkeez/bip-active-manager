@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadClientWorkspaceData } from "@/lib/dashboard/load-client-workspace-data";
 import { getStrategistRoster } from "@/lib/team/strategist-roster";
 import type { ClientRow } from "@/lib/types/client";
-import type { ClientSeoAuditSchedule, ClientSeoAuditScheduleWithClient } from "@/lib/site-audit/seo-audit-types";
+import type { ClientSeoAudit, ClientSeoAuditSchedule, ClientSeoAuditScheduleWithClient } from "@/lib/site-audit/seo-audit-types";
 import CockpitSandbox from "@/components/dashboard/cockpit-sandbox";
 
 type SearchParams = Promise<{ client?: string }>;
@@ -38,23 +38,34 @@ export default async function CockpitPage({
       ? await loadClientWorkspaceData(supabase, selectedId)
       : null;
 
-  // SEO audit schedule for selected client
+  // SEO audit schedule + past audits for selected client
   let seoSchedule: ClientSeoAuditScheduleWithClient | null = null;
+  let pastAudits: ClientSeoAudit[] = [];
   if (workspace && selectedId) {
-    const { data: scheduleRaw } = await supabase
-      .from("client_seo_audit_schedules")
-      .select("*")
-      .eq("client_id", selectedId)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (scheduleRaw) {
+    const [scheduleRes, auditsRes] = await Promise.all([
+      supabase
+        .from("client_seo_audit_schedules")
+        .select("*")
+        .eq("client_id", selectedId)
+        .eq("is_active", true)
+        .maybeSingle(),
+      supabase
+        .from("client_seo_audits")
+        .select("*")
+        .eq("client_id", selectedId)
+        .eq("owner_user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+    if (scheduleRes.data) {
       seoSchedule = {
-        ...(scheduleRaw as ClientSeoAuditSchedule),
+        ...(scheduleRes.data as ClientSeoAuditSchedule),
         account_name: workspace.client.account_name,
         marketing_strategist: workspace.client.marketing_strategist,
         website: workspace.client.website ?? null,
       };
     }
+    pastAudits = (auditsRes.data ?? []) as ClientSeoAudit[];
   }
 
   const roster = getStrategistRoster();
@@ -66,6 +77,7 @@ export default async function CockpitPage({
       selectedId={selectedId}
       workspace={workspace}
       seoSchedule={seoSchedule}
+      pastAudits={pastAudits}
       roster={roster}
       appUrl={appUrl}
     />

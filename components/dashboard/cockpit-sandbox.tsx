@@ -14,7 +14,7 @@ import type { ClientSeoAuditScheduleWithClient, ClientSeoAudit } from "@/lib/sit
 import { AUDIT_STAGES } from "@/lib/site-audit/types";
 import type { WebsiteAuditRun } from "@/lib/site-audit/types";
 import SeoAuditEditor from "@/components/seo-audit/seo-audit-editor";
-import { ArrowLeft, Bell, ExternalLink, Loader2, Play } from "lucide-react";
+import { ArrowLeft, Bell, ExternalLink, FileText, Loader2, Play } from "lucide-react";
 
 type ClientStub = Pick<ClientRow, "id" | "account_name" | "marketing_strategist" | "tier">;
 
@@ -121,6 +121,8 @@ function SeoAuditSection({
   onSaveSchedule,
   isSavingSchedule,
   scheduleError,
+  pastAudits,
+  onOpenAudit,
 }: {
   schedule: ClientSeoAuditScheduleWithClient | null;
   roster: StrategistContact[];
@@ -134,6 +136,8 @@ function SeoAuditSection({
   onSaveSchedule: () => void;
   isSavingSchedule: boolean;
   scheduleError: string | null;
+  pastAudits: ClientSeoAudit[];
+  onOpenAudit: (audit: ClientSeoAudit) => void;
 }) {
   const hasSchedule = !!schedule;
   const status = schedule ? dueStatus(schedule.next_due_at) : "none";
@@ -256,6 +260,44 @@ function SeoAuditSection({
             {scheduleError}
           </div>
         )}
+
+        {/* ── Past audits ── */}
+        {pastAudits.length > 0 && (
+          <div className="mt-4 border-t border-neutral-200 pt-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+              Saved audits
+            </p>
+            <ul className="divide-y divide-neutral-100">
+              {pastAudits.map((audit) => (
+                <li key={audit.id} className="flex items-center gap-3 py-2">
+                  <FileText size={13} className="shrink-0 text-neutral-400" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-neutral-700">
+                      {new Date(audit.audit_date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                    </p>
+                    <p className="text-[11px] text-neutral-400 capitalize">{audit.status.replace("_", " ")}</p>
+                  </div>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                    audit.status === "completed"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : audit.status === "draft"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-neutral-100 text-neutral-500"
+                  }`}>
+                    {audit.status === "in_progress" ? "In progress" : audit.status === "draft" ? "Draft" : "Completed"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onOpenAudit(audit)}
+                    className="rounded-lg border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-neutral-600 shadow-sm hover:border-neutral-400 hover:text-neutral-800 transition-colors"
+                  >
+                    Open
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -267,6 +309,7 @@ export default function CockpitSandbox({
   selectedId,
   workspace,
   seoSchedule = null,
+  pastAudits: initialPastAudits = [],
   roster = [],
   appUrl = "",
 }: {
@@ -274,6 +317,7 @@ export default function CockpitSandbox({
   selectedId: number | null;
   workspace: ClientWorkspaceInitialData | null;
   seoSchedule?: ClientSeoAuditScheduleWithClient | null;
+  pastAudits?: ClientSeoAudit[];
   roster?: StrategistContact[];
   appUrl?: string;
 }) {
@@ -281,6 +325,9 @@ export default function CockpitSandbox({
   const [auditProgress, setAuditProgress] = useState<string | null>(null);
   const [auditError, setAuditError] = useState<string | null>(null);
   const [auditDraft, setAuditDraft] = useState<ClientSeoAudit | null>(null);
+
+  // Past audits state — prepended when new runs complete
+  const [pastAudits, setPastAudits] = useState<ClientSeoAudit[]>(initialPastAudits);
 
   // Schedule state — held locally so saves reflect immediately without reload
   const [localSchedule, setLocalSchedule] = useState<ClientSeoAuditScheduleWithClient | null>(seoSchedule);
@@ -345,6 +392,7 @@ export default function CockpitSandbox({
       if (!buildRes.ok || !built.audit) throw new Error(built.error ?? "Failed to build draft");
 
       setAuditDraft(built.audit);
+      setPastAudits((prev) => [built.audit!, ...prev.filter((a) => a.id !== built.audit!.id)]);
       setAuditProgress(null);
     } catch (e) {
       setAuditError(e instanceof Error ? e.message : "Audit failed");
@@ -541,6 +589,8 @@ export default function CockpitSandbox({
             onSaveSchedule={handleSaveSchedule}
             isSavingSchedule={isSavingSchedule}
             scheduleError={scheduleError}
+            pastAudits={pastAudits}
+            onOpenAudit={setAuditDraft}
           />
 
           {/* ── Recent Activity ───────────────────────────────────── */}
@@ -683,7 +733,10 @@ export default function CockpitSandbox({
           <div className="mx-auto w-full max-w-4xl flex-1 overflow-y-auto p-6">
             <SeoAuditEditor
               audit={auditDraft}
-              onSaved={(updated) => setAuditDraft(updated)}
+              onSaved={(updated) => {
+                setAuditDraft(updated);
+                setPastAudits((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+              }}
             />
           </div>
         </div>
