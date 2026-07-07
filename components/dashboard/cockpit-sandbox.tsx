@@ -92,6 +92,129 @@ function avatarInitial(email: string | null): string {
   return ((email ?? "?")[0] ?? "?").toUpperCase();
 }
 
+// ── Client Settings tab ───────────────────────────────────────────────────────
+const SETTINGS_SECTIONS = [
+  {
+    label: "Connections",
+    fields: [
+      { key: "website",           label: "Website URL",               placeholder: "https://example.com" },
+      { key: "sc_url",            label: "Search Console property",   placeholder: "sc-domain:example.com" },
+      { key: "ga4_property_id",   label: "GA4 property ID",           placeholder: "properties/123456789" },
+      { key: "gtm_container_id",  label: "GTM container ID",          placeholder: "GTM-XXXXXX" },
+      { key: "google_place_id",   label: "Google Place ID",           placeholder: "ChIJ…" },
+      { key: "ads_customer_id",   label: "Google Ads customer ID",    placeholder: "123-456-7890" },
+    ],
+  },
+  {
+    label: "Integrations",
+    fields: [
+      { key: "basecamp_project_id", label: "Basecamp project ID",  placeholder: "" },
+      { key: "harvest_project_id",  label: "Harvest project ID",   placeholder: "" },
+      { key: "harvest_client_id",   label: "Harvest client ID",    placeholder: "" },
+      { key: "shared_drive_url",    label: "Shared Drive URL",     placeholder: "https://drive.google.com/…" },
+    ],
+  },
+  {
+    label: "Contact",
+    fields: [
+      { key: "contact_name",  label: "Contact name",  placeholder: "" },
+      { key: "contact_email", label: "Contact email", placeholder: "" },
+    ],
+  },
+] as const;
+
+type SettingsKey = (typeof SETTINGS_SECTIONS)[number]["fields"][number]["key"];
+
+function ClientSettingsTab({ client }: { client: ClientRow }) {
+  const router = useRouter();
+  const initial: Record<SettingsKey, string> = {
+    website:            client.website ?? "",
+    sc_url:             client.sc_url ?? "",
+    ga4_property_id:    client.ga4_property_id ?? "",
+    gtm_container_id:   client.gtm_container_id ?? "",
+    google_place_id:    client.google_place_id ?? "",
+    ads_customer_id:    client.ads_customer_id ?? "",
+    basecamp_project_id: client.basecamp_project_id ?? "",
+    harvest_project_id:  client.harvest_project_id ?? "",
+    harvest_client_id:   client.harvest_client_id ?? "",
+    shared_drive_url:    client.shared_drive_url ?? "",
+    contact_name:        client.contact_name ?? "",
+    contact_email:       client.contact_email ?? "",
+  };
+  const [values, setValues] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  function set(key: SettingsKey, value: string) {
+    setValues((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const payload = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !payload.ok) throw new Error(payload.error ?? "Save failed");
+      setSavedAt(Date.now());
+      router.refresh();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {SETTINGS_SECTIONS.map((section) => (
+        <div key={section.label}>
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+            {section.label}
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {section.fields.map(({ key, label, placeholder }) => (
+              <div key={key}>
+                <label className="mb-1 block text-xs font-medium text-neutral-500">{label}</label>
+                <input
+                  type="text"
+                  value={values[key]}
+                  onChange={(e) => set(key, e.target.value)}
+                  placeholder={placeholder}
+                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder-neutral-300 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-200"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div className="flex items-center gap-3 pt-1">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+        >
+          {saving ? <Loader2 size={14} className="animate-spin" /> : null}
+          {saving ? "Saving…" : "Save changes"}
+        </button>
+        {savedAt && !saveError && (
+          <span className="text-xs text-emerald-600 font-medium">Saved</span>
+        )}
+        {saveError && (
+          <span className="text-xs text-red-600">{saveError}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Service Playbook tab ──────────────────────────────────────────────────────
 const CATEGORY_ORDER = ["Initial Setup", "Monthly Work", "Monthly Communications", "Guidelines"];
 
@@ -566,9 +689,12 @@ export default function CockpitSandbox({
     : [];
 
   const serviceTabs = client ? getClientServiceTierDefs(client) : [];
-  const activeTab = serviceTabs.find((t) => t.tierKey === activeServiceTab)?.tierKey
-    ?? serviceTabs[0]?.tierKey
-    ?? null;
+  const SETTINGS_TAB = "__settings";
+  const activeTab = activeServiceTab === SETTINGS_TAB
+    ? SETTINGS_TAB
+    : (serviceTabs.find((t) => t.tierKey === activeServiceTab)?.tierKey
+      ?? serviceTabs[0]?.tierKey
+      ?? null);
   const pkgHours = client?.total_package_hours ?? 0;
   const stratHours = client?.hours_for_strategist ?? 0;
   const hoursPercent = pkgHours > 0 ? Math.min(100, (stratHours / pkgHours) * 100) : 0;
@@ -813,10 +939,23 @@ export default function CockpitSandbox({
                       )}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => setActiveServiceTab(SETTINGS_TAB)}
+                    className={`ml-auto px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
+                      activeTab === SETTINGS_TAB
+                        ? "border-neutral-400 text-neutral-700 bg-neutral-50"
+                        : "border-transparent text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50"
+                    }`}
+                  >
+                    Settings
+                  </button>
                 </div>
                 {/* Tab content */}
                 <div className="p-5">
-                  {activeTab && (
+                  {activeTab === SETTINGS_TAB ? (
+                    <ClientSettingsTab key={client!.id} client={client!} />
+                  ) : activeTab ? (
                     <ServicePlaybookTab
                       key={activeTab}
                       tierKey={activeTab}
@@ -824,7 +963,7 @@ export default function CockpitSandbox({
                       client={client!}
                       workspace={workspace}
                     />
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
