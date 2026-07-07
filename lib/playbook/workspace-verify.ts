@@ -69,3 +69,77 @@ export function runSeoPlatformChecks(workspace: ClientWorkspaceInitialData): Pla
 
   return checks;
 }
+
+// ── GBP checks (used in both SEO and ORM tabs) ────────────────────────────
+export function runGbpChecks(workspace: ClientWorkspaceInitialData): PlatformCheck[] {
+  const { client, gbpSnapshot, gbpReviews } = workspace;
+  const checks: PlatformCheck[] = [];
+
+  // ── Connection ─────────────────────────────────────────────────────────────
+  if (!client.google_place_id) {
+    checks.push({ key: "gbp", label: "Google Business Profile", pass: false, detail: "Place ID not on file — add it in client settings" });
+    return checks;
+  }
+  if (!gbpSnapshot) {
+    checks.push({ key: "gbp", label: "Google Business Profile", pass: false, detail: "Place ID on file but no data synced yet" });
+    return checks;
+  }
+  if (gbpSnapshot.run_status === "failed") {
+    checks.push({ key: "gbp", label: "Google Business Profile", pass: false, detail: gbpSnapshot.error_message ?? "Last sync failed" });
+    return checks;
+  }
+
+  const days = daysSince(gbpSnapshot.updated_at);
+  if (days > STALE_DAYS) {
+    checks.push({ key: "gbp", label: "Google Business Profile", pass: false, detail: `Data stale — last sync ${days} days ago` });
+    return checks;
+  }
+  checks.push({ key: "gbp", label: "Google Business Profile", pass: true, detail: `Connected · synced ${syncedLabel(days)}` });
+
+  // ── Rating ────────────────────────────────────────────────────────────────
+  const rating = gbpSnapshot.rating;
+  const reviewCount = gbpSnapshot.user_ratings_total ?? 0;
+  if (rating === null) {
+    checks.push({ key: "gbp_rating", label: "GBP Rating", pass: false, detail: "No rating data — profile may be new or unverified" });
+  } else if (rating < 4.0) {
+    checks.push({ key: "gbp_rating", label: "GBP Rating", pass: false, detail: `${rating.toFixed(1)} ★ across ${reviewCount.toLocaleString()} reviews — below 4.0 threshold` });
+  } else {
+    checks.push({ key: "gbp_rating", label: "GBP Rating", pass: true, detail: `${rating.toFixed(1)} ★ · ${reviewCount.toLocaleString()} reviews` });
+  }
+
+  // ── Most recent review ────────────────────────────────────────────────────
+  const latestReview = gbpReviews[0];
+  if (!latestReview?.review_time_unix) {
+    checks.push({ key: "gbp_reviews", label: "GBP Reviews", pass: false, detail: "No reviews on record" });
+  } else {
+    const reviewDays = Math.floor((Date.now() - latestReview.review_time_unix * 1000) / 86_400_000);
+    if (reviewDays > 90) {
+      checks.push({ key: "gbp_reviews", label: "GBP Reviews", pass: false, detail: `No new reviews in ${reviewDays} days — encourage clients to ask for reviews` });
+    } else {
+      checks.push({ key: "gbp_reviews", label: "GBP Reviews", pass: true, detail: `Most recent review ${syncedLabel(reviewDays)}` });
+    }
+  }
+
+  // ── Last post (populated after sync enhancement) ──────────────────────────
+  if (gbpSnapshot.last_post_at) {
+    const postDays = daysSince(gbpSnapshot.last_post_at);
+    if (postDays > 30) {
+      checks.push({ key: "gbp_posts", label: "GBP Posts", pass: false, detail: `No posts in ${postDays} days — aim for at least monthly` });
+    } else {
+      checks.push({ key: "gbp_posts", label: "GBP Posts", pass: true, detail: `Last post ${syncedLabel(postDays)}` });
+    }
+  }
+
+  // ── Profile completeness (populated after sync enhancement) ───────────────
+  if (gbpSnapshot.profile_fields) {
+    const fields = gbpSnapshot.profile_fields as Record<string, boolean>;
+    const missing = Object.entries(fields).filter(([, v]) => !v).map(([k]) => k);
+    if (missing.length > 0) {
+      checks.push({ key: "gbp_profile", label: "GBP Profile", pass: false, detail: `Incomplete: missing ${missing.join(", ")}` });
+    } else {
+      checks.push({ key: "gbp_profile", label: "GBP Profile", pass: true, detail: "Profile fields complete" });
+    }
+  }
+
+  return checks;
+}

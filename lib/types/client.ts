@@ -47,6 +47,8 @@ export type GbpSnapshot = {
   address: string | null;
   rating: number | null;
   user_ratings_total: number | null;
+  last_post_at: string | null;
+  profile_fields: Record<string, boolean> | null;
   run_status: "running" | "completed" | "failed";
   error_message: string | null;
   created_at: string;
