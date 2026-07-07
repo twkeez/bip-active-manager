@@ -6,16 +6,12 @@ import {
   AlertTriangle,
   ArrowLeft,
   BarChart3,
-  CheckCircle2,
   ExternalLink,
   Loader2,
   Share2,
-  XCircle,
   BookOpen,
-  WifiOff,
 } from "lucide-react";
 import { previewText, openableBasecampUrl } from "@/lib/basecamp/display";
-import { evaluateClientSetup } from "@/lib/clients/setup-status";
 import {
   acknowledgeNoReply,
   shouldShowReplyAlert,
@@ -58,25 +54,6 @@ function formatRelativeDays(value: string | null | undefined) {
 }
 
 
-type IntegrationDot = {
-  id: string;
-  label: string;
-  connected: boolean;
-  required: boolean;
-};
-
-function buildConnectionDots(data: ClientWorkspaceInitialData): IntegrationDot[] {
-  const { client, socialConnections } = data;
-  return [
-    { id: "ga4", label: "GA4", connected: Boolean(norm(client.ga4_property_id)), required: false },
-    { id: "sc", label: "Search Console", connected: Boolean(norm(client.sc_url)), required: true },
-    { id: "ads", label: "Google Ads", connected: Boolean(norm(client.ads_customer_id)), required: true },
-    { id: "gbp", label: "Google Place ID", connected: Boolean(norm(client.google_place_id)), required: false },
-    { id: "basecamp", label: "Basecamp", connected: Boolean(norm(client.basecamp_project_id)), required: true },
-    { id: "social", label: "Social", connected: socialConnections.length > 0, required: false },
-    { id: "harvest", label: "Harvest", connected: Boolean(norm(client.harvest_project_id) && norm(client.harvest_client_id)), required: false },
-  ];
-}
 
 export default function ClientWorkspaceDashboard({
   data,
@@ -99,10 +76,6 @@ export default function ClientWorkspaceDashboard({
 
   const { client } = data;
   const clientId = client.id;
-  const setup = evaluateClientSetup(client, {
-    socialConnectionCount: data.socialConnections.length,
-  });
-  const connectionDots = buildConnectionDots(data);
   const services = activeServiceLabels(getClientActiveServices(client));
   const clientThreads = data.threadEvents.filter((e) => !e.is_internal);
   const latestClientThread = clientThreads[0] ?? null;
@@ -282,114 +255,34 @@ export default function ClientWorkspaceDashboard({
         </div>
       )}
 
-      {/* Connections · Account · Actions strip */}
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr_1fr]">
-
-          {/* Connections */}
-          <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-bip-muted">
-                Connections
-              </h3>
-              <Link
-                href={`/dashboard/clients/${clientId}?tab=connections`}
-                className="text-xs text-bip-subtle hover:text-bip-accent transition-colors"
-              >
-                Manage →
-              </Link>
-            </div>
-            <ul className="space-y-2.5">
-              {connectionDots.map((dot) => (
-                <li key={dot.id} className="flex items-center justify-between gap-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    {dot.connected ? (
-                      <CheckCircle2 size={14} className="shrink-0 text-emerald-500" />
-                    ) : dot.required ? (
-                      <XCircle size={14} className="shrink-0 text-red-400" />
-                    ) : (
-                      <WifiOff size={14} className="shrink-0 text-bip-subtle" />
-                    )}
-                    <span className={dot.connected ? "text-bip-text" : "text-bip-subtle"}>
-                      {dot.label}
-                    </span>
-                  </div>
-                  {!dot.connected && dot.required && (
-                    <span className="rounded border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-[10px] text-red-400">
-                      Required
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-            {!setup.isComplete && (
-              <Link
-                href={`/dashboard/clients/${clientId}?tab=onboarding`}
-                className="mt-4 inline-flex text-xs font-medium text-bip-accent hover:text-bip-accent"
-              >
-                View onboarding checklist →
-              </Link>
-            )}
-          </div>
-
-          {/* Account info */}
-          <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
-            <h3 className="mb-4 text-xs font-semibold text-bip-muted">
-              Account
-            </h3>
-            <dl className="space-y-2.5 text-sm">
-              <div className="flex justify-between gap-2">
-                <dt className="text-bip-muted">Package hours</dt>
-                <dd className="font-medium text-bip-text">{client.total_package_hours ?? "—"}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-bip-muted">Strategist hours</dt>
-                <dd className="font-medium text-bip-text">{client.hours_for_strategist ?? "—"}</dd>
-              </div>
-              {norm(client.website) && (
-                <div className="flex justify-between gap-2">
-                  <dt className="text-bip-muted">Website</dt>
-                  <dd className="max-w-[150px] truncate font-medium text-bip-text">
-                    {norm(client.website)}
-                  </dd>
-                </div>
-              )}
-              {data.gbpSnapshot && (
-                <div className="flex justify-between gap-2">
-                  <dt className="text-bip-muted">GBP rating</dt>
-                  <dd className="font-medium text-bip-text">
-                    {data.gbpSnapshot.rating?.toFixed(1) ?? "—"} / 5
-                    <span className="ml-1.5 text-xs text-bip-subtle">
-                      ({data.gbpSnapshot.user_ratings_total ?? 0} reviews)
-                    </span>
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </div>
-
-          {/* Quick actions */}
-          <div className="flex flex-col gap-2">
-            <Link
-              href={`/reports/${clientId}/draft`}
-              className="inline-flex items-center gap-2 rounded-lg border border-bip-accent/20 bg-bip-accent/10 px-4 py-2.5 text-sm font-medium text-bip-accent transition hover:bg-bip-accent/20"
-            >
-              <BarChart3 size={15} /> Open reporting
-            </Link>
-            <Link
-              href={`/dashboard/clients/${clientId}?tab=playbook`}
-              className="inline-flex items-center gap-2 rounded-lg border border-bip-border px-4 py-2.5 text-sm font-medium text-bip-text transition hover:bg-bip-card hover:text-bip-text"
-            >
-              <BookOpen size={15} /> Service playbook
-            </Link>
-            <Link
-              href={`/reports/${clientId}?range=last30`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-bip-border px-4 py-2.5 text-sm font-medium text-bip-text transition hover:bg-bip-card hover:text-bip-text"
-            >
-              <Share2 size={15} /> Generate PDF report
-            </Link>
-          </div>
+      {/* Quick actions */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <Link
+          href={`/reports/${clientId}/draft`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-bip-accent/20 bg-bip-accent/10 px-3 py-1.5 text-xs font-medium text-bip-accent transition hover:bg-bip-accent/20"
+        >
+          <BarChart3 size={13} /> Open reporting
+        </Link>
+        <Link
+          href={`/dashboard/clients/${clientId}?tab=playbook`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-1.5 text-xs font-medium text-bip-text transition hover:bg-bip-card"
+        >
+          <BookOpen size={13} /> Service playbook
+        </Link>
+        <Link
+          href={`/reports/${clientId}?range=last30`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-1.5 text-xs font-medium text-bip-text transition hover:bg-bip-card"
+        >
+          <Share2 size={13} /> Generate PDF report
+        </Link>
+        <Link
+          href={`/dashboard/clients/${clientId}?tab=connections`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-1.5 text-xs font-medium text-bip-text transition hover:bg-bip-card"
+        >
+          Connections
+        </Link>
       </div>
 
       {/* Internal cockpit: channel health + focus queue */}
