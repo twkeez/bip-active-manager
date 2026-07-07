@@ -93,16 +93,62 @@ function avatarInitial(email: string | null): string {
 }
 
 // ── Client Settings tab ───────────────────────────────────────────────────────
-const SETTINGS_SECTIONS = [
+type SettingsField = {
+  key: string;
+  label: string;
+  placeholder: string;
+  helpText?: string;
+  helpUrl?: string;
+  syncEndpoint?: string;
+};
+
+const SETTINGS_SECTIONS: { label: string; fields: SettingsField[] }[] = [
   {
     label: "Connections",
     fields: [
-      { key: "website",           label: "Website URL",               placeholder: "https://example.com" },
-      { key: "sc_url",            label: "Search Console property",   placeholder: "sc-domain:example.com" },
-      { key: "ga4_property_id",   label: "GA4 property ID",           placeholder: "properties/123456789" },
-      { key: "gtm_container_id",  label: "GTM container ID",          placeholder: "GTM-XXXXXX" },
-      { key: "google_place_id",   label: "Google Place ID",           placeholder: "ChIJ…" },
-      { key: "ads_customer_id",   label: "Google Ads customer ID",    placeholder: "123-456-7890" },
+      {
+        key: "website",
+        label: "Website URL",
+        placeholder: "https://example.com",
+        helpText: "The client's primary website domain",
+      },
+      {
+        key: "sc_url",
+        label: "Search Console property",
+        placeholder: "sc-domain:example.com",
+        helpText: "Search Console → property selector → copy the property URL",
+        helpUrl: "https://search.google.com/search-console",
+        syncEndpoint: "/api/seo/search-console/sync",
+      },
+      {
+        key: "ga4_property_id",
+        label: "GA4 property ID",
+        placeholder: "properties/123456789",
+        helpText: "Google Analytics → Admin → Property settings → Property ID. Paste as: properties/XXXXXXXXX",
+        helpUrl: "https://analytics.google.com",
+        syncEndpoint: "/api/ga4/sync",
+      },
+      {
+        key: "gtm_container_id",
+        label: "GTM container ID",
+        placeholder: "GTM-XXXXXX",
+        helpText: "Tag Manager → Admin → Container settings → Container ID",
+        helpUrl: "https://tagmanager.google.com",
+      },
+      {
+        key: "google_place_id",
+        label: "Google Place ID",
+        placeholder: "ChIJ…",
+        helpText: "Use Google's Place ID Finder — search for the business and copy the Place ID",
+        helpUrl: "https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder",
+      },
+      {
+        key: "ads_customer_id",
+        label: "Google Ads customer ID",
+        placeholder: "123-456-7890",
+        helpText: "Google Ads → top-right account menu → Customer ID (format: XXX-XXX-XXXX)",
+        helpUrl: "https://ads.google.com",
+      },
     ],
   },
   {
@@ -121,19 +167,21 @@ const SETTINGS_SECTIONS = [
       { key: "contact_email", label: "Contact email", placeholder: "" },
     ],
   },
-] as const;
+];
 
-type SettingsKey = (typeof SETTINGS_SECTIONS)[number]["fields"][number]["key"];
+type SettingsKey = "website" | "sc_url" | "ga4_property_id" | "gtm_container_id" | "google_place_id" | "ads_customer_id" | "basecamp_project_id" | "harvest_project_id" | "harvest_client_id" | "shared_drive_url" | "contact_name" | "contact_email";
+
+type SyncState = { loading: boolean; ok: boolean | null; message: string | null };
 
 function ClientSettingsTab({ client }: { client: ClientRow }) {
   const router = useRouter();
   const initial: Record<SettingsKey, string> = {
-    website:            client.website ?? "",
-    sc_url:             client.sc_url ?? "",
-    ga4_property_id:    client.ga4_property_id ?? "",
-    gtm_container_id:   client.gtm_container_id ?? "",
-    google_place_id:    client.google_place_id ?? "",
-    ads_customer_id:    client.ads_customer_id ?? "",
+    website:             client.website ?? "",
+    sc_url:              client.sc_url ?? "",
+    ga4_property_id:     client.ga4_property_id ?? "",
+    gtm_container_id:    client.gtm_container_id ?? "",
+    google_place_id:     client.google_place_id ?? "",
+    ads_customer_id:     client.ads_customer_id ?? "",
     basecamp_project_id: client.basecamp_project_id ?? "",
     harvest_project_id:  client.harvest_project_id ?? "",
     harvest_client_id:   client.harvest_client_id ?? "",
@@ -145,9 +193,14 @@ function ClientSettingsTab({ client }: { client: ClientRow }) {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [syncStates, setSyncStates] = useState<Record<string, SyncState>>({});
 
   function set(key: SettingsKey, value: string) {
     setValues((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setSyncState(key: string, state: Partial<SyncState>) {
+    setSyncStates((prev) => ({ ...prev, [key]: { ...{ loading: false, ok: null, message: null }, ...prev[key], ...state } }));
   }
 
   async function handleSave() {
@@ -170,6 +223,23 @@ function ClientSettingsTab({ client }: { client: ClientRow }) {
     }
   }
 
+  async function handleSync(fieldKey: string, endpoint: string) {
+    setSyncState(fieldKey, { loading: true, ok: null, message: null });
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: client.id }),
+      });
+      const payload = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !payload.ok) throw new Error(payload.error ?? "Sync failed");
+      setSyncState(fieldKey, { loading: false, ok: true, message: "Connected — data synced successfully" });
+      router.refresh();
+    } catch (e) {
+      setSyncState(fieldKey, { loading: false, ok: false, message: e instanceof Error ? e.message : "Sync failed" });
+    }
+  }
+
   return (
     <div className="space-y-6">
       {SETTINGS_SECTIONS.map((section) => (
@@ -177,19 +247,54 @@ function ClientSettingsTab({ client }: { client: ClientRow }) {
           <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
             {section.label}
           </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {section.fields.map(({ key, label, placeholder }) => (
-              <div key={key}>
-                <label className="mb-1 block text-xs font-medium text-neutral-500">{label}</label>
-                <input
-                  type="text"
-                  value={values[key]}
-                  onChange={(e) => set(key, e.target.value)}
-                  placeholder={placeholder}
-                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder-neutral-300 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-200"
-                />
-              </div>
-            ))}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {section.fields.map(({ key, label, placeholder, helpText, helpUrl, syncEndpoint }) => {
+              const fieldKey = key as SettingsKey;
+              const sync = syncStates[key];
+              const isDirty = values[fieldKey] !== initial[fieldKey];
+              const hasValue = Boolean(values[fieldKey]);
+              return (
+                <div key={key}>
+                  <label className="mb-1 block text-xs font-medium text-neutral-500">{label}</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={values[fieldKey]}
+                      onChange={(e) => set(fieldKey, e.target.value)}
+                      placeholder={placeholder}
+                      className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder-neutral-300 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-200"
+                    />
+                    {syncEndpoint && hasValue && (
+                      <button
+                        type="button"
+                        disabled={sync?.loading || isDirty}
+                        title={isDirty ? "Save changes first to test" : "Test connection"}
+                        onClick={() => handleSync(key, syncEndpoint)}
+                        className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-500 shadow-sm hover:border-neutral-300 hover:text-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {sync?.loading ? <Loader2 size={11} className="animate-spin" /> : null}
+                        {sync?.loading ? "Testing…" : isDirty ? "Save first" : "Test"}
+                      </button>
+                    )}
+                  </div>
+                  {/* Sync result */}
+                  {sync && !sync.loading && sync.ok !== null && (
+                    <p className={`mt-1 text-[11px] font-medium ${sync.ok ? "text-emerald-600" : "text-red-600"}`}>
+                      {sync.ok ? "✓ " : "✗ "}{sync.message}
+                    </p>
+                  )}
+                  {/* Help text */}
+                  {helpText && (
+                    <p className="mt-1 text-[11px] text-neutral-400 leading-snug">
+                      {helpText}
+                      {helpUrl && (
+                        <> · <a href={helpUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-neutral-600">Open →</a></>
+                      )}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}
