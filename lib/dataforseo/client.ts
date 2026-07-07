@@ -8,8 +8,11 @@ export const DATAFORSEO_ENDPOINTS = {
     "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_ideas/live",
   serpOrganicAdvanced:
     "https://api.dataforseo.com/v3/serp/google/organic/live/advanced",
+  // Local-pack results are returned as `local_pack` elements inside the Google
+  // organic SERP; there is no standalone local_pack endpoint (that path returns
+  // "Invalid Path"). Callers filter the organic items for type === "local_pack".
   localPackAdvanced:
-    "https://api.dataforseo.com/v3/serp/google/local_pack/live/advanced",
+    "https://api.dataforseo.com/v3/serp/google/organic/live/advanced",
   competitorsDomain:
     "https://api.dataforseo.com/v3/dataforseo_labs/google/competitors_domain/live",
   myBusinessInfo:

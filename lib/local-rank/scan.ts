@@ -73,12 +73,15 @@ function parseLocalPackListings(apiData: unknown): LocalPackListing[] {
   const listings: LocalPackListing[] = [];
   for (const raw of packItems) {
     const item = raw as {
+      rank_group?: number;
       rank_absolute?: number;
       title?: string;
       domain?: string | null;
     };
     listings.push({
-      rank: item.rank_absolute ?? listings.length + 1,
+      // rank_group is the position within the local pack (1/2/3); fall back to
+      // rank_absolute, then to insertion order.
+      rank: item.rank_group ?? item.rank_absolute ?? listings.length + 1,
       title: item.title ?? "Unknown listing",
       domain: item.domain ?? null,
     });
