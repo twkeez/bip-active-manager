@@ -79,7 +79,14 @@ async function runReport(
   });
   const json = (await res.json()) as Ga4ReportResponse;
   if (!res.ok) {
-    throw new Error(`GA4 API error (${res.status}): ${json.error?.message ?? res.statusText}`);
+    let msg = `GA4 API error (${res.status}): ${json.error?.message ?? res.statusText}`;
+    if (res.status === 403) {
+      const svcEmail = process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL ?? "";
+      msg += svcEmail
+        ? ` — Add ${svcEmail} as a Viewer in GA4 → Admin → Property access management, then test again.`
+        : ` — Grant the BIP service account Viewer access in GA4 → Admin → Property access management, then test again.`;
+    }
+    throw new Error(msg);
   }
   return json;
 }
