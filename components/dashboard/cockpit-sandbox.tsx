@@ -515,6 +515,44 @@ export default function CockpitSandbox({
                 </div>
               )}
             </div>
+
+            {/* ── Connections ────────────────────────────────────────── */}
+            {(() => {
+              const checks = [
+                { label: "GSC",       pass: Boolean(client.sc_url) },
+                { label: "GA4",       pass: Boolean(client.ga4_property_id) },
+                { label: "GBP",       pass: Boolean(client.google_place_id) },
+                { label: "Basecamp",  pass: Boolean(client.basecamp_project_id) },
+                { label: "Harvest",   pass: Boolean(client.harvest_project_id) },
+                ...(client.ppc ? [{ label: "Ads", pass: Boolean(client.ads_customer_id) }] : []),
+              ];
+              const missing = checks.filter((c) => !c.pass);
+              return (
+                <div className="mt-4 pt-4 border-t border-neutral-100">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400 mr-1">
+                      Connections
+                    </p>
+                    {checks.map(({ label, pass }) => (
+                      <span
+                        key={label}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          pass
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-red-50 text-red-500"
+                        }`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${pass ? "bg-emerald-500" : "bg-red-400"}`} />
+                        {label}
+                      </span>
+                    ))}
+                    {missing.length === 0 && (
+                      <span className="ml-1 text-[11px] text-emerald-600 font-medium">All connected</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* ── Command Center ────────────────────────────────────── */}
