@@ -83,6 +83,7 @@ export async function PATCH(
     "contact_name",
     "contact_email",
     "shared_drive_url",
+    "city",
   ] as const;
 
   const patch: Record<string, string | null> = {};

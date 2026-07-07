@@ -15,7 +15,7 @@ import { AUDIT_STAGES } from "@/lib/site-audit/types";
 import type { WebsiteAuditRun } from "@/lib/site-audit/types";
 import SeoAuditEditor from "@/components/seo-audit/seo-audit-editor";
 import { ArrowLeft, Bell, BarChart2, ExternalLink, FileText, Loader2, Play } from "lucide-react";
-import { getClientServiceTierDefs } from "@/lib/playbook/client-tiers";
+import { getClientServiceTierDefs, seoKeywordAllowance } from "@/lib/playbook/client-tiers";
 import { runVerifications } from "@/lib/playbook/verify";
 import { runSeoPlatformChecks, runGbpChecks, type PlatformCheck } from "@/lib/playbook/workspace-verify";
 import type { PlaybookItem } from "@/lib/playbook/types";
@@ -162,6 +162,12 @@ const SETTINGS_SECTIONS: { label: string; fields: SettingsField[] }[] = [
     ],
   },
   {
+    label: "Business",
+    fields: [
+      { key: "city", label: "City", placeholder: "e.g. Denver", helpText: "Used for local keyword tracking (e.g. “veterinarian in Denver”)" },
+    ],
+  },
+  {
     label: "Contact",
     fields: [
       { key: "contact_name",  label: "Contact name",  placeholder: "" },
@@ -170,7 +176,7 @@ const SETTINGS_SECTIONS: { label: string; fields: SettingsField[] }[] = [
   },
 ];
 
-type SettingsKey = "website" | "sc_url" | "ga4_property_id" | "gtm_container_id" | "google_place_id" | "ads_customer_id" | "basecamp_project_id" | "harvest_project_id" | "harvest_client_id" | "shared_drive_url" | "contact_name" | "contact_email";
+type SettingsKey = "website" | "sc_url" | "ga4_property_id" | "gtm_container_id" | "google_place_id" | "ads_customer_id" | "basecamp_project_id" | "harvest_project_id" | "harvest_client_id" | "shared_drive_url" | "contact_name" | "contact_email" | "city";
 
 type SyncState = { loading: boolean; ok: boolean | null; message: string | null };
 
@@ -281,6 +287,7 @@ function ClientSettingsTab({ client }: { client: ClientRow }) {
     shared_drive_url:    client.shared_drive_url ?? "",
     contact_name:        client.contact_name ?? "",
     contact_email:       client.contact_email ?? "",
+    city:                client.city ?? "",
   };
   const [values, setValues] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -453,6 +460,176 @@ function PlatformCheckRow({ check }: { check: PlatformCheck }) {
   );
 }
 
+type TrackedKeyword = { id: number; keyword: string };
+
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+function TrackedKeywordsSection({ client }: { client: ClientRow }) {
+  const allowance = seoKeywordAllowance(client);
+  const [rows, setRows] = useState<TrackedKeyword[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Load current keywords and, for a Premium+ client with none, auto-seed the
+  // tier defaults. The POST route handles both (seeding is idempotent).
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch("/api/reporting/keywords", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ clientId: client.id }),
+    })
+      .then((res) => res.json())
+      .then((data: { rows?: TrackedKeyword[] }) => {
+        if (!cancelled) setRows(data.rows ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Failed to load keywords");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client.id]);
+
+  const atCap = rows.length >= allowance;
+
+  async function addKeyword(keyword: string) {
+    const kw = keyword.trim();
+    if (!kw || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/reporting/keywords", {
+        method: "PUT",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ clientId: client.id, upserts: [{ keyword: kw }] }),
+      });
+      const data = (await res.json()) as { rows?: TrackedKeyword[]; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Failed to add keyword");
+      setRows(data.rows ?? []);
+      setDraft("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to add keyword");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeKeyword(id: number) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/reporting/keywords", {
+        method: "PUT",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ clientId: client.id, deleteIds: [id] }),
+      });
+      const data = (await res.json()) as { rows?: TrackedKeyword[]; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Failed to remove keyword");
+      setRows(data.rows ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to remove keyword");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const cityKeyword = (client.city ?? "").trim() ? `veterinarian in ${client.city!.trim()}` : null;
+  const showCitySuggestion =
+    cityKeyword != null &&
+    !atCap &&
+    !rows.some((r) => r.keyword.trim().toLowerCase() === cityKeyword.toLowerCase());
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Tracked Keywords</p>
+        {allowance > 0 && (
+          <span className="text-[10px] font-medium text-neutral-400">
+            {rows.length} of {allowance} used
+          </span>
+        )}
+      </div>
+
+      {allowance === 0 ? (
+        <p className="text-xs text-neutral-400">
+          Keyword tracking is a Premium feature — upgrade the SEO tier to track keywords.
+        </p>
+      ) : (
+        <>
+          <div className="flex gap-2">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") addKeyword(draft);
+              }}
+              disabled={atCap || busy}
+              placeholder={atCap ? "Keyword limit reached" : "Add keyword phrase…"}
+              className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder-neutral-300 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-200 disabled:bg-neutral-50 disabled:text-neutral-400"
+            />
+            <button
+              type="button"
+              onClick={() => addKeyword(draft)}
+              disabled={atCap || busy || draft.trim().length === 0}
+              className="shrink-0 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-600 shadow-sm hover:border-neutral-300 hover:text-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Add
+            </button>
+          </div>
+
+          {showCitySuggestion && (
+            <button
+              type="button"
+              onClick={() => addKeyword(cityKeyword)}
+              disabled={busy}
+              className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-indigo-200 px-2.5 py-1 text-xs font-medium text-indigo-500 hover:bg-indigo-50 disabled:opacity-50 transition-colors"
+            >
+              + Add “{cityKeyword}”
+            </button>
+          )}
+
+          {error && <p className="mt-1.5 text-[11px] font-medium text-red-600">{error}</p>}
+
+          {loading ? (
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-neutral-400">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading keywords…
+            </p>
+          ) : rows.length > 0 ? (
+            <ul className="mt-2 space-y-1">
+              {rows.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex items-center justify-between rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-700"
+                >
+                  <span className="truncate">{row.keyword}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeKeyword(row.id)}
+                    disabled={busy}
+                    className="ml-2 shrink-0 text-xs text-neutral-400 hover:text-red-600 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-xs text-neutral-400">No tracked keywords yet.</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function ServicePlaybookTab({
   items,
   client,
@@ -500,6 +677,9 @@ function ServicePlaybookTab({
           </div>
         </div>
       )}
+
+      {/* Tracked keywords — SEO only, gated on the SEO service tier */}
+      {tierKey.startsWith("seo-") && <TrackedKeywordsSection client={client} />}
 
       {categories.map((cat) => (
         <div key={cat}>

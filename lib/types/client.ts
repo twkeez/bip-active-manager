@@ -19,6 +19,7 @@ export type ClientRow = {
   harvest_project_id: string | null;
   harvest_client_id: string | null;
   tier: string | null;
+  city?: string | null;
   last_communication_at: string | null;
   last_event_is_internal: boolean | null;
   needs_reply: boolean;

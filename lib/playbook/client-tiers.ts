@@ -57,6 +57,41 @@ export function getClientTierKeys(client: ClientRow): string[] {
   return keys.filter((k): k is string => k !== null);
 }
 
+// ── SEO keyword tracking allowance ─────────────────────────────────────────
+// Number of keywords a client may track, derived from their SEO service tier:
+// Foundation (or inactive) → 0, Premium → 3, Premium Plus → 10.
+export function seoKeywordAllowance(client: ClientRow): number {
+  switch (seoTierKey(client.seo)) {
+    case "seo-premium-plus":
+      return 10;
+    case "seo-premium":
+      return 3;
+    default:
+      return 0;
+  }
+}
+
+// Starter keywords auto-seeded for a Premium (or higher) client with none yet.
+// The city-based phrase is only included when a city is on file.
+export function defaultSeoKeywords(client: ClientRow): string[] {
+  const city = (client.city ?? "").trim();
+  const candidates = [
+    "vet near me",
+    city ? `veterinarian in ${city}` : null,
+    (client.account_name ?? "").trim() || null,
+  ];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const key = candidate.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(candidate);
+  }
+  return result;
+}
+
 export type ClientServiceTierDef = {
   label: string;
   tierKey: string;
