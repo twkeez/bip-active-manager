@@ -30,6 +30,7 @@ import {
   Stethoscope,
   Trophy,
   User,
+  Zap,
 } from "lucide-react";
 import { useState } from "react";
 import type { UserRole } from "@/lib/auth/profile";
@@ -47,6 +48,7 @@ const PRIMARY: NavItem[] = [
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "My Tasks", href: "/my-tasks", icon: CheckSquare },
   { label: "Team", href: "/team", icon: ShieldCheck, adminOnly: true },
+  { label: "Cockpit", href: "/dashboard/cockpit", icon: Zap, adminOnly: true },
 ];
 
 // Brand magenta — makes the Services section stand out from the indigo nav.
