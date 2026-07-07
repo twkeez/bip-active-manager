@@ -116,6 +116,11 @@ function SeoAuditSection({
   isRunning,
   auditProgress,
   auditError,
+  cadenceDraft,
+  onCadenceChange,
+  onSaveSchedule,
+  isSavingSchedule,
+  scheduleError,
 }: {
   schedule: ClientSeoAuditScheduleWithClient | null;
   roster: StrategistContact[];
@@ -124,10 +129,16 @@ function SeoAuditSection({
   isRunning: boolean;
   auditProgress: string | null;
   auditError: string | null;
+  cadenceDraft: 3 | 6;
+  onCadenceChange: (v: 3 | 6) => void;
+  onSaveSchedule: () => void;
+  isSavingSchedule: boolean;
+  scheduleError: string | null;
 }) {
   const hasSchedule = !!schedule;
   const status = schedule ? dueStatus(schedule.next_due_at) : "none";
   const strategist = schedule ? matchStrategistByName(schedule.marketing_strategist, roster) : null;
+  const cadenceChanged = hasSchedule && cadenceDraft !== schedule!.cadence_months;
 
   const statusConfig = {
     overdue: { label: "Overdue", bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500", card: "border-red-200 bg-red-50" },
@@ -142,6 +153,8 @@ function SeoAuditSection({
         SEO Audit
       </h2>
       <div className={`rounded-xl border p-5 ${statusConfig.card}`}>
+
+        {/* ── Top row: status + dates + run button ── */}
         <div className="flex flex-wrap items-center gap-4">
 
           {/* Status badge */}
@@ -167,24 +180,10 @@ function SeoAuditSection({
                   {formatAuditDate(schedule!.next_due_at)}
                 </p>
               </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Cadence</p>
-                <p className="mt-0.5 text-sm font-medium text-neutral-700">
-                  Every {schedule!.cadence_months} months
-                </p>
-              </div>
             </div>
           )}
-          {!hasSchedule && (
-            <p className="text-sm text-neutral-400">
-              No recurring schedule.{" "}
-              <Link href="/seo-audits" className="text-indigo-600 hover:underline">
-                Set one up →
-              </Link>
-            </p>
-          )}
 
-          {/* Actions */}
+          {/* Run + notify actions */}
           <div className="ml-auto flex items-center gap-2">
             {hasSchedule && strategist?.email && (
               <a
@@ -206,20 +205,55 @@ function SeoAuditSection({
           </div>
         </div>
 
-        {/* Progress bar */}
+        {/* ── Schedule row ── */}
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-neutral-200 pt-4">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400 shrink-0">
+            Recurring schedule
+          </p>
+          <select
+            value={cadenceDraft}
+            onChange={(e) => onCadenceChange(Number(e.target.value) as 3 | 6)}
+            disabled={isSavingSchedule}
+            className="rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-xs text-neutral-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:opacity-60"
+          >
+            <option value={3}>Every 3 months</option>
+            <option value={6}>Every 6 months</option>
+          </select>
+          {(!hasSchedule || cadenceChanged) && (
+            <button
+              type="button"
+              onClick={onSaveSchedule}
+              disabled={isSavingSchedule}
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            >
+              {isSavingSchedule ? <Loader2 size={12} className="animate-spin" /> : null}
+              {hasSchedule ? "Update schedule" : "Enroll client"}
+            </button>
+          )}
+          {hasSchedule && !cadenceChanged && (
+            <span className="text-xs text-neutral-400">
+              Next audit due {formatAuditDate(schedule!.next_due_at)}
+            </span>
+          )}
+        </div>
+
+        {/* Progress */}
         {isRunning && auditProgress && (
-          <div className="mt-4 border-t border-neutral-200 pt-4">
-            <div className="flex items-center gap-2 text-xs text-neutral-500">
-              <Loader2 size={12} className="animate-spin shrink-0" />
-              <span>{auditProgress}</span>
-            </div>
+          <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500">
+            <Loader2 size={12} className="animate-spin shrink-0" />
+            <span>{auditProgress}</span>
           </div>
         )}
 
-        {/* Error */}
+        {/* Errors */}
         {auditError && (
-          <div className="mt-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+          <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
             {auditError}
+          </div>
+        )}
+        {scheduleError && (
+          <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+            {scheduleError}
           </div>
         )}
       </div>
@@ -248,11 +282,38 @@ export default function CockpitSandbox({
   const [auditError, setAuditError] = useState<string | null>(null);
   const [auditDraft, setAuditDraft] = useState<ClientSeoAudit | null>(null);
 
+  // Schedule state — held locally so saves reflect immediately without reload
+  const [localSchedule, setLocalSchedule] = useState<ClientSeoAuditScheduleWithClient | null>(seoSchedule);
+  const [cadenceDraft, setCadenceDraft] = useState<3 | 6>(seoSchedule?.cadence_months ?? 6);
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+
   function handleSelect(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value;
     setAuditDraft(null);
     setAuditError(null);
     router.push(val ? `/dashboard/cockpit?client=${val}` : "/dashboard/cockpit");
+  }
+
+  async function handleSaveSchedule() {
+    if (!client) return;
+    setIsSavingSchedule(true);
+    setScheduleError(null);
+    try {
+      const res = await fetch("/api/client-seo-audits/schedules", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: client.id, cadenceMonths: cadenceDraft }),
+      });
+      const payload = (await res.json()) as { error?: string; schedules?: ClientSeoAuditScheduleWithClient[] };
+      if (!res.ok || !payload.schedules) throw new Error(payload.error ?? "Failed to save schedule");
+      const updated = payload.schedules.find((s) => s.client_id === client.id) ?? null;
+      setLocalSchedule(updated);
+    } catch (e) {
+      setScheduleError(e instanceof Error ? e.message : "Failed to save schedule");
+    } finally {
+      setIsSavingSchedule(false);
+    }
   }
 
   async function handleRunAudit() {
@@ -468,13 +529,18 @@ export default function CockpitSandbox({
 
           {/* ── SEO Audit ────────────────────────────────────────── */}
           <SeoAuditSection
-            schedule={seoSchedule}
+            schedule={localSchedule}
             roster={roster}
             appUrl={appUrl}
             onRunAudit={handleRunAudit}
             isRunning={auditProgress !== null}
             auditProgress={auditProgress}
             auditError={auditError}
+            cadenceDraft={cadenceDraft}
+            onCadenceChange={setCadenceDraft}
+            onSaveSchedule={handleSaveSchedule}
+            isSavingSchedule={isSavingSchedule}
+            scheduleError={scheduleError}
           />
 
           {/* ── Recent Activity ───────────────────────────────────── */}
