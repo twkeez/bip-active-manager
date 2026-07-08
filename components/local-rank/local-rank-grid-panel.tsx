@@ -58,15 +58,19 @@ function HeatmapGrid({
         const row = Math.floor(index / gridSize);
         const col = index % gridSize;
         const cell = byPosition.get(`${row}:${col}`);
+        const center = Math.floor(gridSize / 2);
+        const isPractice = row === center && col === center;
         return (
           <div
             key={`${keyword}-${row}-${col}`}
             title={
-              cell
-                ? `${cell.label} — rank ${cell.rank ?? "not in pack"} (${cell.lat.toFixed(4)}, ${cell.lng.toFixed(4)})`
-                : `${row + 1},${col + 1}`
+              isPractice
+                ? `Practice location${cell ? ` — rank ${cell.rank ?? "not in pack"}` : ""}`
+                : cell
+                  ? `${cell.label} — rank ${cell.rank ?? "not in pack"} (${cell.lat.toFixed(4)}, ${cell.lng.toFixed(4)})`
+                  : `${row + 1},${col + 1}`
             }
-            className={`flex aspect-square items-center justify-center rounded text-[10px] font-semibold ${rankHeatClass(cell?.rank ?? null)}`}
+            className={`flex aspect-square items-center justify-center rounded text-[10px] font-semibold ${rankHeatClass(cell?.rank ?? null)} ${isPractice ? "ring-2 ring-white ring-offset-1 ring-offset-bip-page" : ""}`}
           >
             {cell?.rank ?? "—"}
           </div>
@@ -330,6 +334,28 @@ export default function LocalRankGridPanel({
 
         {activeRun && cells.length > 0 ? (
           <div className="space-y-4 border-t border-bip-border pt-4">
+            {/* How to read the heat map */}
+            <div className="rounded-md border border-bip-border bg-bip-card/50 px-3 py-2">
+              <p className="text-xs text-bip-muted">
+                Each square is a spot on the map around the practice (the ringed center square is the
+                practice itself). The number is where the practice ranks in Google&apos;s local pack for
+                someone searching from that spot — so you can see how visibility changes by area.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-bip-text">
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-3 w-3 rounded-sm bg-emerald-600/80" /> #1–3 Top of pack
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-3 w-3 rounded-sm bg-amber-500/80" /> #4–10 Mid
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-3 w-3 rounded-sm bg-red-500/70" /> #11+ Low
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-3 w-3 rounded-sm bg-zinc-700/80" /> Not in pack
+                </span>
+              </div>
+            </div>
             {keywordSummaries.map((summary) => (
               <div key={summary.keyword} className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
