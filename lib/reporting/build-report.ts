@@ -1294,17 +1294,26 @@ export function buildClientReportModel(params: {
     managedKeywords: params.managedKeywords ?? [],
     gscQueryMetrics: params.gscQueryMetrics ?? [],
   });
-  const gscTopPages = (params.gscPageMetrics ?? [])
-    .slice()
-    .sort((a, b) => b.clicks - a.clicks)
+  // Split top pages into non-blog (Search Traffic) and blog (Blog Performance),
+  // each a proper top-10 from the full metrics, so blog pages don't crowd out
+  // the Search Traffic list (they get their own section below).
+  const toTopPageRow = (row: NonNullable<typeof params.gscPageMetrics>[number]) => ({
+    page_url: row.page_url,
+    clicks: row.clicks,
+    impressions: row.impressions,
+    position: row.position,
+    ctr: row.ctr,
+  });
+  const isBlogPage = (url: string) => url.includes("/blog/");
+  const gscPagesByClicks = (params.gscPageMetrics ?? []).slice().sort((a, b) => b.clicks - a.clicks);
+  const gscTopPages = gscPagesByClicks
+    .filter((row) => !isBlogPage(row.page_url))
     .slice(0, 10)
-    .map((row) => ({
-      page_url: row.page_url,
-      clicks: row.clicks,
-      impressions: row.impressions,
-      position: row.position,
-      ctr: row.ctr,
-    }));
+    .map(toTopPageRow);
+  const gscTopBlogPages = gscPagesByClicks
+    .filter((row) => isBlogPage(row.page_url))
+    .slice(0, 10)
+    .map(toTopPageRow);
 
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const topSocialPosts = (params.socialPostSnapshots ?? [])
@@ -1339,6 +1348,7 @@ export function buildClientReportModel(params: {
     summaryText,
     recommendations,
     gscTopPages,
+    gscTopBlogPages,
     basecampEvents: params.basecampEvents ?? [],
     playbookChecklist: params.playbookChecklist ?? [],
     channels: {

@@ -789,9 +789,7 @@ export default function ReportPreview({ report, config, draft }: Props) {
       {/* ── Blog Performance ── */}
       {(() => {
         if (!sectionVisible("blog")) return null;
-        const blogPages = report.gscTopPages
-          .filter((p) => p.page_url.includes("/blog/"))
-          .slice(0, 10);
+        const blogPages = report.gscTopBlogPages.slice(0, 10);
         if (blogPages.length === 0) return null;
 
         const totalClicks      = blogPages.reduce((s, p) => s + p.clicks, 0);
