@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toCockpitViewModel } from "@/lib/dashboard/cockpit-view-model";
@@ -896,16 +896,20 @@ function ServicePlaybookTab({
   client,
   tierKey,
   workspace,
+  auditSlot = null,
 }: {
   items: PlaybookItem[];
   client: ClientRow;
   tierKey: string;
   workspace?: ClientWorkspaceInitialData | null;
+  auditSlot?: ReactNode;
 }) {
+  const isSeo = tierKey.startsWith("seo-");
+
   const platformChecks = workspace ? (() => {
     const checks: PlatformCheck[] = [];
-    if (tierKey.startsWith("seo-")) checks.push(...runSeoPlatformChecks(workspace));
-    if (tierKey.startsWith("seo-") || tierKey.startsWith("orm-")) checks.push(...runGbpChecks(workspace));
+    if (isSeo) checks.push(...runSeoPlatformChecks(workspace));
+    if (isSeo || tierKey.startsWith("orm-")) checks.push(...runGbpChecks(workspace));
     return checks.length > 0 ? checks : null;
   })() : null;
 
@@ -921,30 +925,13 @@ function ServicePlaybookTab({
     return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
   });
 
-  if (!platformChecks && items.length === 0) {
-    return <p className="text-xs text-neutral-400">No playbook items for this service tier.</p>;
-  }
+  const verifiableItems = items.filter((i) => i.auto_verify_key);
+  const passedItems = verifiableItems.filter(
+    (i) => runVerifications([i.auto_verify_key!], client)[0]?.pass === true,
+  ).length;
 
-  return (
+  const playbookNode = (
     <div className="space-y-5">
-      {/* Platform connection checks — SEO only */}
-      {platformChecks && (
-        <div>
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Platform Status</p>
-          <div className="space-y-0.5">
-            {platformChecks.map((check) => (
-              <PlatformCheckRow key={check.key} check={check} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Tracked keywords — SEO only, gated on the SEO service tier */}
-      {tierKey.startsWith("seo-") && <TrackedKeywordsSection client={client} />}
-
-      {/* Local rank (zones + heat map) — SEO only, gated on the SEO service tier */}
-      {tierKey.startsWith("seo-") && <LocalRankSection client={client} />}
-
       {categories.map((cat) => (
         <div key={cat}>
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{cat}</p>
@@ -1005,6 +992,76 @@ function ServicePlaybookTab({
           </div>
         </div>
       ))}
+    </div>
+  );
+
+  // Build the sub-tabs from what this service actually has.
+  const subTabs: { key: string; label: string; summary?: string; node: ReactNode }[] = [];
+  if (platformChecks) {
+    subTabs.push({
+      key: "health",
+      label: "Health",
+      summary: `${platformChecks.filter((c) => c.pass).length} of ${platformChecks.length} checks passing`,
+      node: (
+        <div className="space-y-0.5">
+          {platformChecks.map((check) => (
+            <PlatformCheckRow key={check.key} check={check} />
+          ))}
+        </div>
+      ),
+    });
+  }
+  if (isSeo) {
+    subTabs.push({ key: "keywords", label: "Keywords", node: <TrackedKeywordsSection client={client} /> });
+    subTabs.push({ key: "local", label: "Local rank", node: <LocalRankSection client={client} /> });
+  }
+  if (categories.length > 0) {
+    subTabs.push({
+      key: "playbook",
+      label: "Playbook",
+      summary: verifiableItems.length > 0
+        ? `${passedItems} of ${verifiableItems.length} checks passing`
+        : `${items.length} item${items.length === 1 ? "" : "s"}`,
+      node: playbookNode,
+    });
+  }
+  if (auditSlot) {
+    subTabs.push({ key: "audit", label: "Audit", node: auditSlot });
+  }
+
+  const [activeSub, setActiveSub] = useState<string>(() => subTabs[0]?.key ?? "");
+
+  if (subTabs.length === 0) {
+    return <p className="text-xs text-neutral-400">No playbook items for this service tier.</p>;
+  }
+  const active = subTabs.find((t) => t.key === activeSub) ?? subTabs[0];
+
+  return (
+    <div className="space-y-4">
+      {subTabs.length > 1 && (
+        <div className="flex flex-wrap gap-1 border-b border-neutral-100 pb-2">
+          {subTabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setActiveSub(t.key)}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                active.key === t.key
+                  ? "bg-neutral-100 text-neutral-800"
+                  : "text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {active.summary && (
+        <div className="rounded-lg bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-500">
+          {active.summary}
+        </div>
+      )}
+      <div>{active.node}</div>
     </div>
   );
 }
@@ -1327,9 +1384,6 @@ export default function CockpitSandbox({
 
   const cockpit = workspace ? toCockpitViewModel(workspace) : null;
   const client = workspace?.client ?? null;
-  const p1Items = cockpit?.focus.filter((f) => f.priority === "P1") ?? [];
-  const p2Items = cockpit?.focus.filter((f) => f.priority === "P2") ?? [];
-  const wins = cockpit?.features.filter((f) => !f.title.startsWith("No clean wins")) ?? [];
 
   const services = client ? activeServiceLabels(getClientActiveServices(client)) : [];
   const serviceTiers = client
@@ -1497,72 +1551,6 @@ export default function CockpitSandbox({
             })()}
           </div>
 
-          {/* ── Command Center ────────────────────────────────────── */}
-          <div>
-            <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-              Command Center
-            </h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className={`rounded-xl border-l-4 p-4 ${p1Items.length > 0 ? "border-red-500 bg-red-50" : "border-neutral-200 bg-white"}`}>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${p1Items.length > 0 ? "bg-red-500" : "bg-neutral-300"}`} />
-                  <span className={`text-sm font-semibold ${p1Items.length > 0 ? "text-red-700" : "text-neutral-400"}`}>
-                    Critical: {p1Items.length}
-                  </span>
-                </div>
-                {p1Items.length === 0 ? (
-                  <p className="text-xs text-neutral-400">No critical issues</p>
-                ) : (
-                  <>
-                    {p1Items.slice(0, 3).map((item, i) => (
-                      <p key={i} className="mt-1 text-xs leading-snug text-red-700">{item.title}</p>
-                    ))}
-                    {p1Items.length > 3 && (
-                      <p className="mt-1 text-[11px] text-red-400">+{p1Items.length - 3} more</p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className={`rounded-xl border-l-4 p-4 ${p2Items.length > 0 ? "border-amber-400 bg-amber-50" : "border-neutral-200 bg-white"}`}>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${p2Items.length > 0 ? "bg-amber-400" : "bg-neutral-300"}`} />
-                  <span className={`text-sm font-semibold ${p2Items.length > 0 ? "text-amber-700" : "text-neutral-400"}`}>
-                    Warning: {p2Items.length}
-                  </span>
-                </div>
-                {p2Items.length === 0 ? (
-                  <p className="text-xs text-neutral-400">No warnings</p>
-                ) : (
-                  <>
-                    {p2Items.slice(0, 3).map((item, i) => (
-                      <p key={i} className="mt-1 text-xs leading-snug text-amber-700">{item.title}</p>
-                    ))}
-                    {p2Items.length > 3 && (
-                      <p className="mt-1 text-[11px] text-amber-500">+{p2Items.length - 3} more</p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className={`rounded-xl border-l-4 p-4 ${wins.length > 0 ? "border-emerald-500 bg-emerald-50" : "border-neutral-200 bg-white"}`}>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${wins.length > 0 ? "bg-emerald-500" : "bg-neutral-300"}`} />
-                  <span className={`text-sm font-semibold ${wins.length > 0 ? "text-emerald-700" : "text-neutral-400"}`}>
-                    Good: {wins.length}
-                  </span>
-                </div>
-                {wins.length === 0 ? (
-                  <p className="text-xs text-neutral-400">Address critical items first</p>
-                ) : (
-                  wins.slice(0, 3).map((win, i) => (
-                    <p key={i} className="mt-1 text-xs leading-snug text-emerald-700">{win.title}</p>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
           {/* ── Services ─────────────────────────────────────────── */}
           {serviceTabs.length > 0 && (
             <div>
@@ -1618,30 +1606,30 @@ export default function CockpitSandbox({
                       items={playbookItems.filter((i) => i.tier_key === activeTab)}
                       client={client!}
                       workspace={workspace}
+                      auditSlot={activeTab.startsWith("seo-") ? (
+                        <SeoAuditSection
+                          schedule={localSchedule}
+                          roster={roster}
+                          appUrl={appUrl}
+                          onRunAudit={handleRunAudit}
+                          isRunning={auditProgress !== null}
+                          auditProgress={auditProgress}
+                          auditError={auditError}
+                          cadenceDraft={cadenceDraft}
+                          onCadenceChange={setCadenceDraft}
+                          onSaveSchedule={handleSaveSchedule}
+                          isSavingSchedule={isSavingSchedule}
+                          scheduleError={scheduleError}
+                          pastAudits={pastAudits}
+                          onOpenAudit={setAuditDraft}
+                        />
+                      ) : null}
                     />
                   ) : null}
                 </div>
               </div>
             </div>
           )}
-
-          {/* ── SEO Audit ────────────────────────────────────────── */}
-          <SeoAuditSection
-            schedule={localSchedule}
-            roster={roster}
-            appUrl={appUrl}
-            onRunAudit={handleRunAudit}
-            isRunning={auditProgress !== null}
-            auditProgress={auditProgress}
-            auditError={auditError}
-            cadenceDraft={cadenceDraft}
-            onCadenceChange={setCadenceDraft}
-            onSaveSchedule={handleSaveSchedule}
-            isSavingSchedule={isSavingSchedule}
-            scheduleError={scheduleError}
-            pastAudits={pastAudits}
-            onOpenAudit={setAuditDraft}
-          />
 
           {/* ── Recent Activity ───────────────────────────────────── */}
           <div>

@@ -91,6 +91,7 @@ export default function LocalRankGridPanel({
 }: LocalRankGridPanelProps) {
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [customKeyword, setCustomKeyword] = useState("");
+  const [mapKeyword, setMapKeyword] = useState<string>("");
   const [radiusMiles, setRadiusMiles] = useState<number>(DEFAULT_RADIUS_MILES);
   const [runs, setRuns] = useState<LocalRankGridRunRow[]>([]);
   const [activeRunId, setActiveRunId] = useState<number | null>(null);
@@ -359,10 +360,39 @@ export default function LocalRankGridPanel({
                 </span>
               </div>
             </div>
-            {keywordSummaries.map((summary) => {
+            {/* Keyword selector — show one heat map at a time */}
+            {keywordSummaries.length > 1 && (
+              <div className="flex flex-wrap gap-1.5">
+                {keywordSummaries.map((summary) => {
+                  const isActive = (mapKeyword || keywordSummaries[0]?.keyword) === summary.keyword;
+                  return (
+                    <button
+                      key={summary.keyword}
+                      type="button"
+                      onClick={() => setMapKeyword(summary.keyword)}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        isActive
+                          ? "border-bip-accent bg-bip-accent/10 text-bip-accent"
+                          : "border-bip-border text-bip-muted hover:bg-bip-fill"
+                      }`}
+                    >
+                      {summary.keyword}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {(() => {
+              const summary =
+                keywordSummaries.find((s) => s.keyword === mapKeyword) ?? keywordSummaries[0];
+              if (!summary) return null;
               const competitors = summarizeCompetitors(cells, summary.keyword, clientName, websiteUrl).slice(0, 5);
+              const tips = buildLocalRankTips(cells, [summary.keyword], clientName, websiteUrl);
+              const dot = (p: string) =>
+                p === "high" ? "bg-red-500" : p === "medium" ? "bg-amber-500" : "bg-emerald-500";
               return (
-                <div key={summary.keyword} className="space-y-2">
+                <div className="space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-medium text-bip-text">{summary.keyword}</p>
                     <p className="text-xs text-bip-muted">
@@ -385,12 +415,13 @@ export default function LocalRankGridPanel({
                       gridSize={activeRun.grid_size}
                     />
                   </div>
+
                   {competitors.length > 0 && (
-                    <div className="rounded-md border border-bip-border bg-bip-card/50 px-3 py-2">
-                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
-                        Outranking you
-                      </p>
-                      <ul className="space-y-0.5">
+                    <details className="rounded-md border border-bip-border bg-bip-card/50 px-3 py-2">
+                      <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
+                        Outranking you ({competitors.length})
+                      </summary>
+                      <ul className="mt-2 space-y-0.5">
                         {competitors.map((c) => (
                           <li key={c.domain ?? c.title} className="flex items-center justify-between gap-2 text-xs">
                             <span className="truncate text-bip-text">{c.title}</span>
@@ -402,31 +433,24 @@ export default function LocalRankGridPanel({
                           </li>
                         ))}
                       </ul>
-                    </div>
+                    </details>
                   )}
-                </div>
-              );
-            })}
 
-            {/* How to outrank — rules-based tips from the scan */}
-            {(() => {
-              const tips = buildLocalRankTips(cells, activeRun.keywords, clientName, websiteUrl);
-              if (tips.length === 0) return null;
-              const dot = (p: string) =>
-                p === "high" ? "bg-red-500" : p === "medium" ? "bg-amber-500" : "bg-emerald-500";
-              return (
-                <div className="rounded-md border border-bip-border bg-bip-card/50 px-3 py-3">
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
-                    How to outrank the competition
-                  </p>
-                  <ul className="space-y-1.5">
-                    {tips.map((tip, i) => (
-                      <li key={i} className="flex items-start gap-2 text-xs text-bip-text">
-                        <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dot(tip.priority)}`} />
-                        <span className="leading-snug">{tip.text}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {tips.length > 0 && (
+                    <details className="rounded-md border border-bip-border bg-bip-card/50 px-3 py-2" open>
+                      <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
+                        How to outrank the competition ({tips.length})
+                      </summary>
+                      <ul className="mt-2 space-y-1.5">
+                        {tips.map((tip, i) => (
+                          <li key={i} className="flex items-start gap-2 text-xs text-bip-text">
+                            <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dot(tip.priority)}`} />
+                            <span className="leading-snug">{tip.text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                 </div>
               );
             })()}
