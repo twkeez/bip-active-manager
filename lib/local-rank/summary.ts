@@ -1,4 +1,38 @@
 import type { GridKeywordSummary, LocalRankGridCellRow } from "@/lib/local-rank/types";
+import { listingMatchesPractice } from "@/lib/local-rank/match";
+
+export interface CompetitorSummary {
+  title: string;
+  domain: string | null;
+  areas: number; // number of grid points where this competitor appears
+}
+
+// Tallies the competitors that show up in the local pack across a keyword's
+// grid, excluding the practice itself, ranked by how many of the areas they
+// appear in. Uses pack_listings (full pack) captured per cell.
+export function summarizeCompetitors(
+  cells: LocalRankGridCellRow[],
+  keyword: string,
+  businessName: string,
+  websiteUrl?: string | null,
+): CompetitorSummary[] {
+  const counts = new Map<string, CompetitorSummary>();
+  for (const cell of cells) {
+    if (cell.keyword !== keyword) continue;
+    for (const listing of cell.pack_listings ?? []) {
+      if (listingMatchesPractice({ businessName, websiteUrl, listing })) continue;
+      const key = (listing.domain ?? listing.title).trim().toLowerCase();
+      if (!key) continue;
+      const existing = counts.get(key);
+      if (existing) {
+        existing.areas += 1;
+      } else {
+        counts.set(key, { title: listing.title, domain: listing.domain, areas: 1 });
+      }
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.areas - a.areas);
+}
 
 export function summarizeKeywordGrid(
   keyword: string,

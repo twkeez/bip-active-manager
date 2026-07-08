@@ -173,6 +173,7 @@ export async function runLocalRankGridScan(
       matchedListingTitle: match.matchedListing?.title ?? null,
       matchedListingDomain: match.matchedListing?.domain ?? null,
       topCompetitorTitle: match.topCompetitor?.title ?? null,
+      listings,
     } satisfies GridCellScanResult;
   });
 

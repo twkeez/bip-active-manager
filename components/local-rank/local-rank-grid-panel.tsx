@@ -9,7 +9,7 @@ import {
   MAX_KEYWORDS,
   MAX_GRID_POINTS,
 } from "@/lib/local-rank/constants";
-import { rankHeatClass, summarizeKeywordGrid } from "@/lib/local-rank/summary";
+import { rankHeatClass, summarizeKeywordGrid, summarizeCompetitors } from "@/lib/local-rank/summary";
 import type {
   LocalRankGridCellRow,
   LocalRankGridRunRow,
@@ -21,6 +21,7 @@ interface LocalRankGridPanelProps {
   clientName: string;
   keywordTargets?: ClientKeywordTarget[];
   googlePlaceId?: string | null;
+  websiteUrl?: string | null;
 }
 
 function toggleKeywordSelection(selected: string[], keyword: string): string[] {
@@ -85,6 +86,7 @@ export default function LocalRankGridPanel({
   clientName,
   keywordTargets = [],
   googlePlaceId = null,
+  websiteUrl = null,
 }: LocalRankGridPanelProps) {
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [customKeyword, setCustomKeyword] = useState("");
@@ -356,22 +358,52 @@ export default function LocalRankGridPanel({
                 </span>
               </div>
             </div>
-            {keywordSummaries.map((summary) => (
-              <div key={summary.keyword} className="space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-bip-text">{summary.keyword}</p>
-                  <p className="text-xs text-bip-muted">
-                    Avg rank {summary.avgRank ?? "—"} · Top 3 in {summary.topThreePct}% of cells ·{" "}
-                    {summary.cellsInPack}/{MAX_GRID_POINTS} in pack
-                  </p>
+            {keywordSummaries.map((summary) => {
+              const competitors = summarizeCompetitors(cells, summary.keyword, clientName, websiteUrl).slice(0, 5);
+              return (
+                <div key={summary.keyword} className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-bip-text">{summary.keyword}</p>
+                    <p className="text-xs text-bip-muted">
+                      Avg rank {summary.avgRank ?? "—"} · Top 3 in {summary.topThreePct}% of cells ·{" "}
+                      {summary.cellsInPack}/{MAX_GRID_POINTS} in pack
+                    </p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {/* Real map with colored rank pins */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/local-rank/staticmap?runId=${activeRun.id}&keyword=${encodeURIComponent(summary.keyword)}`}
+                      alt={`Local rank map for ${summary.keyword}`}
+                      className="w-full rounded-md border border-bip-border"
+                      loading="lazy"
+                    />
+                    <HeatmapGrid
+                      keyword={summary.keyword}
+                      cells={cells}
+                      gridSize={activeRun.grid_size}
+                    />
+                  </div>
+                  {competitors.length > 0 && (
+                    <div className="rounded-md border border-bip-border bg-bip-card/50 px-3 py-2">
+                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
+                        Outranking you
+                      </p>
+                      <ul className="space-y-0.5">
+                        {competitors.map((c) => (
+                          <li key={c.domain ?? c.title} className="flex items-center justify-between text-xs">
+                            <span className="truncate text-bip-text">{c.title}</span>
+                            <span className="ml-2 shrink-0 text-bip-muted">
+                              ahead in {c.areas}/{MAX_GRID_POINTS} areas
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-                <HeatmapGrid
-                  keyword={summary.keyword}
-                  cells={cells}
-                  gridSize={activeRun.grid_size}
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : null}
       </div>

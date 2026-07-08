@@ -883,6 +883,7 @@ function LocalRankSection({ client }: { client: ClientRow }) {
             clientName={client.account_name}
             keywordTargets={keywordTargets}
             googlePlaceId={client.google_place_id}
+            websiteUrl={client.website}
           />
         </div>
       )}

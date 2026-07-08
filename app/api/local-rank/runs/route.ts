@@ -159,6 +159,7 @@ export async function POST(request: Request) {
       matched_listing_title: cell.matchedListingTitle,
       matched_listing_domain: cell.matchedListingDomain,
       top_competitor_title: cell.topCompetitorTitle,
+      pack_listings: cell.listings,
     }));
 
     const { error: cellsError } = await supabase.from("local_rank_grid_cells").insert(cellRows);

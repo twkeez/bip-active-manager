@@ -28,6 +28,8 @@ export interface GridCellScanResult {
   matchedListingTitle: string | null;
   matchedListingDomain: string | null;
   topCompetitorTitle: string | null;
+  // Full local pack (all listings) returned at this point.
+  listings: LocalPackListing[];
 }
 
 export interface LocalRankGridRunRow {
@@ -63,6 +65,8 @@ export interface LocalRankGridCellRow {
   matched_listing_title: string | null;
   matched_listing_domain: string | null;
   top_competitor_title: string | null;
+  // Full local pack persisted per point (undefined on runs before this column existed).
+  pack_listings?: LocalPackListing[] | null;
 }
 
 export interface LocalRankGridRunDetail extends LocalRankGridRunRow {
