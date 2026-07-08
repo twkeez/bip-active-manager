@@ -1015,14 +1015,23 @@ function ServicePlaybookTab({
     subTabs.push({ key: "keywords", label: "Keywords", node: <TrackedKeywordsSection client={client} /> });
     subTabs.push({ key: "local", label: "Local rank", node: <LocalRankSection client={client} /> });
   }
-  if (categories.length > 0) {
+  if (categories.length > 0 || isSeo) {
+    // SEO's playbook is being reimagined (AI improvement suggestions) — show a
+    // placeholder for now. Other services keep their existing checklist.
     subTabs.push({
       key: "playbook",
       label: "Playbook",
-      summary: verifiableItems.length > 0
-        ? `${passedItems} of ${verifiableItems.length} checks passing`
-        : `${items.length} item${items.length === 1 ? "" : "s"}`,
-      node: playbookNode,
+      summary: isSeo
+        ? undefined
+        : verifiableItems.length > 0
+          ? `${passedItems} of ${verifiableItems.length} checks passing`
+          : `${items.length} item${items.length === 1 ? "" : "s"}`,
+      node: isSeo ? (
+        <div className="py-10 text-center">
+          <p className="text-sm font-medium text-neutral-400">TBD</p>
+          <p className="mt-1 text-xs text-neutral-400">AI improvement suggestions are planned here.</p>
+        </div>
+      ) : playbookNode,
     });
   }
   if (auditSlot) {
@@ -1691,21 +1700,23 @@ export default function CockpitSandbox({
                       {/* Messages */}
                       <ul className="divide-y divide-neutral-100">
                         {thread.messages.map((msg) => {
-                          const flagged = isFlagged(msg);
+                          const isClient = !msg.is_internal;
+                          const isFlaggedInternal =
+                            msg.is_internal &&
+                            FLAG_NAMES.some((n) => (msg.author_email ?? "").toLowerCase().includes(n));
+                          const tone = isClient
+                            ? { row: "border-l-4 border-red-400 bg-red-50/60", avatar: "bg-red-100 text-red-700" }
+                            : isFlaggedInternal
+                              ? { row: "border-l-4 border-amber-400 bg-amber-50/60", avatar: "bg-amber-100 text-amber-700" }
+                              : { row: "border-l-4 border-indigo-200 bg-indigo-50/30", avatar: "bg-indigo-50 text-indigo-600" };
                           return (
                             <li
                               key={msg.id}
-                              className={`flex gap-3 px-4 py-3 ${
-                                flagged ? "border-l-4 border-red-400 bg-red-50/60" : ""
-                              }`}
+                              className={`flex gap-3 px-4 py-3 ${tone.row}`}
                             >
                               {/* Avatar */}
                               <div
-                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-                                  flagged
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-indigo-50 text-indigo-600"
-                                }`}
+                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${tone.avatar}`}
                               >
                                 {avatarInitial(msg.author_email)}
                               </div>
@@ -1715,19 +1726,21 @@ export default function CockpitSandbox({
                                   <span className="text-xs font-semibold text-neutral-700">
                                     {authorLabel(msg.author_email)}
                                   </span>
-                                  {!msg.is_internal && (
+                                  {isClient && (
                                     <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">
                                       Client
                                     </span>
                                   )}
-                                  {msg.is_internal &&
-                                    FLAG_NAMES.some((n) =>
-                                      (msg.author_email ?? "").toLowerCase().includes(n),
-                                    ) && (
-                                      <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">
-                                        Flagged
-                                      </span>
-                                    )}
+                                  {isFlaggedInternal && (
+                                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                                      Flagged
+                                    </span>
+                                  )}
+                                  {!isClient && !isFlaggedInternal && (
+                                    <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-500">
+                                      Team
+                                    </span>
+                                  )}
                                   <span className="ml-auto shrink-0 text-[11px] text-neutral-400">
                                     {formatRelative(msg.occurred_at)}
                                   </span>
