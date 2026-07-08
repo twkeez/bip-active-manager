@@ -18,6 +18,8 @@ export interface LocalPackListing {
   rank: number;
   title: string;
   domain: string | null;
+  rating: number | null;
+  reviewCount: number | null;
 }
 
 export interface GridCellScanResult {

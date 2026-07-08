@@ -77,6 +77,7 @@ function parseLocalPackListings(apiData: unknown): LocalPackListing[] {
       rank_absolute?: number;
       title?: string;
       domain?: string | null;
+      rating?: { value?: number | null; votes_count?: number | null } | null;
     };
     listings.push({
       // rank_group is the position within the local pack (1/2/3); fall back to
@@ -84,6 +85,8 @@ function parseLocalPackListings(apiData: unknown): LocalPackListing[] {
       rank: item.rank_group ?? item.rank_absolute ?? listings.length + 1,
       title: item.title ?? "Unknown listing",
       domain: item.domain ?? null,
+      rating: typeof item.rating?.value === "number" ? item.rating.value : null,
+      reviewCount: typeof item.rating?.votes_count === "number" ? item.rating.votes_count : null,
     });
   }
 

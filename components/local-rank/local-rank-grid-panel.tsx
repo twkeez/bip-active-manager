@@ -10,6 +10,7 @@ import {
   MAX_GRID_POINTS,
 } from "@/lib/local-rank/constants";
 import { rankHeatClass, summarizeKeywordGrid, summarizeCompetitors } from "@/lib/local-rank/summary";
+import { buildLocalRankTips } from "@/lib/local-rank/recommendations";
 import type {
   LocalRankGridCellRow,
   LocalRankGridRunRow,
@@ -391,10 +392,12 @@ export default function LocalRankGridPanel({
                       </p>
                       <ul className="space-y-0.5">
                         {competitors.map((c) => (
-                          <li key={c.domain ?? c.title} className="flex items-center justify-between text-xs">
+                          <li key={c.domain ?? c.title} className="flex items-center justify-between gap-2 text-xs">
                             <span className="truncate text-bip-text">{c.title}</span>
                             <span className="ml-2 shrink-0 text-bip-muted">
-                              ahead in {c.areas}/{MAX_GRID_POINTS} areas
+                              {c.areas}/{MAX_GRID_POINTS} areas
+                              {c.reviewCount != null ? ` · ${c.reviewCount.toLocaleString()} reviews` : ""}
+                              {c.rating != null ? ` · ${c.rating}★` : ""}
                             </span>
                           </li>
                         ))}
@@ -404,6 +407,29 @@ export default function LocalRankGridPanel({
                 </div>
               );
             })}
+
+            {/* How to outrank — rules-based tips from the scan */}
+            {(() => {
+              const tips = buildLocalRankTips(cells, activeRun.keywords, clientName, websiteUrl);
+              if (tips.length === 0) return null;
+              const dot = (p: string) =>
+                p === "high" ? "bg-red-500" : p === "medium" ? "bg-amber-500" : "bg-emerald-500";
+              return (
+                <div className="rounded-md border border-bip-border bg-bip-card/50 px-3 py-3">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
+                    How to outrank the competition
+                  </p>
+                  <ul className="space-y-1.5">
+                    {tips.map((tip, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-bip-text">
+                        <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dot(tip.priority)}`} />
+                        <span className="leading-snug">{tip.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
           </div>
         ) : null}
       </div>

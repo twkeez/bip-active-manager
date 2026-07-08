@@ -5,6 +5,27 @@ export interface CompetitorSummary {
   title: string;
   domain: string | null;
   areas: number; // number of grid points where this competitor appears
+  rating: number | null;
+  reviewCount: number | null;
+}
+
+// The practice's own rating / review count, read from any pack listing where it
+// was matched. Null when the practice never appears in the scanned packs.
+export function getPracticeStats(
+  cells: LocalRankGridCellRow[],
+  businessName: string,
+  websiteUrl?: string | null,
+): { rating: number | null; reviewCount: number | null } {
+  for (const cell of cells) {
+    for (const listing of cell.pack_listings ?? []) {
+      if (listingMatchesPractice({ businessName, websiteUrl, listing })) {
+        if (listing.reviewCount != null || listing.rating != null) {
+          return { rating: listing.rating, reviewCount: listing.reviewCount };
+        }
+      }
+    }
+  }
+  return { rating: null, reviewCount: null };
 }
 
 // Tallies the competitors that show up in the local pack across a keyword's
@@ -26,8 +47,19 @@ export function summarizeCompetitors(
       const existing = counts.get(key);
       if (existing) {
         existing.areas += 1;
+        // Keep the highest review count / rating seen for this competitor.
+        if ((listing.reviewCount ?? 0) > (existing.reviewCount ?? 0)) {
+          existing.reviewCount = listing.reviewCount;
+          existing.rating = listing.rating;
+        }
       } else {
-        counts.set(key, { title: listing.title, domain: listing.domain, areas: 1 });
+        counts.set(key, {
+          title: listing.title,
+          domain: listing.domain,
+          areas: 1,
+          rating: listing.rating,
+          reviewCount: listing.reviewCount,
+        });
       }
     }
   }
