@@ -59,7 +59,11 @@ function HeatmapGrid({
       {Array.from({ length: gridSize * gridSize }).map((_, index) => {
         const row = Math.floor(index / gridSize);
         const col = index % gridSize;
-        const cell = byPosition.get(`${row}:${col}`);
+        // Grid data has row 0 at the southern (lowest-latitude) edge, but we draw
+        // top-to-bottom — so flip the row lookup to render north-up, matching the
+        // real map.
+        const dataRow = gridSize - 1 - row;
+        const cell = byPosition.get(`${dataRow}:${col}`);
         const center = Math.floor(gridSize / 2);
         const isPractice = row === center && col === center;
         return (
