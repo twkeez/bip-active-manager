@@ -468,6 +468,17 @@ type TrackedKeyword = { id: number; keyword: string };
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
+// Reusable section header: a title plus a one-line "what this is / what drives
+// it" caption, used to keep the cockpit sections self-explanatory.
+function SectionHeading({ title, caption }: { title: string; caption?: string }) {
+  return (
+    <div>
+      <p className="text-sm font-medium text-neutral-700">{title}</p>
+      {caption && <p className="mt-0.5 text-xs leading-snug text-neutral-400">{caption}</p>}
+    </div>
+  );
+}
+
 function TrackedKeywordsSection({ client }: { client: ClientRow }) {
   const allowance = seoKeywordAllowance(client);
   const [rows, setRows] = useState<TrackedKeyword[]>([]);
@@ -747,8 +758,8 @@ function LocalRankSection({ client }: { client: ClientRow }) {
   if (allowance === 0) {
     return (
       <div>
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Local Rank</p>
-        <p className="text-xs text-neutral-400">
+        <SectionHeading title="Local rank" />
+        <p className="mt-2 text-xs text-neutral-400">
           Local rank tracking is a Premium feature — upgrade the SEO tier to see how the practice ranks by area.
         </p>
       </div>
@@ -756,10 +767,15 @@ function LocalRankSection({ client }: { client: ClientRow }) {
   }
 
   return (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Local Rank</p>
-        <div className="flex items-center gap-2">
+    <div className="space-y-5">
+      {/* ── Zones: spot checks you define ── */}
+      <div className="rounded-xl border border-neutral-200 p-4">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <SectionHeading
+          title="Zones — spot checks"
+          caption="Your rank at specific ZIP codes or a radius you set. One check per keyword, per zone — you choose where."
+        />
+        <div className="flex shrink-0 items-center gap-2">
           <span className="text-[10px] font-medium text-neutral-400">
             {zones.length} of {allowance} zone{allowance === 1 ? "" : "s"}
           </span>
@@ -874,10 +890,17 @@ function LocalRankSection({ client }: { client: ClientRow }) {
       ) : (
         <p className="mt-2 text-xs text-neutral-400">No zones yet — add a ZIP or radius above.</p>
       )}
+      </div>
 
-      {/* Premium Plus heat map */}
+      {/* ── Coverage heat map: automatic geographic sweep (Premium Plus) ── */}
       {showHeatmap && (
-        <div className="mt-4">
+        <div>
+          <div className="mb-2">
+            <SectionHeading
+              title="Coverage heat map"
+              caption="An automatic 25-point grid around the practice, showing how your rank shifts across the whole area."
+            />
+          </div>
           <LocalRankGridPanel
             clientId={client.id}
             clientName={client.account_name}
@@ -996,11 +1019,12 @@ function ServicePlaybookTab({
   );
 
   // Build the sub-tabs from what this service actually has.
-  const subTabs: { key: string; label: string; summary?: string; node: ReactNode }[] = [];
+  const subTabs: { key: string; label: string; caption?: string; summary?: string; node: ReactNode }[] = [];
   if (platformChecks) {
     subTabs.push({
       key: "health",
       label: "Health",
+      caption: "Live connection status for the tools that power this client's SEO.",
       summary: `${platformChecks.filter((c) => c.pass).length} of ${platformChecks.length} checks passing`,
       node: (
         <div className="space-y-0.5">
@@ -1012,7 +1036,12 @@ function ServicePlaybookTab({
     });
   }
   if (isSeo) {
-    subTabs.push({ key: "keywords", label: "Keywords", node: <TrackedKeywordsSection client={client} /> });
+    subTabs.push({
+      key: "keywords",
+      label: "Keywords",
+      caption: "The search terms you're tracking rank for — your tier sets how many.",
+      node: <TrackedKeywordsSection client={client} />,
+    });
     subTabs.push({ key: "local", label: "Local rank", node: <LocalRankSection client={client} /> });
   }
   if (categories.length > 0 || isSeo) {
@@ -1035,7 +1064,12 @@ function ServicePlaybookTab({
     });
   }
   if (auditSlot) {
-    subTabs.push({ key: "audit", label: "Audit", node: auditSlot });
+    subTabs.push({
+      key: "audit",
+      label: "Audit",
+      caption: "The recurring full-site SEO audit — schedule and past runs.",
+      node: auditSlot,
+    });
   }
 
   const [activeSub, setActiveSub] = useState<string>(() => subTabs[0]?.key ?? "");
@@ -1065,9 +1099,14 @@ function ServicePlaybookTab({
           ))}
         </div>
       )}
-      {active.summary && (
-        <div className="rounded-lg bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-500">
-          {active.summary}
+      {(active.caption || active.summary) && (
+        <div className="space-y-1.5">
+          {active.caption && <p className="text-xs leading-snug text-neutral-400">{active.caption}</p>}
+          {active.summary && (
+            <div className="inline-block rounded-lg bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-500">
+              {active.summary}
+            </div>
+          )}
         </div>
       )}
       <div>{active.node}</div>
