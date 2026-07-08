@@ -229,6 +229,32 @@ function findSmartPageCuts(
   return slices;
 }
 
+// Facebook stores `follows` as a cumulative total follower count, so net new =
+// last − first over the window; Instagram stores it as daily-new, so it's summed.
+// Summing Facebook's daily totals (or mixing the two) inflates "new followers"
+// by orders of magnitude, so compute per platform.
+function netNewFollowers(
+  rows: Array<{ platform: string; follows: number | null; snapshot_date: string }>,
+): number {
+  const byPlatform = new Map<string, Array<{ follows: number | null; snapshot_date: string }>>();
+  for (const r of rows) {
+    if (r.follows == null) continue;
+    if (!byPlatform.has(r.platform)) byPlatform.set(r.platform, []);
+    byPlatform.get(r.platform)!.push(r);
+  }
+  let total = 0;
+  for (const [platform, prows] of byPlatform) {
+    const sorted = prows.slice().sort((a, b) => (a.snapshot_date < b.snapshot_date ? -1 : 1));
+    if (sorted.length === 0) continue;
+    if (platform === "facebook") {
+      total += (sorted[sorted.length - 1].follows ?? 0) - (sorted[0].follows ?? 0);
+    } else {
+      total += sorted.reduce((sum, r) => sum + (r.follows ?? 0), 0);
+    }
+  }
+  return total;
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 
 type Props = {
@@ -455,16 +481,16 @@ export default function ReportPreview({ report, config, draft }: Props) {
   const socialWindow = report.socialDailyRows.filter(
     (r) => new Date(r.snapshot_date).getTime() >= cutoff30,
   );
-  const socialTotals = socialWindow.reduce(
+  const socialSums = socialWindow.reduce(
     (acc, r) => ({
       reach:       acc.reach       + (r.reach       ?? 0),
       engagement:  acc.engagement  + (r.engagement  ?? 0),
       impressions: acc.impressions + (r.impressions ?? 0),
       linkClicks:  acc.linkClicks  + (r.link_clicks ?? 0),
-      follows:     acc.follows     + (r.follows     ?? 0),
     }),
-    { reach: 0, engagement: 0, impressions: 0, linkClicks: 0, follows: 0 },
+    { reach: 0, engagement: 0, impressions: 0, linkClicks: 0 },
   );
+  const socialTotals = { ...socialSums, follows: netNewFollowers(socialWindow) };
   const hasSocialData =
     socialWindow.length > 0 &&
     socialTotals.reach + socialTotals.impressions + socialTotals.engagement +
