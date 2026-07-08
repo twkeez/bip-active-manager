@@ -523,24 +523,19 @@ export default function ReportPreview({ report, config, draft }: Props) {
             </div>
           </div>
 
-          {/* Download button */}
+          {/* Download button — server-rendered branded Word doc */}
           <div className="no-print mt-6 flex flex-col items-end gap-2">
-            <button
-              type="button"
-              onClick={downloadPdf}
-              disabled={exporting}
-              className="rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-60"
+            <a
+              href={`/api/reports/${report.client.id}/word?range=${report.reportingWindowLabel.includes("7") ? "last7" : "last30"}`}
+              className="rounded-lg px-4 py-2 text-sm font-medium transition"
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
                 color: "#fff",
                 background: "rgba(255,255,255,0.12)",
               }}
             >
-              {exporting ? "Generating PDF…" : "Download PDF"}
-            </button>
-            {exportError && (
-              <p className="text-xs text-red-300">{exportError}</p>
-            )}
+              Download report
+            </a>
           </div>
         </div>
       </header>
