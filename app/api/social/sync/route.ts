@@ -6,6 +6,7 @@ import {
   fetchFacebookPosts,
   fetchInstagramDaily,
   fetchInstagramMedia,
+  fetchInstagramPeriodReach,
   fetchMetaPageForClient,
   listMetaPages,
 } from "@/lib/social/meta";
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const [facebookDaily, facebookPosts, instagramDaily, instagramMedia] = await Promise.all([
+    const [facebookDaily, facebookPosts, instagramDaily, instagramMedia, instagramPeriodReach] = await Promise.all([
       fetchFacebookDaily(page.id, page.access_token),
       fetchFacebookPosts(page.id, page.access_token),
       page.instagram_business_account?.id
@@ -123,6 +124,9 @@ export async function POST(request: Request) {
       page.instagram_business_account?.id
         ? fetchInstagramMedia(page.instagram_business_account.id, page.access_token)
         : Promise.resolve([]),
+      page.instagram_business_account?.id
+        ? fetchInstagramPeriodReach(page.instagram_business_account.id, page.access_token)
+        : Promise.resolve(null),
     ]);
 
     const dailyPayload = [
@@ -161,6 +165,20 @@ export async function POST(request: Request) {
           { status: 500 },
         );
       }
+    }
+
+    // De-duplicated Instagram period reach (native, matches Instagram's number).
+    if (typeof instagramPeriodReach === "number") {
+      await admin.from("client_social_period_metrics").upsert(
+        {
+          client_id: clientId,
+          platform: "instagram",
+          reach: instagramPeriodReach,
+          window_days: 30,
+          captured_at: new Date().toISOString(),
+        },
+        { onConflict: "client_id,platform" },
+      );
     }
 
     const postPayload = [

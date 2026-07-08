@@ -64,6 +64,7 @@ export type ClientReportModel = {
   actions: ReportingActionItem[];
   keywordRows: KeywordHealthRow[];
   socialDailyRows: SocialDailySnapshot[];
+  socialPeriodReach: Array<{ platform: string; reach: number }>;
   topSocialPosts: SocialPostSnapshot[];
   adsSnapshot: AdsSnapshot | null;
   gbpSnapshot: GbpSnapshot | null;

@@ -336,6 +336,34 @@ export async function fetchInstagramDaily(igUserId: string, pageToken: string) {
   );
 }
 
+// De-duplicated Instagram reach over a 30-day window (native period reach), so
+// the report matches Instagram's own number instead of summing daily reach.
+// Facebook has no equivalent — Meta deprecated page reach.
+export async function fetchInstagramPeriodReach(
+  igUserId: string,
+  pageToken: string,
+): Promise<number | null> {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const until = new Date().toISOString().slice(0, 10);
+  try {
+    const json = await graphGet(
+      `${igUserId}/insights`,
+      { metric: "reach", period: "day", metric_type: "total_value", since, until },
+      pageToken,
+    );
+    const data =
+      (json.data as Array<{ total_value?: { value?: number }; values?: Array<{ value?: number }> }> | undefined) ?? [];
+    const first = data[0];
+    if (typeof first?.total_value?.value === "number") return first.total_value.value;
+    // Fallback: if only daily values came back, sum them (still Instagram-only).
+    if (first?.values?.length) return first.values.reduce((s, v) => s + (v.value ?? 0), 0);
+    return null;
+  } catch (error) {
+    if (isUnsupportedMetricError(error)) return null;
+    throw error;
+  }
+}
+
 function insightMetricValue(
   insights:
     | {

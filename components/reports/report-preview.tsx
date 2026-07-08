@@ -4,6 +4,7 @@ import type { ClientReportModel } from "@/lib/reporting/types";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
 import { METRIC_LABELS, type ReportConfig } from "@/lib/reporting/report-config-types";
 import type { ReportPeriodMetric } from "@/lib/reporting/types";
+import { buildSocialByPlatform, type PlatformSocial } from "@/lib/reporting/social-metrics";
 
 const adsLabelToKey: Record<string, string> = Object.fromEntries(
   Object.entries(METRIC_LABELS.google_ads ?? {}).map(([k, v]) => [v, k]),
@@ -229,30 +230,17 @@ function findSmartPageCuts(
   return slices;
 }
 
-// Facebook stores `follows` as a cumulative total follower count, so net new =
-// last − first over the window; Instagram stores it as daily-new, so it's summed.
-// Summing Facebook's daily totals (or mixing the two) inflates "new followers"
-// by orders of magnitude, so compute per platform.
-function netNewFollowers(
-  rows: Array<{ platform: string; follows: number | null; snapshot_date: string }>,
-): number {
-  const byPlatform = new Map<string, Array<{ follows: number | null; snapshot_date: string }>>();
-  for (const r of rows) {
-    if (r.follows == null) continue;
-    if (!byPlatform.has(r.platform)) byPlatform.set(r.platform, []);
-    byPlatform.get(r.platform)!.push(r);
-  }
-  let total = 0;
-  for (const [platform, prows] of byPlatform) {
-    const sorted = prows.slice().sort((a, b) => (a.snapshot_date < b.snapshot_date ? -1 : 1));
-    if (sorted.length === 0) continue;
-    if (platform === "facebook") {
-      total += (sorted[sorted.length - 1].follows ?? 0) - (sorted[0].follows ?? 0);
-    } else {
-      total += sorted.reduce((sum, r) => sum + (r.follows ?? 0), 0);
-    }
-  }
-  return total;
+// Tiles shown for one platform's social block. Facebook reach is unavailable
+// from Meta's API, so it's shown as a muted "Not available" rather than omitted.
+function platformTiles(p: PlatformSocial): Array<{ label: string; display: string; muted?: boolean }> {
+  const tiles: Array<{ label: string; display: string; muted?: boolean }> = [];
+  if (p.reach != null) tiles.push({ label: "Reach", display: p.reach.toLocaleString() });
+  else if (p.platform === "facebook") tiles.push({ label: "Reach", display: "Not available", muted: true });
+  if (p.engagement > 0) tiles.push({ label: "Engagements", display: p.engagement.toLocaleString() });
+  if (p.impressions != null && p.impressions > 0) tiles.push({ label: "Impressions", display: p.impressions.toLocaleString() });
+  if (p.linkClicks > 0) tiles.push({ label: "Link clicks", display: p.linkClicks.toLocaleString() });
+  tiles.push({ label: "New followers", display: p.newFollowers.toLocaleString() });
+  return tiles;
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
@@ -477,24 +465,8 @@ export default function ReportPreview({ report, config, draft }: Props) {
   const hasGscTopPages  = report.gscTopPages.length > 0;
   const gscMaxClicks    = Math.max(...report.gscTopPages.map((p) => p.clicks), 1);
 
-  const cutoff30 = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const socialWindow = report.socialDailyRows.filter(
-    (r) => new Date(r.snapshot_date).getTime() >= cutoff30,
-  );
-  const socialSums = socialWindow.reduce(
-    (acc, r) => ({
-      reach:       acc.reach       + (r.reach       ?? 0),
-      engagement:  acc.engagement  + (r.engagement  ?? 0),
-      impressions: acc.impressions + (r.impressions ?? 0),
-      linkClicks:  acc.linkClicks  + (r.link_clicks ?? 0),
-    }),
-    { reach: 0, engagement: 0, impressions: 0, linkClicks: 0 },
-  );
-  const socialTotals = { ...socialSums, follows: netNewFollowers(socialWindow) };
-  const hasSocialData =
-    socialWindow.length > 0 &&
-    socialTotals.reach + socialTotals.impressions + socialTotals.engagement +
-    socialTotals.follows + socialTotals.linkClicks > 0;
+  const socialByPlatform = buildSocialByPlatform(report.socialDailyRows, report.socialPeriodReach);
+  const hasSocialData = socialByPlatform.length > 0;
 
   const hasAnyData = hasAds || hasGsc || hasGa4 || hasGscTopPages || hasKeywords || hasSocialData;
 
@@ -988,31 +960,33 @@ export default function ReportPreview({ report, config, draft }: Props) {
       {sectionVisible("social") && hasSocialData && (
         <section>
           <h2 className="text-base font-bold text-gray-900 mb-1">Social Media</h2>
-          <p className="text-xs text-gray-400 mb-4">30-day totals across connected platforms</p>
+          <p className="text-xs text-gray-400 mb-4">Last 30 days, by platform</p>
 
-          {/* Stat cards */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6" style={{ breakInside: "avoid" }}>
-            {[
-              { label: "People reached",  value: socialTotals.reach },
-              { label: "Engagements",     value: socialTotals.engagement },
-              { label: "Impressions",     value: socialTotals.impressions },
-              { label: "Link clicks",     value: socialTotals.linkClicks },
-              { label: "New followers",   value: socialTotals.follows },
-            ]
-              .filter((s) => s.value > 0)
-              .map((stat) => (
-                <div
-                  key={stat.label}
-                  className="rounded-xl bg-white p-4 shadow-sm"
-                  style={{ border: "1px solid #e5e7eb", borderLeft: `4px solid ${C_SOCIAL}` }}
-                >
-                  <p className="text-xs text-gray-500">{stat.label}</p>
-                  <p className="mt-1 text-3xl font-bold text-gray-900 leading-none">
-                    {stat.value.toLocaleString()}
-                  </p>
-                </div>
-              ))}
-          </div>
+          {/* Per-platform stat blocks */}
+          {socialByPlatform.map((p) => (
+            <div key={p.platform} className="mb-6" style={{ breakInside: "avoid" }}>
+              <div className="mb-2 flex items-center gap-2">
+                <PlatformBadge platform={p.platform} />
+                <span className="text-sm font-semibold text-gray-700">
+                  {p.platform === "facebook" ? "Facebook" : "Instagram"}
+                </span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {platformTiles(p).map((tile) => (
+                  <div
+                    key={tile.label}
+                    className="rounded-xl bg-white p-4 shadow-sm"
+                    style={{ border: "1px solid #e5e7eb", borderLeft: `4px solid ${C_SOCIAL}` }}
+                  >
+                    <p className="text-xs text-gray-500">{tile.label}</p>
+                    <p className={`mt-1 font-bold text-gray-900 leading-none ${tile.muted ? "text-lg text-gray-400" : "text-3xl"}`}>
+                      {tile.display}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
 
           {/* Top posts table */}
           {report.topSocialPosts.length > 0 && (

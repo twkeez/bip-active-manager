@@ -153,6 +153,14 @@ export async function loadReportForClient(
     staleSourceCount,
   });
 
+  const { data: periodReachRaw } = await supabase
+    .from("client_social_period_metrics")
+    .select("platform, reach")
+    .eq("client_id", clientId);
+  const socialPeriodReach = (periodReachRaw ?? [])
+    .filter((r) => typeof r.reach === "number")
+    .map((r) => ({ platform: r.platform as string, reach: r.reach as number }));
+
   const { data: historicalQueryMetricsRaw } = await supabase
     .from("client_gsc_query_metrics")
     .select("query, clicks, impressions, position, created_at")
@@ -202,6 +210,7 @@ export async function loadReportForClient(
     actions,
     keywordRows,
     socialDailyRows,
+    socialPeriodReach,
     socialPostSnapshots: workspace.socialPostSnapshots,
     adsSnapshot,
     ga4Snapshot: workspace.ga4Snapshot,

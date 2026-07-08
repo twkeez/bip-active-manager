@@ -1192,6 +1192,7 @@ export function buildClientReportModel(params: {
   actions: ReportingActionItem[];
   keywordRows: KeywordHealthRow[];
   socialDailyRows: SocialDailySnapshot[];
+  socialPeriodReach?: Array<{ platform: string; reach: number }>;
   adsSnapshot: AdsSnapshot | null;
   ga4Snapshot?: Ga4Snapshot | null;
   gbpSnapshot?: GbpSnapshot | null;
@@ -1338,6 +1339,7 @@ export function buildClientReportModel(params: {
     actions: params.actions,
     keywordRows: params.keywordRows,
     socialDailyRows: params.socialDailyRows,
+    socialPeriodReach: params.socialPeriodReach ?? [],
     topSocialPosts,
     adsSnapshot: params.adsSnapshot,
     gbpSnapshot: params.gbpSnapshot ?? null,

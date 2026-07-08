@@ -1,5 +1,6 @@
 import type { ClientReportModel, ReportChannelBlock, ReportPeriodMetric } from "@/lib/reporting/types";
 import type { ReportConfig } from "@/lib/reporting/report-config-types";
+import { buildSocialByPlatform } from "@/lib/reporting/social-metrics";
 
 // Brand palette mirrors lib/site-audit/seo-audit-word.ts so report and audit
 // deliverables look consistent. All colors inline-hex (Word can't read CSS vars).
@@ -143,6 +144,23 @@ function topPagesTable(pages: ClientReportModel["gscTopPages"]): string {
   );
 }
 
+function socialHtml(report: ClientReportModel): string {
+  const platforms = buildSocialByPlatform(report.socialDailyRows, report.socialPeriodReach);
+  if (platforms.length === 0) return "";
+  return platforms
+    .map((p) => {
+      const rows: Array<[string, string]> = [];
+      rows.push(["Reach", p.reach != null ? p.reach.toLocaleString() : p.platform === "facebook" ? "Not available" : "—"]);
+      if (p.engagement > 0) rows.push(["Engagements", p.engagement.toLocaleString()]);
+      if (p.impressions != null && p.impressions > 0) rows.push(["Impressions", p.impressions.toLocaleString()]);
+      if (p.linkClicks > 0) rows.push(["Link clicks", p.linkClicks.toLocaleString()]);
+      rows.push(["New followers", p.newFollowers.toLocaleString()]);
+      const title = p.platform === "facebook" ? "Facebook" : "Instagram";
+      return `<h3 style="color:${INDIGO_DEEP};font-size:13px;margin:12px 0 4px;">${title}</h3>` + table(["Metric", "Value"], rows);
+    })
+    .join("");
+}
+
 export function renderReportWord(report: ClientReportModel, config: ReportConfig): string {
   const client = report.client;
   const generated = new Date(report.generatedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -209,6 +227,7 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
       ${sectionOn(config, "keywords") ? block("Keyword rankings", keywordBody) : ""}
       ${block("Google Ads", adsBody)}
       ${sectionOn(config, "gbp") ? block("Google Business Profile", gbpBody) : ""}
+      ${sectionOn(config, "social") ? block("Social media", socialHtml(report)) : ""}
       ${block("Recommendations", recBody)}
     </div>`;
 
