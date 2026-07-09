@@ -319,6 +319,7 @@ export function buildReportingKpis(params: {
   gscSignals: GscSignal[];
   gscSnapshotUpdatedAt: string | null;
   socialDailyRows: SocialDailySnapshot[];
+  socialPeriodReach?: Array<{ platform: string; reach: number }>;
   socialPostCount: number;
   socialConnected: boolean;
   crawlIssueCount: number;
@@ -351,7 +352,13 @@ export function buildReportingKpis(params: {
     const ts = new Date(row.snapshot_date).getTime();
     return Number.isFinite(ts) && ts >= socialCutoff;
   });
-  const socialReach = socialWindow.reduce((sum, row) => sum + (row.reach ?? 0), 0);
+  // Reach isn't additive across days (it's de-duplicated per period) or across
+  // platforms (Facebook page reach is unavailable → excluded). Use the per-
+  // platform reach (Instagram's de-duplicated period reach) instead of summing.
+  const socialReach = buildSocialByPlatform(params.socialDailyRows, params.socialPeriodReach ?? [], 30).reduce(
+    (sum, p) => sum + (p.reach ?? 0),
+    0,
+  );
   const socialEngagement = socialWindow.reduce((sum, row) => sum + (row.engagement ?? 0), 0);
   const socialLinkClicks = socialWindow.reduce(
     (sum, row) => sum + (row.link_clicks ?? 0),
