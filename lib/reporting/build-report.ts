@@ -1,4 +1,5 @@
 import { websiteLabel } from "@/lib/reporting/format";
+import { buildSocialByPlatform } from "@/lib/reporting/social-metrics";
 import type {
   AdsSnapshot,
   Ga4Snapshot,
@@ -356,7 +357,13 @@ export function buildReportingKpis(params: {
     (sum, row) => sum + (row.link_clicks ?? 0),
     0,
   );
-  const socialFollows = socialWindow.reduce((sum, row) => sum + (row.follows ?? 0), 0);
+  // Net new followers per platform (Facebook `follows` is a cumulative total →
+  // last − first; Instagram is daily-new → summed). Summing raw `follows` would
+  // inflate this by orders of magnitude (Facebook's totals get added ~30 times).
+  const socialFollows = buildSocialByPlatform(params.socialDailyRows, [], 30).reduce(
+    (sum, p) => sum + p.newFollowers,
+    0,
+  );
   const socialImpressions = socialWindow.reduce((sum, row) => sum + (row.impressions ?? 0), 0);
   const seoOpenCount = params.crawlIssueCount + params.technicalFindingCount;
   const seoCriticalCount = params.technicalCriticalCount ?? 0;
