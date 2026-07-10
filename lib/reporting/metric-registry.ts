@@ -246,6 +246,27 @@ export const REPORTING_METRIC_REGISTRY = [
     defaultEnabled: false,
     defaultOrder: 126,
   },
+  {
+    id: "meta-ads-spend-30d",
+    label: "Meta Ads Spend (30d)",
+    source: "meta_ads",
+    defaultEnabled: true,
+    defaultOrder: 20,
+  },
+  {
+    id: "meta-ads-reach-30d",
+    label: "Meta Ads Reach (30d)",
+    source: "meta_ads",
+    defaultEnabled: true,
+    defaultOrder: 22,
+  },
+  {
+    id: "meta-ads-results-30d",
+    label: "Meta Ads Results (30d)",
+    source: "meta_ads",
+    defaultEnabled: true,
+    defaultOrder: 24,
+  },
 ] as const;
 
 export type ReportingMetricId = (typeof REPORTING_METRIC_REGISTRY)[number]["id"];

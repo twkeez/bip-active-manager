@@ -13,11 +13,16 @@ const ga4LabelToKey: Record<string, string> = Object.fromEntries(
   Object.entries(METRIC_LABELS.ga4 ?? {}).map(([k, v]) => [v, k]),
 );
 
+const metaAdsLabelToKey: Record<string, string> = Object.fromEntries(
+  Object.entries(METRIC_LABELS.meta_ads ?? {}).map(([k, v]) => [v, k]),
+);
+
 const BI_BLUE    = "#3D52C4";
 const BI_PURPLE  = "#7B35B0";
 const BI_MAGENTA = "#E4177F";
 const C_SEARCH   = "#3D52C4";
 const C_ADS      = "#059669";
+const C_META_ADS = "#1877F2"; // Meta blue
 const C_SOCIAL   = "#7B35B0";
 
 // ── GA4 breakdown helpers (inline-styled for html2canvas/PDF safety) ──────────
@@ -205,7 +210,7 @@ export default function ReportPreview({ report, config, draft, printMode = false
   }
 
 
-  const { ads, searchConsole, ga4, keywords } = report.channels;
+  const { ads, metaAds, searchConsole, ga4, keywords } = report.channels;
 
   const kpisSection = config.sections.find((s) => s.key === "kpis");
   const kpisVisible = kpisSection?.visible ?? false;
@@ -224,6 +229,20 @@ export default function ReportPreview({ report, config, draft, printMode = false
     return adsMetricVis[configKey] !== false;
   });
   const gscMetrics = searchConsole.metrics.filter((m) => m.current != null && m.current !== 0);
+
+  const metaAdsSubsection =
+    kpisSection?.key === "kpis"
+      ? kpisSection.subsections.find((s) => s.key === "meta_ads")
+      : undefined;
+  const metaAdsMetricVis = metaAdsSubsection?.metrics ?? null;
+  const metaAdsMetrics = metaAds.metrics.filter((m) => {
+    if (m.current == null || Number.isNaN(m.current)) return false;
+    if (!metaAdsMetricVis) return m.current !== 0;
+    const configKey = metaAdsLabelToKey[m.label];
+    if (!configKey) return true;
+    return metaAdsMetricVis[configKey] !== false;
+  });
+  const metaAdsCampaigns = metaAds.campaigns ?? [];
 
   const ga4Subsection =
     kpisSection?.key === "kpis"
@@ -245,6 +264,7 @@ export default function ReportPreview({ report, config, draft, printMode = false
   }
 
   const hasAds          = adsMetrics.length > 0;
+  const hasMetaAds      = metaAdsMetrics.length > 0;
   const hasGsc          = gscMetrics.length > 0;
   const hasGa4          = ga4Metrics.length > 0;
   const hasKeywords     = keywords.rows.length > 0;
@@ -445,6 +465,44 @@ export default function ReportPreview({ report, config, draft, printMode = false
                   <MetricCard key={m.label} metric={m} accent={C_ADS} />
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Facebook/Instagram Ads */}
+          {hasMetaAds && subsectionVisible("meta_ads") && (
+            <div style={{ breakInside: "avoid" }}>
+              <SectionLabel title="Facebook/Instagram Ads" color={C_META_ADS} />
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {metaAdsMetrics.map((m) => (
+                  <MetricCard key={m.label} metric={m} accent={C_META_ADS} />
+                ))}
+              </div>
+              {metaAdsCampaigns.length > 0 && (
+                <div className="mt-3 overflow-hidden rounded-xl" style={{ border: "1px solid #e5e7eb" }}>
+                  <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: "#f3f6ff" }}>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Campaign</th>
+                        <th className="px-3 py-2 text-right font-semibold text-gray-700">Spend</th>
+                        <th className="px-3 py-2 text-right font-semibold text-gray-700">Reach</th>
+                        <th className="px-3 py-2 text-right font-semibold text-gray-700">Clicks</th>
+                        <th className="px-3 py-2 text-right font-semibold text-gray-700">Results</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metaAdsCampaigns.map((c, i) => (
+                        <tr key={`${c.name}-${i}`} style={{ borderTop: "1px solid #eef1f6" }}>
+                          <td className="px-3 py-2 text-gray-800">{c.name}</td>
+                          <td className="px-3 py-2 text-right text-gray-800">${c.spend.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right text-gray-800">{Math.round(c.reach).toLocaleString()}</td>
+                          <td className="px-3 py-2 text-right text-gray-800">{Math.round(c.clicks).toLocaleString()}</td>
+                          <td className="px-3 py-2 text-right text-gray-800">{c.results == null ? "—" : Math.round(c.results).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 

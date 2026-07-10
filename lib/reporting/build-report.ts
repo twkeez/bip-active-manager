@@ -2,6 +2,7 @@ import { websiteLabel } from "@/lib/reporting/format";
 import { buildSocialByPlatform } from "@/lib/reporting/social-metrics";
 import type {
   AdsSnapshot,
+  MetaAdsSnapshot,
   Ga4Snapshot,
   GbpReviewRow,
   GbpSnapshot,
@@ -314,6 +315,7 @@ export type TechnicalReportingFinding = {
 
 export function buildReportingKpis(params: {
   adsSnapshot: AdsSnapshot | null;
+  metaAdsSnapshot?: MetaAdsSnapshot | null;
   ga4Snapshot?: Ga4Snapshot | null;
   gscPageMetrics: GscPageMetric[];
   gscSignals: GscSignal[];
@@ -332,6 +334,13 @@ export function buildReportingKpis(params: {
   crawlUpdatedAt: string | null;
 }): ReportingKpiCard[] {
   const adsTotals = params.adsSnapshot?.totals;
+  const metaAdsTotals = params.metaAdsSnapshot?.totals;
+  const metaAdsResults =
+    metaAdsTotals != null
+      ? (metaAdsTotals.leads ?? 0) +
+        (metaAdsTotals.messaging_conversations_started ?? 0) +
+        (metaAdsTotals.link_clicks ?? 0)
+      : null;
   const gscClicks = params.gscPageMetrics.reduce((sum, row) => sum + row.clicks, 0);
   const gscImpressions = params.gscPageMetrics.reduce((sum, row) => sum + row.impressions, 0);
   const gscWeightedPositionNumerator = params.gscPageMetrics.reduce(
@@ -445,6 +454,27 @@ export function buildReportingKpis(params: {
       source: "ads",
       definition: "Average ad cost per conversion over the current 30-day window.",
       updated_at: params.adsSnapshot?.updated_at ?? null,
+    },
+    "meta-ads-spend-30d": {
+      label: "Meta Ads Spend (30d)",
+      value: metaAdsTotals ? `$${metaAdsTotals.spend.toFixed(2)}` : "Not synced",
+      source: "meta_ads",
+      definition: "Total Facebook/Instagram ad spend in the current 30-day snapshot.",
+      updated_at: params.metaAdsSnapshot?.updated_at ?? null,
+    },
+    "meta-ads-reach-30d": {
+      label: "Meta Ads Reach (30d)",
+      value: metaAdsTotals ? Math.round(metaAdsTotals.reach).toLocaleString() : "Not synced",
+      source: "meta_ads",
+      definition: "Unique people reached by paid Facebook/Instagram ads in the current 30-day snapshot.",
+      updated_at: params.metaAdsSnapshot?.updated_at ?? null,
+    },
+    "meta-ads-results-30d": {
+      label: "Meta Ads Results (30d)",
+      value: metaAdsResults == null ? "Not synced" : Math.round(metaAdsResults).toLocaleString(),
+      source: "meta_ads",
+      definition: "Leads + messaging conversations + link clicks from paid Meta ads over the current 30-day window.",
+      updated_at: params.metaAdsSnapshot?.updated_at ?? null,
     },
     "gsc-clicks": {
       label: "Search clicks (30d)",
@@ -1072,6 +1102,63 @@ function buildAdsChannelBlock(params: {
   };
 }
 
+function buildMetaAdsChannelBlock(params: {
+  metaAdsSnapshot: MetaAdsSnapshot | null;
+  previousMetaAdsSnapshot?: MetaAdsSnapshot | null;
+}): ReportChannelBlock {
+  const snapshot = params.metaAdsSnapshot;
+  if (!snapshot) {
+    return {
+      source: "meta_ads",
+      title: "Facebook/Instagram Ads",
+      connected: false,
+      status: "no_data",
+      summary: "No Meta Ads snapshot found for this report window.",
+      metrics: [],
+    };
+  }
+  const totals = snapshot.totals;
+  const prev = params.previousMetaAdsSnapshot?.totals ?? null;
+  function safeN(v: number | null | undefined): number | null {
+    if (v == null || Number.isNaN(v)) return null;
+    return v;
+  }
+  // "Results" for the campaigns table: the best available conversion action.
+  const bestResult = (
+    t: MetaAdsSnapshot["campaigns"][number] | MetaAdsSnapshot["totals"],
+  ): number | null =>
+    safeN(t.leads) ?? safeN(t.messaging_conversations_started) ?? safeN(t.link_clicks);
+  return {
+    source: "meta_ads",
+    title: "Facebook/Instagram Ads",
+    connected: true,
+    status: "ready",
+    summary: `Meta Ads snapshot ${snapshot.start_date} to ${snapshot.end_date}.`,
+    metrics: [
+      toPeriodMetric("Ad Spend", safeN(totals.spend), safeN(prev?.spend), undefined, "$"),
+      toPeriodMetric("Reach", safeN(totals.reach), safeN(prev?.reach)),
+      toPeriodMetric("Impressions", safeN(totals.impressions), safeN(prev?.impressions)),
+      toPeriodMetric("Frequency", safeN(totals.frequency), safeN(prev?.frequency)),
+      toPeriodMetric("Clicks", safeN(totals.clicks), safeN(prev?.clicks)),
+      toPeriodMetric("Click-Through Rate", safeN(totals.ctr), safeN(prev?.ctr), "%"),
+      toPeriodMetric("Cost Per Click", safeN(totals.cpc), safeN(prev?.cpc), undefined, "$"),
+      toPeriodMetric("Cost Per 1K (CPM)", safeN(totals.cpm), safeN(prev?.cpm), undefined, "$"),
+      toPeriodMetric("Link Clicks", safeN(totals.link_clicks), safeN(prev?.link_clicks)),
+      toPeriodMetric("Leads", safeN(totals.leads), safeN(prev?.leads)),
+      toPeriodMetric("Messages Started", safeN(totals.messaging_conversations_started), safeN(prev?.messaging_conversations_started)),
+      toPeriodMetric("Purchases", safeN(totals.purchases), safeN(prev?.purchases)),
+      toPeriodMetric("ROAS", safeN(totals.purchase_roas), safeN(prev?.purchase_roas)),
+    ],
+    campaigns: snapshot.campaigns.slice(0, 8).map((c) => ({
+      name: c.campaign_name,
+      spend: c.spend,
+      reach: c.reach,
+      clicks: c.clicks,
+      results: bestResult(c),
+    })),
+  };
+}
+
 function buildSearchConsoleChannelBlock(params: {
   gscCurrentPageMetrics: GscPageMetric[];
   gscPreviousPageMetrics: GscPageMetric[];
@@ -1209,10 +1296,12 @@ export function buildClientReportModel(params: {
   socialPeriodReach?: Array<{ platform: string; reach: number }>;
   organicRanks?: Array<{ keyword: string; position: number | null; delta: number | null; url: string | null; topDomain: string | null }>;
   adsSnapshot: AdsSnapshot | null;
+  metaAdsSnapshot?: MetaAdsSnapshot | null;
   ga4Snapshot?: Ga4Snapshot | null;
   gbpSnapshot?: GbpSnapshot | null;
   gbpReviews?: GbpReviewRow[];
   previousAdsSnapshot?: AdsSnapshot | null;
+  previousMetaAdsSnapshot?: MetaAdsSnapshot | null;
   gscPageMetrics?: GscPageMetric[];
   gscPreviousPageMetrics?: GscPageMetric[];
   gscQueryMetrics?: Array<{
@@ -1302,6 +1391,10 @@ export function buildClientReportModel(params: {
     adsSnapshot: params.adsSnapshot,
     previousAdsSnapshot: params.previousAdsSnapshot,
   });
+  const metaAds = buildMetaAdsChannelBlock({
+    metaAdsSnapshot: params.metaAdsSnapshot ?? null,
+    previousMetaAdsSnapshot: params.previousMetaAdsSnapshot,
+  });
   const searchConsole = buildSearchConsoleChannelBlock({
     gscCurrentPageMetrics: params.gscPageMetrics ?? [],
     gscPreviousPageMetrics: params.gscPreviousPageMetrics ?? [],
@@ -1372,6 +1465,7 @@ export function buildClientReportModel(params: {
     channels: {
       ga4,
       ads,
+      metaAds,
       searchConsole,
       keywords,
     },

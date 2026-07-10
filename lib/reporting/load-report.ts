@@ -98,6 +98,7 @@ export async function loadReportForClient(
   const {
     adsSnapshot,
     adsSignals,
+    metaAdsSnapshot,
     gscPageMetrics,
     gscSignals,
     socialDailySnapshots: socialDailyRows,
@@ -159,6 +160,7 @@ export async function loadReportForClient(
   const alerts = buildReportingAlerts({ technicalFindings, gscSignals, adsSignals, socialSignals });
   const kpis = buildReportingKpis({
     adsSnapshot,
+    metaAdsSnapshot,
     ga4Snapshot: workspace.ga4Snapshot,
     gscPageMetrics,
     gscSignals,
@@ -242,6 +244,7 @@ export async function loadReportForClient(
     organicRanks,
     socialPostSnapshots: workspace.socialPostSnapshots,
     adsSnapshot,
+    metaAdsSnapshot,
     ga4Snapshot: workspace.ga4Snapshot,
     gbpSnapshot,
     gbpReviews,

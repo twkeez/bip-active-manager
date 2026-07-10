@@ -1,4 +1,5 @@
 import { getMetaGraphConfig } from "@/lib/env";
+import type { MetaAdsCampaignMetric, MetaAdsTotals } from "@/lib/types/client";
 
 type MetaPage = {
   id: string;
@@ -443,4 +444,182 @@ export async function fetchInstagramMedia(igUserId: string, pageToken: string) {
     saves: null,
     shares: null,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Meta paid ads (Marketing API). Reuses the same durable business token as the
+// social sync (see getMetaAccessTokenForSync); that token must include the
+// ads_read scope. Monetary values come back already in dollars.
+// ---------------------------------------------------------------------------
+
+type MetaAction = { action_type?: string; value?: string };
+
+type MetaAdsInsightRow = {
+  spend?: string;
+  impressions?: string;
+  reach?: string;
+  frequency?: string;
+  clicks?: string;
+  ctr?: string;
+  cpc?: string;
+  cpm?: string;
+  campaign_id?: string;
+  campaign_name?: string;
+  actions?: MetaAction[];
+  cost_per_action_type?: MetaAction[];
+  purchase_roas?: MetaAction[];
+};
+
+type MetaAdAccount = { id: string; name?: string; account_id?: string };
+
+export type MetaAdsSnapshotData = {
+  totals: MetaAdsTotals;
+  campaigns: MetaAdsCampaignMetric[];
+};
+
+// Meta reports messaging conversions started under this action_type.
+const MESSAGING_ACTION = "onsite_conversion.messaging_conversation_started_7d";
+
+function normalizeAdAccountId(raw: string | null | undefined): string {
+  const digits = (raw ?? "").replace(/[^0-9]/g, "");
+  return digits ? `act_${digits}` : "";
+}
+
+function numish(value: unknown): number {
+  const n =
+    typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN;
+  return Number.isFinite(n) ? n : 0;
+}
+
+function actionValue(actions: MetaAction[] | undefined, type: string): number | null {
+  const row = actions?.find((a) => a.action_type === type);
+  if (!row) return null;
+  const n = Number(row.value);
+  return Number.isFinite(n) ? n : null;
+}
+
+export async function listMetaAdAccounts(accessToken?: string) {
+  const json = await graphGet(
+    "me/adaccounts",
+    { fields: "id,name,account_id", limit: "500" },
+    accessToken,
+  );
+  const rows = (json.data as MetaAdAccount[] | undefined) ?? [];
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name ?? null,
+    accountId: row.account_id ?? null,
+  }));
+}
+
+// Auto-match a client to its ad account by name (mirrors chooseBestPageForClient
+// for social). If overrideId is set, that wins. Returns null when no confident
+// match — the caller can then surface listMetaAdAccounts() as candidates.
+export async function fetchMetaAdAccountForClient(
+  clientName: string,
+  overrideId: string | null | undefined,
+  accessToken?: string,
+): Promise<{ id: string; name: string | null } | null> {
+  const override = normalizeAdAccountId(overrideId);
+  const accounts = await listMetaAdAccounts(accessToken);
+  if (override) {
+    const known = accounts.find((a) => normalizeAdAccountId(a.id) === override);
+    return known ? { id: known.id, name: known.name } : { id: override, name: null };
+  }
+  if (accounts.length === 0) return null;
+
+  const nameLower = normalizeNameForMatch(clientName);
+  const nameTokens = nameLower.split(/\s+/).filter((token) => token.length >= 3);
+  const scored = accounts.map((account) => {
+    let score = 0;
+    const accName = normalizeNameForMatch(account.name);
+    if (accName && nameLower && (accName.includes(nameLower) || nameLower.includes(accName))) {
+      score += 60;
+    }
+    const accTokens = accName.split(/\s+/).filter((token) => token.length >= 3);
+    for (const token of nameTokens) {
+      if (accTokens.includes(token)) score += 15;
+      else if (accName.includes(token)) score += 8;
+    }
+    return { account, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  // Require a real name signal — ad-account lists are large, so no single-item
+  // fallback like the page matcher has.
+  if (best && best.score >= 15) return { id: best.account.id, name: best.account.name };
+  return null;
+}
+
+export async function fetchMetaAdsInsights(
+  adAccountId: string,
+  accessToken?: string,
+): Promise<MetaAdsSnapshotData> {
+  const account = normalizeAdAccountId(adAccountId);
+  if (!account) throw new Error("Invalid Meta ad account id.");
+
+  const [totalsJson, campaignsJson] = await Promise.all([
+    graphGet(
+      `${account}/insights`,
+      {
+        date_preset: "last_30d",
+        fields:
+          "spend,impressions,reach,frequency,clicks,ctr,cpc,cpm,actions,cost_per_action_type,purchase_roas",
+      },
+      accessToken,
+    ),
+    graphGet(
+      `${account}/insights`,
+      {
+        date_preset: "last_30d",
+        level: "campaign",
+        limit: "25",
+        fields: "campaign_id,campaign_name,spend,impressions,reach,clicks,ctr,cpc,actions",
+      },
+      accessToken,
+    ),
+  ]);
+
+  const t = ((totalsJson.data as MetaAdsInsightRow[] | undefined) ?? [])[0] ?? {};
+  const totals: MetaAdsTotals = {
+    spend: numish(t.spend),
+    impressions: numish(t.impressions),
+    reach: numish(t.reach),
+    frequency: numish(t.frequency),
+    clicks: numish(t.clicks),
+    ctr: numish(t.ctr),
+    cpc: numish(t.cpc),
+    cpm: numish(t.cpm),
+    link_clicks: actionValue(t.actions, "link_click"),
+    leads: actionValue(t.actions, "lead"),
+    messaging_conversations_started: actionValue(t.actions, MESSAGING_ACTION),
+    purchases: actionValue(t.actions, "purchase"),
+    cost_per_link_click: actionValue(t.cost_per_action_type, "link_click"),
+    cost_per_lead: actionValue(t.cost_per_action_type, "lead"),
+    cost_per_messaging_conversation: actionValue(t.cost_per_action_type, MESSAGING_ACTION),
+    cost_per_purchase: actionValue(t.cost_per_action_type, "purchase"),
+    purchase_roas:
+      actionValue(t.purchase_roas, "omni_purchase") ?? actionValue(t.purchase_roas, "purchase"),
+  };
+
+  const campaigns: MetaAdsCampaignMetric[] = (
+    (campaignsJson.data as MetaAdsInsightRow[] | undefined) ?? []
+  )
+    .map((row) => ({
+      campaign_id: row.campaign_id ?? "",
+      campaign_name: row.campaign_name ?? "(unnamed campaign)",
+      spend: numish(row.spend),
+      impressions: numish(row.impressions),
+      reach: numish(row.reach),
+      clicks: numish(row.clicks),
+      ctr: numish(row.ctr),
+      cpc: numish(row.cpc),
+      link_clicks: actionValue(row.actions, "link_click"),
+      leads: actionValue(row.actions, "lead"),
+      messaging_conversations_started: actionValue(row.actions, MESSAGING_ACTION),
+      purchases: actionValue(row.actions, "purchase"),
+    }))
+    .sort((a, b) => b.spend - a.spend);
+
+  return { totals, campaigns };
 }

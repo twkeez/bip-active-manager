@@ -10,6 +10,7 @@ export type ClientRow = {
   ppc: string | null;
   orm: string | null;
   ads_customer_id: string | null;
+  meta_ad_account_id?: string | null;
   ga4_id: string | null;
   sc_url: string | null;
   website: string | null;
@@ -422,6 +423,60 @@ export type AdsSnapshot = {
   campaigns: AdsCampaignMetric[];
   auction_insights?: AdsAuctionInsightRow[];
   keyword_quality?: AdsKeywordQualityRow[];
+  created_at: string;
+  updated_at: string;
+};
+
+// Meta (Facebook/Instagram) paid ads. "Results" are the normalized conversion
+// actions we care about for vet practices (link clicks, leads, messages,
+// purchases), pulled out of the Graph API `actions`/`cost_per_action_type`
+// arrays. All monetary values are already in dollars (unlike Google's micros).
+export type MetaAdsTotals = {
+  spend: number;
+  impressions: number;
+  reach: number;
+  frequency: number;
+  clicks: number;
+  ctr: number; // percent, e.g. 1.01
+  cpc: number; // dollars
+  cpm: number; // dollars
+  link_clicks: number | null;
+  leads: number | null;
+  messaging_conversations_started: number | null;
+  purchases: number | null;
+  cost_per_link_click: number | null;
+  cost_per_lead: number | null;
+  cost_per_messaging_conversation: number | null;
+  cost_per_purchase: number | null;
+  purchase_roas: number | null;
+};
+
+export type MetaAdsCampaignMetric = {
+  campaign_id: string;
+  campaign_name: string;
+  spend: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  link_clicks: number | null;
+  leads: number | null;
+  messaging_conversations_started: number | null;
+  purchases: number | null;
+};
+
+export type MetaAdsSnapshot = {
+  id: number;
+  client_id: number;
+  ad_account_id: string;
+  ad_account_name: string | null;
+  start_date: string;
+  end_date: string;
+  run_status: "running" | "completed" | "failed";
+  error_message: string | null;
+  totals: MetaAdsTotals;
+  campaigns: MetaAdsCampaignMetric[];
   created_at: string;
   updated_at: string;
 };
@@ -842,6 +897,7 @@ export type ReportingKpiCard = {
   value: string;
   source:
     | "ads"
+    | "meta_ads"
     | "search_console"
     | "social"
     | "seo"

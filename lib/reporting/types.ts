@@ -82,6 +82,7 @@ export type ClientReportModel = {
   channels: {
     ga4: ReportChannelBlock;
     ads: ReportChannelBlock;
+    metaAds: ReportChannelBlock;
     searchConsole: ReportChannelBlock;
     keywords: ReportKeywordSection;
   };
@@ -130,13 +131,23 @@ export type ReportTopPageRow = {
   avgEngagementTimeSeconds: number;
 };
 
+export type ReportMetaAdsCampaignRow = {
+  name: string;
+  spend: number;
+  reach: number;
+  clicks: number;
+  results: number | null; // link clicks / leads / messages (best available)
+};
+
 export type ReportChannelBlock = {
-  source: "ga4" | "ads" | "search_console";
+  source: "ga4" | "ads" | "meta_ads" | "search_console";
   title: string;
   connected: boolean;
   status: "ready" | "not_connected" | "no_data";
   summary: string;
   metrics: ReportPeriodMetric[];
+  // Meta Ads-only: top campaigns for the campaigns table.
+  campaigns?: ReportMetaAdsCampaignRow[];
   // GA4-only enrichments (full-depth website analytics)
   channelBreakdown?: ReportChannelBreakdownRow[];
   topPages?: ReportTopPageRow[];

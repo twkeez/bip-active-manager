@@ -104,6 +104,9 @@ type SettingsField = {
   helpText?: string;
   helpUrl?: string;
   syncEndpoint?: string;
+  // Allow the sync/test button even with an empty field (e.g. Meta Ads, which
+  // auto-matches the ad account by name and back-fills the ID).
+  syncAllowsEmpty?: boolean;
 };
 
 const SETTINGS_SECTIONS: { label: string; fields: SettingsField[] }[] = [
@@ -154,6 +157,15 @@ const SETTINGS_SECTIONS: { label: string; fields: SettingsField[] }[] = [
         helpText: "Google Ads → top-right account menu → Customer ID (format: XXX-XXX-XXXX)",
         helpUrl: "https://ads.google.com",
       },
+      {
+        key: "meta_ad_account_id",
+        label: "Meta Ad Account ID",
+        placeholder: "Auto-matched by name — or paste act_XXXXXXXX",
+        helpText: "Leave blank to auto-match by client name, then click Sync. Override with the numeric ad-account ID from Meta Ads Manager if the match is wrong.",
+        helpUrl: "https://business.facebook.com/adsmanager",
+        syncEndpoint: "/api/meta-ads/sync",
+        syncAllowsEmpty: true,
+      },
     ],
   },
   {
@@ -180,7 +192,7 @@ const SETTINGS_SECTIONS: { label: string; fields: SettingsField[] }[] = [
   },
 ];
 
-type SettingsKey = "website" | "sc_url" | "ga4_property_id" | "gtm_container_id" | "google_place_id" | "ads_customer_id" | "basecamp_project_id" | "harvest_project_id" | "harvest_client_id" | "shared_drive_url" | "contact_name" | "contact_email" | "city";
+type SettingsKey = "website" | "sc_url" | "ga4_property_id" | "gtm_container_id" | "google_place_id" | "ads_customer_id" | "meta_ad_account_id" | "basecamp_project_id" | "harvest_project_id" | "harvest_client_id" | "shared_drive_url" | "contact_name" | "contact_email" | "city";
 
 type SyncState = { loading: boolean; ok: boolean | null; message: string | null };
 
@@ -285,6 +297,7 @@ function ClientSettingsTab({ client }: { client: ClientRow }) {
     gtm_container_id:    client.gtm_container_id ?? "",
     google_place_id:     client.google_place_id ?? "",
     ads_customer_id:     client.ads_customer_id ?? "",
+    meta_ad_account_id:  client.meta_ad_account_id ?? "",
     basecamp_project_id: client.basecamp_project_id ?? "",
     harvest_project_id:  client.harvest_project_id ?? "",
     harvest_client_id:   client.harvest_client_id ?? "",
@@ -359,11 +372,12 @@ function ClientSettingsTab({ client }: { client: ClientRow }) {
             {section.label}
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {section.fields.map(({ key, label, placeholder, helpText, helpUrl, syncEndpoint }) => {
+            {section.fields.map(({ key, label, placeholder, helpText, helpUrl, syncEndpoint, syncAllowsEmpty }) => {
               const fieldKey = key as SettingsKey;
               const sync = syncStates[key];
               const isDirty = values[fieldKey] !== initial[fieldKey];
               const hasValue = Boolean(values[fieldKey]);
+              const canSync = Boolean(syncEndpoint) && (hasValue || Boolean(syncAllowsEmpty));
               return (
                 <div key={key}>
                   <label className="mb-1 block text-xs font-medium text-neutral-500">{label}</label>
@@ -375,7 +389,7 @@ function ClientSettingsTab({ client }: { client: ClientRow }) {
                       placeholder={placeholder}
                       className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder-neutral-300 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-200"
                     />
-                    {syncEndpoint && hasValue && (
+                    {canSync && syncEndpoint && (
                       <button
                         type="button"
                         disabled={sync?.loading || isDirty}

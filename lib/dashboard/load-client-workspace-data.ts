@@ -8,6 +8,7 @@ import {
 import type {
   AdsSignal,
   AdsSnapshot,
+  MetaAdsSnapshot,
   BasecampThreadEvent,
   ClientRow,
   Ga4Signal,
@@ -207,6 +208,14 @@ export async function loadClientWorkspaceData(
     }
   }
 
+  const metaAdsSnapshots = await fetchLatestSnapshotsByClient<MetaAdsSnapshot>(
+    supabase,
+    "client_meta_ads_snapshots",
+    "*",
+    clientId,
+  );
+  const metaAdsSnapshot: MetaAdsSnapshot | null = metaAdsSnapshots[0] ?? null;
+
   let ga4Snapshot: Ga4Snapshot | null = null;
   let ga4Signals: Ga4Signal[] = [];
   ga4Snapshot = await fetchLatestSnapshotForClient<Ga4Snapshot>(
@@ -273,6 +282,7 @@ export async function loadClientWorkspaceData(
     socialSignals,
     adsSnapshot,
     adsSignals,
+    metaAdsSnapshot,
     ga4Snapshot,
     ga4Signals,
     gbpSnapshot,

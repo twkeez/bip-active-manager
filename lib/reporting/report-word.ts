@@ -183,6 +183,24 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
   const adsMetrics = ads.metrics.filter((m) => m.current != null && m.current !== 0);
   const adsBody = table(["Metric", "This period", "Change"], adsMetrics.map((m) => [m.label, fmtMetricValue(m), fmtDelta(m.deltaPercent)]));
 
+  const metaAds = report.channels.metaAds;
+  const metaAdsMetrics = metaAds.metrics.filter((m) => m.current != null && m.current !== 0);
+  const metaAdsCampaigns = metaAds.campaigns ?? [];
+  const metaAdsBody =
+    table(["Metric", "This period", "Change"], metaAdsMetrics.map((m) => [m.label, fmtMetricValue(m), fmtDelta(m.deltaPercent)])) +
+    (metaAdsCampaigns.length
+      ? table(
+          ["Campaign", "Spend", "Reach", "Clicks", "Results"],
+          metaAdsCampaigns.map((c) => [
+            c.name,
+            `$${c.spend.toFixed(2)}`,
+            Math.round(c.reach).toLocaleString(),
+            Math.round(c.clicks).toLocaleString(),
+            c.results == null ? "—" : Math.round(c.results).toLocaleString(),
+          ]),
+        )
+      : "");
+
   const keywordBody = table(
     ["Keyword", "Position", "Change", "Clicks"],
     keywords.rows.map((r) => [
@@ -238,6 +256,7 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
       ${sectionOn(config, "keywords") ? block("Keyword rankings", keywordBody) : ""}
       ${sectionOn(config, "keywords") ? block("Organic search rankings", organicBody) : ""}
       ${block("Google Ads", adsBody)}
+      ${block("Facebook/Instagram Ads", metaAdsBody)}
       ${sectionOn(config, "gbp") ? block("Google Business Profile", gbpBody) : ""}
       ${sectionOn(config, "social") ? block("Social media", socialHtml(report)) : ""}
       ${block("Recommendations", recBody)}

@@ -1,6 +1,7 @@
 import type {
   AdsSignal,
   AdsSnapshot,
+  MetaAdsSnapshot,
   BasecampThreadEvent,
   ClientRow,
   Ga4Signal,
@@ -78,6 +79,7 @@ export type ClientWorkspaceInitialData = {
   socialSignals: SocialSignal[];
   adsSnapshot: AdsSnapshot | null;
   adsSignals: AdsSignal[];
+  metaAdsSnapshot: MetaAdsSnapshot | null;
   ga4Snapshot: Ga4Snapshot | null;
   ga4Signals: Ga4Signal[];
   gbpSnapshot: GbpSnapshot | null;

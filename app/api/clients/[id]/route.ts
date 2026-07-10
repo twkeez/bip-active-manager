@@ -71,6 +71,7 @@ export async function PATCH(
 
   const allowed = [
     "ads_customer_id",
+    "meta_ad_account_id",
     "sc_url",
     "ga4_property_id",
     "ga4_id",
