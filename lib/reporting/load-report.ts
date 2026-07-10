@@ -119,6 +119,29 @@ export async function loadReportForClient(
     .filter((r) => typeof r.reach === "number")
     .map((r) => ({ platform: r.platform as string, reach: r.reach as number }));
 
+  // Organic (blue-link) rank per keyword: latest two snapshots → current + movement.
+  const { data: organicSnaps } = await supabase
+    .from("client_organic_rank_snapshots")
+    .select("keyword, position, url, top_domain, created_at")
+    .eq("owner_user_id", userId)
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  const organicByKw = new Map<string, Array<{ position: number | null; url: string | null; top_domain: string | null }>>();
+  for (const row of (organicSnaps ?? []) as Array<{ keyword: string; position: number | null; url: string | null; top_domain: string | null }>) {
+    const arr = organicByKw.get(row.keyword) ?? [];
+    if (arr.length < 2) {
+      arr.push(row);
+      organicByKw.set(row.keyword, arr);
+    }
+  }
+  const organicRanks = [...organicByKw.entries()].map(([keyword, r]) => {
+    const cur = r[0];
+    const prev = r[1] ?? null;
+    const delta = cur.position != null && prev?.position != null ? prev.position - cur.position : null;
+    return { keyword, position: cur.position, url: cur.url, topDomain: cur.top_domain, delta };
+  });
+
   const technicalFindings = buildBaselineTechnicalFindings(client);
   const freshness = buildReportingFreshness({
     adsUpdatedAt: adsSnapshot?.updated_at ?? null,
@@ -212,6 +235,7 @@ export async function loadReportForClient(
     keywordRows,
     socialDailyRows,
     socialPeriodReach,
+    organicRanks,
     socialPostSnapshots: workspace.socialPostSnapshots,
     adsSnapshot,
     ga4Snapshot: workspace.ga4Snapshot,

@@ -956,6 +956,52 @@ export default function ReportPreview({ report, config, draft }: Props) {
         </section>
       )}
 
+      {/* ── Organic Search Rankings (live SERP) ── */}
+      {sectionVisible("keywords") && report.organicRanks.length > 0 && (
+        <section style={{ breakInside: "avoid" }}>
+          <h2 className="text-base font-bold text-gray-900 mb-1">Organic Search Rankings</h2>
+          <p className="text-xs text-gray-400 mb-4">Live Google organic (blue-link) position at the practice location</p>
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid #e5e7eb" }}>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="text-left border-b border-gray-200" style={{ background: "#f9fafb" }}>
+                  <th className="px-5 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Keyword</th>
+                  <th className="px-3 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-400">Position</th>
+                  <th className="px-5 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-400">Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.organicRanks.map((row, i) => {
+                  const improved = row.delta != null && row.delta > 0;
+                  const worsened = row.delta != null && row.delta < 0;
+                  return (
+                    <tr key={row.keyword} className="border-b border-gray-100 last:border-0" style={{ background: i % 2 === 0 ? "#fff" : "#f9fafb" }}>
+                      <td className="px-5 py-3 font-medium text-gray-800">{row.keyword}</td>
+                      <td className="px-3 py-3 text-right text-gray-700">
+                        {row.position == null ? <span className="text-gray-400">Not in top 100</span> : `#${row.position}`}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        {row.delta == null || row.delta === 0 ? (
+                          <span className="text-gray-400 text-xs">—</span>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              improved ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+                            }`}
+                          >
+                            {improved ? "▲" : "▼"}{Math.abs(row.delta)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       {/* ── Social Media ── */}
       {sectionVisible("social") && hasSocialData && (
         <section>

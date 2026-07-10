@@ -193,6 +193,17 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
     ]),
   );
 
+  const organicBody = report.organicRanks.length
+    ? table(
+        ["Keyword", "Organic position", "Change"],
+        report.organicRanks.map((r) => [
+          r.keyword,
+          r.position == null ? "Not in top 100" : `#${r.position}`,
+          r.delta == null || r.delta === 0 ? "—" : `${r.delta > 0 ? "▲" : "▼"}${Math.abs(r.delta)}`,
+        ]),
+      )
+    : "";
+
   const gbp = report.gbpSnapshot;
   const gbpBody = gbp
     ? table(
@@ -225,6 +236,7 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
       ${sectionOn(config, "gsc_top_pages") ? block("Search traffic", topPagesTable(report.gscTopPages)) : ""}
       ${sectionOn(config, "blog") ? block("Blog performance", topPagesTable(report.gscTopBlogPages)) : ""}
       ${sectionOn(config, "keywords") ? block("Keyword rankings", keywordBody) : ""}
+      ${sectionOn(config, "keywords") ? block("Organic search rankings", organicBody) : ""}
       ${block("Google Ads", adsBody)}
       ${sectionOn(config, "gbp") ? block("Google Business Profile", gbpBody) : ""}
       ${sectionOn(config, "social") ? block("Social media", socialHtml(report)) : ""}

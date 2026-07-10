@@ -1207,6 +1207,7 @@ export function buildClientReportModel(params: {
   keywordRows: KeywordHealthRow[];
   socialDailyRows: SocialDailySnapshot[];
   socialPeriodReach?: Array<{ platform: string; reach: number }>;
+  organicRanks?: Array<{ keyword: string; position: number | null; delta: number | null; url: string | null; topDomain: string | null }>;
   adsSnapshot: AdsSnapshot | null;
   ga4Snapshot?: Ga4Snapshot | null;
   gbpSnapshot?: GbpSnapshot | null;
@@ -1354,6 +1355,7 @@ export function buildClientReportModel(params: {
     keywordRows: params.keywordRows,
     socialDailyRows: params.socialDailyRows,
     socialPeriodReach: params.socialPeriodReach ?? [],
+    organicRanks: params.organicRanks ?? [],
     topSocialPosts,
     adsSnapshot: params.adsSnapshot,
     gbpSnapshot: params.gbpSnapshot ?? null,
