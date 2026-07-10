@@ -23,7 +23,7 @@ export default function ReportPrintClient({
   return (
     <>
       <style>{`
-        @page { size: A4; margin: 10mm; }
+        @page { size: letter; margin: 0.5in; }
         html, body { background: #fff; }
         /* Force the gradient header + colored cards to print (browsers strip backgrounds by default). */
         .report-print-target, .report-print-target * {
