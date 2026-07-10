@@ -398,13 +398,4 @@
 
   .report-print-target section { break-before: auto; }
   .report-print-target h2     { break-after: avoid; }
-
-  .report-print-footer::after {
-    content: "Page " counter(page);
-    display: block;
-    text-align: right;
-    font-size: 10px;
-    color: #9ca3af;
-    margin-top: 4px;
-  }
 }
