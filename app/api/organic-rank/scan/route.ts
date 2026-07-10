@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getDataForSeoConfig } from "@/lib/env";
 import { resolvePracticeCenterFromPlaceId } from "@/lib/local-rank/places-center";
+import { geocodeZip } from "@/lib/local-rank/geocode-zip";
 import { runOrganicRankScan } from "@/lib/organic-rank/scan";
 import type { ClientRow } from "@/lib/types/client";
 
@@ -64,13 +65,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not resolve the practice location from the Google Place ID." }, { status: 422 });
   }
 
+  // Always check the practice baseline, plus each saved ZIP location (geocoded).
+  const locations: Array<{ label: string; lat: number; lng: number }> = [
+    { label: "Practice", lat: center.lat, lng: center.lng },
+  ];
+  const { data: savedLocations } = await supabase
+    .from("client_organic_locations")
+    .select("zip, label")
+    .eq("owner_user_id", user.id)
+    .eq("client_id", clientId);
+  for (const loc of savedLocations ?? []) {
+    const coord = await geocodeZip(loc.zip);
+    if (coord) locations.push({ label: loc.label ?? loc.zip, lat: coord.lat, lng: coord.lng });
+  }
+
   let results;
   try {
     results = await runOrganicRankScan(config, {
       websiteUrl: client.website,
       keywords,
-      lat: center.lat,
-      lng: center.lng,
+      locations,
     });
   } catch (error) {
     return NextResponse.json(
@@ -87,6 +101,7 @@ export async function POST(request: Request) {
     position: r.position,
     url: r.url,
     top_domain: r.topDomain,
+    location_label: r.location,
     checked_at: now,
   }));
   const { error: insertError } = await supabase.from("client_organic_rank_snapshots").insert(rows);

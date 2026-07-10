@@ -119,16 +119,20 @@ export async function loadReportForClient(
     .filter((r) => typeof r.reach === "number")
     .map((r) => ({ platform: r.platform as string, reach: r.reach as number }));
 
-  // Organic (blue-link) rank per keyword: latest two snapshots → current + movement.
+  // Organic (blue-link) rank per keyword at the practice baseline (the report
+  // shows one location; multi-location detail lives in the cockpit). Latest two
+  // snapshots → current + movement.
   const { data: organicSnaps } = await supabase
     .from("client_organic_rank_snapshots")
-    .select("keyword, position, url, top_domain, created_at")
+    .select("keyword, position, url, top_domain, location_label, created_at")
     .eq("owner_user_id", userId)
     .eq("client_id", clientId)
     .order("created_at", { ascending: false })
-    .limit(500);
+    .limit(1000);
   const organicByKw = new Map<string, Array<{ position: number | null; url: string | null; top_domain: string | null }>>();
-  for (const row of (organicSnaps ?? []) as Array<{ keyword: string; position: number | null; url: string | null; top_domain: string | null }>) {
+  for (const row of (organicSnaps ?? []) as Array<{ keyword: string; position: number | null; url: string | null; top_domain: string | null; location_label: string | null }>) {
+    // Only the practice baseline (null on rows predating locations, or "Practice").
+    if (row.location_label != null && row.location_label !== "Practice") continue;
     const arr = organicByKw.get(row.keyword) ?? [];
     if (arr.length < 2) {
       arr.push(row);

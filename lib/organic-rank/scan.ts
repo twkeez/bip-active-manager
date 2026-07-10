@@ -9,11 +9,15 @@ import { SCAN_CONCURRENCY } from "@/lib/local-rank/constants";
 
 type Credentials = { login: string; password: string };
 
-export interface OrganicRankResult {
-  keyword: string;
+export interface OrganicMatch {
   position: number | null; // organic rank_group; null = not found in the top `depth`
   url: string | null;
   topDomain: string | null; // #1 organic result's domain, for competitor context
+}
+
+export interface OrganicRankResult extends OrganicMatch {
+  keyword: string;
+  location: string;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -42,7 +46,7 @@ export async function fetchOrganicRank(
   keyword: string,
   coordinate: string, // "lat,lng" (no radius — organic doesn't need one)
   websiteDomain: string,
-): Promise<Omit<OrganicRankResult, "keyword">> {
+): Promise<OrganicMatch> {
   const response = await postDataForSeoLive(
     DATAFORSEO_ENDPOINTS.serpOrganicAdvanced,
     creds.login,
@@ -84,12 +88,16 @@ export async function fetchOrganicRank(
 
 export async function runOrganicRankScan(
   creds: Credentials,
-  input: { websiteUrl: string | null; keywords: string[]; lat: number; lng: number },
+  input: {
+    websiteUrl: string | null;
+    keywords: string[];
+    locations: Array<{ label: string; lat: number; lng: number }>;
+  },
 ): Promise<OrganicRankResult[]> {
-  const coordinate = `${input.lat},${input.lng}`;
   const websiteDomain = domainFromUrlOrHost(input.websiteUrl);
-  return mapWithConcurrency(input.keywords, SCAN_CONCURRENCY, async (keyword) => {
-    const r = await fetchOrganicRank(creds, keyword, coordinate, websiteDomain);
-    return { keyword, ...r };
+  const tasks = input.locations.flatMap((loc) => input.keywords.map((keyword) => ({ keyword, loc })));
+  return mapWithConcurrency(tasks, SCAN_CONCURRENCY, async ({ keyword, loc }) => {
+    const r = await fetchOrganicRank(creds, keyword, `${loc.lat},${loc.lng}`, websiteDomain);
+    return { keyword, location: loc.label, ...r };
   });
 }

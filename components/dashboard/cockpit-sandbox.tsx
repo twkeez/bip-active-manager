@@ -468,13 +468,15 @@ type TrackedKeyword = { id: number; keyword: string };
 
 type OrganicRank = {
   keyword: string;
+  location: string;
   position: number | null;
   url: string | null;
   topDomain: string | null;
   checkedAt: string;
-  previousPosition: number | null;
   delta: number | null;
 };
+
+type OrganicLocation = { id: number; zip: string; label: string };
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -496,24 +498,71 @@ function TrackedKeywordsSection({ client }: { client: ClientRow }) {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [organic, setOrganic] = useState<Record<string, OrganicRank>>({});
+  const [organic, setOrganic] = useState<OrganicRank[]>([]);
+  const [locations, setLocations] = useState<OrganicLocation[]>([]);
+  const [suggestedZips, setSuggestedZips] = useState<string[]>([]);
+  const [zipDraft, setZipDraft] = useState("");
   const [scanning, setScanning] = useState(false);
 
   const loadOrganic = useCallback(async () => {
     try {
       const res = await fetch(`/api/organic-rank?clientId=${client.id}`);
       const data = (await res.json()) as { results?: OrganicRank[] };
-      const map: Record<string, OrganicRank> = {};
-      for (const r of data.results ?? []) map[r.keyword.trim().toLowerCase()] = r;
-      setOrganic(map);
+      setOrganic(data.results ?? []);
     } catch {
       /* non-fatal — the section still shows tracked keywords */
     }
   }, [client.id]);
 
+  const loadLocations = useCallback(async () => {
+    try {
+      const [locRes, sugRes] = await Promise.all([
+        fetch(`/api/organic-rank/locations?clientId=${client.id}`).then((r) => r.json()),
+        fetch(`/api/organic-rank/suggest-locations?clientId=${client.id}`).then((r) => r.json()),
+      ]);
+      setLocations((locRes as { locations?: OrganicLocation[] }).locations ?? []);
+      setSuggestedZips((sugRes as { zips?: string[] }).zips ?? []);
+    } catch {
+      /* non-fatal */
+    }
+  }, [client.id]);
+
   useEffect(() => {
     void loadOrganic();
-  }, [loadOrganic]);
+    void loadLocations();
+  }, [loadOrganic, loadLocations]);
+
+  async function addLocation(zip: string) {
+    const z = zip.trim();
+    if (!z) return;
+    try {
+      const res = await fetch("/api/organic-rank/locations", {
+        method: "PUT",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ clientId: client.id, add: { zip: z } }),
+      });
+      const data = (await res.json()) as { locations?: OrganicLocation[]; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Failed to add location");
+      setLocations(data.locations ?? []);
+      setZipDraft("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to add location");
+    }
+  }
+
+  async function removeLocation(id: number) {
+    try {
+      const res = await fetch("/api/organic-rank/locations", {
+        method: "PUT",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ clientId: client.id, deleteId: id }),
+      });
+      const data = (await res.json()) as { locations?: OrganicLocation[] };
+      setLocations(data.locations ?? []);
+    } catch {
+      /* non-fatal */
+    }
+  }
 
   async function runOrganicScan() {
     if (scanning) return;
@@ -610,6 +659,16 @@ function TrackedKeywordsSection({ client }: { client: ClientRow }) {
     !atCap &&
     !rows.some((r) => r.keyword.trim().toLowerCase() === cityKeyword.toLowerCase());
 
+  const organicByKeyword = new Map<string, OrganicRank[]>();
+  for (const r of organic) {
+    const k = r.keyword.trim().toLowerCase();
+    const arr = organicByKeyword.get(k) ?? [];
+    arr.push(r);
+    organicByKeyword.set(k, arr);
+  }
+  const savedZipSet = new Set(locations.map((l) => l.zip));
+  const newSuggestions = suggestedZips.filter((z) => !savedZipSet.has(z));
+
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
@@ -668,39 +727,90 @@ function TrackedKeywordsSection({ client }: { client: ClientRow }) {
           ) : rows.length > 0 ? (
             <ul className="mt-2 space-y-1">
               {rows.map((row) => {
-                const o = organic[row.keyword.trim().toLowerCase()];
+                const kwResults = [...(organicByKeyword.get(row.keyword.trim().toLowerCase()) ?? [])].sort(
+                  (a, b) => (a.location === "Practice" ? -1 : b.location === "Practice" ? 1 : a.location.localeCompare(b.location)),
+                );
                 return (
-                  <li
-                    key={row.id}
-                    className="flex items-center gap-2 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-700"
-                  >
-                    <span className="min-w-0 flex-1 truncate">{row.keyword}</span>
-                    {o && (
-                      <span className="flex shrink-0 items-center gap-1 text-xs" title="Organic (blue-link) rank at the practice location">
-                        <span className={o.position == null ? "text-neutral-400" : "font-medium text-neutral-700"}>
-                          {o.position == null ? "Not in top 100" : `#${o.position}`}
-                        </span>
-                        {o.delta != null && o.delta !== 0 && (
-                          <span className={o.delta > 0 ? "text-emerald-600" : "text-red-500"}>
-                            {o.delta > 0 ? `▲${o.delta}` : `▼${Math.abs(o.delta)}`}
+                  <li key={row.id} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-700">
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate">{row.keyword}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeKeyword(row.id)}
+                        disabled={busy}
+                        className="shrink-0 text-xs text-neutral-400 hover:text-red-600 disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {kwResults.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]" title="Organic (blue-link) rank by location">
+                        {kwResults.map((o) => (
+                          <span key={o.location} className="inline-flex items-center gap-1">
+                            <span className="text-neutral-400">{o.location}</span>
+                            <span className={o.position == null ? "text-neutral-400" : "font-medium text-neutral-700"}>
+                              {o.position == null ? "—" : `#${o.position}`}
+                            </span>
+                            {o.delta != null && o.delta !== 0 && (
+                              <span className={o.delta > 0 ? "text-emerald-600" : "text-red-500"}>
+                                {o.delta > 0 ? `▲${o.delta}` : `▼${Math.abs(o.delta)}`}
+                              </span>
+                            )}
                           </span>
-                        )}
-                      </span>
+                        ))}
+                      </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => removeKeyword(row.id)}
-                      disabled={busy}
-                      className="shrink-0 text-xs text-neutral-400 hover:text-red-600 disabled:opacity-50"
-                    >
-                      Remove
-                    </button>
                   </li>
                 );
               })}
             </ul>
           ) : (
             <p className="mt-2 text-xs text-neutral-400">No tracked keywords yet.</p>
+          )}
+
+          {rows.length > 0 && (
+            <div className="mt-3 rounded-lg border border-neutral-100 bg-neutral-50/60 px-3 py-2">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+                Organic rank locations
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-neutral-500 ring-1 ring-neutral-200">
+                  Practice
+                </span>
+                {locations.map((loc) => (
+                  <span key={loc.id} className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[11px] text-neutral-700 ring-1 ring-neutral-200">
+                    {loc.label}
+                    <button type="button" onClick={() => removeLocation(loc.id)} className="text-neutral-400 hover:text-red-600" aria-label={`Remove ${loc.label}`}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <input
+                  value={zipDraft}
+                  onChange={(e) => setZipDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addLocation(zipDraft);
+                  }}
+                  placeholder="Add ZIP…"
+                  className="w-24 rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-800 placeholder-neutral-300 focus:border-indigo-400 focus:outline-none"
+                />
+              </div>
+              {newSuggestions.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] text-neutral-400">Suggested:</span>
+                  {newSuggestions.map((z) => (
+                    <button
+                      key={z}
+                      type="button"
+                      onClick={() => addLocation(z)}
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-indigo-200 px-2 py-0.5 text-[11px] font-medium text-indigo-500 hover:bg-indigo-50"
+                    >
+                      + {z}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {rows.length > 0 && (
@@ -714,7 +824,7 @@ function TrackedKeywordsSection({ client }: { client: ClientRow }) {
                 {scanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 {scanning ? "Checking…" : "Check organic rankings"}
               </button>
-              <span className="text-[10px] text-neutral-400">Organic blue-link position at the practice location</span>
+              <span className="text-[10px] text-neutral-400">Organic blue-link position by location</span>
             </div>
           )}
         </>
