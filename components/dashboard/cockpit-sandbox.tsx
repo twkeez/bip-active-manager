@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toCockpitViewModel } from "@/lib/dashboard/cockpit-view-model";
@@ -466,6 +466,16 @@ function PlatformCheckRow({ check }: { check: PlatformCheck }) {
 
 type TrackedKeyword = { id: number; keyword: string };
 
+type OrganicRank = {
+  keyword: string;
+  position: number | null;
+  url: string | null;
+  topDomain: string | null;
+  checkedAt: string;
+  previousPosition: number | null;
+  delta: number | null;
+};
+
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 // Reusable section header: a title plus a one-line "what this is / what drives
@@ -486,6 +496,44 @@ function TrackedKeywordsSection({ client }: { client: ClientRow }) {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [organic, setOrganic] = useState<Record<string, OrganicRank>>({});
+  const [scanning, setScanning] = useState(false);
+
+  const loadOrganic = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/organic-rank?clientId=${client.id}`);
+      const data = (await res.json()) as { results?: OrganicRank[] };
+      const map: Record<string, OrganicRank> = {};
+      for (const r of data.results ?? []) map[r.keyword.trim().toLowerCase()] = r;
+      setOrganic(map);
+    } catch {
+      /* non-fatal — the section still shows tracked keywords */
+    }
+  }, [client.id]);
+
+  useEffect(() => {
+    void loadOrganic();
+  }, [loadOrganic]);
+
+  async function runOrganicScan() {
+    if (scanning) return;
+    setScanning(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/organic-rank/scan", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ clientId: client.id }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Scan failed");
+      await loadOrganic();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Organic rank scan failed");
+    } finally {
+      setScanning(false);
+    }
+  }
 
   // Load current keywords and, for a Premium+ client with none, auto-seed the
   // tier defaults. The POST route handles both (seeding is idempotent).
@@ -619,25 +667,55 @@ function TrackedKeywordsSection({ client }: { client: ClientRow }) {
             </p>
           ) : rows.length > 0 ? (
             <ul className="mt-2 space-y-1">
-              {rows.map((row) => (
-                <li
-                  key={row.id}
-                  className="flex items-center justify-between rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-700"
-                >
-                  <span className="truncate">{row.keyword}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeKeyword(row.id)}
-                    disabled={busy}
-                    className="ml-2 shrink-0 text-xs text-neutral-400 hover:text-red-600 disabled:opacity-50"
+              {rows.map((row) => {
+                const o = organic[row.keyword.trim().toLowerCase()];
+                return (
+                  <li
+                    key={row.id}
+                    className="flex items-center gap-2 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-700"
                   >
-                    Remove
-                  </button>
-                </li>
-              ))}
+                    <span className="min-w-0 flex-1 truncate">{row.keyword}</span>
+                    {o && (
+                      <span className="flex shrink-0 items-center gap-1 text-xs" title="Organic (blue-link) rank at the practice location">
+                        <span className={o.position == null ? "text-neutral-400" : "font-medium text-neutral-700"}>
+                          {o.position == null ? "Not in top 100" : `#${o.position}`}
+                        </span>
+                        {o.delta != null && o.delta !== 0 && (
+                          <span className={o.delta > 0 ? "text-emerald-600" : "text-red-500"}>
+                            {o.delta > 0 ? `▲${o.delta}` : `▼${Math.abs(o.delta)}`}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeKeyword(row.id)}
+                      disabled={busy}
+                      className="shrink-0 text-xs text-neutral-400 hover:text-red-600 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="mt-2 text-xs text-neutral-400">No tracked keywords yet.</p>
+          )}
+
+          {rows.length > 0 && (
+            <div className="mt-2 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={runOrganicScan}
+                disabled={scanning}
+                className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1 text-xs font-medium text-neutral-600 shadow-sm hover:border-neutral-300 hover:text-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {scanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {scanning ? "Checking…" : "Check organic rankings"}
+              </button>
+              <span className="text-[10px] text-neutral-400">Organic blue-link position at the practice location</span>
+            </div>
           )}
         </>
       )}
