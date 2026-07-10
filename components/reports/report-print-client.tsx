@@ -30,7 +30,19 @@ export default function ReportPrintClient({
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        @media print { .no-print { display: none !important; } }
+        @media print {
+          .no-print { display: none !important; }
+          /* Let large sections flow across pages so they fill the page instead of
+             jumping whole to the next one (which left big blank gaps). */
+          .report-print-target section { break-inside: auto !important; }
+          /* …but never split a card, table row, or the header banner internally. */
+          .report-print-target header,
+          .report-print-target .rounded-xl,
+          .report-print-target .rounded-2xl,
+          .report-print-target tr { break-inside: avoid; }
+          /* Keep a section heading with the content that follows it. */
+          .report-print-target h2, .report-print-target h3 { break-after: avoid; }
+        }
       `}</style>
       <div className="no-print mx-auto flex max-w-4xl justify-end px-8 pt-4">
         <button
