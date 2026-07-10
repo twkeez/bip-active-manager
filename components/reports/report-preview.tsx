@@ -1,5 +1,4 @@
 "use client";
-import { useRef, useState } from "react";
 import type { ClientReportModel } from "@/lib/reporting/types";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
 import { METRIC_LABELS, type ReportConfig } from "@/lib/reporting/report-config-types";
@@ -153,83 +152,6 @@ function PlatformBadge({ platform }: { platform: string }) {
   );
 }
 
-// ── PDF page-cut helper ───────────────────────────────────────────────────────
-// Page breaks are chosen to land in the gaps *between* content blocks rather
-// than slicing through them. `atomic` holds the canvas-px bounds of the report's
-// unbreakable blocks (the elements marked breakInside:"avoid"); a page break is
-// pulled up to the top of any block it would otherwise straddle. A whitespace
-// pixel scan is kept only as a fallback for blocks taller than a whole page.
-function findSmartPageCuts(
-  canvas: HTMLCanvasElement,
-  pageHeightPx: number,
-  atomic: Array<{ top: number; bottom: number }>,
-): Array<{ start: number; end: number }> {
-  const H = canvas.height;
-  const ctx = canvas.getContext("2d");
-  const blocks = [...atomic].sort((a, b) => a.top - b.top);
-
-  // Nearest fully-white row at or above `target`, searching up to ~45% of a page.
-  function whitespaceCut(target: number, minStart: number): number {
-    if (!ctx) return target;
-    const windowPx = Math.min(target - minStart, Math.floor(pageHeightPx * 0.45));
-    if (windowPx <= 1) return target;
-    const from = target - windowPx;
-    const region = ctx.getImageData(0, from, canvas.width, windowPx);
-    const w4 = canvas.width * 4;
-    for (let row = windowPx - 1; row >= 0; row--) {
-      let white = true;
-      const base = row * w4;
-      for (let px = 0; px < w4; px += 4) {
-        const i = base + px;
-        if (region.data[i] < 245 || region.data[i + 1] < 245 || region.data[i + 2] < 245) {
-          white = false;
-          break;
-        }
-      }
-      if (white) return from + row;
-    }
-    return target;
-  }
-
-  // Candidate break points = the gaps before/after each block (their top & bottom
-  // edges). Leaf blocks don't nest or overlap vertically, so these edges are safe
-  // places to cut. Sorted ascending, deduped.
-  const candidates = Array.from(
-    new Set(blocks.flatMap((b) => [b.top, b.bottom])),
-  ).sort((a, b) => a - b);
-
-  const slices: Array<{ start: number; end: number }> = [];
-  let start = 0;
-  let guard = 0;
-  while (start < H && guard++ < 5000) {
-    const limit = Math.min(start + pageHeightPx, H);
-    if (limit >= H) {
-      slices.push({ start, end: H });
-      break;
-    }
-
-    // Pack as many whole blocks as fit: take the largest block edge that lands in
-    // (start, limit]. That cuts in the gap after the last block that fits.
-    let end = -1;
-    for (const c of candidates) {
-      if (c > start && c <= limit) end = c;
-      else if (c > limit) break;
-    }
-
-    // No block edge fits — a single block spans the whole page (e.g. a tall
-    // table). Fall back to a whitespace row so the unavoidable cut misses text.
-    if (end <= start) {
-      end = whitespaceCut(limit, start);
-      if (end <= start) end = limit;
-    }
-
-    slices.push({ start, end });
-    start = end;
-  }
-  if (slices.length === 0) slices.push({ start: 0, end: H });
-  return slices;
-}
-
 // Tiles shown for one platform's social block. Facebook reach is unavailable
 // from Meta's API, so it's shown as a muted "Not available" rather than omitted.
 function platformTiles(p: PlatformSocial): Array<{ label: string; display: string; muted?: boolean }> {
@@ -249,13 +171,10 @@ type Props = {
   report: ClientReportModel;
   config: ReportConfig;
   draft: ReportDraft | null;
+  printMode?: boolean;
 };
 
-export default function ReportPreview({ report, config, draft }: Props) {
-  const mainRef = useRef<HTMLElement>(null);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-
+export default function ReportPreview({ report, config, draft, printMode = false }: Props) {
   function sectionVisible(key: string): boolean {
     const s = config.sections.find((sec) => sec.key === key);
     if (!s) return true; // new sections not yet in saved config default to visible
@@ -285,139 +204,6 @@ export default function ReportPreview({ report, config, draft }: Props) {
     );
   }
 
-  async function downloadPdf() {
-    if (!mainRef.current || exporting) return;
-    setExporting(true);
-    setExportError(null);
-    try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-      const canvas = await html2canvas(mainRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-        ignoreElements: (el) => el.classList.contains("no-print"),
-        onclone: (clonedDoc) => {
-          // html2canvas can't parse oklch() used by Tailwind v4 — override with hex
-          const s = clonedDoc.createElement("style");
-          s.textContent = `
-            :root {
-              --color-white:#fff; --color-black:#000;
-              --color-gray-50:#f9fafb; --color-gray-100:#f3f4f6; --color-gray-200:#e5e7eb;
-              --color-gray-300:#d1d5db; --color-gray-400:#9ca3af; --color-gray-500:#6b7280;
-              --color-gray-600:#4b5563; --color-gray-700:#374151; --color-gray-800:#1f2937;
-              --color-gray-900:#111827;
-              --color-slate-50:#f8fafc; --color-slate-100:#f1f5f9; --color-slate-200:#e2e8f0;
-              --color-slate-300:#cbd5e1; --color-slate-400:#94a3b8; --color-slate-500:#64748b;
-              --color-slate-600:#475569; --color-slate-700:#334155; --color-slate-800:#1e293b;
-              --color-slate-900:#0f172a;
-              --color-red-300:#fca5a5; --color-red-400:#f87171; --color-red-500:#ef4444;
-              --color-red-600:#dc2626; --color-red-700:#b91c1c;
-              --color-amber-400:#fbbf24; --color-amber-500:#f59e0b; --color-amber-600:#d97706;
-              --color-green-500:#22c55e; --color-green-600:#16a34a;
-              --color-emerald-500:#10b981; --color-emerald-600:#059669;
-              --color-cyan-600:#0891b2; --color-cyan-700:#0e7490;
-              --color-blue-500:#3b82f6; --color-blue-600:#2563eb;
-              --color-purple-500:#a855f7; --color-purple-600:#9333ea;
-              --color-pink-500:#ec4899; --color-pink-600:#db2777;
-            }
-          `;
-          clonedDoc.head.appendChild(s);
-        },
-      });
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-
-      // px per mm on the canvas
-      const pxPerMm = canvas.width / pageW;
-      const pageHeightPx = Math.floor(pageH * pxPerMm);
-
-      // Measure the report's unbreakable blocks (breakInside:"avoid") in canvas px
-      // so page breaks land between them rather than through them.
-      const el = mainRef.current;
-      const cRect = el.getBoundingClientRect();
-      // html2canvas renders at a single uniform scale = canvas.width / element width.
-      // Its canvas.height can be slightly less than element height × scale (it may
-      // omit trailing whitespace), so deriving the vertical scale from height
-      // mis-positions every block. Use the true (width-based) render scale.
-      const scaleY = cRect.width > 0 ? canvas.width / cRect.width : 1;
-      const avoidEls = Array.from(el.querySelectorAll<HTMLElement>("*")).filter((n) => {
-        const r = n.getBoundingClientRect();
-        return r.height > 0 && getComputedStyle(n).breakInside === "avoid";
-      });
-      // Keep only leaf blocks (no nested avoid block) so oversized sections can
-      // still break at the gaps between their children.
-      const leaves = avoidEls.filter((n) => !avoidEls.some((o) => o !== n && n.contains(o)));
-      const atomic = leaves
-        .map((n) => {
-          const r = n.getBoundingClientRect();
-          return { top: (r.top - cRect.top) * scaleY, bottom: (r.bottom - cRect.top) * scaleY };
-        })
-        .sort((a, b) => a.top - b.top);
-
-      // Find page cut points that fall between blocks, not mid-text
-      const cuts = findSmartPageCuts(canvas, pageHeightPx, atomic);
-
-      let firstPage = true;
-      for (const { start, end } of cuts) {
-        if (!firstPage) pdf.addPage();
-        firstPage = false;
-
-        const sliceH = end - start;
-        const sliceCanvas = document.createElement("canvas");
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = sliceH;
-        const ctx2d = sliceCanvas.getContext("2d")!;
-        ctx2d.fillStyle = "#ffffff";
-        ctx2d.fillRect(0, 0, canvas.width, sliceH);
-        ctx2d.drawImage(canvas, 0, start, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-
-        const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
-        const sliceHeightMm = sliceH / pxPerMm;
-        pdf.addImage(sliceData, "JPEG", 0, 0, pageW, sliceHeightMm);
-      }
-      const slug = report.client.account_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-      const fileName = `bip-report-${slug}.pdf`;
-      const blob = pdf.output("blob");
-      if ("showSaveFilePicker" in window) {
-        try {
-          const handle = await (window as unknown as { showSaveFilePicker: (o: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
-            suggestedName: fileName,
-            types: [{ description: "PDF Document", accept: { "application/pdf": [".pdf"] } }],
-          });
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-        } catch (pickerErr: unknown) {
-          // User cancelled the picker — fall back to auto-download
-          if ((pickerErr as { name?: string }).name !== "AbortError") {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-          }
-        }
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (err: unknown) {
-      console.error("PDF export failed:", err);
-      setExportError(err instanceof Error ? err.message : "PDF generation failed. Please try again.");
-    } finally {
-      setExporting(false);
-    }
-  }
 
   const { ads, searchConsole, ga4, keywords } = report.channels;
 
@@ -476,7 +262,6 @@ export default function ReportPreview({ report, config, draft }: Props) {
 
   return (
     <main
-      ref={mainRef}
       className="report-print-target mx-auto max-w-4xl space-y-8 px-8 py-6 bg-white min-h-full"
       style={{ color: "#1f2937", fontFamily: "system-ui, sans-serif" }}
     >
@@ -521,20 +306,27 @@ export default function ReportPreview({ report, config, draft }: Props) {
             </div>
           </div>
 
-          {/* Download button — server-rendered branded Word doc */}
-          <div className="no-print mt-6 flex flex-col items-end gap-2">
-            <a
-              href={`/api/reports/${report.client.id}/word?range=${report.reportingWindowLabel.includes("7") ? "last7" : "last30"}`}
-              className="rounded-lg px-4 py-2 text-sm font-medium transition"
-              style={{
-                border: "1px solid rgba(255,255,255,0.45)",
-                color: "#fff",
-                background: "rgba(255,255,255,0.12)",
-              }}
-            >
-              Download report
-            </a>
-          </div>
+          {/* Download controls — hidden in the print/PDF output and on the print page */}
+          {!printMode && (
+            <div className="no-print mt-6 flex flex-col items-end gap-1.5">
+              <a
+                href={`/reports-print/${report.client.id}?range=${report.reportingWindowLabel.includes("7") ? "last7" : "last30"}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg px-4 py-2 text-sm font-medium transition"
+                style={{ border: "1px solid rgba(255,255,255,0.45)", color: "#fff", background: "rgba(255,255,255,0.12)" }}
+              >
+                Download report (PDF)
+              </a>
+              <a
+                href={`/api/reports/${report.client.id}/word?range=${report.reportingWindowLabel.includes("7") ? "last7" : "last30"}`}
+                className="text-xs underline"
+                style={{ color: "rgba(255,255,255,0.7)" }}
+              >
+                Download as Word
+              </a>
+            </div>
+          )}
         </div>
       </header>
 
