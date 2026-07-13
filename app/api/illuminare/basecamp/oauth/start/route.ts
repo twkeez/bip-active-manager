@@ -27,8 +27,10 @@ export async function GET(request: Request) {
     );
   }
 
+  // The app is already gated to internal Google sign-in, so only enforce the
+  // email-domain allowlist when INTERNAL_EMAIL_DOMAINS is actually configured.
   const emailDomain = user.email?.toLowerCase().split("@")[1] ?? "";
-  if (!internalDomains.includes(emailDomain)) {
+  if (internalDomains.length > 0 && !internalDomains.includes(emailDomain)) {
     return NextResponse.redirect(
       new URL("/illuminare?basecamp=forbidden", request.url),
     );
