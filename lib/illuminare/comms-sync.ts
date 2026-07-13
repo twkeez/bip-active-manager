@@ -1,6 +1,6 @@
 // Pulls messages + comments from linked Illuminare Basecamp projects into
 // illuminare_comms_events, then updates each client's last-communication aggregate.
-import { getInternalEmailDomains } from "@/lib/env";
+import { getIlluminareInternalEmailDomains } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   fetchPaginatedRecent,
@@ -71,10 +71,8 @@ export type IlluminareCommsSyncSummary = {
 
 export async function runIlluminareCommsSync(): Promise<IlluminareCommsSyncSummary> {
   const admin = createAdminClient();
-  const configuredDomains = getInternalEmailDomains();
-  // Default to the agency's own domain when the env var isn't set.
-  const internalDomains =
-    configuredDomains.length > 0 ? configuredDomains : ["beyondindigo.com"];
+  // Illuminare's internal team is Ima (createwithima), not Beyond Indigo.
+  const internalDomains = getIlluminareInternalEmailDomains();
 
   const token = await getActiveIlluminareBasecampToken(admin);
   const nowMs = Date.now();

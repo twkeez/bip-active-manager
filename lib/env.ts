@@ -97,6 +97,16 @@ export function getInternalEmailDomains() {
     .filter(Boolean);
 }
 
+// Illuminare's agency identity is Ima (createwithima), distinct from Beyond
+// Indigo. Overridable via env, defaulting to the known Ima domain.
+export function getIlluminareInternalEmailDomains() {
+  const configured = (process.env.ILLUMINARE_INTERNAL_EMAIL_DOMAINS ?? "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  return configured.length > 0 ? configured : ["createwithima.com"];
+}
+
 export function getInternalEmails() {
   return (process.env.INTERNAL_EMAILS ?? "")
     .split(",")
