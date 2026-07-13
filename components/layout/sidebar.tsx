@@ -54,6 +54,13 @@ const PRIMARY: NavItem[] = [
 // Brand magenta — makes the Services section stand out from the indigo nav.
 const SERVICES_ACCENT = "#ce2084";
 
+// Amber/gold — sets the Illuminare portfolio apart as its own section.
+const ILLUMINARE_ACCENT = "#e0a82e";
+
+const ILLUMINARE: NavItem[] = [
+  { label: "Clients", href: "/illuminare", icon: Building2 },
+];
+
 const SERVICES: NavItem[] = [
   { label: "Services & Tiers", href: "/services", icon: Layers },
   { label: "Service Playbook", href: "/playbook", icon: BookOpen },
@@ -233,6 +240,10 @@ export default function Sidebar({
                 <NavLink key={item.href} item={item} role={role} />
               ))}
             </div>
+
+            <div className="border-t border-[var(--bip-border)]" />
+
+            <SectionGroup label="Illuminare" items={ILLUMINARE} role={role} accentColor={ILLUMINARE_ACCENT} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
