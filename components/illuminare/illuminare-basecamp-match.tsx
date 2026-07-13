@@ -38,6 +38,9 @@ export default function IlluminareBasecampMatch({
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [syncErrors, setSyncErrors] = useState<
+    { clientId: number; projectId: string; error: string }[]
+  >([]);
 
   // Selected project id per client, seeded from the current link.
   const [selection, setSelection] = useState<Record<number, string>>(() => {
@@ -99,6 +102,7 @@ export default function IlluminareBasecampMatch({
   async function syncComms() {
     setSyncing(true);
     setSyncMsg(null);
+    setSyncErrors([]);
     setError(null);
     try {
       const res = await fetch("/api/illuminare/basecamp/sync", { method: "POST" });
@@ -106,13 +110,14 @@ export default function IlluminareBasecampMatch({
         error?: string;
         clientsSynced?: number;
         eventsUpserted?: number;
-        errors?: unknown[];
+        errors?: { clientId: number; projectId: string; error: string }[];
       };
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
-      const failed = Array.isArray(data.errors) ? data.errors.length : 0;
+      const errs = Array.isArray(data.errors) ? data.errors : [];
+      setSyncErrors(errs);
       setSyncMsg(
         `Synced ${data.clientsSynced ?? 0} client(s), ${data.eventsUpserted ?? 0} event(s)` +
-          (failed > 0 ? ` · ${failed} project(s) had errors` : ""),
+          (errs.length > 0 ? ` · ${errs.length} project(s) had errors` : ""),
       );
       router.refresh();
     } catch (e) {
@@ -170,6 +175,18 @@ export default function IlluminareBasecampMatch({
       {syncMsg && (
         <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
           {syncMsg}
+        </div>
+      )}
+      {syncErrors.length > 0 && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+          <p className="mb-1 font-semibold">Sync errors:</p>
+          <ul className="flex flex-col gap-1">
+            {syncErrors.slice(0, 12).map((e) => (
+              <li key={`${e.clientId}-${e.projectId}`} className="font-mono">
+                project {e.projectId}: {e.error}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
