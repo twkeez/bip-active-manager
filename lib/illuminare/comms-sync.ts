@@ -162,12 +162,20 @@ export async function runIlluminareCommsSync(): Promise<IlluminareCommsSyncSumma
             updated_at: nowIso,
           });
 
-          const comments = await fetchPaginatedRecent<BasecampComment>(
-            token.access_token,
-            token.account_id,
-            `/messages/${message.id}/comments.json`,
-            (c) => new Date(parseDate(c.updated_at ?? c.created_at)).getTime() >= cutoffMs,
-          );
+          // Basecamp comments live under the bucketed recordings path.
+          let comments: BasecampComment[] = [];
+          try {
+            comments = await fetchPaginatedRecent<BasecampComment>(
+              token.access_token,
+              token.account_id,
+              `/buckets/${projectId}/recordings/${message.id}/comments.json`,
+              (c) =>
+                new Date(parseDate(c.updated_at ?? c.created_at)).getTime() >= cutoffMs,
+            );
+          } catch {
+            // A single message's comments failing shouldn't drop the whole client.
+            comments = [];
+          }
           for (const comment of comments) {
             if (!comment.id) continue;
             const cPersonId = comment.creator?.id ?? null;
