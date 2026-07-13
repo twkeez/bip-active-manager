@@ -47,6 +47,26 @@ export function getBasecampOAuthConfig() {
   return { clientId, clientSecret, appUrl, redirectUri, internalDomains };
 }
 
+// Separate Basecamp OAuth app for the Illuminare portfolio (its own 37signals
+// account/login), kept fully independent from the vet-side connection above.
+export function getIlluminareBasecampOAuthConfig() {
+  const clientId = process.env.ILLUMINARE_BASECAMP_CLIENT_ID;
+  const clientSecret = process.env.ILLUMINARE_BASECAMP_CLIENT_SECRET;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const redirectUri = `${appUrl.replace(/\/$/, "")}/api/illuminare/basecamp/oauth/callback`;
+  const domains = process.env.INTERNAL_EMAIL_DOMAINS ?? "";
+  const internalDomains = domains
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "Missing ILLUMINARE_BASECAMP_CLIENT_ID or ILLUMINARE_BASECAMP_CLIENT_SECRET",
+    );
+  }
+  return { clientId, clientSecret, appUrl, redirectUri, internalDomains };
+}
+
 export function getGmailOAuthConfig() {
   const clientId = normalizeSecret(process.env.GOOGLE_CLIENT_ID);
   const clientSecret = normalizeSecret(process.env.GOOGLE_CLIENT_SECRET);

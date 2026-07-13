@@ -1,11 +1,33 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { IlluminareClientRow } from "@/lib/illuminare/types";
 import type { IlluminareDeliverableRow } from "@/lib/illuminare/deliverables";
 import { computeClientHealth, type ClientHealth } from "@/lib/illuminare/health";
 import IlluminareClientList from "@/components/illuminare/illuminare-client-list";
 
-export default async function IlluminarePage() {
+async function loadBasecampConnection() {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("illuminare_basecamp_oauth_tokens")
+      .select("account_id, updated_at")
+      .eq("id", 1)
+      .maybeSingle<{ account_id: string; updated_at: string }>();
+    return data
+      ? { connected: true, accountId: data.account_id, updatedAt: data.updated_at }
+      : { connected: false, accountId: null, updatedAt: null };
+  } catch {
+    // Missing table (migration not run yet) or admin misconfig — treat as unconnected.
+    return { connected: false, accountId: null, updatedAt: null };
+  }
+}
+
+export default async function IlluminarePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -13,6 +35,13 @@ export default async function IlluminarePage() {
   if (!user) {
     redirect("/login");
   }
+
+  const params = await searchParams;
+  const basecampResult =
+    typeof params.basecamp === "string" ? params.basecamp : null;
+  const basecampProjects =
+    typeof params.projects === "string" ? params.projects : null;
+  const basecampConnection = await loadBasecampConnection();
 
   const [clientsResult, deliverablesResult] = await Promise.all([
     supabase
@@ -51,6 +80,12 @@ export default async function IlluminarePage() {
       clients={clients}
       healthByClient={healthByClient}
       loadError={clientsResult.error?.message ?? null}
+      basecamp={{
+        connected: basecampConnection.connected,
+        accountId: basecampConnection.accountId,
+        result: basecampResult,
+        projects: basecampProjects,
+      }}
     />
   );
 }

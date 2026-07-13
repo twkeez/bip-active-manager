@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles, ExternalLink } from "lucide-react";
+import { Sparkles, ExternalLink, CheckCircle2, AlertTriangle, Plug } from "lucide-react";
 import type {
   IlluminareClientRow,
   IlluminareClientStatus,
@@ -10,6 +10,13 @@ import {
   type ClientHealth,
   type HealthLevel,
 } from "@/lib/illuminare/health";
+
+type BasecampState = {
+  connected: boolean;
+  accountId: string | null;
+  result: string | null;
+  projects: string | null;
+};
 
 const STATUS_STYLES: Record<IlluminareClientStatus, string> = {
   active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -56,14 +63,72 @@ function SummaryChip({
   );
 }
 
+function BasecampBanner({ basecamp }: { basecamp: BasecampState }) {
+  const { connected, accountId, result, projects } = basecamp;
+
+  // Fresh result from the OAuth callback takes priority as a one-time notice.
+  const justConnected = result === "connected";
+  const failed = result != null && result !== "connected";
+
+  return (
+    <div className="mb-5 rounded-lg border border-[var(--bip-border)] bg-[var(--bip-card)] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <Plug size={16} className="text-[var(--bip-accent)]" />
+          <div>
+            <p className="text-sm font-medium text-[var(--text)]">
+              Illuminare Basecamp
+            </p>
+            <p className="text-xs text-[var(--text-muted)]">
+              {connected
+                ? `Connected · account ${accountId}`
+                : "Not connected — communication and comms-based health need this."}
+            </p>
+          </div>
+        </div>
+        <a
+          href="/api/illuminare/basecamp/oauth/start"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--bip-accent)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+        >
+          <Plug size={14} /> {connected ? "Reconnect" : "Connect Basecamp"}
+        </a>
+      </div>
+
+      {justConnected && (
+        <div className="mt-3 flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
+          <CheckCircle2 size={14} />
+          Connected successfully
+          {projects != null && (
+            <span>
+              · this login can see <strong>{projects}</strong> project
+              {projects === "1" ? "" : "s"} in that Basecamp.
+            </span>
+          )}
+        </div>
+      )}
+
+      {failed && (
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-400">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>
+            Connection did not complete: <span className="font-mono">{result}</span>
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function IlluminareClientList({
   clients,
   healthByClient,
   loadError,
+  basecamp,
 }: {
   clients: IlluminareClientRow[];
   healthByClient: Record<number, ClientHealth>;
   loadError: string | null;
+  basecamp: BasecampState;
 }) {
   const summary = summarizeHealth(clients.map((c) => healthByClient[c.id]).filter(Boolean));
 
@@ -89,6 +154,8 @@ export default function IlluminareClientList({
           </p>
         </div>
       </header>
+
+      <BasecampBanner basecamp={basecamp} />
 
       {loadError ? (
         <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
