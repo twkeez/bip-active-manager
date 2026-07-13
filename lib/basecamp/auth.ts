@@ -21,7 +21,9 @@ type AuthorizationResponse = {
 };
 
 function parseAccountIdFromHref(href: string) {
-  const match = href.match(/\/(\d+)\//);
+  // Account hrefs look like "https://3.basecampapi.com/6140995" (no trailing
+  // slash), so match the id right after the host rather than between slashes.
+  const match = href.match(/basecampapi\.com\/(\d+)/);
   return match?.[1] ?? null;
 }
 
