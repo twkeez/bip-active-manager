@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles, ExternalLink, CheckCircle2, AlertTriangle, Plug } from "lucide-react";
+import { Sparkles, ExternalLink, CheckCircle2, AlertTriangle, Plug, Link2 } from "lucide-react";
 import type {
   IlluminareClientRow,
   IlluminareClientStatus,
@@ -86,12 +86,22 @@ function BasecampBanner({ basecamp }: { basecamp: BasecampState }) {
             </p>
           </div>
         </div>
-        <a
-          href="/api/illuminare/basecamp/oauth/start"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--bip-accent)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
-        >
-          <Plug size={14} /> {connected ? "Reconnect" : "Connect Basecamp"}
-        </a>
+        <div className="flex items-center gap-2">
+          {connected && (
+            <Link
+              href="/illuminare/basecamp"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--bip-border)] px-3 py-1.5 text-xs font-medium text-[var(--text)] hover:bg-[var(--bip-hover)]"
+            >
+              <Link2 size={14} /> Match projects
+            </Link>
+          )}
+          <a
+            href="/api/illuminare/basecamp/oauth/start"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--bip-accent)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+          >
+            <Plug size={14} /> {connected ? "Reconnect" : "Connect Basecamp"}
+          </a>
+        </div>
       </div>
 
       {justConnected && (
