@@ -120,16 +120,45 @@ describe("computeClientHealth", () => {
     );
     expect(health.level).toBe("attention");
   });
+
+  it("flags attention when the client is awaiting our reply", () => {
+    const health = computeClientHealth(client(), [], TODAY, {
+      needsReply: true,
+      daysStale: 2,
+    });
+    expect(health.level).toBe("attention");
+    expect(health.needsReply).toBe(true);
+    expect(health.reasons).toContain("Awaiting our reply");
+  });
+
+  it("flags watch when contact has gone stale (no reply pending)", () => {
+    const health = computeClientHealth(client(), [], TODAY, {
+      needsReply: false,
+      daysStale: 30,
+    });
+    expect(health.level).toBe("watch");
+    expect(health.commsStale).toBe(true);
+    expect(health.reasons).toContain("No contact in 30d");
+  });
+
+  it("stays on_track with recent contact and nothing pending", () => {
+    const health = computeClientHealth(client(), [], TODAY, {
+      needsReply: false,
+      daysStale: 3,
+    });
+    expect(health.level).toBe("on_track");
+  });
 });
 
 describe("summarizeHealth", () => {
   it("tallies clients by level", () => {
+    const base = { needsReply: false, commsStale: false };
     const healths: ClientHealth[] = [
-      { clientId: 1, level: "attention", reasons: [], followUpsDue: 1, overdueProjects: 0, dueSoonProjects: 0 },
-      { clientId: 2, level: "watch", reasons: [], followUpsDue: 0, overdueProjects: 0, dueSoonProjects: 1 },
-      { clientId: 3, level: "on_track", reasons: [], followUpsDue: 0, overdueProjects: 0, dueSoonProjects: 0 },
-      { clientId: 4, level: "inactive", reasons: [], followUpsDue: 0, overdueProjects: 0, dueSoonProjects: 0 },
-      { clientId: 5, level: "attention", reasons: [], followUpsDue: 0, overdueProjects: 2, dueSoonProjects: 0 },
+      { clientId: 1, level: "attention", reasons: [], followUpsDue: 1, overdueProjects: 0, dueSoonProjects: 0, ...base },
+      { clientId: 2, level: "watch", reasons: [], followUpsDue: 0, overdueProjects: 0, dueSoonProjects: 1, ...base },
+      { clientId: 3, level: "on_track", reasons: [], followUpsDue: 0, overdueProjects: 0, dueSoonProjects: 0, ...base },
+      { clientId: 4, level: "inactive", reasons: [], followUpsDue: 0, overdueProjects: 0, dueSoonProjects: 0, ...base },
+      { clientId: 5, level: "attention", reasons: [], followUpsDue: 0, overdueProjects: 2, dueSoonProjects: 0, ...base },
     ];
     expect(summarizeHealth(healths)).toEqual({
       attention: 2,

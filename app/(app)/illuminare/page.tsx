@@ -47,7 +47,7 @@ export default async function IlluminarePage({
     supabase
       .from("illuminare_clients")
       .select(
-        "id, account_name, account_lead, status, website, basecamp_project_id, notes, created_at, updated_at",
+        "id, account_name, account_lead, status, website, basecamp_project_id, notes, last_communication_at, last_comm_is_internal, needs_reply, days_stale, comms_synced_at, created_at, updated_at",
       )
       .order("account_name", { ascending: true }),
     supabase
@@ -72,6 +72,8 @@ export default async function IlluminarePage({
     healthByClient[client.id] = computeClientHealth(
       client,
       deliverablesByClient.get(client.id) ?? [],
+      undefined,
+      { needsReply: client.needs_reply === true, daysStale: client.days_stale ?? null },
     );
   }
 

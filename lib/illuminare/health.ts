@@ -14,6 +14,14 @@ import type { IlluminareClientRow } from "@/lib/illuminare/types";
 export type HealthLevel = "attention" | "watch" | "on_track" | "inactive";
 
 export const HEALTH_DUE_SOON_DAYS = 7;
+/** No client contact in this many days flags a "reach out" watch. */
+export const HEALTH_STALE_DAYS = 21;
+
+/** Comms signals folded into health; sourced from the client's last-communication aggregate. */
+export type ClientCommsSignal = {
+  needsReply: boolean;
+  daysStale: number | null;
+};
 
 export type ClientHealth = {
   clientId: number;
@@ -22,6 +30,8 @@ export type ClientHealth = {
   followUpsDue: number;
   overdueProjects: number;
   dueSoonProjects: number;
+  needsReply: boolean;
+  commsStale: boolean;
 };
 
 function pluralize(count: number, noun: string): string {
@@ -32,6 +42,7 @@ export function computeClientHealth(
   client: Pick<IlluminareClientRow, "id" | "status">,
   deliverables: IlluminareDeliverableRow[],
   today: string = todayIso(),
+  comms: ClientCommsSignal | null = null,
 ): ClientHealth {
   // Paused / offboarded clients aren't actively scored.
   if (client.status === "paused" || client.status === "offboarded") {
@@ -43,6 +54,8 @@ export function computeClientHealth(
       followUpsDue: 0,
       overdueProjects: 0,
       dueSoonProjects: 0,
+      needsReply: false,
+      commsStale: false,
     };
   }
 
@@ -59,15 +72,23 @@ export function computeClientHealth(
     }
   }
 
+  const needsReply = comms?.needsReply === true;
+  const commsStale =
+    !needsReply &&
+    comms?.daysStale != null &&
+    comms.daysStale >= HEALTH_STALE_DAYS;
+
   const reasons: string[] = [];
+  if (needsReply) reasons.push("Awaiting our reply");
   if (overdueProjects > 0) reasons.push(`${pluralize(overdueProjects, "project")} overdue`);
   if (followUpsDue > 0) reasons.push(`${followUpsDue} to check back in`);
+  if (commsStale) reasons.push(`No contact in ${comms!.daysStale}d`);
   if (dueSoonProjects > 0) reasons.push(`${pluralize(dueSoonProjects, "project")} due soon`);
 
   let level: HealthLevel;
-  if (overdueProjects > 0 || followUpsDue > 0) {
+  if (needsReply || overdueProjects > 0 || followUpsDue > 0) {
     level = "attention";
-  } else if (dueSoonProjects > 0) {
+  } else if (commsStale || dueSoonProjects > 0) {
     level = "watch";
   } else {
     level = "on_track";
@@ -84,6 +105,8 @@ export function computeClientHealth(
     followUpsDue,
     overdueProjects,
     dueSoonProjects,
+    needsReply,
+    commsStale,
   };
 }
 

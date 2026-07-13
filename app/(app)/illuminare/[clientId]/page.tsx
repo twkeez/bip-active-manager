@@ -7,8 +7,10 @@ import {
   type IlluminareClientRow,
 } from "@/lib/illuminare/types";
 import type { IlluminareDeliverableRow } from "@/lib/illuminare/deliverables";
+import type { IlluminareCommsEventRow } from "@/lib/illuminare/comms";
 import IlluminareDeliverables from "@/components/illuminare/illuminare-deliverables";
 import IlluminareClientPlan from "@/components/illuminare/illuminare-client-plan";
+import IlluminareComms from "@/components/illuminare/illuminare-comms";
 
 export default async function IlluminareClientPage({
   params,
@@ -51,6 +53,17 @@ export default async function IlluminareClientPage({
 
   const deliverables = (deliverablesData ?? []) as IlluminareDeliverableRow[];
 
+  const { data: commsData } = await supabase
+    .from("illuminare_comms_events")
+    .select(
+      "id, client_id, basecamp_project_id, recording_id, kind, occurred_at, author_name, author_email, is_internal, title, excerpt, url, updated_at",
+    )
+    .eq("client_id", id)
+    .order("occurred_at", { ascending: false })
+    .limit(25);
+
+  const commsEvents = (commsData ?? []) as IlluminareCommsEventRow[];
+
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-8">
       <Link
@@ -76,15 +89,11 @@ export default async function IlluminareClientPage({
 
         <IlluminareDeliverables clientId={client.id} deliverables={deliverables} />
 
-        <section className="rounded-lg border border-[var(--bip-border)] bg-[var(--bip-card)] p-5">
-          <h2 className="text-sm font-semibold text-[var(--text)]">Communication</h2>
-          <p className="mt-2 text-sm text-[var(--text-muted)]">
-            Basecamp message and comment activity, once the account is connected.
-          </p>
-          <p className="mt-3 text-[0.7rem] uppercase tracking-wide text-[var(--text-subtle)]">
-            Coming soon
-          </p>
-        </section>
+        <IlluminareComms
+          client={client}
+          events={commsEvents}
+          linked={Boolean(client.basecamp_project_id)}
+        />
       </div>
     </div>
   );

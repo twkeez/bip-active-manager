@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Link2, Wand2 } from "lucide-react";
+import { AlertTriangle, Link2, RefreshCw, Wand2 } from "lucide-react";
 import type {
   IlluminareMatchStatus,
   IlluminareProjectMatch,
@@ -36,6 +36,8 @@ export default function IlluminareBasecampMatch({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
   // Selected project id per client, seeded from the current link.
   const [selection, setSelection] = useState<Record<number, string>>(() => {
@@ -94,6 +96,32 @@ export default function IlluminareBasecampMatch({
     }
   }
 
+  async function syncComms() {
+    setSyncing(true);
+    setSyncMsg(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/illuminare/basecamp/sync", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        clientsSynced?: number;
+        eventsUpserted?: number;
+        errors?: unknown[];
+      };
+      if (!res.ok) throw new Error(data.error ?? "Sync failed");
+      const failed = Array.isArray(data.errors) ? data.errors.length : 0;
+      setSyncMsg(
+        `Synced ${data.clientsSynced ?? 0} client(s), ${data.eventsUpserted ?? 0} event(s)` +
+          (failed > 0 ? ` · ${failed} project(s) had errors` : ""),
+      );
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   if (loadError) {
     return (
       <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
@@ -128,8 +156,22 @@ export default function IlluminareBasecampMatch({
           >
             {saving ? "Saving…" : "Save links"}
           </button>
+          <button
+            onClick={syncComms}
+            disabled={syncing}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--bip-border)] px-3 py-1.5 text-xs font-medium text-[var(--text)] hover:bg-[var(--bip-hover)] disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+            {syncing ? "Syncing…" : "Sync comms"}
+          </button>
         </div>
       </div>
+
+      {syncMsg && (
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
+          {syncMsg}
+        </div>
+      )}
 
       {error && (
         <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-400">
