@@ -17,6 +17,7 @@ import {
   Flame,
   FolderOpen,
   Globe,
+  GraduationCap,
   Handshake,
   Layers,
   LayoutDashboard,
@@ -46,6 +47,7 @@ type NavItem = {
 const PRIMARY: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
+  { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
   { label: "My Tasks", href: "/my-tasks", icon: CheckSquare },
   { label: "Team", href: "/team", icon: ShieldCheck, adminOnly: true },
   { label: "Cockpit", href: "/dashboard/cockpit", icon: Zap, adminOnly: true },
@@ -103,6 +105,7 @@ const SALES: NavItem[] = [
 // The trimmed navigation non-admin users (strategists) see.
 const USER_NAV: NavItem[] = [
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
+  { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
   { label: "My Tasks", href: "/my-tasks", icon: CheckSquare },
   { label: "Reporting", href: "/reports/doc-to-pdf", icon: FileDown },
 ];

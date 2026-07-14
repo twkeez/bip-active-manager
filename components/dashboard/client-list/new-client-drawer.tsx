@@ -62,9 +62,12 @@ type NewClientDrawerProps = {
   open: boolean;
   onClose: () => void;
   onCreated?: (client: ClientRow) => void;
+  // Default: after create, navigate to the new client's page. Set false to stay
+  // put (e.g. the Onboarding section handles the new client in place).
+  navigateOnCreate?: boolean;
 };
 
-export default function NewClientDrawer({ open, onClose, onCreated }: NewClientDrawerProps) {
+export default function NewClientDrawer({ open, onClose, onCreated, navigateOnCreate = true }: NewClientDrawerProps) {
   const router = useRouter();
   const supabase = createClient();
   const [form, setForm] = useState<Partial<ClientRow>>(EMPTY_FORM);
@@ -140,7 +143,9 @@ export default function NewClientDrawer({ open, onClose, onCreated }: NewClientD
       onCreated?.(onboarded);
       setForm(EMPTY_FORM);
       onClose();
-      router.push(`/dashboard/clients/${onboarded.id}?tab=overview`);
+      if (navigateOnCreate) {
+        router.push(`/dashboard/clients/${onboarded.id}?tab=overview`);
+      }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Failed to create client");
     } finally {
