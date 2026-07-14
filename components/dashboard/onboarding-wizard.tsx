@@ -34,22 +34,51 @@ const ACTION_LABELS: Partial<Record<DetailTabLink, string>> = {
   comms: "Open Comms",
 };
 
+type ClientProfile = {
+  marketing_strategist: string | null;
+  tier: string | null;
+  total_package_hours: number | null;
+  hours_for_strategist: number | null;
+};
+
+type ProfileDraft = {
+  marketing_strategist: string;
+  tier: string;
+  total_package_hours: string;
+  hours_for_strategist: string;
+};
+
+const EMPTY_PROFILE_DRAFT: ProfileDraft = {
+  marketing_strategist: "",
+  tier: "",
+  total_package_hours: "",
+  hours_for_strategist: "",
+};
+
 export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, onGraduated }: Props) {
   const [evaluation, setEvaluation] = useState<ClientOnboardingEvaluation | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
+  const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
+  const [profileDraft, setProfileDraft] = useState<ProfileDraft>(EMPTY_PROFILE_DRAFT);
+  const [profileSaving, setProfileSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const response = await fetch(`/api/clients/${clientId}/onboarding`, { cache: "no-store" });
-        const payload = (await response.json()) as { error?: string; evaluation?: ClientOnboardingEvaluation };
+        const payload = (await response.json()) as {
+          error?: string;
+          evaluation?: ClientOnboardingEvaluation;
+          clientProfile?: ClientProfile;
+        };
         if (cancelled) return;
         if (!response.ok || !payload.evaluation) throw new Error(payload.error ?? "Failed to load onboarding");
         setEvaluation(payload.evaluation);
+        if (payload.clientProfile) setClientProfile(payload.clientProfile);
         // Jump to the first not-yet-done step in the active phase.
         const active = payload.evaluation.items.filter((i) => !i.deferred);
         const firstOpen = active.findIndex((i) => !i.done);
@@ -64,6 +93,18 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       cancelled = true;
     };
   }, [clientId]);
+
+  useEffect(() => {
+    if (!clientProfile) return;
+    setProfileDraft({
+      marketing_strategist: clientProfile.marketing_strategist ?? "",
+      tier: clientProfile.tier ?? "",
+      total_package_hours:
+        clientProfile.total_package_hours != null ? String(clientProfile.total_package_hours) : "",
+      hours_for_strategist:
+        clientProfile.hours_for_strategist != null ? String(clientProfile.hours_for_strategist) : "",
+    });
+  }, [clientProfile]);
 
   const allItems = evaluation?.items ?? [];
   // Step through the active phase only; at_launch steps that are deferred show
@@ -132,6 +173,32 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       setError(e instanceof Error ? e.message : "Failed to mark launched");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function saveProfile() {
+    setProfileSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profileDraft),
+      });
+      const payload = (await res.json()) as { error?: string; ok?: boolean };
+      if (!res.ok || !payload.ok) throw new Error(payload.error ?? "Failed to save");
+      // Refresh evaluation + profile so the step re-verifies.
+      const ob = await fetch(`/api/clients/${clientId}/onboarding`, { cache: "no-store" });
+      const obPayload = (await ob.json()) as {
+        evaluation?: ClientOnboardingEvaluation;
+        clientProfile?: ClientProfile;
+      };
+      if (obPayload.evaluation) setEvaluation(obPayload.evaluation);
+      if (obPayload.clientProfile) setClientProfile(obPayload.clientProfile);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setProfileSaving(false);
     }
   }
 
@@ -260,39 +327,92 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
               )}
 
               {/* Per-step action */}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {isManual ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void toggleManual(current.itemKey, !current.done)}
-                    className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
-                  >
-                    <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
-                  </button>
-                ) : !current.done ? (
-                  <span className="text-xs text-bip-muted">This step verifies itself once the data is in place.</span>
-                ) : null}
+              {current.verification === "manual:intake_profile" ? (
+                <div className="mt-3 space-y-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-1 block text-[11px] font-medium text-bip-muted">Marketing strategist</span>
+                      <input
+                        value={profileDraft.marketing_strategist}
+                        onChange={(e) => setProfileDraft((p) => ({ ...p, marketing_strategist: e.target.value }))}
+                        placeholder="Assign strategist"
+                        className="w-full rounded-md bip-input text-sm shadow-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-[11px] font-medium text-bip-muted">Tier</span>
+                      <input
+                        value={profileDraft.tier}
+                        onChange={(e) => setProfileDraft((p) => ({ ...p, tier: e.target.value }))}
+                        className="w-full rounded-md bip-input text-sm shadow-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-[11px] font-medium text-bip-muted">Total package hours</span>
+                      <input
+                        type="number"
+                        value={profileDraft.total_package_hours}
+                        onChange={(e) => setProfileDraft((p) => ({ ...p, total_package_hours: e.target.value }))}
+                        className="w-full rounded-md bip-input text-sm shadow-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-[11px] font-medium text-bip-muted">Strategist hours</span>
+                      <input
+                        type="number"
+                        value={profileDraft.hours_for_strategist}
+                        onChange={(e) => setProfileDraft((p) => ({ ...p, hours_for_strategist: e.target.value }))}
+                        className="w-full rounded-md bip-input text-sm shadow-none"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={profileSaving}
+                      onClick={() => void saveProfile()}
+                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+                    >
+                      {profileSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
+                    </button>
+                    {current.done && <span className="text-xs text-emerald-400">Complete ✓</span>}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {isManual ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void toggleManual(current.itemKey, !current.done)}
+                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+                    >
+                      <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
+                    </button>
+                  ) : !current.done ? (
+                    <span className="text-xs text-bip-muted">This step verifies itself once the data is in place.</span>
+                  ) : null}
 
-                {current.actionTab && current.actionTab !== "edit" && ACTION_LABELS[current.actionTab] && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenTab?.(current.actionTab!)}
-                    className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
-                  >
-                    {ACTION_LABELS[current.actionTab]} <ArrowRight className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                {current.actionTab === "edit" && (
-                  <button
-                    type="button"
-                    onClick={() => onEditClient?.()}
-                    className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
-                  >
-                    Edit client profile <ArrowRight className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
+                  {current.actionTab && current.actionTab !== "edit" && ACTION_LABELS[current.actionTab] && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenTab?.(current.actionTab!)}
+                      className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
+                    >
+                      {ACTION_LABELS[current.actionTab]} <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {current.actionTab === "edit" && (
+                    <button
+                      type="button"
+                      onClick={() => onEditClient?.()}
+                      className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
+                    >
+                      Edit client profile <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Kickoff generator lives on the communication step */}
               {isComms && (

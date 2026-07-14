@@ -247,12 +247,19 @@ export function evaluateOnboardingItemStatus(
   onboardingStartedAt: string | null,
   deferred = false,
 ): OnboardingItemStatus {
-  const isManual = item.verification.startsWith("manual:");
+  // These "manual:" verifications actually auto-verify from client data
+  // (record exists, profile filled, services set) — no checkbox needed.
+  const autoVerifiedManual = new Set([
+    "manual:record_created",
+    "manual:intake_profile",
+    "manual:intake_services",
+  ]);
+  const isManual = item.verification.startsWith("manual:") && !autoVerifiedManual.has(item.verification);
   let done = Boolean(item.completed_at);
   let autoVerified = false;
   let hint: string | null = null;
 
-  if (isManual && !item.verification.startsWith("manual:record_created")) {
+  if (isManual) {
     if (!done) {
       hint = item.notes ?? "Mark complete when done.";
     }

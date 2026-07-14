@@ -39,8 +39,15 @@ export async function GET(
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
 
-  const [evaluation] = await buildOnboardingEvaluations(supabase, user.id, [
-    clientRaw as ClientRow,
-  ]);
-  return NextResponse.json({ evaluation });
+  const client = clientRaw as ClientRow;
+  const [evaluation] = await buildOnboardingEvaluations(supabase, user.id, [client]);
+  return NextResponse.json({
+    evaluation,
+    clientProfile: {
+      marketing_strategist: client.marketing_strategist,
+      tier: client.tier,
+      total_package_hours: client.total_package_hours,
+      hours_for_strategist: client.hours_for_strategist,
+    },
+  });
 }

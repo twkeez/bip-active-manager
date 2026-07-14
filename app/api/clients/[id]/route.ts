@@ -85,13 +85,27 @@ export async function PATCH(
     "contact_email",
     "shared_drive_url",
     "city",
+    "marketing_strategist",
+    "tier",
   ] as const;
+  const numericAllowed = ["total_package_hours", "hours_for_strategist"] as const;
 
-  const patch: Record<string, string | null> = {};
+  const patch: Record<string, string | number | null> = {};
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(body, key)) {
       const value = body[key];
       patch[key] = typeof value === "string" ? value.trim() || null : null;
+    }
+  }
+  for (const key of numericAllowed) {
+    if (Object.prototype.hasOwnProperty.call(body, key)) {
+      const value = body[key];
+      if (value == null || (typeof value === "string" && value.trim() === "")) {
+        patch[key] = null;
+      } else {
+        const n = Number(value);
+        patch[key] = Number.isFinite(n) ? n : null;
+      }
     }
   }
 
