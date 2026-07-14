@@ -66,6 +66,7 @@ const ILLUMINARE: NavItem[] = [
 const SERVICES: NavItem[] = [
   { label: "Services & Tiers", href: "/services", icon: Layers },
   { label: "Service Playbook", href: "/playbook", icon: BookOpen },
+  { label: "Onboarding SOPs", href: "/onboarding-sops", icon: GraduationCap },
   { label: "Partnership & Boundaries", href: "/services/partnership", icon: Handshake },
   { label: "Reference Library", href: "/services/library", icon: FolderOpen },
 ];
