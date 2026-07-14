@@ -249,7 +249,9 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
             )}
             <div className="min-w-0 flex-1">
               <p className="text-base font-semibold text-bip-text">{current.label}</p>
-              {current.guidance && <p className="mt-1 text-sm leading-relaxed text-bip-muted">{current.guidance}</p>}
+              {current.guidance && (
+                <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-bip-muted">{current.guidance}</p>
+              )}
               {current.hint && !current.done && (
                 <p className="mt-1 text-xs text-amber-300">{current.hint}</p>
               )}
