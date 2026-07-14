@@ -51,6 +51,7 @@ function templateItem(
     severity: overrides.severity ?? "required",
     sort_order: overrides.sort_order ?? 1,
     required_for_graduation: overrides.required_for_graduation ?? true,
+    phase: overrides.phase ?? "foundation",
     requires_service: overrides.requires_service ?? null,
     guidance: overrides.guidance ?? null,
     completed_at: overrides.completed_at ?? null,

@@ -24,7 +24,19 @@ export type OnboardingEvaluationContext = {
   hasKeywordTargets: boolean;
   hasReportingPrefs: boolean;
   threadEvents: BasecampThreadEvent[];
+  /** Onboarding intake signals (absent/null when no intake row exists). */
+  webStatus?: string | null;
+  websiteLaunchedAt?: string | null;
+  websiteLaunchDate?: string | null;
 };
+
+// Web statuses where a site build is still coming (so at_launch steps defer).
+const LAUNCH_PENDING_WEB_STATUSES = new Set([
+  "has_site_rebuild",
+  "splash_then_full",
+  "wait_for_launch",
+  "no_site",
+]);
 
 function daysBetween(startIso: string, endDate = new Date()) {
   const start = new Date(startIso);
@@ -233,6 +245,7 @@ export function evaluateOnboardingItemStatus(
   setupMissingIds: Set<string>,
   commsCadence: OnboardingCommsCadence,
   onboardingStartedAt: string | null,
+  deferred = false,
 ): OnboardingItemStatus {
   const isManual = item.verification.startsWith("manual:");
   let done = Boolean(item.completed_at);
@@ -265,6 +278,8 @@ export function evaluateOnboardingItemStatus(
     verification: item.verification,
     sortOrder: item.sort_order,
     requiredForGraduation: item.required_for_graduation,
+    phase: item.phase,
+    deferred,
     done,
     autoVerified,
     hint,
@@ -293,6 +308,13 @@ export function evaluateClientOnboarding(
     client.onboarding_started_at,
   );
 
+  // Launch phasing: at_launch steps are deferred while a build is pending and
+  // the site hasn't been marked launched. Clients with no intake row (legacy)
+  // or a kept existing site have nothing pending → nothing defers.
+  const launchPending = ctx.webStatus != null && LAUNCH_PENDING_WEB_STATUSES.has(ctx.webStatus);
+  const launched = ctx.websiteLaunchedAt != null;
+  const deferAtLaunch = launchPending && !launched;
+
   const evaluatedItems = [...items]
     .sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
     .map((item) =>
@@ -303,10 +325,14 @@ export function evaluateClientOnboarding(
         setupMissingIds,
         commsCadence,
         client.onboarding_started_at,
+        deferAtLaunch && item.phase === "at_launch",
       ),
     );
 
-  const graduationItems = evaluatedItems.filter((item) => item.requiredForGraduation);
+  // Progress + graduation only count the currently-active phase (deferred
+  // at_launch steps don't drag down foundation progress).
+  const activeItems = evaluatedItems.filter((item) => !item.deferred);
+  const graduationItems = activeItems.filter((item) => item.requiredForGraduation);
   const requiredDoneCount = graduationItems.filter((item) => item.done).length;
   const requiredTotalCount = graduationItems.length;
   const progressPercent =
@@ -314,11 +340,17 @@ export function evaluateClientOnboarding(
       ? 100
       : Math.round((requiredDoneCount / requiredTotalCount) * 100);
 
-  const setupBlocked = setup.missingRequired.length > 0;
+  // Missing at_launch connections aren't a "block" while they're deferred.
+  const setupBlocked = !deferAtLaunch && setup.missingRequired.length > 0;
+  const foundationComplete =
+    requiredTotalCount === 0 || requiredDoneCount === requiredTotalCount;
+  // Can't finish onboarding while a launch is still pending — the launch
+  // milestone (and its steps) must come first.
   const readyToGraduate =
     client.onboarding_status === "active" &&
-    requiredDoneCount === requiredTotalCount &&
-    !setupBlocked;
+    foundationComplete &&
+    !setupBlocked &&
+    !deferAtLaunch;
 
   let urgencyScore = 0;
   if (client.onboarding_status === "active") {
@@ -353,6 +385,10 @@ export function evaluateClientOnboarding(
     commsCadenceLabel,
     readyToGraduate,
     urgencyScore,
+    launchPending,
+    launched,
+    foundationComplete,
+    websiteLaunchDate: ctx.websiteLaunchDate ?? null,
   };
 }
 
@@ -454,6 +490,7 @@ export async function startOnboardingForClient(
       verification: template.verification,
       sort_order: template.sort_order,
       required_for_graduation: template.required_for_graduation,
+      phase: template.phase,
       requires_service: template.requires_service,
       guidance: template.guidance,
       completed_at:
@@ -562,6 +599,7 @@ export async function buildOnboardingContextForClients(
     keywordRes,
     prefsRes,
     threadsRes,
+    intakeRes,
   ] = await Promise.all([
     supabase
       .from("client_social_connections")
@@ -588,6 +626,10 @@ export async function buildOnboardingContextForClients(
       .select("*")
       .in("client_id", uniqueIds)
       .order("occurred_at", { ascending: false }),
+    supabase
+      .from("client_onboarding_intake")
+      .select("client_id, web_status, website_launched_at, website_launch_date")
+      .in("client_id", uniqueIds),
   ]);
 
   const socialCounts: Record<number, number> = {};
@@ -617,14 +659,35 @@ export async function buildOnboardingContextForClients(
     threadsByClient[row.client_id]!.push(row);
   }
 
+  const intakeByClient: Record<
+    number,
+    { web_status: string | null; website_launched_at: string | null; website_launch_date: string | null }
+  > = {};
+  for (const row of (intakeRes.data ?? []) as Array<{
+    client_id: number;
+    web_status: string | null;
+    website_launched_at: string | null;
+    website_launch_date: string | null;
+  }>) {
+    intakeByClient[row.client_id] = {
+      web_status: row.web_status,
+      website_launched_at: row.website_launched_at,
+      website_launch_date: row.website_launch_date,
+    };
+  }
+
   const ctx: Record<number, OnboardingEvaluationContext> = {};
   for (const clientId of uniqueIds) {
+    const intake = intakeByClient[clientId];
     ctx[clientId] = {
       socialConnectionCount: socialCounts[clientId] ?? 0,
       hasSeoBaseline: seoBaseline.has(clientId),
       hasKeywordTargets: keywordClients.has(clientId),
       hasReportingPrefs: prefsClients.has(clientId),
       threadEvents: threadsByClient[clientId] ?? [],
+      webStatus: intake?.web_status ?? null,
+      websiteLaunchedAt: intake?.website_launched_at ?? null,
+      websiteLaunchDate: intake?.website_launch_date ?? null,
     };
   }
   return ctx;
@@ -668,6 +731,9 @@ export async function buildOnboardingEvaluations(
         hasKeywordTargets: false,
         hasReportingPrefs: false,
         threadEvents: [],
+        webStatus: null,
+        websiteLaunchedAt: null,
+        websiteLaunchDate: null,
       },
     ),
   );

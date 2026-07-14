@@ -52,6 +52,10 @@ export type RosterDiffResult = {
 
 export type OnboardingCategory = "intake" | "connections" | "communication" | "launch";
 
+// Which phase a step belongs to. "foundation" = do now; "at_launch" = deferred
+// until the site launches (connections + go-live work).
+export type OnboardingPhase = "foundation" | "at_launch";
+
 export type OnboardingItemSeverity = "required" | "recommended";
 
 export type ClientOnboardingTemplate = {
@@ -63,6 +67,7 @@ export type ClientOnboardingTemplate = {
   verification: string;
   sort_order: number;
   required_for_graduation: boolean;
+  phase: OnboardingPhase;
   /** When set, the item is only seeded for clients with that service active. */
   requires_service: ClientServiceKey | null;
   /** Short "what to do / why" blurb shown in the onboarding wizard. */
@@ -81,6 +86,7 @@ export type ClientOnboardingItem = {
   verification: string;
   sort_order: number;
   required_for_graduation: boolean;
+  phase: OnboardingPhase;
   requires_service: ClientServiceKey | null;
   guidance: string | null;
   completed_at: string | null;
@@ -100,6 +106,9 @@ export type OnboardingItemStatus = {
   verification: string;
   sortOrder: number;
   requiredForGraduation: boolean;
+  phase: OnboardingPhase;
+  /** An at_launch step that is currently deferred (launch pending, not yet launched). */
+  deferred: boolean;
   done: boolean;
   autoVerified: boolean;
   hint: string | null;
@@ -135,6 +144,14 @@ export type ClientOnboardingEvaluation = {
   commsCadenceLabel: string;
   readyToGraduate: boolean;
   urgencyScore: number;
+  /** Website build pending (web status implies a launch is coming). */
+  launchPending: boolean;
+  /** The site has been marked launched — at_launch steps are now active. */
+  launched: boolean;
+  /** All active (current-phase) required steps are done. */
+  foundationComplete: boolean;
+  /** The planned launch date from intake, for display. */
+  websiteLaunchDate: string | null;
 };
 
 export type OnboardingQueueSummary = {

@@ -12,6 +12,7 @@ function tpl(item_key: string, requires_service: ClientOnboardingTemplate["requi
     verification: "manual:test",
     sort_order: 10,
     required_for_graduation: true,
+    phase: "foundation",
     requires_service,
     guidance: null,
     created_at: "",
