@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowLeft, FileUp, Upload } from "lucide-react";
 import BrandHeader from "@/components/vet-onboarding/brand-header";
 import DiscoveryFlow from "@/components/vet-onboarding/discovery-flow";
@@ -17,7 +17,7 @@ import {
   TIMELINE_OPTIONS,
 } from "@/lib/vet-onboarding/form-options";
 import DigitalFootprintFields from "@/components/vet-onboarding/digital-footprint-fields";
-import { normalizeClientFormData, getUndefinedClientFormFields } from "@/lib/vet-onboarding/normalize-form-data";
+import { normalizeClientFormData } from "@/lib/vet-onboarding/normalize-form-data";
 import type {
   ClientFormData,
   DiscoveryFormData,
@@ -129,29 +129,6 @@ export default function VetClientOnboarding({ userEmail }: Props) {
     useState<DiscoveryFormData | null>(null);
   const [showDiscoveryFlow, setShowDiscoveryFlow] = useState(false);
 
-  // #region agent log
-  useEffect(() => {
-    const undefinedFields = getUndefinedClientFormFields(form);
-    if (undefinedFields.length > 0) {
-      fetch("http://127.0.0.1:7929/ingest/6a0fb721-e102-4933-b813-4011803d5752", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "5b21af",
-        },
-        body: JSON.stringify({
-          sessionId: "5b21af",
-          location: "vet-client-onboarding.tsx:form-state",
-          message: "form has undefined fields",
-          data: { undefinedFields, step, intakeMode, documentExtracted },
-          timestamp: Date.now(),
-          hypothesisId: "B",
-        }),
-      }).catch(() => {});
-    }
-  }, [form, step, intakeMode, documentExtracted]);
-  // #endregion
-
   function updateField<K extends keyof ClientFormData>(
     key: K,
     value: ClientFormData[K],
@@ -226,26 +203,6 @@ export default function VetClientOnboarding({ userEmail }: Props) {
       }
 
       const extracted = (await res.json()) as ClientFormData;
-      // #region agent log
-      fetch("http://127.0.0.1:7929/ingest/6a0fb721-e102-4933-b813-4011803d5752", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "5b21af",
-        },
-        body: JSON.stringify({
-          sessionId: "5b21af",
-          location: "vet-client-onboarding.tsx:handleExtractDocument",
-          message: "document extracted before setForm",
-          data: {
-            undefinedFields: getUndefinedClientFormFields(extracted),
-            hasWebsiteUrl: extracted.websiteUrl !== undefined,
-          },
-          timestamp: Date.now(),
-          hypothesisId: "A",
-        }),
-      }).catch(() => {});
-      // #endregion
       setForm(extracted);
       setDocumentExtracted(true);
     } catch (err) {

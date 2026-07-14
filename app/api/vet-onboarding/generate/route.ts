@@ -37,30 +37,6 @@ export async function POST(request: Request) {
       output_config: { format: localResearchOutputFormat },
     });
 
-    // #region agent log
-    fetch("http://127.0.0.1:7929/ingest/6a0fb721-e102-4933-b813-4011803d5752", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "5b21af",
-      },
-      body: JSON.stringify({
-        sessionId: "5b21af",
-        runId: "research-debug",
-        hypothesisId: "A-B-C-D",
-        location: "vet-onboarding/generate/route.ts:research-response",
-        message: "Vet onboarding research messages.parse response metadata",
-        data: {
-          stopReason: researchMessage.stop_reason,
-          hasParsedOutput: researchMessage.parsed_output != null,
-          contentBlockTypes: researchMessage.content.map((b) => b.type),
-          usage: researchMessage.usage,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-
     const research = researchMessage.parsed_output as LocalResearch | null;
     if (!research) {
       throw new Error("Research step returned no structured output");

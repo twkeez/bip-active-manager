@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import BrandHeader from "@/components/vet-onboarding/brand-header";
 import {
@@ -222,31 +222,6 @@ export default function DiscoveryFlow({
   const [form, setForm] = useState<DiscoveryFormData>(INITIAL_DISCOVERY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  // #region agent log
-  useEffect(() => {
-    const undefinedFields = (
-      Object.keys(INITIAL_DISCOVERY_FORM) as (keyof DiscoveryFormData)[]
-    ).filter((key) => form[key] === undefined);
-    if (undefinedFields.length > 0) {
-      fetch("http://127.0.0.1:7929/ingest/6a0fb721-e102-4933-b813-4011803d5752", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "5b21af",
-        },
-        body: JSON.stringify({
-          sessionId: "5b21af",
-          location: "discovery-flow.tsx:form-state",
-          message: "discovery form has undefined fields",
-          data: { undefinedFields, step },
-          timestamp: Date.now(),
-          hypothesisId: "C",
-        }),
-      }).catch(() => {});
-    }
-  }, [form, step]);
-  // #endregion
 
   function updateField<K extends keyof DiscoveryFormData>(
     key: K,
