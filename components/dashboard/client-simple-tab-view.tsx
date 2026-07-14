@@ -370,7 +370,7 @@ function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; o
               type="button"
               onClick={() => void discover()}
               disabled={discovering || !client.website}
-              title={!client.website ? "Set a website URL in the Ads section first" : "Scan website for GA4 ID and Place ID"}
+              title={!client.website ? "Set the Website URL first" : "Scan website for GA4 ID and Place ID"}
               className="inline-flex items-center gap-1 rounded-lg border border-bip-border px-3 py-1.5 text-xs text-bip-muted hover:text-bip-text transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ScanSearch size={12} /> {discovering ? "Scanning…" : "Auto-discover"}
@@ -419,6 +419,13 @@ function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; o
       )}
 
       <div className="bip-card p-5">
+        <p className="bip-section-label mb-3">Website</p>
+        <dl>
+          {ef("Website URL", "website")}
+        </dl>
+      </div>
+
+      <div className="bip-card p-5">
         <p className="bip-section-label mb-3">Google</p>
         <dl>
           {ef("Search Console URL", "sc_url")}
@@ -440,7 +447,6 @@ function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; o
         <p className="bip-section-label mb-3">Ads</p>
         <dl>
           {ef("Ads Customer ID", "ads_customer_id", true)}
-          {ef("Website", "website")}
         </dl>
       </div>
 
