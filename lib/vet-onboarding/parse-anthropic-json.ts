@@ -1,4 +1,4 @@
-type ParseStep = "parse-document" | "research" | "plan";
+type ParseStep = "parse-document" | "research" | "plan" | "parse-pipeline";
 
 function extractJsonSubstring(text: string): string | null {
   const start = text.indexOf("{");

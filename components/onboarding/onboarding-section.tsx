@@ -9,7 +9,7 @@ import {
   Plus,
   Users,
 } from "lucide-react";
-import NewClientDrawer from "@/components/dashboard/client-list/new-client-drawer";
+import OnboardingIntakeDrawer from "@/components/onboarding/onboarding-intake-drawer";
 import OnboardingWizard from "@/components/dashboard/onboarding-wizard";
 import type {
   ClientOnboardingEvaluation,
@@ -179,10 +179,9 @@ export default function OnboardingSection() {
         </div>
       )}
 
-      <NewClientDrawer
+      <OnboardingIntakeDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        navigateOnCreate={false}
         onCreated={(client) => {
           setDrawerOpen(false);
           setSelectedId(client.id);
