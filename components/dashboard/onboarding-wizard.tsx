@@ -65,6 +65,7 @@ function tierOption(v: string | null | undefined): string {
 type ClientProfile = {
   marketing_strategist: string | null;
   tier: string | null;
+  website: string | null;
   seo: string | null;
   ppc: string | null;
   smm: string | null;
@@ -143,6 +144,8 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [brandElements, setBrandElements] = useState<BrandElements | null>(null);
   const [brandRunning, setBrandRunning] = useState(false);
   const [brandMsg, setBrandMsg] = useState<string | null>(null);
+  const [websiteDraft, setWebsiteDraft] = useState("");
+  const [websiteSaving, setWebsiteSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -185,6 +188,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
 
   useEffect(() => {
     if (!clientProfile) return;
+    setWebsiteDraft(clientProfile.website ?? "");
     setProfileDraft({
       marketing_strategist: clientProfile.marketing_strategist ?? "",
       tier: clientProfile.tier ?? "",
@@ -311,6 +315,52 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
     } finally {
       setAuditRunning(false);
     }
+  }
+
+  async function saveWebsite() {
+    setWebsiteSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ website: websiteDraft }),
+      });
+      const payload = (await res.json()) as { error?: string; ok?: boolean };
+      if (!res.ok || !payload.ok) throw new Error(payload.error ?? "Failed to save website");
+      const ob = await fetch(`/api/clients/${clientId}/onboarding`, { cache: "no-store" });
+      const obPayload = (await ob.json()) as { evaluation?: ClientOnboardingEvaluation; clientProfile?: ClientProfile };
+      if (obPayload.evaluation) setEvaluation(obPayload.evaluation);
+      if (obPayload.clientProfile) setClientProfile(obPayload.clientProfile);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save website");
+    } finally {
+      setWebsiteSaving(false);
+    }
+  }
+
+  function renderWebsiteField() {
+    return (
+      <div className="space-y-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5">
+        <p className="text-[11px] text-amber-300">This step needs the website URL.</p>
+        <div className="flex gap-2">
+          <input
+            value={websiteDraft}
+            onChange={(e) => setWebsiteDraft(e.target.value)}
+            placeholder="https://…"
+            className="min-w-0 flex-1 rounded-md bip-input text-sm shadow-none"
+          />
+          <button
+            type="button"
+            disabled={websiteSaving || !websiteDraft.trim()}
+            onClick={() => void saveWebsite()}
+            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+          >
+            {websiteSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
+          </button>
+        </div>
+      </div>
+    );
   }
 
   async function runBrandElements() {
@@ -819,6 +869,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                 </div>
               ) : current.verification === "snapshot:seo_baseline" ? (
                 <div className="mt-3 space-y-2">
+                  {!clientProfile?.website && renderWebsiteField()}
                   <button
                     type="button"
                     disabled={auditRunning}
@@ -831,6 +882,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                 </div>
               ) : current.verification === "manual:baseline_rankings" ? (
                 <div className="mt-3 space-y-2">
+                  {!clientProfile?.website && renderWebsiteField()}
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
@@ -952,6 +1004,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                 </div>
               ) : current.verification === "manual:smm_brand_assets" ? (
                 <div className="mt-3 space-y-3">
+                  {!clientProfile?.website && renderWebsiteField()}
                   {!brandElements ? (
                     <button
                       type="button"

@@ -40,6 +40,8 @@ export type PipelineIntake = {
   primaryContactEmail: string | null;
   primaryContactPhone: string | null;
   pims: string | null;
+  /** The practice's existing/live website URL, if noted on the form. */
+  websiteUrl: string | null;
   website: {
     purchased: boolean;
     tier: Tier;
@@ -130,6 +132,7 @@ export function normalizePipelineIntake(input: unknown): PipelineIntake {
     primaryContactEmail: str(raw.primaryContactEmail),
     primaryContactPhone: str(raw.primaryContactPhone),
     pims: str(raw.pims),
+    websiteUrl: str(raw.websiteUrl),
     website,
     webStatus: raw.webStatus == null ? null : oneOf(raw.webStatus, WEB_STATUSES, "no_site"),
     websiteLaunchDate: str(raw.websiteLaunchDate),

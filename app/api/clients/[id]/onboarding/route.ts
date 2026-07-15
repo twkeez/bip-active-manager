@@ -53,6 +53,7 @@ export async function GET(
     clientProfile: {
       marketing_strategist: client.marketing_strategist,
       tier: client.tier,
+      website: client.website,
       seo: client.seo,
       ppc: client.ppc,
       smm: client.smm,

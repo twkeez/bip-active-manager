@@ -59,6 +59,7 @@ type FormState = {
   contactName: string;
   contactEmail: string;
   city: string;
+  website: string;
   tier: string;
   webStatus: WebStatus | "";
   websiteLaunchDate: string;
@@ -83,6 +84,7 @@ const EMPTY_FORM: FormState = {
   contactName: "",
   contactEmail: "",
   city: "",
+  website: "",
   tier: "",
   webStatus: "",
   websiteLaunchDate: "",
@@ -135,6 +137,7 @@ export default function OnboardingIntakeDrawer({
       contactName: intake.primaryContactName ?? intake.ownerName ?? prev.contactName,
       contactEmail: intake.primaryContactEmail ?? prev.contactEmail,
       city: intake.location ?? prev.city,
+      website: intake.websiteUrl ?? prev.website,
       webStatus: intake.webStatus ?? prev.webStatus,
       websiteLaunchDate: intake.websiteLaunchDate ?? prev.websiteLaunchDate,
       notes: intake.notes ?? prev.notes,
@@ -190,6 +193,7 @@ export default function OnboardingIntakeDrawer({
         contact_name: form.contactName.trim() || null,
         contact_email: form.contactEmail.trim() || null,
         city: form.city.trim() || null,
+        website: form.website.trim() || null,
         tier: form.tier.trim() || null,
         seo: TIER_TO_FIELD[form.services.seo.tier] || null,
         ppc: TIER_TO_FIELD[form.services.ppc.tier] || null,
@@ -319,6 +323,9 @@ export default function OnboardingIntakeDrawer({
               </Labeled>
               <Labeled label="City">
                 <input className={fieldClass()} value={form.city} onChange={(e) => set("city", e.target.value)} />
+              </Labeled>
+              <Labeled label="Website URL">
+                <input className={fieldClass()} value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="Existing site, if any" />
               </Labeled>
               <Labeled label="Tier (optional)">
                 <input className={fieldClass()} value={form.tier} onChange={(e) => set("tier", e.target.value)} />

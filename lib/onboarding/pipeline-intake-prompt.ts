@@ -16,6 +16,7 @@ Return ONLY a single JSON object (no prose, no markdown fences) with this exact 
   "primaryContactEmail": string | null,
   "primaryContactPhone": string | null,
   "pims": string | null,
+  "websiteUrl": string | null,
   "website": { "purchased": boolean, "tier": "none"|"foundation"|"premium"|"premium_plus", "pages": number|null, "startDate": "YYYY-MM-DD"|null, "notes": string|null } | null,
   "webStatus": "has_site_keep"|"has_site_rebuild"|"splash_then_full"|"wait_for_launch"|"no_site"|null,
   "websiteLaunchDate": "YYYY-MM-DD"|null,
@@ -30,6 +31,8 @@ Rules:
 - "This is a" → formType (New Client → "new_client", change → "service_change", cancellation → "cancellation").
 - Client info: Practice Name → practiceName; Practice Owner Name → ownerName; Location → location.
   Primary Contact fields → primaryContact*. PIMS → pims.
+- websiteUrl: the practice's EXISTING/live website URL if the form mentions one (their current site) —
+  distinct from the "website" product being purchased. Null if they have no current site.
 - Purchased Products table: each row is one purchased product with an Anticipated Start Date and notes.
   - A "Website" product is NOT a service — map it to the "website" object. Read its tier from the label
     (e.g. "Premium Website (10 pages)" → tier "premium", pages 10) and its start date.
