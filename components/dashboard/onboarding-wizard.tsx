@@ -467,6 +467,8 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       };
       if (obPayload.evaluation) setEvaluation(obPayload.evaluation);
       if (obPayload.clientProfile) setClientProfile(obPayload.clientProfile);
+      // Services may have changed the tier/steps — let the keyword plan refetch.
+      setKeywordData(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save");
     } finally {

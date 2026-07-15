@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { syncOnboardingItemsToServices } from "@/lib/clients/onboarding";
 
 export async function DELETE(
   _request: Request,
@@ -127,6 +128,15 @@ export async function PATCH(
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // If services changed, reconcile the onboarding steps to match immediately.
+  if (["seo", "ppc", "smm", "blog", "orm"].some((k) => k in patch)) {
+    try {
+      await syncOnboardingItemsToServices(supabase, clientId);
+    } catch {
+      // best-effort — the client update already succeeded
+    }
   }
 
   return NextResponse.json({ ok: true, client: data });

@@ -566,6 +566,67 @@ export async function startOnboardingForClient(
   return { startedAt: now };
 }
 
+// Reconcile a client's onboarding items with their currently-active services:
+// add steps for services turned on, remove steps for services turned off. Runs
+// when services change mid-onboarding so the wizard reflects it immediately.
+export async function syncOnboardingItemsToServices(
+  supabase: SupabaseClient,
+  clientId: number,
+) {
+  const { data: clientRow } = await supabase
+    .from("clients")
+    .select("*")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (!clientRow) return;
+  const client = clientRow as ClientRow;
+  if (client.onboarding_status !== "active") return;
+
+  const activeServices = getClientActiveServices(client);
+  const templates = await listOnboardingTemplates(supabase);
+  const { data: existingRows } = await supabase
+    .from("client_onboarding_items")
+    .select("item_key")
+    .eq("client_id", clientId);
+  const existingKeys = new Set((existingRows ?? []).map((r) => (r as { item_key: string }).item_key));
+
+  const applies = (t: ClientOnboardingTemplate) =>
+    !t.requires_service || activeServices[t.requires_service];
+
+  const toRemove = templates
+    .filter((t) => t.requires_service && !activeServices[t.requires_service] && existingKeys.has(t.item_key))
+    .map((t) => t.item_key);
+  if (toRemove.length > 0) {
+    await supabase
+      .from("client_onboarding_items")
+      .delete()
+      .eq("client_id", clientId)
+      .in("item_key", toRemove);
+  }
+
+  const now = new Date().toISOString();
+  const toAdd = templates
+    .filter((t) => applies(t) && !existingKeys.has(t.item_key))
+    .map((t) => ({
+      client_id: clientId,
+      item_key: t.item_key,
+      label: t.label,
+      category: t.category,
+      severity: t.severity,
+      verification: t.verification,
+      sort_order: t.sort_order,
+      required_for_graduation: t.required_for_graduation,
+      phase: t.phase,
+      requires_service: t.requires_service,
+      guidance: t.guidance,
+      completed_at: t.verification === "manual:record_created" ? now : null,
+      updated_at: now,
+    }));
+  if (toAdd.length > 0) {
+    await supabase.from("client_onboarding_items").insert(toAdd);
+  }
+}
+
 export async function completeOnboardingForClient(
   supabase: SupabaseClient,
   clientId: number,
