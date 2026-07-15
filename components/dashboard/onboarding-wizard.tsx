@@ -115,6 +115,10 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [keywordData, setKeywordData] = useState<KeywordData | null>(null);
   const [keywordSelected, setKeywordSelected] = useState<string[]>([]);
   const [keywordSaving, setKeywordSaving] = useState(false);
+  const [auditRunning, setAuditRunning] = useState(false);
+  const [auditMsg, setAuditMsg] = useState<string | null>(null);
+  const [baselineRunning, setBaselineRunning] = useState(false);
+  const [baselineMsg, setBaselineMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -253,6 +257,48 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       setError(e instanceof Error ? e.message : "Failed to mark launched");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function runAudit() {
+    setAuditRunning(true);
+    setAuditMsg(null);
+    try {
+      const res = await fetch("/api/seo/lighthouse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      const payload = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(payload.error ?? "Site audit failed");
+      setAuditMsg("Site audit captured.");
+      // Re-verify the step (seo_baseline now exists).
+      const ob = await fetch(`/api/clients/${clientId}/onboarding`, { cache: "no-store" });
+      const obPayload = (await ob.json()) as { evaluation?: ClientOnboardingEvaluation };
+      if (obPayload.evaluation) setEvaluation(obPayload.evaluation);
+    } catch (e) {
+      setAuditMsg(e instanceof Error ? e.message : "Site audit failed");
+    } finally {
+      setAuditRunning(false);
+    }
+  }
+
+  async function runBaseline() {
+    setBaselineRunning(true);
+    setBaselineMsg(null);
+    try {
+      const res = await fetch("/api/organic-rank/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      const payload = (await res.json()) as { error?: string; count?: number };
+      if (!res.ok) throw new Error(payload.error ?? "Baseline scan failed");
+      setBaselineMsg(`Baseline captured — ${payload.count ?? 0} rankings recorded.`);
+    } catch (e) {
+      setBaselineMsg(e instanceof Error ? e.message : "Baseline scan failed");
+    } finally {
+      setBaselineRunning(false);
     }
   }
 
@@ -691,6 +737,40 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                       </button>
                     </>
                   )}
+                </div>
+              ) : current.verification === "snapshot:seo_baseline" ? (
+                <div className="mt-3 space-y-2">
+                  <button
+                    type="button"
+                    disabled={auditRunning}
+                    onClick={() => void runAudit()}
+                    className="inline-flex items-center gap-1 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+                  >
+                    {auditRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Run site audit
+                  </button>
+                  {auditMsg && <p className="text-xs text-bip-muted">{auditMsg}</p>}
+                </div>
+              ) : current.verification === "manual:baseline_rankings" ? (
+                <div className="mt-3 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={baselineRunning}
+                      onClick={() => void runBaseline()}
+                      className="inline-flex items-center gap-1 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+                    >
+                      {baselineRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Run baseline rankings
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void toggleManual(current.itemKey, !current.done)}
+                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+                    >
+                      <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
+                    </button>
+                  </div>
+                  {baselineMsg && <p className="text-xs text-bip-muted">{baselineMsg}</p>}
                 </div>
               ) : (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
