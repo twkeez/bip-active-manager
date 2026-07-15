@@ -107,6 +107,13 @@ type CampaignPlan = {
   negatives: string[];
 };
 
+type BrandElements = {
+  logoUrl: string | null;
+  heroImage: string | null;
+  themeColor: string | null;
+  title: string | null;
+};
+
 export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, onGraduated }: Props) {
   const [evaluation, setEvaluation] = useState<ClientOnboardingEvaluation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,6 +140,9 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [campaignPlan, setCampaignPlan] = useState<CampaignPlan | null>(null);
   const [planRunning, setPlanRunning] = useState(false);
   const [planMsg, setPlanMsg] = useState<string | null>(null);
+  const [brandElements, setBrandElements] = useState<BrandElements | null>(null);
+  const [brandRunning, setBrandRunning] = useState(false);
+  const [brandMsg, setBrandMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,6 +157,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
           kickoffMeetingAt?: string | null;
           competitorOffers?: CompetitorOffer[] | null;
           campaignPlan?: CampaignPlan | null;
+          brandElements?: BrandElements | null;
         };
         if (cancelled) return;
         if (!response.ok || !payload.evaluation) throw new Error(payload.error ?? "Failed to load onboarding");
@@ -156,6 +167,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
         setKickoffDate(payload.kickoffMeetingAt ?? "");
         setCompetitorOffers(payload.competitorOffers ?? null);
         setCampaignPlan(payload.campaignPlan ?? null);
+        setBrandElements(payload.brandElements ?? null);
         // Jump to the first not-yet-done step in the active phase.
         const active = payload.evaluation.items.filter((i) => !i.deferred);
         const firstOpen = active.findIndex((i) => !i.done);
@@ -298,6 +310,21 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       setAuditMsg(e instanceof Error ? e.message : "Site audit failed");
     } finally {
       setAuditRunning(false);
+    }
+  }
+
+  async function runBrandElements() {
+    setBrandRunning(true);
+    setBrandMsg(null);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/onboarding/brand-elements`, { method: "POST" });
+      const payload = (await res.json()) as { error?: string; brandElements?: BrandElements };
+      if (!res.ok || !payload.brandElements) throw new Error(payload.error ?? "Brand pull failed");
+      setBrandElements(payload.brandElements);
+    } catch (e) {
+      setBrandMsg(e instanceof Error ? e.message : "Brand pull failed");
+    } finally {
+      setBrandRunning(false);
     }
   }
 
@@ -912,6 +939,63 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                     </div>
                   )}
                   {planMsg && <p className="text-xs text-bip-muted">{planMsg}</p>}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void toggleManual(current.itemKey, !current.done)}
+                    className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+                  >
+                    <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
+                  </button>
+                </div>
+              ) : current.verification === "manual:smm_brand_assets" ? (
+                <div className="mt-3 space-y-3">
+                  {!brandElements ? (
+                    <button
+                      type="button"
+                      disabled={brandRunning}
+                      onClick={() => void runBrandElements()}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+                    >
+                      {brandRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      {brandRunning ? "Pulling…" : "Pull brand elements from website"}
+                    </button>
+                  ) : (
+                    <div className="space-y-2 rounded-lg border border-bip-border bg-bip-fill p-3">
+                      <div className="flex flex-wrap items-end gap-3">
+                        {brandElements.logoUrl && (
+                          <div className="text-center">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={brandElements.logoUrl} alt="logo" className="h-12 w-12 rounded bg-white object-contain" />
+                            <p className="mt-0.5 text-[10px] text-bip-muted">logo</p>
+                          </div>
+                        )}
+                        {brandElements.themeColor && (
+                          <div className="text-center">
+                            <span className="inline-block h-12 w-12 rounded border border-bip-border" style={{ background: brandElements.themeColor }} />
+                            <p className="mt-0.5 text-[10px] text-bip-muted">{brandElements.themeColor}</p>
+                          </div>
+                        )}
+                      </div>
+                      {brandElements.heroImage && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={brandElements.heroImage} alt="hero" className="max-h-28 w-full rounded object-cover" />
+                      )}
+                      {brandElements.title && <p className="text-[11px] text-bip-muted">{brandElements.title}</p>}
+                      {!brandElements.logoUrl && !brandElements.heroImage && !brandElements.themeColor && (
+                        <p className="text-[11px] text-bip-muted">Nothing extractable found — gather assets manually.</p>
+                      )}
+                      <button
+                        type="button"
+                        disabled={brandRunning}
+                        onClick={() => void runBrandElements()}
+                        className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
+                      >
+                        {brandRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-pull
+                      </button>
+                    </div>
+                  )}
+                  {brandMsg && <p className="text-xs text-bip-muted">{brandMsg}</p>}
                   <button
                     type="button"
                     disabled={busy}
