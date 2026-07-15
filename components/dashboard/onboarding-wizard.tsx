@@ -101,6 +101,12 @@ type KeywordData = {
 
 type CompetitorOffer = { name: string; offers: string; positioning: string; counter: string };
 
+type CampaignPlan = {
+  adGroups: Array<{ name: string; keywords: string[] }>;
+  budgetNotes: string;
+  negatives: string[];
+};
+
 export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, onGraduated }: Props) {
   const [evaluation, setEvaluation] = useState<ClientOnboardingEvaluation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,6 +130,9 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [competitorOffers, setCompetitorOffers] = useState<CompetitorOffer[] | null>(null);
   const [adsRunning, setAdsRunning] = useState(false);
   const [adsMsg, setAdsMsg] = useState<string | null>(null);
+  const [campaignPlan, setCampaignPlan] = useState<CampaignPlan | null>(null);
+  const [planRunning, setPlanRunning] = useState(false);
+  const [planMsg, setPlanMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +146,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
           discovery?: Discovery | null;
           kickoffMeetingAt?: string | null;
           competitorOffers?: CompetitorOffer[] | null;
+          campaignPlan?: CampaignPlan | null;
         };
         if (cancelled) return;
         if (!response.ok || !payload.evaluation) throw new Error(payload.error ?? "Failed to load onboarding");
@@ -145,6 +155,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
         setDiscovery(payload.discovery ?? null);
         setKickoffDate(payload.kickoffMeetingAt ?? "");
         setCompetitorOffers(payload.competitorOffers ?? null);
+        setCampaignPlan(payload.campaignPlan ?? null);
         // Jump to the first not-yet-done step in the active phase.
         const active = payload.evaluation.items.filter((i) => !i.deferred);
         const firstOpen = active.findIndex((i) => !i.done);
@@ -287,6 +298,21 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       setAuditMsg(e instanceof Error ? e.message : "Site audit failed");
     } finally {
       setAuditRunning(false);
+    }
+  }
+
+  async function runCampaignPlan() {
+    setPlanRunning(true);
+    setPlanMsg(null);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/onboarding/campaign-plan`, { method: "POST" });
+      const payload = (await res.json()) as { error?: string; plan?: CampaignPlan };
+      if (!res.ok || !payload.plan) throw new Error(payload.error ?? "Campaign plan draft failed");
+      setCampaignPlan(payload.plan);
+    } catch (e) {
+      setPlanMsg(e instanceof Error ? e.message : "Campaign plan draft failed");
+    } finally {
+      setPlanRunning(false);
     }
   }
 
@@ -829,6 +855,63 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                     </div>
                   ) : null}
                   {adsMsg && <p className="text-xs text-bip-muted">{adsMsg}</p>}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void toggleManual(current.itemKey, !current.done)}
+                    className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+                  >
+                    <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
+                  </button>
+                </div>
+              ) : current.verification === "manual:ppc_campaign" ? (
+                <div className="mt-3 space-y-3">
+                  {!campaignPlan ? (
+                    <button
+                      type="button"
+                      disabled={planRunning}
+                      onClick={() => void runCampaignPlan()}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+                    >
+                      {planRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      {planRunning ? "Drafting…" : "Draft campaign plan"}
+                    </button>
+                  ) : (
+                    <div className="space-y-3 rounded-lg border border-bip-border bg-bip-fill p-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Ad groups</p>
+                        <div className="mt-1 space-y-1.5">
+                          {campaignPlan.adGroups.map((g, i) => (
+                            <div key={i}>
+                              <p className="text-xs font-medium text-bip-text">{g.name}</p>
+                              <p className="text-[11px] text-bip-muted">{g.keywords.join(" · ")}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {campaignPlan.budgetNotes && (
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Budget</p>
+                          <p className="mt-0.5 text-[11px] text-bip-muted">{campaignPlan.budgetNotes}</p>
+                        </div>
+                      )}
+                      {campaignPlan.negatives.length > 0 && (
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Negative keywords ({campaignPlan.negatives.length})</p>
+                          <p className="mt-0.5 text-[11px] text-bip-muted">{campaignPlan.negatives.join(", ")}</p>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        disabled={planRunning}
+                        onClick={() => void runCampaignPlan()}
+                        className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
+                      >
+                        {planRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-draft
+                      </button>
+                    </div>
+                  )}
+                  {planMsg && <p className="text-xs text-bip-muted">{planMsg}</p>}
                   <button
                     type="button"
                     disabled={busy}
