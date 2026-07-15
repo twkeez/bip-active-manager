@@ -1,4 +1,5 @@
 import { evaluateClientSetup } from "@/lib/clients/setup-status";
+import { seoKeywordAllowance } from "@/lib/playbook/client-tiers";
 import { getClientActiveServices, norm } from "@/lib/clients/service-active";
 import type {
   ClientActiveServices,
@@ -234,9 +235,12 @@ function evaluateAutoItem(
       : { done: false, hint: "Run Lighthouse or an SEO crawl." };
   }
   if (verification === "snapshot:keyword_targets") {
+    if (seoKeywordAllowance(client) === 0) {
+      return { done: true, hint: "No keyword tracking at this tier." };
+    }
     return ctx.hasKeywordTargets
       ? { done: true, hint: null }
-      : { done: false, hint: "Add keyword targets in Reporting." };
+      : { done: false, hint: "Suggest and save the tracked keywords below." };
   }
   if (verification === "snapshot:reporting_prefs") {
     return ctx.hasReportingPrefs

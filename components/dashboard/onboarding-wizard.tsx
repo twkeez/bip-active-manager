@@ -93,6 +93,8 @@ type Discovery = {
   searchLandscape: string;
 };
 
+type KeywordData = { allowance: number; suggestions: string[]; existing: string[] };
+
 export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, onGraduated }: Props) {
   const [evaluation, setEvaluation] = useState<ClientOnboardingEvaluation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,8 +108,9 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [discoveryRunning, setDiscoveryRunning] = useState(false);
   const [kickoffDate, setKickoffDate] = useState("");
   const [kickoffSaving, setKickoffSaving] = useState(false);
-  const [baselineRunning, setBaselineRunning] = useState(false);
-  const [baselineMsg, setBaselineMsg] = useState<string | null>(null);
+  const [keywordData, setKeywordData] = useState<KeywordData | null>(null);
+  const [keywordText, setKeywordText] = useState("");
+  const [keywordSaving, setKeywordSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,6 +172,30 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
     return null;
   }, [evaluation]);
 
+  // Load the keyword plan (allowance + suggestions + current) when on that step.
+  useEffect(() => {
+    if (current?.verification !== "snapshot:keyword_targets" || keywordData) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/clients/${clientId}/onboarding/keywords`, { cache: "no-store" });
+        const payload = (await res.json()) as KeywordData & { error?: string };
+        if (cancelled || !res.ok) return;
+        setKeywordData({
+          allowance: payload.allowance,
+          suggestions: payload.suggestions ?? [],
+          existing: payload.existing ?? [],
+        });
+        setKeywordText((payload.existing ?? []).join("\n"));
+      } catch {
+        // ignore — the step still works, just without pre-fill
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [current?.verification, clientId, keywordData]);
+
   async function startOnboarding() {
     setBusy(true);
     setError(null);
@@ -225,22 +252,33 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
     }
   }
 
-  async function runBaseline() {
-    setBaselineRunning(true);
-    setBaselineMsg(null);
+  async function saveKeywords() {
+    setKeywordSaving(true);
+    setError(null);
     try {
-      const res = await fetch("/api/organic-rank/scan", {
+      const keywords = keywordText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const res = await fetch(`/api/clients/${clientId}/onboarding/keywords`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId }),
+        body: JSON.stringify({ keywords }),
       });
-      const payload = (await res.json()) as { error?: string; count?: number };
-      if (!res.ok) throw new Error(payload.error ?? "Baseline scan failed");
-      setBaselineMsg(`Baseline captured — ${payload.count ?? 0} rankings recorded.`);
+      const payload = (await res.json()) as {
+        error?: string;
+        evaluation?: ClientOnboardingEvaluation;
+        saved?: string[];
+      };
+      if (!res.ok || !payload.evaluation) throw new Error(payload.error ?? "Failed to save keywords");
+      setEvaluation(payload.evaluation);
+      const saved = payload.saved ?? [];
+      setKeywordData((d) => (d ? { ...d, existing: saved } : d));
+      setKeywordText(saved.join("\n"));
     } catch (e) {
-      setBaselineMsg(e instanceof Error ? e.message : "Baseline scan failed");
+      setError(e instanceof Error ? e.message : "Failed to save keywords");
     } finally {
-      setBaselineRunning(false);
+      setKeywordSaving(false);
     }
   }
 
@@ -600,29 +638,38 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                 </div>
               ) : current.verification === "snapshot:keyword_targets" ? (
                 <div className="mt-3 space-y-2">
-                  {!current.done && (
-                    <span className="text-xs text-bip-muted">This step verifies itself once keywords are added in Reporting.</span>
+                  {!keywordData ? (
+                    <span className="text-xs text-bip-muted">Loading keyword plan…</span>
+                  ) : keywordData.allowance === 0 ? (
+                    <p className="text-xs text-bip-muted">No keyword tracking at this tier.</p>
+                  ) : (
+                    <>
+                      <textarea
+                        value={keywordText}
+                        onChange={(e) => setKeywordText(e.target.value)}
+                        placeholder="One keyword per line"
+                        className="min-h-[90px] w-full rounded-md bip-input text-sm shadow-none"
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setKeywordText(keywordData.suggestions.join("\n"))}
+                          className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" /> Suggest keywords
+                        </button>
+                        <button
+                          type="button"
+                          disabled={keywordSaving}
+                          onClick={() => void saveKeywords()}
+                          className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+                        >
+                          {keywordSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save as tracked
+                        </button>
+                        <span className="text-[11px] text-bip-muted">up to {keywordData.allowance}</span>
+                      </div>
+                    </>
                   )}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {current.actionTab && current.actionTab !== "edit" && ACTION_LABELS[current.actionTab] && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenTab?.(current.actionTab!)}
-                        className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
-                      >
-                        {ACTION_LABELS[current.actionTab]} <ArrowRight className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      disabled={baselineRunning}
-                      onClick={() => void runBaseline()}
-                      className="inline-flex items-center gap-1 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
-                    >
-                      {baselineRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Run baseline rankings
-                    </button>
-                  </div>
-                  {baselineMsg && <p className="text-xs text-bip-muted">{baselineMsg}</p>}
                 </div>
               ) : (
                 <div className="mt-3 flex flex-wrap items-center gap-2">

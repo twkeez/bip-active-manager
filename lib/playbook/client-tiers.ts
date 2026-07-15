@@ -92,6 +92,43 @@ export function defaultSeoKeywords(client: ClientRow): string[] {
   return result;
 }
 
+// Suggested tracked keywords for onboarding, sized to the SEO tier. Built from
+// the practice name, city, and common vet-service terms — no client access
+// needed. Returns [] for Foundation (no keyword tracking at that tier).
+export function suggestSeoKeywords(client: ClientRow): string[] {
+  const allowance = seoKeywordAllowance(client);
+  if (allowance === 0) return [];
+
+  const city = (client.city ?? "").split(",")[0].trim();
+  const name = (client.account_name ?? "").trim();
+
+  const candidates: string[] = ["vet near me"];
+  if (city) candidates.push(`veterinarian in ${city}`);
+  if (name) candidates.push(name);
+  if (city) {
+    candidates.push(
+      `animal hospital ${city}`,
+      `emergency vet ${city}`,
+      `dog vaccinations ${city}`,
+      `cat vet ${city}`,
+      `spay and neuter ${city}`,
+      `pet dental ${city}`,
+      `puppy vet ${city}`,
+    );
+  }
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const kw of candidates) {
+    const key = kw.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(kw);
+    if (out.length >= allowance) break;
+  }
+  return out;
+}
+
 // ── Local rank zone allowance ──────────────────────────────────────────────
 // Geographic rank "zones" a client may track, by SEO tier: Premium 1,
 // Premium Plus 3, Foundation (or inactive) 0.
