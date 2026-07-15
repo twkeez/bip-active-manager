@@ -62,6 +62,6 @@ export async function GET(
     discovery: intake?.discovery ?? null,
     discoveryAt: intake?.discovery_at ?? null,
     kickoffMeetingAt: intake?.kickoff_meeting_at ?? null,
-    competitorAds: intake?.competitor_ads ?? null,
+    competitorOffers: intake?.competitor_ads ?? null,
   });
 }

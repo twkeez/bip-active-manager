@@ -99,7 +99,7 @@ type KeywordData = {
   existing: string[];
 };
 
-type CompetitorAd = { advertiser: string; title: string; description: string };
+type CompetitorOffer = { name: string; offers: string; positioning: string; counter: string };
 
 export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, onGraduated }: Props) {
   const [evaluation, setEvaluation] = useState<ClientOnboardingEvaluation | null>(null);
@@ -121,7 +121,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [auditMsg, setAuditMsg] = useState<string | null>(null);
   const [baselineRunning, setBaselineRunning] = useState(false);
   const [baselineMsg, setBaselineMsg] = useState<string | null>(null);
-  const [competitorAds, setCompetitorAds] = useState<CompetitorAd[] | null>(null);
+  const [competitorOffers, setCompetitorOffers] = useState<CompetitorOffer[] | null>(null);
   const [adsRunning, setAdsRunning] = useState(false);
   const [adsMsg, setAdsMsg] = useState<string | null>(null);
 
@@ -136,7 +136,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
           clientProfile?: ClientProfile;
           discovery?: Discovery | null;
           kickoffMeetingAt?: string | null;
-          competitorAds?: CompetitorAd[] | null;
+          competitorOffers?: CompetitorOffer[] | null;
         };
         if (cancelled) return;
         if (!response.ok || !payload.evaluation) throw new Error(payload.error ?? "Failed to load onboarding");
@@ -144,7 +144,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
         if (payload.clientProfile) setClientProfile(payload.clientProfile);
         setDiscovery(payload.discovery ?? null);
         setKickoffDate(payload.kickoffMeetingAt ?? "");
-        setCompetitorAds(payload.competitorAds ?? null);
+        setCompetitorOffers(payload.competitorOffers ?? null);
         // Jump to the first not-yet-done step in the active phase.
         const active = payload.evaluation.items.filter((i) => !i.deferred);
         const firstOpen = active.findIndex((i) => !i.done);
@@ -290,18 +290,18 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
     }
   }
 
-  async function runCompetitorAds() {
+  async function runCompetitorOffers() {
     setAdsRunning(true);
     setAdsMsg(null);
     try {
       const res = await fetch(`/api/clients/${clientId}/onboarding/competitor-ads`, { method: "POST" });
-      const payload = (await res.json()) as { error?: string; competitorAds?: CompetitorAd[] };
-      if (!res.ok) throw new Error(payload.error ?? "Competitor ad lookup failed");
-      const ads = payload.competitorAds ?? [];
-      setCompetitorAds(ads);
-      if (ads.length === 0) setAdsMsg("No competitor ads found for these keywords in the city.");
+      const payload = (await res.json()) as { error?: string; competitors?: CompetitorOffer[] };
+      if (!res.ok) throw new Error(payload.error ?? "Competitor research failed");
+      const offers = payload.competitors ?? [];
+      setCompetitorOffers(offers);
+      if (offers.length === 0) setAdsMsg("No competitors found — try again or add more context.");
     } catch (e) {
-      setAdsMsg(e instanceof Error ? e.message : "Competitor ad lookup failed");
+      setAdsMsg(e instanceof Error ? e.message : "Competitor research failed");
     } finally {
       setAdsRunning(false);
     }
@@ -798,29 +798,30 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                 </div>
               ) : current.verification === "manual:ppc_competitors" ? (
                 <div className="mt-3 space-y-3">
-                  {!competitorAds ? (
+                  {!competitorOffers ? (
                     <button
                       type="button"
                       disabled={adsRunning}
-                      onClick={() => void runCompetitorAds()}
+                      onClick={() => void runCompetitorOffers()}
                       className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
                     >
                       {adsRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                      {adsRunning ? "Looking up ads…" : "Find competitor ads"}
+                      {adsRunning ? "Researching…" : "Research competitor offers"}
                     </button>
-                  ) : competitorAds.length > 0 ? (
-                    <div className="space-y-2 rounded-lg border border-bip-border bg-bip-fill p-3">
-                      {competitorAds.map((ad, i) => (
-                        <div key={i} className="border-t border-bip-border pt-2 first:border-t-0 first:pt-0">
-                          <p className="text-xs font-medium text-bip-text">{ad.advertiser}</p>
-                          {ad.title && <p className="text-xs text-bip-text">{ad.title}</p>}
-                          {ad.description && <p className="text-[11px] text-bip-muted">{ad.description}</p>}
+                  ) : competitorOffers.length > 0 ? (
+                    <div className="space-y-3 rounded-lg border border-bip-border bg-bip-fill p-3">
+                      {competitorOffers.map((c, i) => (
+                        <div key={i} className="border-t border-bip-border pt-2.5 first:border-t-0 first:pt-0">
+                          <p className="text-xs font-medium text-bip-text">{c.name}</p>
+                          {c.offers && <p className="mt-0.5 text-[11px] text-bip-muted"><span className="text-bip-text">Offers:</span> {c.offers}</p>}
+                          {c.positioning && <p className="text-[11px] text-bip-muted"><span className="text-bip-text">Positioning:</span> {c.positioning}</p>}
+                          {c.counter && <p className="text-[11px] text-bip-muted"><span className="text-bip-text">Counter:</span> {c.counter}</p>}
                         </div>
                       ))}
                       <button
                         type="button"
                         disabled={adsRunning}
-                        onClick={() => void runCompetitorAds()}
+                        onClick={() => void runCompetitorOffers()}
                         className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
                       >
                         {adsRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-run
