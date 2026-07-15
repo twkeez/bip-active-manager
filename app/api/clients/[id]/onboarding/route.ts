@@ -41,6 +41,13 @@ export async function GET(
 
   const client = clientRaw as ClientRow;
   const [evaluation] = await buildOnboardingEvaluations(supabase, user.id, [client]);
+
+  const { data: intake } = await supabase
+    .from("client_onboarding_intake")
+    .select("discovery, discovery_at")
+    .eq("client_id", clientId)
+    .maybeSingle();
+
   return NextResponse.json({
     evaluation,
     clientProfile: {
@@ -52,5 +59,7 @@ export async function GET(
       blog: client.blog,
       orm: client.orm,
     },
+    discovery: intake?.discovery ?? null,
+    discoveryAt: intake?.discovery_at ?? null,
   });
 }

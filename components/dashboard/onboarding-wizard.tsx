@@ -11,6 +11,7 @@ import {
   GraduationCap,
   ListChecks,
   Loader2,
+  RefreshCw,
   Sparkles,
 } from "lucide-react";
 import OnboardingKickoffPanel from "@/components/dashboard/onboarding-kickoff-panel";
@@ -86,6 +87,12 @@ const EMPTY_PROFILE_DRAFT: ProfileDraft = {
   orm: "",
 };
 
+type Discovery = {
+  competitors: Array<{ name: string; note: string }>;
+  marketSnapshot: string;
+  searchLandscape: string;
+};
+
 export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, onGraduated }: Props) {
   const [evaluation, setEvaluation] = useState<ClientOnboardingEvaluation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +102,8 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
   const [profileDraft, setProfileDraft] = useState<ProfileDraft>(EMPTY_PROFILE_DRAFT);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [discovery, setDiscovery] = useState<Discovery | null>(null);
+  const [discoveryRunning, setDiscoveryRunning] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,11 +114,13 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
           error?: string;
           evaluation?: ClientOnboardingEvaluation;
           clientProfile?: ClientProfile;
+          discovery?: Discovery | null;
         };
         if (cancelled) return;
         if (!response.ok || !payload.evaluation) throw new Error(payload.error ?? "Failed to load onboarding");
         setEvaluation(payload.evaluation);
         if (payload.clientProfile) setClientProfile(payload.clientProfile);
+        setDiscovery(payload.discovery ?? null);
         // Jump to the first not-yet-done step in the active phase.
         const active = payload.evaluation.items.filter((i) => !i.deferred);
         const firstOpen = active.findIndex((i) => !i.done);
@@ -205,6 +216,21 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       setError(e instanceof Error ? e.message : "Failed to mark launched");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function runDiscovery() {
+    setDiscoveryRunning(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/onboarding/discovery`, { method: "POST" });
+      const payload = (await res.json()) as { error?: string; discovery?: Discovery };
+      if (!res.ok || !payload.discovery) throw new Error(payload.error ?? "Discovery failed");
+      setDiscovery(payload.discovery);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Discovery failed");
+    } finally {
+      setDiscoveryRunning(false);
     }
   }
 
@@ -454,6 +480,57 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                     </button>
                     {current.done && <span className="text-xs text-emerald-400">Confirmed ✓</span>}
                   </div>
+                </div>
+              ) : current.verification === "manual:arm_strategist" ? (
+                <div className="mt-3 space-y-3">
+                  {!discovery ? (
+                    <button
+                      type="button"
+                      disabled={discoveryRunning}
+                      onClick={() => void runDiscovery()}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+                    >
+                      {discoveryRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      {discoveryRunning ? "Researching…" : "Run discovery"}
+                    </button>
+                  ) : (
+                    <div className="space-y-2.5 rounded-lg border border-bip-border bg-bip-fill p-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Competitors</p>
+                        <ul className="mt-1 space-y-1">
+                          {discovery.competitors.map((c, i) => (
+                            <li key={i} className="text-xs text-bip-muted">
+                              <span className="font-medium text-bip-text">{c.name}</span> — {c.note}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Market snapshot</p>
+                        <p className="mt-0.5 text-xs text-bip-muted">{discovery.marketSnapshot}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Search landscape</p>
+                        <p className="mt-0.5 text-xs text-bip-muted">{discovery.searchLandscape}</p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={discoveryRunning}
+                        onClick={() => void runDiscovery()}
+                        className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
+                      >
+                        {discoveryRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-run
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void toggleManual(current.itemKey, !current.done)}
+                    className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+                  >
+                    <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
+                  </button>
                 </div>
               ) : (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
