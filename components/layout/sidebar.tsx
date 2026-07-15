@@ -67,6 +67,7 @@ const SERVICES: NavItem[] = [
   { label: "Services & Tiers", href: "/services", icon: Layers },
   { label: "Service Playbook", href: "/playbook", icon: BookOpen },
   { label: "Onboarding SOPs", href: "/onboarding-sops", icon: GraduationCap },
+  { label: "Best Practices", href: "/best-practices", icon: Sparkles },
   { label: "Partnership & Boundaries", href: "/services/partnership", icon: Handshake },
   { label: "Reference Library", href: "/services/library", icon: FolderOpen },
 ];
