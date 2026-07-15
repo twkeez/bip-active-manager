@@ -152,6 +152,8 @@ export type ClientOnboardingEvaluation = {
   foundationComplete: boolean;
   /** The planned launch date from intake, for display. */
   websiteLaunchDate: string | null;
+  /** Passive connection health (shown as a light, not steps). */
+  connectionsHealth: ConnectionsHealth;
 };
 
 export type OnboardingQueueSummary = {
@@ -159,4 +161,13 @@ export type OnboardingQueueSummary = {
   setupBlocked: number;
   commsOverdue: number;
   readyToGraduate: number;
+};
+
+// Passive red/yellow/green health of a client's connections (per their services),
+// shown instead of connection steps in the wizard.
+export type ConnectionsHealth = {
+  status: "red" | "yellow" | "green";
+  connected: number;
+  total: number;
+  items: Array<{ label: string; connected: boolean }>;
 };

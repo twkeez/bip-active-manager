@@ -6,6 +6,7 @@ import type {
   ClientOnboardingItem,
   ClientOnboardingTemplate,
   ClientServiceKey,
+  ConnectionsHealth,
   DetailTabLink,
   OnboardingCommsCadence,
   OnboardingItemStatus,
@@ -297,6 +298,33 @@ export function evaluateOnboardingItemStatus(
   };
 }
 
+// The connections relevant to a client (by service) and whether each is in.
+// Rendered as a red/yellow/green light instead of onboarding steps.
+export function computeConnectionsHealth(
+  client: ClientRow,
+  socialConnectionCount: number,
+): ConnectionsHealth {
+  const services = getClientActiveServices(client);
+  const has = (v: string | null | undefined) => Boolean((v ?? "").trim());
+  const items: Array<{ label: string; connected: boolean }> = [
+    { label: "Website", connected: has(client.website) },
+    { label: "Basecamp", connected: has(client.basecamp_project_id) },
+  ];
+  if (services.seo) {
+    items.push({ label: "Search Console", connected: has(client.sc_url) });
+    items.push({ label: "GA4", connected: has(client.ga4_property_id) });
+    items.push({ label: "Google Business Profile", connected: has(client.google_place_id) });
+  }
+  if (services.ppc) items.push({ label: "Google Ads", connected: has(client.ads_customer_id) });
+  if (services.smm) items.push({ label: "Social", connected: socialConnectionCount > 0 });
+
+  const connected = items.filter((i) => i.connected).length;
+  const total = items.length;
+  const status: ConnectionsHealth["status"] =
+    total === 0 || connected === total ? "green" : connected === 0 ? "red" : "yellow";
+  return { status, connected, total, items };
+}
+
 export function evaluateClientOnboarding(
   client: ClientRow,
   items: ClientOnboardingItem[],
@@ -396,6 +424,7 @@ export function evaluateClientOnboarding(
     launched,
     foundationComplete,
     websiteLaunchDate: ctx.websiteLaunchDate ?? null,
+    connectionsHealth: computeConnectionsHealth(client, ctx.socialConnectionCount),
   };
 }
 

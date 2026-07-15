@@ -250,7 +250,8 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const isManual = current
     ? current.verification.startsWith("manual:") && current.verification !== "manual:record_created"
     : false;
-  const isComms = current?.category === "communication";
+  // The kickoff generator belongs only on the kickoff step, not every comms step.
+  const isComms = current?.verification === "manual:comms_welcome";
 
   return (
     <div className="space-y-4">
@@ -294,6 +295,37 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
             <AlertTriangle className="h-3.5 w-3.5" /> {evaluation.commsCadenceLabel}
           </p>
         )}
+        {/* Connections health — a light, not steps */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-bip-border pt-3">
+          <span
+            className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+              evaluation.connectionsHealth.status === "green"
+                ? "text-emerald-500"
+                : evaluation.connectionsHealth.status === "yellow"
+                  ? "text-amber-400"
+                  : "text-red-400"
+            }`}
+          >
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                evaluation.connectionsHealth.status === "green"
+                  ? "bg-emerald-500"
+                  : evaluation.connectionsHealth.status === "yellow"
+                    ? "bg-amber-400"
+                    : "bg-red-500"
+              }`}
+            />
+            Connections {evaluation.connectionsHealth.connected}/{evaluation.connectionsHealth.total}
+          </span>
+          {evaluation.connectionsHealth.items.map((it) => (
+            <span
+              key={it.label}
+              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] ${it.connected ? "bg-emerald-500/10 text-emerald-400" : "bg-bip-fill text-bip-muted"}`}
+            >
+              {it.connected ? "✓" : "○"} {it.label}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Current step */}
