@@ -99,6 +99,8 @@ type KeywordData = {
   existing: string[];
 };
 
+type CompetitorAd = { advertiser: string; title: string; description: string };
+
 export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, onGraduated }: Props) {
   const [evaluation, setEvaluation] = useState<ClientOnboardingEvaluation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,6 +121,9 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [auditMsg, setAuditMsg] = useState<string | null>(null);
   const [baselineRunning, setBaselineRunning] = useState(false);
   const [baselineMsg, setBaselineMsg] = useState<string | null>(null);
+  const [competitorAds, setCompetitorAds] = useState<CompetitorAd[] | null>(null);
+  const [adsRunning, setAdsRunning] = useState(false);
+  const [adsMsg, setAdsMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +136,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
           clientProfile?: ClientProfile;
           discovery?: Discovery | null;
           kickoffMeetingAt?: string | null;
+          competitorAds?: CompetitorAd[] | null;
         };
         if (cancelled) return;
         if (!response.ok || !payload.evaluation) throw new Error(payload.error ?? "Failed to load onboarding");
@@ -138,6 +144,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
         if (payload.clientProfile) setClientProfile(payload.clientProfile);
         setDiscovery(payload.discovery ?? null);
         setKickoffDate(payload.kickoffMeetingAt ?? "");
+        setCompetitorAds(payload.competitorAds ?? null);
         // Jump to the first not-yet-done step in the active phase.
         const active = payload.evaluation.items.filter((i) => !i.deferred);
         const firstOpen = active.findIndex((i) => !i.done);
@@ -280,6 +287,23 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       setAuditMsg(e instanceof Error ? e.message : "Site audit failed");
     } finally {
       setAuditRunning(false);
+    }
+  }
+
+  async function runCompetitorAds() {
+    setAdsRunning(true);
+    setAdsMsg(null);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/onboarding/competitor-ads`, { method: "POST" });
+      const payload = (await res.json()) as { error?: string; competitorAds?: CompetitorAd[] };
+      if (!res.ok) throw new Error(payload.error ?? "Competitor ad lookup failed");
+      const ads = payload.competitorAds ?? [];
+      setCompetitorAds(ads);
+      if (ads.length === 0) setAdsMsg("No competitor ads found for these keywords in the city.");
+    } catch (e) {
+      setAdsMsg(e instanceof Error ? e.message : "Competitor ad lookup failed");
+    } finally {
+      setAdsRunning(false);
     }
   }
 
@@ -771,6 +795,47 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                     </button>
                   </div>
                   {baselineMsg && <p className="text-xs text-bip-muted">{baselineMsg}</p>}
+                </div>
+              ) : current.verification === "manual:ppc_competitors" ? (
+                <div className="mt-3 space-y-3">
+                  {!competitorAds ? (
+                    <button
+                      type="button"
+                      disabled={adsRunning}
+                      onClick={() => void runCompetitorAds()}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+                    >
+                      {adsRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      {adsRunning ? "Looking up ads…" : "Find competitor ads"}
+                    </button>
+                  ) : competitorAds.length > 0 ? (
+                    <div className="space-y-2 rounded-lg border border-bip-border bg-bip-fill p-3">
+                      {competitorAds.map((ad, i) => (
+                        <div key={i} className="border-t border-bip-border pt-2 first:border-t-0 first:pt-0">
+                          <p className="text-xs font-medium text-bip-text">{ad.advertiser}</p>
+                          {ad.title && <p className="text-xs text-bip-text">{ad.title}</p>}
+                          {ad.description && <p className="text-[11px] text-bip-muted">{ad.description}</p>}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={adsRunning}
+                        onClick={() => void runCompetitorAds()}
+                        className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
+                      >
+                        {adsRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-run
+                      </button>
+                    </div>
+                  ) : null}
+                  {adsMsg && <p className="text-xs text-bip-muted">{adsMsg}</p>}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void toggleManual(current.itemKey, !current.done)}
+                    className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+                  >
+                    <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
+                  </button>
                 </div>
               ) : (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
