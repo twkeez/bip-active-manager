@@ -46,8 +46,11 @@ export async function GET(
     clientProfile: {
       marketing_strategist: client.marketing_strategist,
       tier: client.tier,
-      total_package_hours: client.total_package_hours,
-      hours_for_strategist: client.hours_for_strategist,
+      seo: client.seo,
+      ppc: client.ppc,
+      smm: client.smm,
+      blog: client.blog,
+      orm: client.orm,
     },
   });
 }

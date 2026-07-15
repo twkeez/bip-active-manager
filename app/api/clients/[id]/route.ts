@@ -87,6 +87,11 @@ export async function PATCH(
     "city",
     "marketing_strategist",
     "tier",
+    "seo",
+    "ppc",
+    "smm",
+    "blog",
+    "orm",
   ] as const;
   const numericAllowed = ["total_package_hours", "hours_for_strategist"] as const;
 

@@ -34,25 +34,56 @@ const ACTION_LABELS: Partial<Record<DetailTabLink, string>> = {
   comms: "Open Comms",
 };
 
+const PROFILE_SERVICE_KEYS = ["seo", "ppc", "smm", "blog", "orm"] as const;
+type ProfileServiceKey = (typeof PROFILE_SERVICE_KEYS)[number];
+
+const SERVICE_LABELS: Record<ProfileServiceKey, string> = {
+  seo: "SEO",
+  ppc: "Ads / PPC",
+  smm: "Social",
+  blog: "Blog",
+  orm: "ORM",
+};
+
+const TIER_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "None" },
+  { value: "Foundation", label: "Foundation" },
+  { value: "Premium", label: "Premium" },
+  { value: "Premium Plus", label: "Premium Plus" },
+];
+
+// Map a stored service tier string to one of the dropdown options.
+function tierOption(v: string | null | undefined): string {
+  const s = (v ?? "").trim().toLowerCase();
+  if (!s || ["n", "no", "none", "na", "n/a", "0", "false"].includes(s)) return "";
+  if (s.includes("plus") || s.includes("+")) return "Premium Plus";
+  if (s.includes("premium") || s === "p") return "Premium";
+  return "Foundation";
+}
+
 type ClientProfile = {
   marketing_strategist: string | null;
   tier: string | null;
-  total_package_hours: number | null;
-  hours_for_strategist: number | null;
+  seo: string | null;
+  ppc: string | null;
+  smm: string | null;
+  blog: string | null;
+  orm: string | null;
 };
 
 type ProfileDraft = {
   marketing_strategist: string;
   tier: string;
-  total_package_hours: string;
-  hours_for_strategist: string;
-};
+} & Record<ProfileServiceKey, string>;
 
 const EMPTY_PROFILE_DRAFT: ProfileDraft = {
   marketing_strategist: "",
   tier: "",
-  total_package_hours: "",
-  hours_for_strategist: "",
+  seo: "",
+  ppc: "",
+  smm: "",
+  blog: "",
+  orm: "",
 };
 
 export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, onGraduated }: Props) {
@@ -99,10 +130,11 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
     setProfileDraft({
       marketing_strategist: clientProfile.marketing_strategist ?? "",
       tier: clientProfile.tier ?? "",
-      total_package_hours:
-        clientProfile.total_package_hours != null ? String(clientProfile.total_package_hours) : "",
-      hours_for_strategist:
-        clientProfile.hours_for_strategist != null ? String(clientProfile.hours_for_strategist) : "",
+      seo: tierOption(clientProfile.seo),
+      ppc: tierOption(clientProfile.ppc),
+      smm: tierOption(clientProfile.smm),
+      blog: tierOption(clientProfile.blog),
+      orm: tierOption(clientProfile.orm),
     });
   }, [clientProfile]);
 
@@ -379,25 +411,8 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                         className="w-full rounded-md bip-input text-sm shadow-none"
                       />
                     </label>
-                    <label className="block">
-                      <span className="mb-1 block text-[11px] font-medium text-bip-muted">Total package hours</span>
-                      <input
-                        type="number"
-                        value={profileDraft.total_package_hours}
-                        onChange={(e) => setProfileDraft((p) => ({ ...p, total_package_hours: e.target.value }))}
-                        className="w-full rounded-md bip-input text-sm shadow-none"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-[11px] font-medium text-bip-muted">Strategist hours</span>
-                      <input
-                        type="number"
-                        value={profileDraft.hours_for_strategist}
-                        onChange={(e) => setProfileDraft((p) => ({ ...p, hours_for_strategist: e.target.value }))}
-                        className="w-full rounded-md bip-input text-sm shadow-none"
-                      />
-                    </label>
                   </div>
+                  <p className="text-[11px] text-bip-muted">Hours are calculated from the services + tiers.</p>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -408,6 +423,36 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                       {profileSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
                     </button>
                     {current.done && <span className="text-xs text-emerald-400">Complete ✓</span>}
+                  </div>
+                </div>
+              ) : current.verification === "manual:intake_services" ? (
+                <div className="mt-3 space-y-2">
+                  <div className="space-y-1.5">
+                    {PROFILE_SERVICE_KEYS.map((key) => (
+                      <div key={key} className="grid grid-cols-[84px_1fr] items-center gap-2">
+                        <span className="text-xs font-medium text-bip-text">{SERVICE_LABELS[key]}</span>
+                        <select
+                          value={profileDraft[key]}
+                          onChange={(e) => setProfileDraft((p) => ({ ...p, [key]: e.target.value }))}
+                          className="w-full rounded-md bip-input text-sm shadow-none"
+                        >
+                          {TIER_OPTIONS.map((o) => (
+                            <option key={o.label} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={profileSaving}
+                      onClick={() => void saveProfile()}
+                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+                    >
+                      {profileSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
+                    </button>
+                    {current.done && <span className="text-xs text-emerald-400">Confirmed ✓</span>}
                   </div>
                 </div>
               ) : (

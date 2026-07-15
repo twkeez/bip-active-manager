@@ -53,11 +53,12 @@ function daysSince(value: string | null | undefined) {
 }
 
 function hasIntakeProfile(client: ClientRow) {
+  // Hours are derived from services + tiers, not entered — so the profile just
+  // needs the strategist assigned (name + tier come from the pipeline intake).
   return (
     Boolean(norm(client.account_name)) &&
     Boolean(norm(client.marketing_strategist)) &&
-    Boolean(norm(client.tier)) &&
-    (client.total_package_hours != null || client.hours_for_strategist != null)
+    Boolean(norm(client.tier))
   );
 }
 
