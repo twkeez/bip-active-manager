@@ -29,6 +29,7 @@ export type OnboardingEvaluationContext = {
   webStatus?: string | null;
   websiteLaunchedAt?: string | null;
   websiteLaunchDate?: string | null;
+  kickoffMeetingAt?: string | null;
 };
 
 // Web statuses where a site build is still coming (so at_launch steps defer).
@@ -219,6 +220,12 @@ function evaluateAutoItem(
     return externalAfterStart
       ? { done: true, hint: null }
       : { done: false, hint: "No client reply recorded since onboarding started." };
+  }
+
+  if (verification === "state:kickoff_meeting") {
+    return ctx.kickoffMeetingAt
+      ? { done: true, hint: null }
+      : { done: false, hint: "Enter the kickoff meeting date below." };
   }
 
   if (verification === "snapshot:seo_baseline") {
@@ -665,7 +672,7 @@ export async function buildOnboardingContextForClients(
       .order("occurred_at", { ascending: false }),
     supabase
       .from("client_onboarding_intake")
-      .select("client_id, web_status, website_launched_at, website_launch_date")
+      .select("client_id, web_status, website_launched_at, website_launch_date, kickoff_meeting_at")
       .in("client_id", uniqueIds),
   ]);
 
@@ -698,18 +705,25 @@ export async function buildOnboardingContextForClients(
 
   const intakeByClient: Record<
     number,
-    { web_status: string | null; website_launched_at: string | null; website_launch_date: string | null }
+    {
+      web_status: string | null;
+      website_launched_at: string | null;
+      website_launch_date: string | null;
+      kickoff_meeting_at: string | null;
+    }
   > = {};
   for (const row of (intakeRes.data ?? []) as Array<{
     client_id: number;
     web_status: string | null;
     website_launched_at: string | null;
     website_launch_date: string | null;
+    kickoff_meeting_at: string | null;
   }>) {
     intakeByClient[row.client_id] = {
       web_status: row.web_status,
       website_launched_at: row.website_launched_at,
       website_launch_date: row.website_launch_date,
+      kickoff_meeting_at: row.kickoff_meeting_at,
     };
   }
 
@@ -725,6 +739,7 @@ export async function buildOnboardingContextForClients(
       webStatus: intake?.web_status ?? null,
       websiteLaunchedAt: intake?.website_launched_at ?? null,
       websiteLaunchDate: intake?.website_launch_date ?? null,
+      kickoffMeetingAt: intake?.kickoff_meeting_at ?? null,
     };
   }
   return ctx;

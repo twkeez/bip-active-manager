@@ -104,6 +104,10 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [profileSaving, setProfileSaving] = useState(false);
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
   const [discoveryRunning, setDiscoveryRunning] = useState(false);
+  const [kickoffDate, setKickoffDate] = useState("");
+  const [kickoffSaving, setKickoffSaving] = useState(false);
+  const [baselineRunning, setBaselineRunning] = useState(false);
+  const [baselineMsg, setBaselineMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,12 +119,14 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
           evaluation?: ClientOnboardingEvaluation;
           clientProfile?: ClientProfile;
           discovery?: Discovery | null;
+          kickoffMeetingAt?: string | null;
         };
         if (cancelled) return;
         if (!response.ok || !payload.evaluation) throw new Error(payload.error ?? "Failed to load onboarding");
         setEvaluation(payload.evaluation);
         if (payload.clientProfile) setClientProfile(payload.clientProfile);
         setDiscovery(payload.discovery ?? null);
+        setKickoffDate(payload.kickoffMeetingAt ?? "");
         // Jump to the first not-yet-done step in the active phase.
         const active = payload.evaluation.items.filter((i) => !i.deferred);
         const firstOpen = active.findIndex((i) => !i.done);
@@ -216,6 +222,45 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       setError(e instanceof Error ? e.message : "Failed to mark launched");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function runBaseline() {
+    setBaselineRunning(true);
+    setBaselineMsg(null);
+    try {
+      const res = await fetch("/api/organic-rank/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      const payload = (await res.json()) as { error?: string; count?: number };
+      if (!res.ok) throw new Error(payload.error ?? "Baseline scan failed");
+      setBaselineMsg(`Baseline captured — ${payload.count ?? 0} rankings recorded.`);
+    } catch (e) {
+      setBaselineMsg(e instanceof Error ? e.message : "Baseline scan failed");
+    } finally {
+      setBaselineRunning(false);
+    }
+  }
+
+  async function saveMeeting(date: string) {
+    setKickoffSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/onboarding/meeting`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scheduledAt: date || null }),
+      });
+      const payload = (await res.json()) as { error?: string; evaluation?: ClientOnboardingEvaluation };
+      if (!res.ok || !payload.evaluation) throw new Error(payload.error ?? "Failed to save meeting date");
+      setEvaluation(payload.evaluation);
+      setKickoffDate(date);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save meeting date");
+    } finally {
+      setKickoffSaving(false);
     }
   }
 
@@ -531,6 +576,53 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                   >
                     <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
                   </button>
+                </div>
+              ) : current.verification === "state:kickoff_meeting" ? (
+                <div className="mt-3 flex flex-wrap items-end gap-2">
+                  <label className="block">
+                    <span className="mb-1 block text-[11px] font-medium text-bip-muted">Kickoff meeting date</span>
+                    <input
+                      type="date"
+                      value={kickoffDate ? kickoffDate.slice(0, 10) : ""}
+                      onChange={(e) => setKickoffDate(e.target.value)}
+                      className="rounded-md bip-input text-sm shadow-none"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={kickoffSaving}
+                    onClick={() => void saveMeeting(kickoffDate)}
+                    className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+                  >
+                    {kickoffSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
+                  </button>
+                  {current.done && <span className="text-xs text-emerald-400">Scheduled ✓</span>}
+                </div>
+              ) : current.verification === "snapshot:keyword_targets" ? (
+                <div className="mt-3 space-y-2">
+                  {!current.done && (
+                    <span className="text-xs text-bip-muted">This step verifies itself once keywords are added in Reporting.</span>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {current.actionTab && current.actionTab !== "edit" && ACTION_LABELS[current.actionTab] && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenTab?.(current.actionTab!)}
+                        className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
+                      >
+                        {ACTION_LABELS[current.actionTab]} <ArrowRight className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={baselineRunning}
+                      onClick={() => void runBaseline()}
+                      className="inline-flex items-center gap-1 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+                    >
+                      {baselineRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Run baseline rankings
+                    </button>
+                  </div>
+                  {baselineMsg && <p className="text-xs text-bip-muted">{baselineMsg}</p>}
                 </div>
               ) : (
                 <div className="mt-3 flex flex-wrap items-center gap-2">

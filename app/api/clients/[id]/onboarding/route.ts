@@ -44,7 +44,7 @@ export async function GET(
 
   const { data: intake } = await supabase
     .from("client_onboarding_intake")
-    .select("discovery, discovery_at")
+    .select("discovery, discovery_at, kickoff_meeting_at")
     .eq("client_id", clientId)
     .maybeSingle();
 
@@ -61,5 +61,6 @@ export async function GET(
     },
     discovery: intake?.discovery ?? null,
     discoveryAt: intake?.discovery_at ?? null,
+    kickoffMeetingAt: intake?.kickoff_meeting_at ?? null,
   });
 }
