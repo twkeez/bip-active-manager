@@ -129,6 +129,41 @@ export function suggestSeoKeywords(client: ClientRow): string[] {
   return out;
 }
 
+// Broader candidate pool (~12) for the keyword step — the strategist picks up
+// to the tier cap, informed by search volume. Empty for Foundation.
+export function candidateSeoKeywords(client: ClientRow): string[] {
+  if (seoKeywordAllowance(client) === 0) return [];
+  const city = (client.city ?? "").split(",")[0].trim();
+  const name = (client.account_name ?? "").trim();
+  const candidates: string[] = ["vet near me"];
+  if (name) candidates.push(name);
+  if (city) {
+    candidates.push(
+      `veterinarian in ${city}`,
+      `animal hospital ${city}`,
+      `emergency vet ${city}`,
+      `vet clinic ${city}`,
+      `dog vaccinations ${city}`,
+      `cat vet ${city}`,
+      `spay and neuter ${city}`,
+      `pet dental ${city}`,
+      `puppy vet ${city}`,
+      `low cost vet ${city}`,
+      `24 hour vet ${city}`,
+    );
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const kw of candidates) {
+    const key = kw.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(kw);
+    if (out.length >= 12) break;
+  }
+  return out;
+}
+
 // ── Local rank zone allowance ──────────────────────────────────────────────
 // Geographic rank "zones" a client may track, by SEO tier: Premium 1,
 // Premium Plus 3, Foundation (or inactive) 0.

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getDataForSeoConfig } from "@/lib/env";
 import { buildOnboardingEvaluations } from "@/lib/clients/onboarding";
-import { seoKeywordAllowance, suggestSeoKeywords } from "@/lib/playbook/client-tiers";
+import { candidateSeoKeywords, seoKeywordAllowance } from "@/lib/playbook/client-tiers";
+import { fetchSearchVolumes } from "@/lib/dataforseo/search-volume";
 import type { ClientRow } from "@/lib/types/client";
 
 function parseClientId(value: string) {
@@ -39,12 +41,23 @@ export async function GET(
     .eq("owner_user_id", user.id)
     .eq("client_id", clientId)
     .eq("is_active", true);
+  const existing = (existingRows ?? []).map((r) => r.keyword as string);
 
-  return NextResponse.json({
-    allowance: seoKeywordAllowance(client),
-    suggestions: suggestSeoKeywords(client),
-    existing: (existingRows ?? []).map((r) => r.keyword as string),
-  });
+  const allowance = seoKeywordAllowance(client);
+  if (allowance === 0) {
+    return NextResponse.json({ allowance, candidates: [], existing });
+  }
+
+  // Broad candidate pool + any already-tracked keywords, enriched with search
+  // volume localized to the practice city, sorted by demand.
+  const pool = [...new Set([...candidateSeoKeywords(client), ...existing])];
+  const config = getDataForSeoConfig();
+  const volumes = config ? await fetchSearchVolumes(config, pool, client.city) : {};
+  const candidates = pool
+    .map((keyword) => ({ keyword, volume: volumes[keyword.toLowerCase()] ?? null }))
+    .sort((a, b) => (b.volume ?? -1) - (a.volume ?? -1));
+
+  return NextResponse.json({ allowance, candidates, existing });
 }
 
 // Replace the client's tracked keywords with the provided list.

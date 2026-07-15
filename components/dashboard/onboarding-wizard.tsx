@@ -93,7 +93,11 @@ type Discovery = {
   searchLandscape: string;
 };
 
-type KeywordData = { allowance: number; suggestions: string[]; existing: string[] };
+type KeywordData = {
+  allowance: number;
+  candidates: Array<{ keyword: string; volume: number | null }>;
+  existing: string[];
+};
 
 export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, onGraduated }: Props) {
   const [evaluation, setEvaluation] = useState<ClientOnboardingEvaluation | null>(null);
@@ -109,7 +113,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [kickoffDate, setKickoffDate] = useState("");
   const [kickoffSaving, setKickoffSaving] = useState(false);
   const [keywordData, setKeywordData] = useState<KeywordData | null>(null);
-  const [keywordText, setKeywordText] = useState("");
+  const [keywordSelected, setKeywordSelected] = useState<string[]>([]);
   const [keywordSaving, setKeywordSaving] = useState(false);
 
   useEffect(() => {
@@ -183,10 +187,10 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
         if (cancelled || !res.ok) return;
         setKeywordData({
           allowance: payload.allowance,
-          suggestions: payload.suggestions ?? [],
+          candidates: payload.candidates ?? [],
           existing: payload.existing ?? [],
         });
-        setKeywordText((payload.existing ?? []).join("\n"));
+        setKeywordSelected(payload.existing ?? []);
       } catch {
         // ignore — the step still works, just without pre-fill
       }
@@ -252,18 +256,22 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
     }
   }
 
+  function toggleKeyword(keyword: string) {
+    setKeywordSelected((prev) => {
+      if (prev.includes(keyword)) return prev.filter((k) => k !== keyword);
+      if (keywordData && prev.length >= keywordData.allowance) return prev; // capped
+      return [...prev, keyword];
+    });
+  }
+
   async function saveKeywords() {
     setKeywordSaving(true);
     setError(null);
     try {
-      const keywords = keywordText
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean);
       const res = await fetch(`/api/clients/${clientId}/onboarding/keywords`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keywords }),
+        body: JSON.stringify({ keywords: keywordSelected }),
       });
       const payload = (await res.json()) as {
         error?: string;
@@ -274,7 +282,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       setEvaluation(payload.evaluation);
       const saved = payload.saved ?? [];
       setKeywordData((d) => (d ? { ...d, existing: saved } : d));
-      setKeywordText(saved.join("\n"));
+      setKeywordSelected(saved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save keywords");
     } finally {
@@ -639,35 +647,48 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
               ) : current.verification === "snapshot:keyword_targets" ? (
                 <div className="mt-3 space-y-2">
                   {!keywordData ? (
-                    <span className="text-xs text-bip-muted">Loading keyword plan…</span>
+                    <span className="text-xs text-bip-muted">Researching keywords…</span>
                   ) : keywordData.allowance === 0 ? (
                     <p className="text-xs text-bip-muted">No keyword tracking at this tier.</p>
                   ) : (
                     <>
-                      <textarea
-                        value={keywordText}
-                        onChange={(e) => setKeywordText(e.target.value)}
-                        placeholder="One keyword per line"
-                        className="min-h-[90px] w-full rounded-md bip-input text-sm shadow-none"
-                      />
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setKeywordText(keywordData.suggestions.join("\n"))}
-                          className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
-                        >
-                          <Sparkles className="h-3.5 w-3.5" /> Suggest keywords
-                        </button>
-                        <button
-                          type="button"
-                          disabled={keywordSaving}
-                          onClick={() => void saveKeywords()}
-                          className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
-                        >
-                          {keywordSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save as tracked
-                        </button>
-                        <span className="text-[11px] text-bip-muted">up to {keywordData.allowance}</span>
+                      <p className="text-[11px] text-bip-muted">
+                        Pick up to {keywordData.allowance} — sorted by monthly search volume in the practice city.
+                        <span className="ml-1 font-medium text-bip-text">{keywordSelected.length}/{keywordData.allowance} selected</span>
+                      </p>
+                      <div className="space-y-1">
+                        {keywordData.candidates.map((c) => {
+                          const checked = keywordSelected.includes(c.keyword);
+                          const capped = !checked && keywordSelected.length >= keywordData.allowance;
+                          return (
+                            <label
+                              key={c.keyword}
+                              className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 ${checked ? "border-bip-accent bg-bip-fill" : "border-bip-border"} ${capped ? "opacity-50" : "cursor-pointer"}`}
+                            >
+                              <span className="flex items-center gap-2 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={capped}
+                                  onChange={() => toggleKeyword(c.keyword)}
+                                />
+                                <span className="truncate text-xs text-bip-text">{c.keyword}</span>
+                              </span>
+                              <span className="shrink-0 text-xs text-bip-muted">
+                                {c.volume == null ? "—" : `${c.volume.toLocaleString()}/mo`}
+                              </span>
+                            </label>
+                          );
+                        })}
                       </div>
+                      <button
+                        type="button"
+                        disabled={keywordSaving}
+                        onClick={() => void saveKeywords()}
+                        className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+                      >
+                        {keywordSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save as tracked
+                      </button>
                     </>
                   )}
                 </div>
