@@ -3,15 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  ArrowLeft,
   ArrowRight,
   Check,
   CheckCircle2,
+  ChevronDown,
   Circle,
   FileText,
   GraduationCap,
   ListChecks,
   Loader2,
+  Lock,
   RefreshCw,
   Sparkles,
 } from "lucide-react";
@@ -123,7 +124,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [index, setIndex] = useState(0);
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
   const [profileDraft, setProfileDraft] = useState<ProfileDraft>(EMPTY_PROFILE_DRAFT);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -177,10 +178,10 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
         setCompetitorOffers(payload.competitorOffers ?? null);
         setCampaignPlan(payload.campaignPlan ?? null);
         setBrandElements(payload.brandElements ?? null);
-        // Jump to the first not-yet-done step in the active phase.
+        // Open the first not-yet-done step in the active phase.
         const active = payload.evaluation.items.filter((i) => !i.deferred);
-        const firstOpen = active.findIndex((i) => !i.done);
-        setIndex(firstOpen === -1 ? 0 : firstOpen);
+        const firstOpen = active.find((i) => !i.done) ?? active[0] ?? null;
+        setOpenKey(firstOpen?.itemKey ?? null);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load onboarding");
       } finally {
@@ -211,7 +212,8 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   // separately in the "Comes at launch" group.
   const items = allItems.filter((i) => !i.deferred);
   const deferredItems = allItems.filter((i) => i.deferred);
-  const current = items[index] ?? null;
+  // The expanded step (accordion is single-open). Drives keyword prefetch below.
+  const current = items.find((i) => i.itemKey === openKey) ?? null;
 
   const commsTone = useMemo(() => {
     if (!evaluation) return null;
@@ -252,7 +254,8 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       const payload = (await response.json()) as { error?: string; evaluation?: ClientOnboardingEvaluation };
       if (!response.ok || !payload.evaluation) throw new Error(payload.error ?? "Failed to start onboarding");
       setEvaluation(payload.evaluation);
-      setIndex(0);
+      const active = payload.evaluation.items.filter((i) => !i.deferred);
+      setOpenKey(active[0]?.itemKey ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start onboarding");
     } finally {
@@ -291,8 +294,8 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       if (!response.ok || !payload.evaluation) throw new Error(payload.error ?? "Failed to mark launched");
       setEvaluation(payload.evaluation);
       const active = payload.evaluation.items.filter((i) => !i.deferred);
-      const firstOpen = active.findIndex((i) => !i.done);
-      setIndex(firstOpen === -1 ? 0 : firstOpen);
+      const firstOpen = active.find((i) => !i.done) ?? active[0] ?? null;
+      setOpenKey(firstOpen?.itemKey ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to mark launched");
     } finally {
@@ -594,11 +597,478 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
     );
   }
 
-  const isManual = current
-    ? current.verification.startsWith("manual:") && current.verification !== "manual:record_created"
-    : false;
-  // The kickoff generator belongs only on the kickoff step, not every comms step.
-  const isComms = current?.verification === "manual:comms_welcome";
+  // The per-step controls, rendered inside whichever accordion row is open.
+  function renderStepAction(item: ClientOnboardingEvaluation["items"][number]) {
+    const isManual =
+      item.verification.startsWith("manual:") && item.verification !== "manual:record_created";
+    // The kickoff generator belongs only on the kickoff step, not every comms step.
+    const isComms = item.verification === "manual:comms_welcome";
+    return (
+      <>
+        {/* Per-step action */}
+        {item.verification === "manual:intake_profile" ? (
+          <div className="mt-3 space-y-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-medium text-bip-muted">Marketing strategist</span>
+                <input
+                  value={profileDraft.marketing_strategist}
+                  onChange={(e) => setProfileDraft((p) => ({ ...p, marketing_strategist: e.target.value }))}
+                  placeholder="Assign strategist"
+                  className="w-full rounded-md bip-input text-sm shadow-none"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-medium text-bip-muted">Tier</span>
+                <input
+                  value={profileDraft.tier}
+                  onChange={(e) => setProfileDraft((p) => ({ ...p, tier: e.target.value }))}
+                  className="w-full rounded-md bip-input text-sm shadow-none"
+                />
+              </label>
+            </div>
+            <p className="text-[11px] text-bip-muted">Hours are calculated from the services + tiers.</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={profileSaving}
+                onClick={() => void saveProfile()}
+                className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+              >
+                {profileSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
+              </button>
+              {item.done && <span className="text-xs text-emerald-400">Complete ✓</span>}
+            </div>
+          </div>
+        ) : item.verification === "manual:intake_services" ? (
+          <div className="mt-3 space-y-2">
+            <div className="space-y-1.5">
+              {PROFILE_SERVICE_KEYS.map((key) => (
+                <div key={key} className="grid grid-cols-[84px_1fr] items-center gap-2">
+                  <span className="text-xs font-medium text-bip-text">{SERVICE_LABELS[key]}</span>
+                  <select
+                    value={profileDraft[key]}
+                    onChange={(e) => setProfileDraft((p) => ({ ...p, [key]: e.target.value }))}
+                    className="w-full rounded-md bip-input text-sm shadow-none"
+                  >
+                    {TIER_OPTIONS.map((o) => (
+                      <option key={o.label} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={profileSaving}
+                onClick={() => void saveProfile()}
+                className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+              >
+                {profileSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
+              </button>
+              {item.done && <span className="text-xs text-emerald-400">Confirmed ✓</span>}
+            </div>
+          </div>
+        ) : item.verification === "manual:arm_strategist" ? (
+          <div className="mt-3 space-y-3">
+            {!discovery ? (
+              <button
+                type="button"
+                disabled={discoveryRunning}
+                onClick={() => void runDiscovery()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {discoveryRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {discoveryRunning ? "Researching…" : "Run discovery"}
+              </button>
+            ) : (
+              <div className="space-y-2.5 rounded-lg border border-bip-border bg-bip-fill p-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Competitors</p>
+                  <ul className="mt-1 space-y-1">
+                    {discovery.competitors.map((c, i) => (
+                      <li key={i} className="text-xs text-bip-muted">
+                        <span className="font-medium text-bip-text">{c.name}</span> — {c.note}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Market snapshot</p>
+                  <p className="mt-0.5 text-xs text-bip-muted">{discovery.marketSnapshot}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Search landscape</p>
+                  <p className="mt-0.5 text-xs text-bip-muted">{discovery.searchLandscape}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={discoveryRunning}
+                  onClick={() => void runDiscovery()}
+                  className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
+                >
+                  {discoveryRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-run
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void toggleManual(item.itemKey, !item.done)}
+              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${item.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+            >
+              <Check className="h-3.5 w-3.5" /> {item.done ? "Mark not done" : "Mark done"}
+            </button>
+          </div>
+        ) : item.verification === "state:kickoff_meeting" ? (
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-medium text-bip-muted">Kickoff meeting date</span>
+              <input
+                type="date"
+                value={kickoffDate ? kickoffDate.slice(0, 10) : ""}
+                onChange={(e) => setKickoffDate(e.target.value)}
+                className="rounded-md bip-input text-sm shadow-none"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={kickoffSaving}
+              onClick={() => void saveMeeting(kickoffDate)}
+              className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+            >
+              {kickoffSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
+            </button>
+            {item.done && <span className="text-xs text-emerald-400">Scheduled ✓</span>}
+          </div>
+        ) : item.verification === "snapshot:keyword_targets" ? (
+          <div className="mt-3 space-y-2">
+            {!keywordData ? (
+              <span className="text-xs text-bip-muted">Researching keywords…</span>
+            ) : keywordData.allowance === 0 ? (
+              <p className="text-xs text-bip-muted">No keyword tracking at this tier.</p>
+            ) : (
+              <>
+                <p className="text-[11px] text-bip-muted">
+                  Pick up to {keywordData.allowance} — sorted by monthly search volume in the practice city.
+                  <span className="ml-1 font-medium text-bip-text">{keywordSelected.length}/{keywordData.allowance} selected</span>
+                </p>
+                <div className="space-y-1">
+                  {keywordData.candidates.map((c) => {
+                    const checked = keywordSelected.includes(c.keyword);
+                    const capped = !checked && keywordSelected.length >= keywordData.allowance;
+                    return (
+                      <label
+                        key={c.keyword}
+                        className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 ${checked ? "border-bip-accent bg-bip-fill" : "border-bip-border"} ${capped ? "opacity-50" : "cursor-pointer"}`}
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={capped}
+                            onChange={() => toggleKeyword(c.keyword)}
+                          />
+                          <span className="truncate text-xs text-bip-text">{c.keyword}</span>
+                        </span>
+                        <span className="shrink-0 text-xs text-bip-muted">
+                          {c.volume == null ? "—" : `${c.volume.toLocaleString()}/mo`}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  disabled={keywordSaving}
+                  onClick={() => void saveKeywords()}
+                  className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+                >
+                  {keywordSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save as tracked
+                </button>
+              </>
+            )}
+          </div>
+        ) : item.verification === "snapshot:seo_baseline" ? (
+          <div className="mt-3 space-y-2">
+            {!clientProfile?.website && renderWebsiteField()}
+            <button
+              type="button"
+              disabled={auditRunning}
+              onClick={() => void runAudit()}
+              className="inline-flex items-center gap-1 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+            >
+              {auditRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Run site audit
+            </button>
+            {auditMsg && <p className="text-xs text-bip-muted">{auditMsg}</p>}
+          </div>
+        ) : item.verification === "manual:baseline_rankings" ? (
+          <div className="mt-3 space-y-2">
+            {!clientProfile?.website && renderWebsiteField()}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={baselineRunning}
+                onClick={() => void runBaseline()}
+                className="inline-flex items-center gap-1 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {baselineRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Run baseline rankings
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void toggleManual(item.itemKey, !item.done)}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${item.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+              >
+                <Check className="h-3.5 w-3.5" /> {item.done ? "Mark not done" : "Mark done"}
+              </button>
+            </div>
+            {baselineMsg && <p className="text-xs text-bip-muted">{baselineMsg}</p>}
+          </div>
+        ) : item.verification === "manual:ppc_competitors" ? (
+          <div className="mt-3 space-y-3">
+            {!competitorOffers ? (
+              <button
+                type="button"
+                disabled={adsRunning}
+                onClick={() => void runCompetitorOffers()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {adsRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {adsRunning ? "Researching…" : "Research competitor offers"}
+              </button>
+            ) : competitorOffers.length > 0 ? (
+              <div className="space-y-3 rounded-lg border border-bip-border bg-bip-fill p-3">
+                {competitorOffers.map((c, i) => (
+                  <div key={i} className="border-t border-bip-border pt-2.5 first:border-t-0 first:pt-0">
+                    <p className="text-xs font-medium text-bip-text">{c.name}</p>
+                    {c.offers && <p className="mt-0.5 text-[11px] text-bip-muted"><span className="text-bip-text">Offers:</span> {c.offers}</p>}
+                    {c.positioning && <p className="text-[11px] text-bip-muted"><span className="text-bip-text">Positioning:</span> {c.positioning}</p>}
+                    {c.counter && <p className="text-[11px] text-bip-muted"><span className="text-bip-text">Counter:</span> {c.counter}</p>}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  disabled={adsRunning}
+                  onClick={() => void runCompetitorOffers()}
+                  className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
+                >
+                  {adsRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-run
+                </button>
+              </div>
+            ) : null}
+            {adsMsg && <p className="text-xs text-bip-muted">{adsMsg}</p>}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void toggleManual(item.itemKey, !item.done)}
+              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${item.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+            >
+              <Check className="h-3.5 w-3.5" /> {item.done ? "Mark not done" : "Mark done"}
+            </button>
+          </div>
+        ) : item.verification === "manual:ppc_campaign" ? (
+          <div className="mt-3 space-y-3">
+            {!campaignPlan ? (
+              <button
+                type="button"
+                disabled={planRunning}
+                onClick={() => void runCampaignPlan()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {planRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {planRunning ? "Drafting…" : "Draft campaign plan"}
+              </button>
+            ) : (
+              <div className="space-y-3 rounded-lg border border-bip-border bg-bip-fill p-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Ad groups</p>
+                  <div className="mt-1 space-y-1.5">
+                    {campaignPlan.adGroups.map((g, i) => (
+                      <div key={i}>
+                        <p className="text-xs font-medium text-bip-text">{g.name}</p>
+                        <p className="text-[11px] text-bip-muted">{g.keywords.join(" · ")}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {campaignPlan.budgetNotes && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Budget</p>
+                    <p className="mt-0.5 text-[11px] text-bip-muted">{campaignPlan.budgetNotes}</p>
+                  </div>
+                )}
+                {campaignPlan.negatives.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Negative keywords ({campaignPlan.negatives.length})</p>
+                    <p className="mt-0.5 text-[11px] text-bip-muted">{campaignPlan.negatives.join(", ")}</p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  disabled={planRunning}
+                  onClick={() => void runCampaignPlan()}
+                  className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
+                >
+                  {planRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-draft
+                </button>
+              </div>
+            )}
+            {planMsg && <p className="text-xs text-bip-muted">{planMsg}</p>}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void toggleManual(item.itemKey, !item.done)}
+              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${item.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+            >
+              <Check className="h-3.5 w-3.5" /> {item.done ? "Mark not done" : "Mark done"}
+            </button>
+          </div>
+        ) : item.verification === "manual:smm_brand_assets" ? (
+          <div className="mt-3 space-y-3">
+            {!clientProfile?.website && renderWebsiteField()}
+            {!brandElements ? (
+              <button
+                type="button"
+                disabled={brandRunning}
+                onClick={() => void runBrandElements()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {brandRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {brandRunning ? "Pulling…" : "Pull brand elements from website"}
+              </button>
+            ) : (
+              <div className="space-y-2 rounded-lg border border-bip-border bg-bip-fill p-3">
+                <div className="flex flex-wrap items-end gap-3">
+                  {brandElements.logoUrl && (
+                    <div className="text-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={brandElements.logoUrl} alt="logo" className="h-12 w-12 rounded bg-white object-contain" />
+                      <p className="mt-0.5 text-[10px] text-bip-muted">logo</p>
+                    </div>
+                  )}
+                  {brandElements.themeColor && (
+                    <div className="text-center">
+                      <span className="inline-block h-12 w-12 rounded border border-bip-border" style={{ background: brandElements.themeColor }} />
+                      <p className="mt-0.5 text-[10px] text-bip-muted">{brandElements.themeColor}</p>
+                    </div>
+                  )}
+                </div>
+                {brandElements.heroImage && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={brandElements.heroImage} alt="hero" className="max-h-28 w-full rounded object-cover" />
+                )}
+                {brandElements.title && <p className="text-[11px] text-bip-muted">{brandElements.title}</p>}
+                {!brandElements.logoUrl && !brandElements.heroImage && !brandElements.themeColor && (
+                  <p className="text-[11px] text-bip-muted">Nothing extractable found — gather assets manually.</p>
+                )}
+                <button
+                  type="button"
+                  disabled={brandRunning}
+                  onClick={() => void runBrandElements()}
+                  className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
+                >
+                  {brandRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-pull
+                </button>
+              </div>
+            )}
+            {brandMsg && <p className="text-xs text-bip-muted">{brandMsg}</p>}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void toggleManual(item.itemKey, !item.done)}
+              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${item.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+            >
+              <Check className="h-3.5 w-3.5" /> {item.done ? "Mark not done" : "Mark done"}
+            </button>
+          </div>
+        ) : item.verification === "manual:blog_schedule" ? (
+          <div className="mt-3 space-y-3">
+            {!blogTopics ? (
+              <button
+                type="button"
+                disabled={topicsRunning}
+                onClick={() => void runBlogTopics()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {topicsRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {topicsRunning ? "Loading…" : "Suggest topics"}
+              </button>
+            ) : blogTopics.length > 0 ? (
+              <div className="space-y-1.5 rounded-lg border border-bip-border bg-bip-fill p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Top blog topics across clients</p>
+                {blogTopics.map((t, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs text-bip-text">{t.topic}</span>
+                    <span className="shrink-0 text-[11px] text-bip-muted">{t.clicks.toLocaleString()} clicks · {t.clients} client{t.clients === 1 ? "" : "s"}</span>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  disabled={topicsRunning}
+                  onClick={() => void runBlogTopics()}
+                  className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
+                >
+                  {topicsRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-run
+                </button>
+              </div>
+            ) : null}
+            {topicsMsg && <p className="text-xs text-bip-muted">{topicsMsg}</p>}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void toggleManual(item.itemKey, !item.done)}
+              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${item.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+            >
+              <Check className="h-3.5 w-3.5" /> {item.done ? "Mark not done" : "Mark done"}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {isManual ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void toggleManual(item.itemKey, !item.done)}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${item.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+              >
+                <Check className="h-3.5 w-3.5" /> {item.done ? "Mark not done" : "Mark done"}
+              </button>
+            ) : !item.done ? (
+              <span className="text-xs text-bip-muted">This step verifies itself once the data is in place.</span>
+            ) : null}
+
+            {item.actionTab && item.actionTab !== "edit" && ACTION_LABELS[item.actionTab] && (
+              <button
+                type="button"
+                onClick={() => onOpenTab?.(item.actionTab!)}
+                className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
+              >
+                {ACTION_LABELS[item.actionTab]} <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {item.actionTab === "edit" && (
+              <button
+                type="button"
+                onClick={() => onEditClient?.()}
+                className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
+              >
+                Edit client profile <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Kickoff generator lives on the communication step */}
+        {isComms && (
+          <div className="mt-4">
+            <OnboardingKickoffPanel clientId={clientId} />
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -691,519 +1161,67 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
         </div>
       </div>
 
-      {/* Current step */}
-      {current && (
-        <div className="rounded-xl border border-bip-border bg-bip-card p-4">
-          <div className="mb-1 flex items-center justify-between text-xs text-bip-muted">
-            <span className="uppercase tracking-wide">
-              {ONBOARDING_CATEGORY_LABELS[current.category]} · Step {index + 1} of {items.length}
-            </span>
-            <span>
-              {current.severity === "recommended" ? "Recommended" : "Required"}
-            </span>
-          </div>
-
-          <div className="flex items-start gap-3">
-            {current.done ? (
-              <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-500" />
-            ) : (
-              <Circle className="mt-0.5 h-6 w-6 shrink-0 text-bip-muted" />
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="text-base font-semibold text-bip-text">{current.label}</p>
-              {current.guidance && (
-                <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-bip-muted">{current.guidance}</p>
-              )}
-              {current.hint && !current.done && (
-                <p className="mt-1 text-xs text-amber-300">{current.hint}</p>
-              )}
-              {current.done && current.autoVerified && (
-                <p className="mt-1 text-xs text-emerald-400">Auto-verified ✓</p>
-              )}
-
-              {/* Per-step action */}
-              {current.verification === "manual:intake_profile" ? (
-                <div className="mt-3 space-y-2">
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <label className="block">
-                      <span className="mb-1 block text-[11px] font-medium text-bip-muted">Marketing strategist</span>
-                      <input
-                        value={profileDraft.marketing_strategist}
-                        onChange={(e) => setProfileDraft((p) => ({ ...p, marketing_strategist: e.target.value }))}
-                        placeholder="Assign strategist"
-                        className="w-full rounded-md bip-input text-sm shadow-none"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-[11px] font-medium text-bip-muted">Tier</span>
-                      <input
-                        value={profileDraft.tier}
-                        onChange={(e) => setProfileDraft((p) => ({ ...p, tier: e.target.value }))}
-                        className="w-full rounded-md bip-input text-sm shadow-none"
-                      />
-                    </label>
-                  </div>
-                  <p className="text-[11px] text-bip-muted">Hours are calculated from the services + tiers.</p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={profileSaving}
-                      onClick={() => void saveProfile()}
-                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
-                    >
-                      {profileSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
-                    </button>
-                    {current.done && <span className="text-xs text-emerald-400">Complete ✓</span>}
-                  </div>
-                </div>
-              ) : current.verification === "manual:intake_services" ? (
-                <div className="mt-3 space-y-2">
-                  <div className="space-y-1.5">
-                    {PROFILE_SERVICE_KEYS.map((key) => (
-                      <div key={key} className="grid grid-cols-[84px_1fr] items-center gap-2">
-                        <span className="text-xs font-medium text-bip-text">{SERVICE_LABELS[key]}</span>
-                        <select
-                          value={profileDraft[key]}
-                          onChange={(e) => setProfileDraft((p) => ({ ...p, [key]: e.target.value }))}
-                          className="w-full rounded-md bip-input text-sm shadow-none"
-                        >
-                          {TIER_OPTIONS.map((o) => (
-                            <option key={o.label} value={o.value}>{o.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={profileSaving}
-                      onClick={() => void saveProfile()}
-                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
-                    >
-                      {profileSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
-                    </button>
-                    {current.done && <span className="text-xs text-emerald-400">Confirmed ✓</span>}
-                  </div>
-                </div>
-              ) : current.verification === "manual:arm_strategist" ? (
-                <div className="mt-3 space-y-3">
-                  {!discovery ? (
-                    <button
-                      type="button"
-                      disabled={discoveryRunning}
-                      onClick={() => void runDiscovery()}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
-                    >
-                      {discoveryRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                      {discoveryRunning ? "Researching…" : "Run discovery"}
-                    </button>
-                  ) : (
-                    <div className="space-y-2.5 rounded-lg border border-bip-border bg-bip-fill p-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Competitors</p>
-                        <ul className="mt-1 space-y-1">
-                          {discovery.competitors.map((c, i) => (
-                            <li key={i} className="text-xs text-bip-muted">
-                              <span className="font-medium text-bip-text">{c.name}</span> — {c.note}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Market snapshot</p>
-                        <p className="mt-0.5 text-xs text-bip-muted">{discovery.marketSnapshot}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Search landscape</p>
-                        <p className="mt-0.5 text-xs text-bip-muted">{discovery.searchLandscape}</p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={discoveryRunning}
-                        onClick={() => void runDiscovery()}
-                        className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
-                      >
-                        {discoveryRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-run
-                      </button>
-                    </div>
-                  )}
+      {/* Foundation steps — a scannable, single-open accordion */}
+      {items.length > 0 && (
+        <div>
+          <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
+            Foundation · now
+          </p>
+          <div className="overflow-hidden rounded-xl border border-bip-border bg-bip-card">
+            {items.map((item) => {
+              const open = item.itemKey === openKey;
+              return (
+                <div key={item.itemKey} className="border-b border-bip-border last:border-b-0">
                   <button
                     type="button"
-                    disabled={busy}
-                    onClick={() => void toggleManual(current.itemKey, !current.done)}
-                    className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+                    onClick={() => setOpenKey((k) => (k === item.itemKey ? null : item.itemKey))}
+                    aria-expanded={open}
+                    className={`flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors ${open ? "bg-bip-fill/40" : "hover:bg-bip-fill/40"}`}
                   >
-                    <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
-                  </button>
-                </div>
-              ) : current.verification === "state:kickoff_meeting" ? (
-                <div className="mt-3 flex flex-wrap items-end gap-2">
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] font-medium text-bip-muted">Kickoff meeting date</span>
-                    <input
-                      type="date"
-                      value={kickoffDate ? kickoffDate.slice(0, 10) : ""}
-                      onChange={(e) => setKickoffDate(e.target.value)}
-                      className="rounded-md bip-input text-sm shadow-none"
+                    {item.done ? (
+                      <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
+                    ) : (
+                      <Circle className={`h-5 w-5 shrink-0 ${open ? "text-bip-accent" : "text-bip-muted"}`} />
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={`block truncate text-sm ${open ? "font-semibold text-bip-text" : item.done ? "text-bip-muted" : "text-bip-text"}`}
+                      >
+                        {item.label}
+                      </span>
+                    </span>
+                    {item.hint && !item.done && !open && (
+                      <span className="hidden shrink-0 items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300 sm:inline-flex">
+                        <AlertTriangle className="h-3 w-3" /> Needs input
+                      </span>
+                    )}
+                    <span className="shrink-0 text-[11px] text-bip-muted">
+                      {ONBOARDING_CATEGORY_LABELS[item.category]}
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 text-bip-muted transition-transform ${open ? "rotate-180" : ""}`}
                     />
-                  </label>
-                  <button
-                    type="button"
-                    disabled={kickoffSaving}
-                    onClick={() => void saveMeeting(kickoffDate)}
-                    className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
-                  >
-                    {kickoffSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
                   </button>
-                  {current.done && <span className="text-xs text-emerald-400">Scheduled ✓</span>}
-                </div>
-              ) : current.verification === "snapshot:keyword_targets" ? (
-                <div className="mt-3 space-y-2">
-                  {!keywordData ? (
-                    <span className="text-xs text-bip-muted">Researching keywords…</span>
-                  ) : keywordData.allowance === 0 ? (
-                    <p className="text-xs text-bip-muted">No keyword tracking at this tier.</p>
-                  ) : (
-                    <>
-                      <p className="text-[11px] text-bip-muted">
-                        Pick up to {keywordData.allowance} — sorted by monthly search volume in the practice city.
-                        <span className="ml-1 font-medium text-bip-text">{keywordSelected.length}/{keywordData.allowance} selected</span>
-                      </p>
-                      <div className="space-y-1">
-                        {keywordData.candidates.map((c) => {
-                          const checked = keywordSelected.includes(c.keyword);
-                          const capped = !checked && keywordSelected.length >= keywordData.allowance;
-                          return (
-                            <label
-                              key={c.keyword}
-                              className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 ${checked ? "border-bip-accent bg-bip-fill" : "border-bip-border"} ${capped ? "opacity-50" : "cursor-pointer"}`}
-                            >
-                              <span className="flex items-center gap-2 min-w-0">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  disabled={capped}
-                                  onChange={() => toggleKeyword(c.keyword)}
-                                />
-                                <span className="truncate text-xs text-bip-text">{c.keyword}</span>
-                              </span>
-                              <span className="shrink-0 text-xs text-bip-muted">
-                                {c.volume == null ? "—" : `${c.volume.toLocaleString()}/mo`}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                      <button
-                        type="button"
-                        disabled={keywordSaving}
-                        onClick={() => void saveKeywords()}
-                        className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
-                      >
-                        {keywordSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save as tracked
-                      </button>
-                    </>
-                  )}
-                </div>
-              ) : current.verification === "snapshot:seo_baseline" ? (
-                <div className="mt-3 space-y-2">
-                  {!clientProfile?.website && renderWebsiteField()}
-                  <button
-                    type="button"
-                    disabled={auditRunning}
-                    onClick={() => void runAudit()}
-                    className="inline-flex items-center gap-1 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
-                  >
-                    {auditRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Run site audit
-                  </button>
-                  {auditMsg && <p className="text-xs text-bip-muted">{auditMsg}</p>}
-                </div>
-              ) : current.verification === "manual:baseline_rankings" ? (
-                <div className="mt-3 space-y-2">
-                  {!clientProfile?.website && renderWebsiteField()}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={baselineRunning}
-                      onClick={() => void runBaseline()}
-                      className="inline-flex items-center gap-1 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
-                    >
-                      {baselineRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Run baseline rankings
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void toggleManual(current.itemKey, !current.done)}
-                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
-                    >
-                      <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
-                    </button>
-                  </div>
-                  {baselineMsg && <p className="text-xs text-bip-muted">{baselineMsg}</p>}
-                </div>
-              ) : current.verification === "manual:ppc_competitors" ? (
-                <div className="mt-3 space-y-3">
-                  {!competitorOffers ? (
-                    <button
-                      type="button"
-                      disabled={adsRunning}
-                      onClick={() => void runCompetitorOffers()}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
-                    >
-                      {adsRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                      {adsRunning ? "Researching…" : "Research competitor offers"}
-                    </button>
-                  ) : competitorOffers.length > 0 ? (
-                    <div className="space-y-3 rounded-lg border border-bip-border bg-bip-fill p-3">
-                      {competitorOffers.map((c, i) => (
-                        <div key={i} className="border-t border-bip-border pt-2.5 first:border-t-0 first:pt-0">
-                          <p className="text-xs font-medium text-bip-text">{c.name}</p>
-                          {c.offers && <p className="mt-0.5 text-[11px] text-bip-muted"><span className="text-bip-text">Offers:</span> {c.offers}</p>}
-                          {c.positioning && <p className="text-[11px] text-bip-muted"><span className="text-bip-text">Positioning:</span> {c.positioning}</p>}
-                          {c.counter && <p className="text-[11px] text-bip-muted"><span className="text-bip-text">Counter:</span> {c.counter}</p>}
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        disabled={adsRunning}
-                        onClick={() => void runCompetitorOffers()}
-                        className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
-                      >
-                        {adsRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-run
-                      </button>
-                    </div>
-                  ) : null}
-                  {adsMsg && <p className="text-xs text-bip-muted">{adsMsg}</p>}
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void toggleManual(current.itemKey, !current.done)}
-                    className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
-                  >
-                    <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
-                  </button>
-                </div>
-              ) : current.verification === "manual:ppc_campaign" ? (
-                <div className="mt-3 space-y-3">
-                  {!campaignPlan ? (
-                    <button
-                      type="button"
-                      disabled={planRunning}
-                      onClick={() => void runCampaignPlan()}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
-                    >
-                      {planRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                      {planRunning ? "Drafting…" : "Draft campaign plan"}
-                    </button>
-                  ) : (
-                    <div className="space-y-3 rounded-lg border border-bip-border bg-bip-fill p-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Ad groups</p>
-                        <div className="mt-1 space-y-1.5">
-                          {campaignPlan.adGroups.map((g, i) => (
-                            <div key={i}>
-                              <p className="text-xs font-medium text-bip-text">{g.name}</p>
-                              <p className="text-[11px] text-bip-muted">{g.keywords.join(" · ")}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      {campaignPlan.budgetNotes && (
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Budget</p>
-                          <p className="mt-0.5 text-[11px] text-bip-muted">{campaignPlan.budgetNotes}</p>
-                        </div>
+                  {open && (
+                    <div className="px-3.5 pb-4 pl-[46px]">
+                      {item.severity === "recommended" && (
+                        <span className="mb-2 inline-block rounded bg-bip-fill px-1.5 py-0.5 text-[10px] text-bip-muted">
+                          Recommended
+                        </span>
                       )}
-                      {campaignPlan.negatives.length > 0 && (
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Negative keywords ({campaignPlan.negatives.length})</p>
-                          <p className="mt-0.5 text-[11px] text-bip-muted">{campaignPlan.negatives.join(", ")}</p>
-                        </div>
+                      {item.guidance && (
+                        <p className="whitespace-pre-line text-sm leading-relaxed text-bip-muted">{item.guidance}</p>
                       )}
-                      <button
-                        type="button"
-                        disabled={planRunning}
-                        onClick={() => void runCampaignPlan()}
-                        className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
-                      >
-                        {planRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-draft
-                      </button>
+                      {item.hint && !item.done && <p className="mt-1 text-xs text-amber-300">{item.hint}</p>}
+                      {item.done && item.autoVerified && (
+                        <p className="mt-1 text-xs text-emerald-400">Auto-verified ✓</p>
+                      )}
+                      {renderStepAction(item)}
                     </div>
                   )}
-                  {planMsg && <p className="text-xs text-bip-muted">{planMsg}</p>}
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void toggleManual(current.itemKey, !current.done)}
-                    className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
-                  >
-                    <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
-                  </button>
                 </div>
-              ) : current.verification === "manual:smm_brand_assets" ? (
-                <div className="mt-3 space-y-3">
-                  {!clientProfile?.website && renderWebsiteField()}
-                  {!brandElements ? (
-                    <button
-                      type="button"
-                      disabled={brandRunning}
-                      onClick={() => void runBrandElements()}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
-                    >
-                      {brandRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                      {brandRunning ? "Pulling…" : "Pull brand elements from website"}
-                    </button>
-                  ) : (
-                    <div className="space-y-2 rounded-lg border border-bip-border bg-bip-fill p-3">
-                      <div className="flex flex-wrap items-end gap-3">
-                        {brandElements.logoUrl && (
-                          <div className="text-center">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={brandElements.logoUrl} alt="logo" className="h-12 w-12 rounded bg-white object-contain" />
-                            <p className="mt-0.5 text-[10px] text-bip-muted">logo</p>
-                          </div>
-                        )}
-                        {brandElements.themeColor && (
-                          <div className="text-center">
-                            <span className="inline-block h-12 w-12 rounded border border-bip-border" style={{ background: brandElements.themeColor }} />
-                            <p className="mt-0.5 text-[10px] text-bip-muted">{brandElements.themeColor}</p>
-                          </div>
-                        )}
-                      </div>
-                      {brandElements.heroImage && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={brandElements.heroImage} alt="hero" className="max-h-28 w-full rounded object-cover" />
-                      )}
-                      {brandElements.title && <p className="text-[11px] text-bip-muted">{brandElements.title}</p>}
-                      {!brandElements.logoUrl && !brandElements.heroImage && !brandElements.themeColor && (
-                        <p className="text-[11px] text-bip-muted">Nothing extractable found — gather assets manually.</p>
-                      )}
-                      <button
-                        type="button"
-                        disabled={brandRunning}
-                        onClick={() => void runBrandElements()}
-                        className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
-                      >
-                        {brandRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-pull
-                      </button>
-                    </div>
-                  )}
-                  {brandMsg && <p className="text-xs text-bip-muted">{brandMsg}</p>}
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void toggleManual(current.itemKey, !current.done)}
-                    className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
-                  >
-                    <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
-                  </button>
-                </div>
-              ) : current.verification === "manual:blog_schedule" ? (
-                <div className="mt-3 space-y-3">
-                  {!blogTopics ? (
-                    <button
-                      type="button"
-                      disabled={topicsRunning}
-                      onClick={() => void runBlogTopics()}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
-                    >
-                      {topicsRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                      {topicsRunning ? "Loading…" : "Suggest topics"}
-                    </button>
-                  ) : blogTopics.length > 0 ? (
-                    <div className="space-y-1.5 rounded-lg border border-bip-border bg-bip-fill p-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Top blog topics across clients</p>
-                      {blogTopics.map((t, i) => (
-                        <div key={i} className="flex items-center justify-between gap-2">
-                          <span className="truncate text-xs text-bip-text">{t.topic}</span>
-                          <span className="shrink-0 text-[11px] text-bip-muted">{t.clicks.toLocaleString()} clicks · {t.clients} client{t.clients === 1 ? "" : "s"}</span>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        disabled={topicsRunning}
-                        onClick={() => void runBlogTopics()}
-                        className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
-                      >
-                        {topicsRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-run
-                      </button>
-                    </div>
-                  ) : null}
-                  {topicsMsg && <p className="text-xs text-bip-muted">{topicsMsg}</p>}
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void toggleManual(current.itemKey, !current.done)}
-                    className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
-                  >
-                    <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {isManual ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void toggleManual(current.itemKey, !current.done)}
-                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
-                    >
-                      <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
-                    </button>
-                  ) : !current.done ? (
-                    <span className="text-xs text-bip-muted">This step verifies itself once the data is in place.</span>
-                  ) : null}
-
-                  {current.actionTab && current.actionTab !== "edit" && ACTION_LABELS[current.actionTab] && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenTab?.(current.actionTab!)}
-                      className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
-                    >
-                      {ACTION_LABELS[current.actionTab]} <ArrowRight className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {current.actionTab === "edit" && (
-                    <button
-                      type="button"
-                      onClick={() => onEditClient?.()}
-                      className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
-                    >
-                      Edit client profile <ArrowRight className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Kickoff generator lives on the communication step */}
-              {isComms && (
-                <div className="mt-4">
-                  <OnboardingKickoffPanel clientId={clientId} />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Step nav */}
-          <div className="mt-4 flex items-center justify-between border-t border-bip-border pt-3">
-            <button
-              type="button"
-              disabled={index === 0}
-              onClick={() => setIndex((i) => Math.max(0, i - 1))}
-              className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill disabled:opacity-40"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" /> Back
-            </button>
-            <span className="text-xs text-bip-muted">{index + 1} / {items.length}</span>
-            <button
-              type="button"
-              disabled={index >= items.length - 1}
-              onClick={() => setIndex((i) => Math.min(items.length - 1, i + 1))}
-              className="inline-flex items-center gap-1 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill disabled:opacity-40"
-            >
-              Next <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1213,7 +1231,8 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
         <div className="rounded-xl border border-bip-border bg-bip-card p-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-semibold text-bip-text">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-bip-text">
+                <Lock className="h-3.5 w-3.5 text-bip-muted" />
                 Comes at launch{evaluation.websiteLaunchDate ? ` · ${fmtLaunchDate(evaluation.websiteLaunchDate)}` : ""}
               </p>
               <p className="text-xs text-bip-muted">
