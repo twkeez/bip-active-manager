@@ -24,7 +24,8 @@ Return ONLY a single JSON object (no prose, no markdown fences) with this exact 
     "seo":  { "tier": <tier>, "startTrigger": "start_now"|"at_launch"|"on_date", "startDate": "YYYY-MM-DD"|null, "notes": string|null },
     "ppc":  { ... }, "smm": { ... }, "blog": { ... }, "orm": { ... }
   },
-  "notes": string | null
+  "notes": string | null,
+  "locationConflict": string | null
 }
 
 Rules:
@@ -53,6 +54,11 @@ Rules:
 - websiteLaunchDate: the SEO/full-site launch date if stated, else null.
 - notes: concatenate the useful free-text context for the strategist — Account Notes, Client Goals,
   BIP Approach, and the meeting AI-notes/summary. Keep it readable.
+- locationConflict: compare the structured "Location (City, State)" field against the practice location
+  described in the goals / account notes / meeting summary. If they name a MATERIALLY different place —
+  a different city or region that a client would not confuse, NOT merely neighboring towns or a metro and
+  its suburb — set a one-line note like "Location field says X, but notes describe Y — verify." If they
+  match, are the same metro, or are plausibly neighboring, set null. Do not flag minor differences.
 - Use null for anything genuinely absent. Do not invent values.`;
 
 export function buildPipelineIntakePrompt(documentText?: string): string {

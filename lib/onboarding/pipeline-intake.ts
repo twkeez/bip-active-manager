@@ -53,6 +53,9 @@ export type PipelineIntake = {
   websiteLaunchDate: string | null;
   services: Record<ServiceKey, ServicePlan>;
   notes: string | null;
+  /** Set when the form's Location field materially disagrees with the location
+   * described in the goals/notes (not just neighboring towns) — verify before use. */
+  locationConflict: string | null;
 };
 
 function str(v: unknown): string | null {
@@ -138,5 +141,6 @@ export function normalizePipelineIntake(input: unknown): PipelineIntake {
     websiteLaunchDate: str(raw.websiteLaunchDate),
     services,
     notes: str(raw.notes),
+    locationConflict: str(raw.locationConflict),
   };
 }

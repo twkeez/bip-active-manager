@@ -307,6 +307,12 @@ export default function OnboardingIntakeDrawer({
               {parseError && <p className="mt-2 text-[11px] text-red-400">{parseError}</p>}
             </div>
 
+            {rawIntake?.locationConflict && (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-300">
+                <span className="font-medium">Location check:</span> {rawIntake.locationConflict} — confirm the City below before creating.
+              </div>
+            )}
+
             {/* Basics */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Labeled label="Account name" required>
