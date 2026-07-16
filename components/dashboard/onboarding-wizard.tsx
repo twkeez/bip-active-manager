@@ -8,6 +8,7 @@ import {
   Check,
   CheckCircle2,
   Circle,
+  FileText,
   GraduationCap,
   ListChecks,
   Loader2,
@@ -613,7 +614,7 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
               {evaluation.daysInOnboarding != null ? ` · Day ${evaluation.daysInOnboarding}` : ""}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => onOpenTab?.("onboarding")}
@@ -621,6 +622,22 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
             >
               <ListChecks className="h-3.5 w-3.5" /> Full checklist
             </button>
+            <a
+              href={`/onboarding-report-print/${clientId}?mode=client`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-text hover:bg-bip-fill"
+            >
+              <FileText className="h-3.5 w-3.5" /> Client report
+            </a>
+            <a
+              href={`/onboarding-report-print/${clientId}?mode=internal`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-text hover:bg-bip-fill"
+            >
+              <FileText className="h-3.5 w-3.5" /> Internal report
+            </a>
             {evaluation.readyToGraduate && (
               <button
                 type="button"
