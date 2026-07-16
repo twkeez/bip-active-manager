@@ -115,6 +115,8 @@ type BrandElements = {
   title: string | null;
 };
 
+type BlogTopic = { topic: string; clicks: number; clients: number };
+
 export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, onGraduated }: Props) {
   const [evaluation, setEvaluation] = useState<ClientOnboardingEvaluation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -146,6 +148,9 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   const [brandMsg, setBrandMsg] = useState<string | null>(null);
   const [websiteDraft, setWebsiteDraft] = useState("");
   const [websiteSaving, setWebsiteSaving] = useState(false);
+  const [blogTopics, setBlogTopics] = useState<BlogTopic[] | null>(null);
+  const [topicsRunning, setTopicsRunning] = useState(false);
+  const [topicsMsg, setTopicsMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -314,6 +319,23 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
       setAuditMsg(e instanceof Error ? e.message : "Site audit failed");
     } finally {
       setAuditRunning(false);
+    }
+  }
+
+  async function runBlogTopics() {
+    setTopicsRunning(true);
+    setTopicsMsg(null);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/onboarding/blog-topics`, { cache: "no-store" });
+      const payload = (await res.json()) as { error?: string; topics?: BlogTopic[] };
+      if (!res.ok) throw new Error(payload.error ?? "Failed to load topics");
+      const topics = payload.topics ?? [];
+      setBlogTopics(topics);
+      if (topics.length === 0) setTopicsMsg("No blog performance data across clients yet.");
+    } catch (e) {
+      setTopicsMsg(e instanceof Error ? e.message : "Failed to load topics");
+    } finally {
+      setTopicsRunning(false);
     }
   }
 
@@ -1051,6 +1073,47 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
                     </div>
                   )}
                   {brandMsg && <p className="text-xs text-bip-muted">{brandMsg}</p>}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void toggleManual(current.itemKey, !current.done)}
+                    className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${current.done ? "border border-bip-border text-bip-muted hover:bg-bip-fill" : "bg-emerald-600 text-white hover:bg-emerald-500"} disabled:opacity-60`}
+                  >
+                    <Check className="h-3.5 w-3.5" /> {current.done ? "Mark not done" : "Mark done"}
+                  </button>
+                </div>
+              ) : current.verification === "manual:blog_schedule" ? (
+                <div className="mt-3 space-y-3">
+                  {!blogTopics ? (
+                    <button
+                      type="button"
+                      disabled={topicsRunning}
+                      onClick={() => void runBlogTopics()}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+                    >
+                      {topicsRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      {topicsRunning ? "Loading…" : "Suggest topics"}
+                    </button>
+                  ) : blogTopics.length > 0 ? (
+                    <div className="space-y-1.5 rounded-lg border border-bip-border bg-bip-fill p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Top blog topics across clients</p>
+                      {blogTopics.map((t, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2">
+                          <span className="truncate text-xs text-bip-text">{t.topic}</span>
+                          <span className="shrink-0 text-[11px] text-bip-muted">{t.clicks.toLocaleString()} clicks · {t.clients} client{t.clients === 1 ? "" : "s"}</span>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={topicsRunning}
+                        onClick={() => void runBlogTopics()}
+                        className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text disabled:opacity-60"
+                      >
+                        {topicsRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-run
+                      </button>
+                    </div>
+                  ) : null}
+                  {topicsMsg && <p className="text-xs text-bip-muted">{topicsMsg}</p>}
                   <button
                     type="button"
                     disabled={busy}
