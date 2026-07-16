@@ -1092,22 +1092,6 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
             >
               <ListChecks className="h-3.5 w-3.5" /> Full checklist
             </button>
-            <a
-              href={`/onboarding-report-print/${clientId}?mode=client`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-text hover:bg-bip-fill"
-            >
-              <FileText className="h-3.5 w-3.5" /> Client report
-            </a>
-            <a
-              href={`/onboarding-report-print/${clientId}?mode=internal`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-text hover:bg-bip-fill"
-            >
-              <FileText className="h-3.5 w-3.5" /> Internal report
-            </a>
             {evaluation.readyToGraduate && (
               <button
                 type="button"
@@ -1264,6 +1248,40 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
           </ul>
         </div>
       )}
+
+      {/* Capstone — the onboarding summary report, the deliverable of this flow */}
+      <div className="rounded-xl border border-bip-border bg-bip-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <FileText className="mt-0.5 h-5 w-5 shrink-0 text-bip-accent" />
+            <div>
+              <p className="text-sm font-semibold text-bip-text">Onboarding summary</p>
+              <p className="mt-0.5 max-w-md text-xs text-bip-muted">
+                One report from everything gathered here. Share the client version to set expectations up
+                front; keep the internal version as your full record.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={`/onboarding-report-print/${clientId}?mode=client`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+            >
+              <FileText className="h-3.5 w-3.5" /> Client version
+            </a>
+            <a
+              href={`/onboarding-report-print/${clientId}?mode=internal`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
+            >
+              <FileText className="h-3.5 w-3.5" /> Internal version
+            </a>
+          </div>
+        </div>
+      </div>
 
       {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
