@@ -185,8 +185,8 @@ function evaluateAutoItem(
     if (setupId === "social_connection" && !services.smm) {
       return { done: true, hint: "SMM not active — skipped." };
     }
-    if (setupId === "google_place_id" && !services.seo) {
-      return { done: true, hint: "SEO not active — skipped." };
+    if (setupId === "google_place_id" && !services.seo && !services.orm) {
+      return { done: true, hint: "SEO/ORM not active — skipped." };
     }
     return setupItemDone(key, setupMissingIds)
       ? { done: true, hint: null }
@@ -325,6 +325,8 @@ export function computeConnectionsHealth(
   if (services.seo) {
     items.push({ label: "Search Console", connected: has(client.sc_url) });
     items.push({ label: "GA4", connected: has(client.ga4_property_id) });
+  }
+  if (services.seo || services.orm) {
     items.push({ label: "Google Business Profile", connected: has(client.google_place_id) });
   }
   if (services.ppc) items.push({ label: "Google Ads", connected: has(client.ads_customer_id) });
