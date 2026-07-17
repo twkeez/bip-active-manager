@@ -77,11 +77,9 @@ const SERVICES: NavItem[] = [
 ];
 
 const TOOLS: NavItem[] = [
-  { label: "SEO Audits", href: "/seo-audits", icon: ClipboardList },
   { label: "Global Ads", href: "/global-ads-optimization", icon: Megaphone },
   { label: "PPC Defense", href: "/ppc-defense", icon: Flame },
   { label: "Conversion Radar", href: "/conversion-integrity", icon: ShieldAlert },
-  { label: "Ads Audit", href: "/ads-audit/", icon: Megaphone },
   { label: "Ad Cost Trends", href: "/ad-spend-trends", icon: TrendingUp, adminOnly: true },
   { label: "Ad Calls", href: "/ads-calls", icon: Phone, adminOnly: true },
   { label: "Ads Diagnostic", href: "/ads-diagnostic", icon: Activity, adminOnly: true },
@@ -93,7 +91,8 @@ const TOOLS: NavItem[] = [
   { label: "Onboarding Settings", href: "/onboarding-settings", icon: ClipboardList, adminOnly: true },
 ];
 
-const FOR_REVIEW: NavItem[] = [
+const SEO_TOOLS: NavItem[] = [
+  { label: "SEO Audits", href: "/seo-audits", icon: ClipboardList },
   { label: "Sitemaps", href: "/sitemaps", icon: Map },
   { label: "SEO Ops", href: "/seo-ops", icon: ClipboardCheck },
   { label: "Site Audit", href: "/site-audit", icon: Globe },
@@ -103,8 +102,6 @@ const FOR_REVIEW: NavItem[] = [
 const UTILITIES: NavItem[] = [
   { label: "Bulk Auto-Discover", href: "/bulk-discover", icon: ScanSearch, adminOnly: true },
 ];
-
-const UNFINISHED: NavItem[] = [];
 
 const SALES: NavItem[] = [
   { label: "Sales Lab", href: "/sales-lab", icon: Sparkles, adminOnly: true },
@@ -268,11 +265,9 @@ export default function Sidebar({
 
             <div className="border-t border-[var(--bip-border)]" />
 
-            <SectionGroup label="For Review" items={FOR_REVIEW} role={role} defaultOpen={false} />
+            <SectionGroup label="SEO" items={SEO_TOOLS} role={role} defaultOpen={false} />
 
             <SectionGroup label="Utilities" items={UTILITIES} role={role} defaultOpen={false} />
-
-            <SectionGroup label="Unfinished" items={UNFINISHED} role={role} defaultOpen={false} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
