@@ -20,8 +20,8 @@ export default async function BestPracticesPage() {
       <div className="mb-4">
         <h1 className="text-lg font-semibold text-bip-text">Best Practices</h1>
         <p className="text-sm text-bip-muted">
-          The constants we always apply. Onboarding assists start from these and let AI
-          fill only the practice-specific variances.
+          The constants we always apply, plus the “I have this issue” playbook — codified fixes for
+          common ads problems. Search a symptom, read the fix. Assists and the Ads Diagnostic build on these.
         </p>
       </div>
       <BestPracticesEditor />
