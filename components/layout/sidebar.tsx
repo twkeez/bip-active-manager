@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Activity,
   BookOpen,
   Building2,
   CheckSquare,
@@ -82,6 +83,7 @@ const TOOLS: NavItem[] = [
   { label: "Ads Audit", href: "/ads-audit/", icon: Megaphone },
   { label: "Ad Cost Trends", href: "/ad-spend-trends", icon: TrendingUp, adminOnly: true },
   { label: "Ad Calls", href: "/ads-calls", icon: Phone, adminOnly: true },
+  { label: "Ads Diagnostic", href: "/ads-diagnostic", icon: Activity, adminOnly: true },
   { label: "Wins", href: "/wins", icon: Trophy, adminOnly: true },
   { label: "Report Template", href: "/reports/template", icon: FileText, adminOnly: true },
   { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
