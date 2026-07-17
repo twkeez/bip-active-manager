@@ -15,8 +15,8 @@ import {
   EyeOff,
   FileDown,
   FileText,
-  Flame,
   FolderOpen,
+  Gauge,
   Globe,
   GraduationCap,
   Handshake,
@@ -24,10 +24,8 @@ import {
   LayoutDashboard,
   Map,
   MapPinned,
-  Megaphone,
   Phone,
   ScanSearch,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Stethoscope,
@@ -77,9 +75,7 @@ const SERVICES: NavItem[] = [
 ];
 
 const TOOLS: NavItem[] = [
-  { label: "Global Ads", href: "/global-ads-optimization", icon: Megaphone },
-  { label: "PPC Defense", href: "/ppc-defense", icon: Flame },
-  { label: "Conversion Radar", href: "/conversion-integrity", icon: ShieldAlert },
+  { label: "Ads Health", href: "/ads-health", icon: Gauge },
   { label: "Ad Cost Trends", href: "/ad-spend-trends", icon: TrendingUp, adminOnly: true },
   { label: "Ad Calls", href: "/ads-calls", icon: Phone, adminOnly: true },
   { label: "Ads Diagnostic", href: "/ads-diagnostic", icon: Activity, adminOnly: true },
