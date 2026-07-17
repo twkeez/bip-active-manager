@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Check, Copy, Loader2, Sparkles, Target } from "lucide-react";
+import { ErrorState } from "@/components/ui/feedback";
+import { ToolPage } from "@/components/ui/tool-page";
 import type { UrlAdsPlan } from "@/lib/ads/url-ads-plan";
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -56,18 +58,12 @@ export default function AdsPlannerView() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 p-6">
-      <header>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-bip-text">
-          <Target className="h-5 w-5 text-bip-accent" /> Ads Planner
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-bip-muted">
-          Feed a practice URL and get a Google Ads starting plan — ad groups, keywords, negatives, and budget notes.
-          Built from the same campaign skeleton and universal negatives in Best Practices that the onboarding planner
-          uses, with AI filling the practice-specific parts.
-        </p>
-      </header>
-
+    <ToolPage
+      title="Ads Planner"
+      icon={Target}
+      maxWidth="4xl"
+      description="Feed a practice URL and get a Google Ads starting plan — ad groups, keywords, negatives, and budget notes. Built from the same campaign skeleton and universal negatives in Best Practices that the onboarding planner uses, with AI filling the practice-specific parts."
+    >
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-bip-border bg-bip-card p-4">
         <input
           value={url}
@@ -96,7 +92,7 @@ export default function AdsPlannerView() {
       {running && (
         <p className="text-sm text-bip-muted">Reading the site and drafting the plan — this takes a few seconds.</p>
       )}
-      {error && <p className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-300">{error}</p>}
+      {error && <ErrorState message={error} />}
 
       {plan && (
         <div className="space-y-5">
@@ -162,6 +158,6 @@ export default function AdsPlannerView() {
           )}
         </div>
       )}
-    </div>
+    </ToolPage>
   );
 }

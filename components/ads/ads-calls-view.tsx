@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { Phone, PhoneMissed } from "lucide-react";
+import { EmptyState, ErrorState } from "@/components/ui/feedback";
+import { StatTile, StatTiles } from "@/components/ui/stat-tile";
+import { ToolPage } from "@/components/ui/tool-page";
 import type { AdsCallsData } from "@/lib/ads/load-ads-calls";
 
 function fmtDuration(sec: number): string {
@@ -20,15 +23,6 @@ function fmtTime(value: string | null): string {
 
 function titleCase(s: string): string {
   return s.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function StatChip({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-xl border border-bip-border bg-bip-card px-4 py-3">
-      <p className="text-2xl font-semibold text-bip-text">{value}</p>
-      <p className="text-xs text-bip-muted">{label}</p>
-    </div>
-  );
 }
 
 export default function AdsCallsView({ data }: { data: AdsCallsData }) {
@@ -54,34 +48,28 @@ export default function AdsCallsView({ data }: { data: AdsCallsData }) {
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
-      <header>
-        <h1 className="text-xl font-semibold text-bip-text">Ad Calls</h1>
-        <p className="mt-1 max-w-2xl text-sm text-bip-muted">
-          Individual phone calls driven by Google Ads call assets, from each client&apos;s latest 30-day sync.
-          Google exposes the caller area code, duration, and outcome — not the full number — and retains this
-          detail for a limited window. {lastSyncAt ? `Latest sync: ${fmtTime(lastSyncAt)}.` : ""}
-        </p>
-      </header>
-
+    <ToolPage
+      title="Ad Calls"
+      icon={Phone}
+      maxWidth="6xl"
+      description={`Individual phone calls driven by Google Ads call assets, from each client's latest 30-day sync. Google exposes the caller area code, duration, and outcome — not the full number — and retains this detail for a limited window. ${lastSyncAt ? `Latest sync: ${fmtTime(lastSyncAt)}.` : ""}`}
+    >
       {loadError ? (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-300">{loadError}</p>
+        <ErrorState message={loadError} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatChip label="Calls (30d)" value={summary.total} />
-            <StatChip label="Received" value={summary.received} />
-            <StatChip label="Missed" value={summary.missed} />
-            <StatChip label="Avg length" value={fmtDuration(summary.avgDurationSeconds)} />
-          </div>
+          <StatTiles>
+            <StatTile label="Calls (30d)" value={summary.total} />
+            <StatTile label="Received" value={summary.received} />
+            <StatTile label="Missed" value={summary.missed} />
+            <StatTile label="Avg length" value={fmtDuration(summary.avgDurationSeconds)} />
+          </StatTiles>
 
           {calls.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-bip-border p-8 text-center">
-              <p className="text-sm text-bip-text">No call detail on record yet.</p>
-              <p className="mt-1 text-xs text-bip-muted">
-                Calls appear after an ads sync for accounts that run call assets with Google forwarding numbers.
-              </p>
-            </div>
+            <EmptyState
+              title="No call detail on record yet."
+              hint="Calls appear after an ads sync for accounts that run call assets with Google forwarding numbers."
+            />
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-2">
@@ -152,6 +140,6 @@ export default function AdsCallsView({ data }: { data: AdsCallsData }) {
           )}
         </>
       )}
-    </div>
+    </ToolPage>
   );
 }

@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, Loader2, Search, Sparkles, Stethoscope, TrendingUp } from "lucide-react";
 import type { AccountDiagnostic, Finding } from "@/lib/ads/account-diagnostic";
+import { ErrorState } from "@/components/ui/feedback";
+import { StatTile, StatTiles } from "@/components/ui/stat-tile";
+import { ToolPage } from "@/components/ui/tool-page";
 import { RSA_DESCRIPTION_MAX, RSA_HEADLINE_MAX, type RsaDraft } from "@/lib/ads/draft-rsa";
 
 type ClientOption = { name: string; customerId: string };
@@ -72,17 +75,11 @@ export default function AdsDiagnosticView({ clients }: { clients: ClientOption[]
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 p-6">
-      <header>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-bip-text">
-          <Stethoscope className="h-5 w-5 text-bip-accent" /> Ads Diagnostic
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-bip-muted">
-          Diagnose a Google Ads account on the metrics that move the needle — top-of-page presence and the
-          budget-vs-rank split behind it — then get the specific changes to make. Trailing 30 days.
-        </p>
-      </header>
-
+    <ToolPage
+      title="Ads Diagnostic"
+      icon={Stethoscope}
+      description="Diagnose a Google Ads account on the metrics that move the needle — top-of-page presence and the budget-vs-rank split behind it — then get the specific changes to make. Trailing 30 days."
+    >
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-bip-border bg-bip-card p-4">
         <select
           value=""
@@ -117,17 +114,17 @@ export default function AdsDiagnosticView({ clients }: { clients: ClientOption[]
         </button>
       </div>
 
-      {error && <p className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-300">{error}</p>}
+      {error && <ErrorState message={error} />}
 
       {result && (
         <div className="space-y-6">
           {/* Totals */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Spend (30d)" value={usd(result.totals.cost)} sub={`prev ${usd(result.totals.prevCost)}`} />
-            <Stat label="Conversions" value={String(result.totals.conv)} sub={`prev ${result.totals.prevConv}`} />
-            <Stat label="Cost / conv" value={result.totals.cpa == null ? "—" : usd(result.totals.cpa)} sub={null} />
-            <Stat label="Findings" value={String(result.findings.length)} sub={null} />
-          </div>
+          <StatTiles>
+            <StatTile label="Spend (30d)" value={usd(result.totals.cost)} sub={`prev ${usd(result.totals.prevCost)}`} />
+            <StatTile label="Conversions" value={String(result.totals.conv)} sub={`prev ${result.totals.prevConv}`} />
+            <StatTile label="Cost / conv" value={result.totals.cpa == null ? "—" : usd(result.totals.cpa)} />
+            <StatTile label="Findings" value={String(result.findings.length)} />
+          </StatTiles>
 
           {/* Tracking gate */}
           {result.tracking.severity !== "ok" && (
@@ -266,7 +263,7 @@ export default function AdsDiagnosticView({ clients }: { clients: ClientOption[]
           </section>
         </div>
       )}
-    </div>
+    </ToolPage>
   );
 }
 
@@ -450,11 +447,3 @@ function RsaList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub: string | null }) {
-  return (
-    <div className="rounded-xl border border-bip-border bg-bip-card px-4 py-3">
-      <p className="text-2xl font-semibold text-bip-text">{value}</p>
-      <p className="text-xs text-bip-muted">{label}{sub ? ` · ${sub}` : ""}</p>
-    </div>
-  );
-}

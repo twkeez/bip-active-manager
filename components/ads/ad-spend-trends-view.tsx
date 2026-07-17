@@ -1,6 +1,9 @@
 "use client";
 
 import { AlertTriangle, Minus, TrendingDown, TrendingUp } from "lucide-react";
+import { EmptyState, ErrorState } from "@/components/ui/feedback";
+import { StatTile, StatTiles } from "@/components/ui/stat-tile";
+import { ToolPage } from "@/components/ui/tool-page";
 import type { ClientSpendTrend, SpendTrendsData } from "@/lib/ads/load-spend-trends";
 import type { SpendPoint } from "@/lib/ads/spend-trend";
 
@@ -75,15 +78,6 @@ function TrendBadge({ trend }: { trend: ClientSpendTrend["trend"] }) {
   );
 }
 
-function StatChip({ label, value, tone }: { label: string; value: number; tone?: "warn" }) {
-  return (
-    <div className="rounded-xl border border-bip-border bg-bip-card px-4 py-3">
-      <p className={`text-2xl font-semibold ${tone === "warn" ? "text-amber-300" : "text-bip-text"}`}>{value}</p>
-      <p className="text-xs text-bip-muted">{label}</p>
-    </div>
-  );
-}
-
 function sparkTone(trend: ClientSpendTrend["trend"]): string {
   if (trend.status !== "ok") return "text-bip-muted";
   if (trend.direction === "rising") return "text-amber-400";
@@ -97,18 +91,13 @@ export default function AdSpendTrendsView({ data }: { data: SpendTrendsData }) {
   const insufficient = clients.filter((c) => c.trend.status === "insufficient");
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 p-6">
-      <header>
-        <h1 className="text-xl font-semibold text-bip-text">Ad Cost Trends</h1>
-        <p className="mt-1 max-w-2xl text-sm text-bip-muted">
-          Whether each Google Ads client&apos;s spend is trending up, from their 30-day snapshot history.
-          Failed or empty syncs and one-off spikes are excluded so a bad data point can&apos;t fake a trend.
-          Last ads sync: {fmtSyncAt(lastSyncAt)}.
-        </p>
-      </header>
-
+    <ToolPage
+      title="Ad Cost Trends"
+      icon={TrendingUp}
+      description={`Whether each Google Ads client's spend is trending up, from their 30-day snapshot history. Failed or empty syncs and one-off spikes are excluded so a bad data point can't fake a trend. Last ads sync: ${fmtSyncAt(lastSyncAt)}.`}
+    >
       {loadError ? (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-300">{loadError}</p>
+        <ErrorState message={loadError} />
       ) : (
         <>
           {data.benchmark && (
@@ -135,12 +124,12 @@ export default function AdSpendTrendsView({ data }: { data: SpendTrendsData }) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatChip label="Ads clients" value={summary.adsClients} />
-            <StatChip label="Rising" value={summary.rising} tone={summary.rising > 0 ? "warn" : undefined} />
-            <StatChip label="Flat / falling" value={summary.flat + summary.falling} />
-            <StatChip label="Not enough history" value={summary.insufficient} />
-          </div>
+          <StatTiles>
+            <StatTile label="Ads clients" value={summary.adsClients} />
+            <StatTile label="Rising" value={summary.rising} tone={summary.rising > 0 ? "warn" : undefined} />
+            <StatTile label="Flat / falling" value={summary.flat + summary.falling} />
+            <StatTile label="Not enough history" value={summary.insufficient} />
+          </StatTiles>
 
           {trended.length > 0 ? (
             <div className="overflow-hidden rounded-xl border border-bip-border bg-bip-card">
@@ -177,12 +166,10 @@ export default function AdSpendTrendsView({ data }: { data: SpendTrendsData }) {
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-bip-border p-8 text-center">
-              <p className="text-sm text-bip-text">No client has enough snapshot history to trend yet.</p>
-              <p className="mt-1 text-xs text-bip-muted">
-                Trends appear once a client has a few weekly ad syncs on record.
-              </p>
-            </div>
+            <EmptyState
+              title="No client has enough snapshot history to trend yet."
+              hint="Trends appear once a client has a few weekly ad syncs on record."
+            />
           )}
 
           {insufficient.length > 0 && (
@@ -205,6 +192,6 @@ export default function AdSpendTrendsView({ data }: { data: SpendTrendsData }) {
           )}
         </>
       )}
-    </div>
+    </ToolPage>
   );
 }
