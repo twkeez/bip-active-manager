@@ -27,7 +27,7 @@ export default async function BestPracticesPage({
         <h1 className="text-lg font-semibold text-bip-text">Best Practices</h1>
         <p className="text-sm text-bip-muted">
           The constants we always apply, plus the “I have this issue” playbook — codified fixes for
-          common ads problems. Search a symptom, read the fix. Assists and the Ads Diagnostic build on these.
+          common ads and SEO problems. Search a symptom, read the fix. Assists and the diagnostics build on these.
         </p>
       </div>
       <BestPracticesEditor initialQuery={q ?? ""} />
