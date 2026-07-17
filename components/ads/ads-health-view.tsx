@@ -3,12 +3,13 @@ import { ArrowRight, DollarSign, MousePointerClick, Target } from "lucide-react"
 import type { LucideIcon } from "lucide-react";
 import { ErrorState } from "@/components/ui/feedback";
 import { ToolPage } from "@/components/ui/tool-page";
-import type { GlobalAdsOptimizationSummary } from "@/lib/ads/global-optimization";
-import type { PpcDefenseSummary } from "@/lib/ads/ppc-defense";
-import type { ConversionIntegritySummary } from "@/lib/ads/conversion-integrity";
 
-type Row = { label: string; count: number; detail: string; href: string; hrefLabel: string };
+export type FlaggedAccount = { clientId: number; name: string };
+
+type Row = { label: string; accounts: FlaggedAccount[]; href: string; hrefLabel: string };
 type Category = { key: string; title: string; icon: LucideIcon; blurb: string; rows: Row[] };
+
+const MAX_CHIPS = 8;
 
 function fmtSync(value: string | null): string {
   if (!value) return "never";
@@ -18,15 +19,21 @@ function fmtSync(value: string | null): string {
 }
 
 export default function AdsHealthView({
-  global,
-  defense,
+  budgetCapped,
+  budgetHogs,
+  qualityGlobal,
+  landingPages,
   conversion,
+  accountsScanned,
   lastSyncAt,
   loadError,
 }: {
-  global: GlobalAdsOptimizationSummary;
-  defense: PpcDefenseSummary;
-  conversion: ConversionIntegritySummary;
+  budgetCapped: FlaggedAccount[];
+  budgetHogs: FlaggedAccount[];
+  qualityGlobal: FlaggedAccount[];
+  landingPages: FlaggedAccount[];
+  conversion: FlaggedAccount[];
+  accountsScanned: number;
   lastSyncAt: string | null;
   loadError: string | null;
 }) {
@@ -37,8 +44,8 @@ export default function AdsHealthView({
       icon: DollarSign,
       blurb: "Accounts capped by budget or overspending on the wrong things.",
       rows: [
-        { label: "Capped by budget", count: global.budgetCappedAccountCount, detail: "losing impressions to budget", href: "/global-ads-optimization", hrefLabel: "Global Ads" },
-        { label: "Runaway spend", count: defense.budgetHogCount, detail: `across ${defense.hogAccountsAffected} account${defense.hogAccountsAffected === 1 ? "" : "s"}`, href: "/ppc-defense", hrefLabel: "PPC Defense" },
+        { label: "Capped by budget", accounts: budgetCapped, href: "/global-ads-optimization", hrefLabel: "Global Ads" },
+        { label: "Runaway spend", accounts: budgetHogs, href: "/ppc-defense", hrefLabel: "PPC Defense" },
       ],
     },
     {
@@ -47,8 +54,8 @@ export default function AdsHealthView({
       icon: MousePointerClick,
       blurb: "Weak Quality Score inputs — ad relevance, CTR, and landing pages.",
       rows: [
-        { label: "Low relevance / CTR", count: global.relevanceCtrAccountCount, detail: "accounts flagged", href: "/global-ads-optimization", hrefLabel: "Global Ads" },
-        { label: "Weak landing pages", count: defense.lpDeficitCount, detail: `across ${defense.lpAccountsAffected} account${defense.lpAccountsAffected === 1 ? "" : "s"}`, href: "/ppc-defense", hrefLabel: "PPC Defense" },
+        { label: "Low relevance / CTR / QS", accounts: qualityGlobal, href: "/global-ads-optimization", hrefLabel: "Global Ads" },
+        { label: "Weak landing pages", accounts: landingPages, href: "/ppc-defense", hrefLabel: "PPC Defense" },
       ],
     },
     {
@@ -57,20 +64,19 @@ export default function AdsHealthView({
       icon: Target,
       blurb: "Tracking gaps and anomalies — the foundation every other metric rests on.",
       rows: [
-        { label: "Tracking anomalies", count: conversion.activeAnomalies, detail: `${conversion.criticalCount} critical · ${conversion.accountsAffected} account${conversion.accountsAffected === 1 ? "" : "s"}`, href: "/conversion-integrity", hrefLabel: "Conversion Radar" },
+        { label: "Tracking anomalies", accounts: conversion, href: "/conversion-integrity", hrefLabel: "Conversion Radar" },
       ],
     },
   ];
 
-  const catTotal = (c: Category) => c.rows.reduce((s, r) => s + r.count, 0);
+  const catTotal = (c: Category) => c.rows.reduce((s, r) => s + r.accounts.length, 0);
   const areasFlagged = categories.filter((c) => catTotal(c) > 0).length;
-  const accountsScanned = Math.max(defense.accountsScanned, conversion.accountsScanned, global.connectedAccountCount);
 
   return (
     <ToolPage
       title="Ads Health"
       icon={DollarSign}
-      description={`One glance across every ads account — which are flagged for budget, quality, or conversion problems. Open a radar for the detail. ${accountsScanned} accounts · last sync ${fmtSync(lastSyncAt)}.`}
+      description={`One glance across every ads account — which are flagged for budget, quality, or conversion problems, and who. Click an account to open it; open a radar for the full detail. ${accountsScanned} accounts · last sync ${fmtSync(lastSyncAt)}.`}
     >
       {loadError ? (
         <ErrorState message={loadError} />
@@ -82,15 +88,14 @@ export default function AdsHealthView({
             ) : (
               <>
                 <span className="font-medium text-amber-300">{areasFlagged} of 3 areas need attention.</span> Start with the
-                highest counts below.
+                accounts under the highest counts.
               </>
             )}
           </p>
 
           <div className="grid gap-4 md:grid-cols-3">
             {categories.map((c) => {
-              const total = catTotal(c);
-              const flagged = total > 0;
+              const flagged = catTotal(c) > 0;
               const Icon = c.icon;
               return (
                 <div key={c.key} className="flex flex-col rounded-xl border border-bip-border bg-bip-card p-4">
@@ -106,24 +111,38 @@ export default function AdsHealthView({
                   </div>
                   <p className="mt-1 text-xs text-bip-muted">{c.blurb}</p>
 
-                  <div className="mt-3 flex flex-col gap-2.5 border-t border-bip-border pt-3">
+                  <div className="mt-3 flex flex-col gap-3 border-t border-bip-border pt-3">
                     {c.rows.map((r) => (
-                      <Link
-                        key={r.label}
-                        href={r.href}
-                        className="group flex items-start justify-between gap-2 rounded-md -mx-1 px-1 py-0.5 hover:bg-bip-fill"
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-sm text-bip-text">{r.label}</span>
-                          <span className="block text-[11px] text-bip-muted">{r.detail}</span>
-                        </span>
-                        <span className="flex shrink-0 items-center gap-1">
-                          <span className={`text-lg font-semibold tabular-nums ${r.count > 0 ? "text-amber-300" : "text-bip-muted"}`}>
-                            {r.count}
+                      <div key={r.label}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm text-bip-text">{r.label}</span>
+                          <span className={`text-sm font-semibold tabular-nums ${r.accounts.length > 0 ? "text-amber-300" : "text-bip-muted"}`}>
+                            {r.accounts.length}
                           </span>
-                          <ArrowRight className="h-3.5 w-3.5 text-bip-muted opacity-0 transition-opacity group-hover:opacity-100" />
-                        </span>
-                      </Link>
+                        </div>
+                        {r.accounts.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {r.accounts.slice(0, MAX_CHIPS).map((a) => (
+                              <Link
+                                key={a.clientId}
+                                href={`/dashboard/clients/${a.clientId}?tab=ads`}
+                                className="max-w-full truncate rounded-md bg-bip-fill px-2 py-0.5 text-[11px] text-bip-text hover:bg-bip-border"
+                                title={a.name}
+                              >
+                                {a.name}
+                              </Link>
+                            ))}
+                            {r.accounts.length > MAX_CHIPS && (
+                              <Link
+                                href={r.href}
+                                className="rounded-md px-2 py-0.5 text-[11px] text-bip-muted hover:text-bip-text"
+                              >
+                                +{r.accounts.length - MAX_CHIPS} more
+                              </Link>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
 
