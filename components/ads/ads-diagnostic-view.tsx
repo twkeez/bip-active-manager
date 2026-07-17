@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Check, Copy, Loader2, Search, Stethoscope, TrendingUp } from "lucide-react";
+import { AlertTriangle, Check, Copy, ExternalLink, Loader2, Search, Sparkles, Stethoscope, TrendingUp } from "lucide-react";
 import type { AccountDiagnostic, Finding } from "@/lib/ads/account-diagnostic";
+import { RSA_DESCRIPTION_MAX, RSA_HEADLINE_MAX, type RsaDraft } from "@/lib/ads/draft-rsa";
 
 type ClientOption = { name: string; customerId: string };
 
@@ -137,19 +138,7 @@ export default function AdsDiagnosticView({ clients }: { clients: ClientOption[]
             <h2 className="mb-2 text-sm font-semibold text-bip-text">What to fix, most impactful first</h2>
             <div className="space-y-2">
               {result.findings.map((f) => (
-                <div key={f.id} className={`rounded-xl border p-4 ${SEV[f.severity].ring}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-semibold text-bip-text">{f.title}</p>
-                    <span className={`shrink-0 text-[11px] font-medium ${SEV[f.severity].text}`}>
-                      {f.impactLabel ?? SEV[f.severity].label}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-bip-muted">{f.why}</p>
-                  <p className="mt-1.5 text-[11px] text-bip-muted">{f.evidence}</p>
-                  <p className="mt-2 flex items-start gap-1.5 text-sm text-bip-text">
-                    <TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-bip-accent" /> {f.action}
-                  </p>
-                </div>
+                <FindingCard key={f.id} finding={f} customerId={result.customerId} />
               ))}
               {result.findings.length === 0 && (
                 <p className="rounded-xl border border-bip-border bg-bip-card p-4 text-sm text-bip-muted">
@@ -266,6 +255,124 @@ export default function AdsDiagnosticView({ clients }: { clients: ClientOption[]
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+function FindingCard({ finding, customerId }: { finding: Finding; customerId: string }) {
+  const f = finding;
+  const [draft, setDraft] = useState<RsaDraft | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const [draftErr, setDraftErr] = useState<string | null>(null);
+
+  async function draftAds() {
+    if (!f.fix?.draft) return;
+    setDrafting(true);
+    setDraftErr(null);
+    try {
+      const res = await fetch("/api/ads-diagnostic/draft-ads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId, campaign: f.fix.draft.campaign, keywords: f.fix.draft.keywords, weakInput: f.fix.weakInput }),
+      });
+      const payload = (await res.json()) as { draft?: RsaDraft; error?: string };
+      if (!res.ok || !payload.draft) throw new Error(payload.error ?? "Draft failed");
+      setDraft(payload.draft);
+    } catch (e) {
+      setDraftErr(e instanceof Error ? e.message : "Draft failed");
+    } finally {
+      setDrafting(false);
+    }
+  }
+
+  return (
+    <div className={`rounded-xl border p-4 ${SEV[f.severity].ring}`}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-semibold text-bip-text">{f.title}</p>
+        <span className={`shrink-0 text-[11px] font-medium ${SEV[f.severity].text}`}>{f.impactLabel ?? SEV[f.severity].label}</span>
+      </div>
+      <p className="mt-1 text-sm text-bip-muted">{f.why}</p>
+      <p className="mt-1.5 text-[11px] text-bip-muted">{f.evidence}</p>
+
+      {f.fix ? (
+        <div className="mt-3 rounded-lg border border-bip-border bg-bip-fill/40 p-3">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">How to fix it</p>
+          <ol className="space-y-1">
+            {f.fix.steps.map((s, i) => (
+              <li key={i} className="flex gap-2 text-sm text-bip-text">
+                <span className="text-bip-muted">{i + 1}.</span>
+                <span>{s}</span>
+              </li>
+            ))}
+          </ol>
+          {f.fix.culprits.length > 0 && (
+            <div className="mt-2">
+              <p className="text-[11px] text-bip-muted">Worst offenders:</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {f.fix.culprits.map((c) => (
+                  <span key={c.kw} className="inline-flex items-center gap-1 rounded-md bg-bip-card px-2 py-0.5 text-[11px] text-bip-text">
+                    {c.kw} <span className="text-bip-muted">{usd(c.cost)}{c.note ? ` · ${c.note}` : ""}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            {f.fix.deepLink && (
+              <a
+                href={f.fix.deepLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2.5 py-1 text-xs text-bip-text hover:bg-bip-fill"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Open {f.fix.deepLinkLabel ?? "in Google Ads"}
+              </a>
+            )}
+            {f.fix.draft && (
+              <button
+                type="button"
+                disabled={drafting}
+                onClick={() => void draftAds()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-2.5 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {drafting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {drafting ? "Drafting…" : draft ? "Re-draft ad copy" : "Draft ad copy"}
+              </button>
+            )}
+          </div>
+          {draftErr && <p className="mt-2 text-xs text-red-300">{draftErr}</p>}
+          {draft && (
+            <div className="mt-3 space-y-2 rounded-md border border-bip-border bg-bip-card p-2.5">
+              <RsaList title={`Headlines (≤${RSA_HEADLINE_MAX} chars)`} items={draft.headlines} />
+              <RsaList title={`Descriptions (≤${RSA_DESCRIPTION_MAX} chars)`} items={draft.descriptions} />
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="mt-2 flex items-start gap-1.5 text-sm text-bip-text">
+          <TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-bip-accent" /> {f.action}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function RsaList({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">{title}</p>
+        <CopyButton text={items.join("\n")} label="Copy" />
+      </div>
+      <div className="space-y-0.5">
+        {items.map((s) => (
+          <div key={s} className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-bip-text">{s}</span>
+            <span className="shrink-0 tabular-nums text-bip-muted">{s.length}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

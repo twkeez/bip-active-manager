@@ -1,10 +1,13 @@
 import { createSearchStreamContext, searchStream } from "@/lib/ads/google-ads-stream";
+import { normalizeQualityBucket } from "@/lib/ads/quality-score";
+import type { AdsQualityBucket } from "@/lib/types/client";
 
 // Raw diagnostic pull for one Google Ads account. Percentages are stored as
 // 0–100 numbers; money as dollars (cost_micros / 1e6). Each query is isolated
 // so one unsupported field/segment can't sink the whole diagnosis.
 
 export type DiagCampaign = {
+  id: string;
   name: string;
   channel: string;
   bidStrategy: string;
@@ -23,7 +26,20 @@ export type DiagCampaign = {
 };
 
 export type DiagSearchTerm = { term: string; impr: number; clicks: number; cost: number; conv: number };
-export type DiagKeyword = { kw: string; match: string; qs: number | null; cost: number; clicks: number; conv: number; absTopIS: number | null };
+export type DiagKeyword = {
+  campaign: string;
+  campaignId: string;
+  kw: string;
+  match: string;
+  qs: number | null;
+  cost: number;
+  clicks: number;
+  conv: number;
+  absTopIS: number | null;
+  adRelevance: AdsQualityBucket;
+  landingPage: AdsQualityBucket;
+  expectedCtr: AdsQualityBucket;
+};
 export type DiagAuction = { domain: string; IS: number | null; outranking: number | null; overlap: number | null; posAbove: number | null; topOfPage: number | null };
 export type DiagDevice = { device: string; cost: number; clicks: number; conv: number };
 export type DiagConvAction = { name: string; type: string; category: string; status: string; counting: string };
@@ -77,13 +93,14 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
   );
 
   const campaigns = await q<DiagCampaign>(
-    `SELECT campaign.name, campaign.advertising_channel_type, campaign.bidding_strategy_type, campaign_budget.amount_micros,
+    `SELECT campaign.id, campaign.name, campaign.advertising_channel_type, campaign.bidding_strategy_type, campaign_budget.amount_micros,
        metrics.impressions, metrics.clicks, metrics.ctr, metrics.cost_micros, metrics.conversions, metrics.conversions_value,
        metrics.search_impression_share, metrics.search_absolute_top_impression_share, metrics.search_top_impression_share,
        metrics.search_budget_lost_impression_share, metrics.search_rank_lost_impression_share
      FROM campaign WHERE segments.date BETWEEN '${start}' AND '${end}' AND campaign.status = 'ENABLED'
      ORDER BY metrics.cost_micros DESC`,
     (r) => ({
+      id: String(r.campaign?.id ?? ""),
       name: r.campaign?.name ?? "Unnamed",
       channel: r.campaign?.advertisingChannelType ?? "",
       bidStrategy: r.campaign?.biddingStrategyType ?? "",
@@ -142,16 +159,28 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
   );
 
   const keywords = await q<DiagKeyword>(
-    `SELECT campaign.name, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.quality_info.quality_score, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.search_absolute_top_impression_share FROM keyword_view WHERE segments.date BETWEEN '${start}' AND '${end}' AND ad_group_criterion.status='ENABLED' AND metrics.impressions > 0 ORDER BY metrics.cost_micros DESC LIMIT 200`,
-    (r) => ({
-      kw: r.adGroupCriterion?.keyword?.text ?? "",
-      match: r.adGroupCriterion?.keyword?.matchType ?? "",
-      qs: typeof r.adGroupCriterion?.qualityInfo?.qualityScore === "number" ? r.adGroupCriterion.qualityInfo.qualityScore : null,
-      cost: dollars(num(r.metrics?.costMicros)),
-      clicks: num(r.metrics?.clicks),
-      conv: Math.round(num(r.metrics?.conversions) * 10) / 10,
-      absTopIS: pct(r.metrics?.searchAbsoluteTopImpressionShare),
-    }),
+    `SELECT campaign.id, campaign.name, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type,
+       ad_group_criterion.quality_info.quality_score, ad_group_criterion.quality_info.creative_quality_score,
+       ad_group_criterion.quality_info.post_click_quality_score, ad_group_criterion.quality_info.search_predicted_ctr,
+       metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.search_absolute_top_impression_share
+     FROM keyword_view WHERE segments.date BETWEEN '${start}' AND '${end}' AND ad_group_criterion.status='ENABLED' AND metrics.impressions > 0 ORDER BY metrics.cost_micros DESC LIMIT 200`,
+    (r) => {
+      const qi = r.adGroupCriterion?.qualityInfo;
+      return {
+        campaign: r.campaign?.name ?? "",
+        campaignId: String(r.campaign?.id ?? ""),
+        kw: r.adGroupCriterion?.keyword?.text ?? "",
+        match: r.adGroupCriterion?.keyword?.matchType ?? "",
+        qs: typeof qi?.qualityScore === "number" ? qi.qualityScore : null,
+        cost: dollars(num(r.metrics?.costMicros)),
+        clicks: num(r.metrics?.clicks),
+        conv: Math.round(num(r.metrics?.conversions) * 10) / 10,
+        absTopIS: pct(r.metrics?.searchAbsoluteTopImpressionShare),
+        adRelevance: normalizeQualityBucket(qi?.creativeQualityScore),
+        landingPage: normalizeQualityBucket(qi?.postClickQualityScore),
+        expectedCtr: normalizeQualityBucket(qi?.searchPredictedCtr),
+      };
+    },
   );
 
   const device = await q<DiagDevice>(

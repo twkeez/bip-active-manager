@@ -1,9 +1,24 @@
-import type { AccountDiagnosticRaw, DiagCampaign, DiagConvAction } from "@/lib/ads/account-diagnostic-fetch";
+import type { AccountDiagnosticRaw, DiagCampaign, DiagConvAction, DiagKeyword } from "@/lib/ads/account-diagnostic-fetch";
+import { buildGoogleAdsUiUrl } from "@/lib/ads/google-ads-ui-links";
+import type { GlobalAdsIssueType } from "@/lib/ads/global-optimization";
+import type { AdsQualityBucket } from "@/lib/types/client";
 
 // Turns the raw pull into a prioritized, explainable diagnosis plus ready-to-apply
 // drafts. Deterministic thresholds (no opaque score) so every finding shows its
 // "why". Prominence (absolute-top IS + why-not split of lost IS) is the spine;
 // conversion tracking is the gate; wasted spend and budget/bid are the levers.
+
+export type FixInput = "landing_page" | "ad_relevance" | "expected_ctr" | "bid" | "mixed";
+
+export type Fix = {
+  weakInput: FixInput | null;
+  steps: string[];
+  culprits: { kw: string; cost: number; note: string }[];
+  deepLink: string | null;
+  deepLinkLabel: string | null;
+  // Present when AI can draft the assets (relevance / CTR problems).
+  draft: { campaign: string; keywords: string[] } | null;
+};
 
 export type Finding = {
   id: string;
@@ -14,6 +29,7 @@ export type Finding = {
   action: string;
   impactScore: number;
   impactLabel: string | null;
+  fix?: Fix;
 };
 
 export type NegativeDraft = { term: string; cost: number; clicks: number; suggestedMatch: "exact" };
@@ -58,6 +74,87 @@ const MAX_BUDGET_LIFT = 0.5; // never suggest more than +50% budget in one move
 
 const isSearch = (c: DiagCampaign) => c.channel === "SEARCH";
 const round = (n: number) => Math.round(n * 100) / 100;
+const belowAvg = (b: AdsQualityBucket) => b === "BELOW_AVERAGE";
+
+const DEEP_LINK_LABEL: Record<GlobalAdsIssueType, string> = {
+  ad_relevance: "Ads & assets",
+  expected_ctr: "Ad extensions",
+  low_quality_score: "Keywords",
+  budget_capped: "Campaigns",
+  rank_lost: "Campaigns",
+};
+
+// Which of the three Ad Rank inputs is the weak link, from the QS components of
+// the campaign's keywords (weighted by spend). If nothing is below average, the
+// Quality Score is fine and the ceiling is bid, not relevance.
+function pinpointRankInput(kws: DiagKeyword[]): { weakInput: FixInput; avgQS: number | null } {
+  let lp = 0;
+  let rel = 0;
+  let ctr = 0;
+  let qsW = 0;
+  let w = 0;
+  for (const k of kws) {
+    if (k.cost <= 0) continue;
+    if (belowAvg(k.landingPage)) lp += k.cost;
+    if (belowAvg(k.adRelevance)) rel += k.cost;
+    if (belowAvg(k.expectedCtr)) ctr += k.cost;
+    if (k.qs != null) {
+      qsW += k.qs * k.cost;
+      w += k.cost;
+    }
+  }
+  const avgQS = w > 0 ? Math.round((qsW / w) * 10) / 10 : null;
+  const max = Math.max(lp, rel, ctr);
+  if (max === 0) return { weakInput: "bid", avgQS };
+  if (lp === max) return { weakInput: "landing_page", avgQS };
+  if (rel === max) return { weakInput: "ad_relevance", avgQS };
+  return { weakInput: "expected_ctr", avgQS };
+}
+
+function rankFixSteps(weakInput: FixInput, avgQS: number | null, cpa: number | null): string[] {
+  if (weakInput === "landing_page")
+    return [
+      "The weak Ad Rank input is landing-page experience — Google rates the page people land on as slow or off-topic.",
+      "Point these keywords at the most relevant service page (not the homepage), matching the ad's promise + city, with a phone CTA above the fold.",
+      "Fix mobile speed — check this client's site audit; compress the hero image and defer non-critical scripts.",
+    ];
+  if (weakInput === "ad_relevance")
+    return [
+      "The weak input is ad relevance — the ads don't echo the search term closely enough.",
+      "Group the culprit keywords into a tighter ad group so one theme maps to one ad.",
+      "Put the keyword theme into the RSA headlines — draft them below.",
+    ];
+  if (weakInput === "expected_ctr")
+    return [
+      "The weak input is expected CTR — the ad isn't compelling enough to earn the click at this position.",
+      "Add benefit-led headlines and every relevant asset: call, location, sitelinks, callouts, promotions.",
+      "Draft stronger headlines below.",
+    ];
+  if (weakInput === "bid")
+    return [
+      `Quality Score is actually fine${avgQS != null ? ` (avg ${avgQS})` : ""} — you're losing position on bid, not relevance.`,
+      cpa != null
+        ? `Raise the target: if on Maximize Conversions, set a tCPA near your current $${cpa}; if manual, lift max CPC ~15–20%.`
+        : "Raise the target CPA/ROAS or lift max CPC ~15–20%.",
+      "Recheck absolute-top IS after a week — it should climb as you hold position more often.",
+    ];
+  return ["Mixed signal — raise bids and tighten ad-to-keyword relevance together, then re-measure."];
+}
+
+function buildRankFix(customerId: string, c: DiagCampaign, kws: DiagKeyword[], cpa: number | null): Fix {
+  const { weakInput, avgQS } = pinpointRankInput(kws);
+  const compKey: keyof DiagKeyword | null =
+    weakInput === "landing_page" ? "landingPage" : weakInput === "ad_relevance" ? "adRelevance" : weakInput === "expected_ctr" ? "expectedCtr" : null;
+  const culprits = (compKey ? kws.filter((k) => belowAvg(k[compKey] as AdsQualityBucket)) : [...kws])
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 5)
+    .map((k) => ({ kw: k.kw, cost: k.cost, note: k.qs != null ? `QS ${k.qs}` : "" }));
+  const issueType: GlobalAdsIssueType =
+    weakInput === "ad_relevance" ? "ad_relevance" : weakInput === "expected_ctr" ? "expected_ctr" : weakInput === "bid" ? "rank_lost" : "low_quality_score";
+  const deepLink = buildGoogleAdsUiUrl({ adsCustomerId: customerId, issueType, campaignId: c.id });
+  const draft = weakInput === "ad_relevance" || weakInput === "expected_ctr" ? { campaign: c.name, keywords: culprits.map((k) => k.kw) } : null;
+  return { weakInput, steps: rankFixSteps(weakInput, avgQS, cpa), culprits, deepLink, deepLinkLabel: DEEP_LINK_LABEL[issueType], draft };
+}
 
 function assessTracking(actions: DiagConvAction[], totalConv: number, totalCost: number) {
   const enabled = actions.filter((a) => a.status === "ENABLED");
@@ -146,6 +243,7 @@ export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
       const lift = Math.min(MAX_BUDGET_LIFT, (c.lostBudget ?? 0) / 100);
       const liftPct = Math.round(lift * 100);
       const estExtraConv = Math.round(c.conv * lift * 10) / 10;
+      const suggested = round(c.budget * (1 + lift));
       findings.push({
         id: `budget-${c.name}`,
         severity: "warning",
@@ -155,22 +253,39 @@ export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
         action: `Raise the daily budget ~${liftPct}% (or tighten geo/schedule to concentrate it) — roughly ~${estExtraConv} more conversions/mo at a similar CPA.`,
         impactScore: 1e6 + estExtraConv * 1000,
         impactLabel: estExtraConv >= 0.5 ? `~${estExtraConv} more conv/mo` : null,
+        fix: {
+          weakInput: null,
+          steps: [
+            `Raise the daily budget from $${c.budget} to ~$${suggested}.`,
+            "Or tighten the geo radius / dayparting so the same budget concentrates on peak call hours.",
+            "Recheck lost-to-budget after a week — it should drop toward zero.",
+          ],
+          culprits: [],
+          deepLink: buildGoogleAdsUiUrl({ adsCustomerId: raw.customerId, issueType: "budget_capped", campaignId: c.id }),
+          deepLinkLabel: DEEP_LINK_LABEL.budget_capped,
+          draft: null,
+        },
       });
     }
   }
 
-  // Rank-limited campaigns — bid / relevance / landing page.
+  // Rank-limited campaigns — pinpoint which Ad Rank input is weak.
   for (const c of search) {
     if ((c.lostRank ?? 0) >= LOST_RANK_PCT) {
+      const cpa = c.conv > 0 ? round(c.cost / c.conv) : null;
+      const kws = raw.keywords.filter((k) => (c.id && k.campaignId === c.id) || k.campaign === c.name);
+      const fix = buildRankFix(raw.customerId, c, kws, cpa);
+      const alsoBudget = (c.lostBudget ?? 0) >= LOST_BUDGET_PCT;
       findings.push({
         id: `rank-${c.name}`,
         severity: (c.absTopIS ?? 100) < ABS_TOP_LOW ? "warning" : "opportunity",
         title: `"${c.name}" is held back by Ad Rank, not budget`,
-        why: `${c.lostRank}% of impressions are lost to rank — your bid and/or relevance aren't strong enough to hold position (abs-top IS ${c.absTopIS ?? "—"}%). Raising budget won't fix this; it's a rank problem.`,
+        why: `${c.lostRank}% of impressions are lost to rank — your bid and/or relevance aren't strong enough to hold position (abs-top IS ${c.absTopIS ?? "—"}%). Raising budget won't fix this; it's a rank problem.${alsoBudget ? ` It's also losing ${c.lostBudget}% to budget — but fix rank first: better Quality Score lowers your CPCs, so the budget you already have stretches further, then top it up.` : ""}`,
         evidence: `lost to rank ${c.lostRank}% · abs-top IS ${c.absTopIS ?? "—"}% · lost to budget ${c.lostBudget ?? 0}%`,
-        action: "Raise bids (or the tCPA/tROAS target), tighten ad-to-keyword relevance, and improve the landing page — the three Ad Rank inputs.",
+        action: fix.steps[0],
         impactScore: 800_000 + (c.lostRank ?? 0) * 1000,
         impactLabel: null,
+        fix,
       });
     }
   }
