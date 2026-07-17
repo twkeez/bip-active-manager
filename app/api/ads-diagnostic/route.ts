@@ -30,7 +30,22 @@ export async function POST(request: Request) {
   try {
     const raw = await fetchAccountDiagnostic(customerId);
     const diagnostic = diagnoseAccount(raw);
-    return NextResponse.json({ diagnostic });
+
+    // Pull the curated playbook entries for the issues these findings raise, so
+    // the fix guidance comes from Best Practices (editable) rather than code.
+    const issueKeys = [...new Set(diagnostic.findings.map((f) => f.issueKey).filter((k): k is string => !!k))];
+    const playbook: Record<string, { label: string; content: string }> = {};
+    if (issueKeys.length > 0) {
+      const { data: rows } = await supabase
+        .from("best_practices")
+        .select("key, label, content")
+        .in("key", issueKeys);
+      for (const row of (rows ?? []) as { key: string; label: string; content: string | null }[]) {
+        if (row.content) playbook[row.key] = { label: row.label, content: row.content };
+      }
+    }
+
+    return NextResponse.json({ diagnostic, playbook });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Diagnosis failed" },

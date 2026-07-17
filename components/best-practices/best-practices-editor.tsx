@@ -11,11 +11,11 @@ type Entry = {
   sort_order: number;
 };
 
-export default function BestPracticesEditor() {
+export default function BestPracticesEditor({ initialQuery = "" }: { initialQuery?: string }) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<Set<string>>(new Set());
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

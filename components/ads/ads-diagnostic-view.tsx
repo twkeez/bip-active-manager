@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Check, Copy, ExternalLink, Loader2, Search, Sparkles, Stethoscope, TrendingUp } from "lucide-react";
+import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, Loader2, Search, Sparkles, Stethoscope, TrendingUp } from "lucide-react";
 import type { AccountDiagnostic, Finding } from "@/lib/ads/account-diagnostic";
 import { RSA_DESCRIPTION_MAX, RSA_HEADLINE_MAX, type RsaDraft } from "@/lib/ads/draft-rsa";
 
@@ -42,6 +42,7 @@ export default function AdsDiagnosticView({ clients }: { clients: ClientOption[]
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AccountDiagnostic | null>(null);
+  const [playbook, setPlaybook] = useState<Record<string, { label: string; content: string }>>({});
 
   async function run(id: string) {
     const cid = id.trim();
@@ -55,9 +56,14 @@ export default function AdsDiagnosticView({ clients }: { clients: ClientOption[]
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customerId: cid }),
       });
-      const payload = (await res.json()) as { diagnostic?: AccountDiagnostic; error?: string };
+      const payload = (await res.json()) as {
+        diagnostic?: AccountDiagnostic;
+        playbook?: Record<string, { label: string; content: string }>;
+        error?: string;
+      };
       if (!res.ok || !payload.diagnostic) throw new Error(payload.error ?? "Diagnosis failed");
       setResult(payload.diagnostic);
+      setPlaybook(payload.playbook ?? {});
     } catch (e) {
       setError(e instanceof Error ? e.message : "Diagnosis failed");
     } finally {
@@ -138,7 +144,12 @@ export default function AdsDiagnosticView({ clients }: { clients: ClientOption[]
             <h2 className="mb-2 text-sm font-semibold text-bip-text">What to fix, most impactful first</h2>
             <div className="space-y-2">
               {result.findings.map((f) => (
-                <FindingCard key={f.id} finding={f} customerId={result.customerId} />
+                <FindingCard
+                  key={f.id}
+                  finding={f}
+                  customerId={result.customerId}
+                  entry={f.issueKey ? playbook[f.issueKey] : undefined}
+                />
               ))}
               {result.findings.length === 0 && (
                 <p className="rounded-xl border border-bip-border bg-bip-card p-4 text-sm text-bip-muted">
@@ -259,7 +270,35 @@ export default function AdsDiagnosticView({ clients }: { clients: ClientOption[]
   );
 }
 
-function FindingCard({ finding, customerId }: { finding: Finding; customerId: string }) {
+// Pull the numbered items under a "HOW TO FIX" header out of a playbook entry.
+// Falls back to [] if the strategist reformatted the entry (view shows the raw
+// content instead, so nothing is ever lost).
+function extractFixSteps(content: string): string[] {
+  const lines = content.split("\n");
+  const start = lines.findIndex((l) => /how to fix/i.test(l));
+  if (start === -1) return [];
+  const steps: string[] = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) {
+      if (steps.length) break;
+      continue;
+    }
+    if (/^[A-Z][A-Z0-9 /&]+$/.test(line) && line.length < 40) break; // next section header
+    steps.push(line.replace(/^\d+[.)]\s*/, ""));
+  }
+  return steps;
+}
+
+function FindingCard({
+  finding,
+  customerId,
+  entry,
+}: {
+  finding: Finding;
+  customerId: string;
+  entry?: { label: string; content: string };
+}) {
   const f = finding;
   const [draft, setDraft] = useState<RsaDraft | null>(null);
   const [drafting, setDrafting] = useState(false);
@@ -285,6 +324,10 @@ function FindingCard({ finding, customerId }: { finding: Finding; customerId: st
     }
   }
 
+  const playbookSteps = entry ? extractFixSteps(entry.content) : [];
+  const fallbackSteps = f.fix?.steps ?? [];
+  const showBox = !!f.fix || !!entry;
+
   return (
     <div className={`rounded-xl border p-4 ${SEV[f.severity].ring}`}>
       <div className="flex items-start justify-between gap-3">
@@ -294,18 +337,39 @@ function FindingCard({ finding, customerId }: { finding: Finding; customerId: st
       <p className="mt-1 text-sm text-bip-muted">{f.why}</p>
       <p className="mt-1.5 text-[11px] text-bip-muted">{f.evidence}</p>
 
-      {f.fix ? (
+      {showBox ? (
         <div className="mt-3 rounded-lg border border-bip-border bg-bip-fill/40 p-3">
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">How to fix it</p>
-          <ol className="space-y-1">
-            {f.fix.steps.map((s, i) => (
-              <li key={i} className="flex gap-2 text-sm text-bip-text">
-                <span className="text-bip-muted">{i + 1}.</span>
-                <span>{s}</span>
-              </li>
-            ))}
-          </ol>
-          {f.fix.culprits.length > 0 && (
+
+          {f.fix?.headline && (
+            <p className="mb-2 flex items-start gap-1.5 text-sm font-medium text-bip-text">
+              <TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-bip-accent" /> {f.fix.headline}
+            </p>
+          )}
+
+          {entry && playbookSteps.length > 0 ? (
+            <ol className="space-y-1">
+              {playbookSteps.map((s, i) => (
+                <li key={i} className="flex gap-2 text-sm text-bip-text">
+                  <span className="text-bip-muted">{i + 1}.</span>
+                  <span>{s}</span>
+                </li>
+              ))}
+            </ol>
+          ) : entry ? (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-bip-text">{entry.content}</p>
+          ) : (
+            <ol className="space-y-1">
+              {fallbackSteps.map((s, i) => (
+                <li key={i} className="flex gap-2 text-sm text-bip-text">
+                  <span className="text-bip-muted">{i + 1}.</span>
+                  <span>{s}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {f.fix && f.fix.culprits.length > 0 && (
             <div className="mt-2">
               <p className="text-[11px] text-bip-muted">Worst offenders:</p>
               <div className="mt-1 flex flex-wrap gap-1.5">
@@ -317,8 +381,9 @@ function FindingCard({ finding, customerId }: { finding: Finding; customerId: st
               </div>
             </div>
           )}
+
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            {f.fix.deepLink && (
+            {f.fix?.deepLink && (
               <a
                 href={f.fix.deepLink}
                 target="_blank"
@@ -328,7 +393,7 @@ function FindingCard({ finding, customerId }: { finding: Finding; customerId: st
                 <ExternalLink className="h-3.5 w-3.5" /> Open {f.fix.deepLinkLabel ?? "in Google Ads"}
               </a>
             )}
-            {f.fix.draft && (
+            {f.fix?.draft && (
               <button
                 type="button"
                 disabled={drafting}
@@ -338,6 +403,14 @@ function FindingCard({ finding, customerId }: { finding: Finding; customerId: st
                 {drafting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                 {drafting ? "Drafting…" : draft ? "Re-draft ad copy" : "Draft ad copy"}
               </button>
+            )}
+            {entry && (
+              <a
+                href={`/best-practices?q=${encodeURIComponent(entry.label)}`}
+                className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2.5 py-1 text-xs text-bip-muted hover:bg-bip-fill hover:text-bip-text"
+              >
+                <BookOpen className="h-3.5 w-3.5" /> Playbook: {entry.label}
+              </a>
             )}
           </div>
           {draftErr && <p className="mt-2 text-xs text-red-300">{draftErr}</p>}

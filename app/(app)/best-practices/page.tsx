@@ -5,7 +5,11 @@ import BestPracticesEditor from "@/components/best-practices/best-practices-edit
 
 // Editable constants that power the onboarding assists (negatives, campaign
 // skeleton, constant keywords). Admin only.
-export default async function BestPracticesPage() {
+export default async function BestPracticesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -14,6 +18,8 @@ export default async function BestPracticesPage() {
 
   const profile = await getProfile(supabase);
   if (profile?.role !== "admin") redirect("/dashboard");
+
+  const { q } = await searchParams;
 
   return (
     <div className="mx-auto w-full max-w-3xl p-6">
@@ -24,7 +30,7 @@ export default async function BestPracticesPage() {
           common ads problems. Search a symptom, read the fix. Assists and the Ads Diagnostic build on these.
         </p>
       </div>
-      <BestPracticesEditor />
+      <BestPracticesEditor initialQuery={q ?? ""} />
     </div>
   );
 }

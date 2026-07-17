@@ -12,6 +12,10 @@ export type FixInput = "landing_page" | "ad_relevance" | "expected_ctr" | "bid" 
 
 export type Fix = {
   weakInput: FixInput | null;
+  // The one computed, account-specific action line (e.g. the budget number, or
+  // which Ad Rank input is weak) — shown above the playbook's general steps.
+  headline: string | null;
+  // Fallback steps used only when no playbook entry exists for the issue.
   steps: string[];
   culprits: { kw: string; cost: number; note: string }[];
   deepLink: string | null;
@@ -29,7 +33,25 @@ export type Finding = {
   action: string;
   impactScore: number;
   impactLabel: string | null;
+  // Best Practices playbook key — the finding's fix is prescribed by that entry.
+  issueKey?: string;
   fix?: Fix;
+};
+
+const ISSUE_BY_INPUT: Record<FixInput, string> = {
+  landing_page: "ads.landing_page_low",
+  ad_relevance: "ads.ad_relevance_low",
+  expected_ctr: "ads.expected_ctr_low",
+  bid: "ads.lost_is_rank",
+  mixed: "ads.lost_is_rank",
+};
+
+const INPUT_LABEL: Record<FixInput, string> = {
+  landing_page: "landing page experience",
+  ad_relevance: "ad relevance",
+  expected_ctr: "expected CTR",
+  bid: "bid — Quality Score is fine",
+  mixed: "bid + relevance",
 };
 
 export type NegativeDraft = { term: string; cost: number; clicks: number; suggestedMatch: "exact" };
@@ -153,7 +175,15 @@ function buildRankFix(customerId: string, c: DiagCampaign, kws: DiagKeyword[], c
     weakInput === "ad_relevance" ? "ad_relevance" : weakInput === "expected_ctr" ? "expected_ctr" : weakInput === "bid" ? "rank_lost" : "low_quality_score";
   const deepLink = buildGoogleAdsUiUrl({ adsCustomerId: customerId, issueType, campaignId: c.id });
   const draft = weakInput === "ad_relevance" || weakInput === "expected_ctr" ? { campaign: c.name, keywords: culprits.map((k) => k.kw) } : null;
-  return { weakInput, steps: rankFixSteps(weakInput, avgQS, cpa), culprits, deepLink, deepLinkLabel: DEEP_LINK_LABEL[issueType], draft };
+  return {
+    weakInput,
+    headline: `Weak Ad Rank input: ${INPUT_LABEL[weakInput]}.`,
+    steps: rankFixSteps(weakInput, avgQS, cpa),
+    culprits,
+    deepLink,
+    deepLinkLabel: DEEP_LINK_LABEL[issueType],
+    draft,
+  };
 }
 
 function assessTracking(actions: DiagConvAction[], totalConv: number, totalCost: number) {
@@ -221,6 +251,7 @@ export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
       action: "Fix conversion tracking before optimizing anything else — verify the tag fires, set calls (60s+) as a conversion, and mark the true lead action as Primary.",
       impactScore: 1e9,
       impactLabel: "Foundational",
+      issueKey: "ads.conversion_tracking",
     });
   } else if (tracking.severity === "warning") {
     findings.push({
@@ -232,6 +263,7 @@ export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
       action: "Add a 'Calls from ads' conversion with a 60-second minimum so call leads are optimized toward.",
       impactScore: 5e6,
       impactLabel: null,
+      issueKey: "ads.conversion_tracking",
     });
   }
 
@@ -253,8 +285,10 @@ export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
         action: `Raise the daily budget ~${liftPct}% (or tighten geo/schedule to concentrate it) — roughly ~${estExtraConv} more conversions/mo at a similar CPA.`,
         impactScore: 1e6 + estExtraConv * 1000,
         impactLabel: estExtraConv >= 0.5 ? `~${estExtraConv} more conv/mo` : null,
+        issueKey: "ads.lost_is_budget",
         fix: {
           weakInput: null,
+          headline: `Raise the daily budget from $${c.budget} to ~$${suggested}.`,
           steps: [
             `Raise the daily budget from $${c.budget} to ~$${suggested}.`,
             "Or tighten the geo radius / dayparting so the same budget concentrates on peak call hours.",
@@ -285,6 +319,7 @@ export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
         action: fix.steps[0],
         impactScore: 800_000 + (c.lostRank ?? 0) * 1000,
         impactLabel: null,
+        issueKey: fix.weakInput ? ISSUE_BY_INPUT[fix.weakInput] : "ads.lost_is_rank",
         fix,
       });
     }
@@ -305,6 +340,7 @@ export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
       action: `Add the ${wasteTerms.length} drafted negative keywords below.`,
       impactScore: 900_000 + wastedSpend * 100,
       impactLabel: `$${wastedSpend}/mo recoverable`,
+      issueKey: "ads.wasted_spend",
     });
   }
 
@@ -322,6 +358,7 @@ export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
           action: "Audit this campaign's search terms and landing page, or shift its budget toward the efficient campaigns.",
           impactScore: 400_000 + (cpa - accountCpa) * 100,
           impactLabel: null,
+          issueKey: "ads.high_cpa",
         });
       }
     }
