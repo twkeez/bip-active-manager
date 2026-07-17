@@ -30,6 +30,7 @@ export async function syncClientAds(
       run_status: "running",
       totals: {},
       campaigns: [],
+      calls: [],
     })
     .select("*")
     .single<AdsSnapshot>();
@@ -49,6 +50,7 @@ export async function syncClientAds(
         campaigns,
         auction_insights: sync.auctionInsights,
         keyword_quality: sync.keywordQuality,
+        calls: sync.calls,
         updated_at: new Date().toISOString(),
       })
       .eq("id", createdSnapshot.id);

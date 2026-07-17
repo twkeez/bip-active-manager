@@ -42,6 +42,8 @@ export type GoogleAdsStreamRow = {
     allConversions?: number;
     viewThroughConversions?: number;
     conversionsValue?: number;
+    phoneCalls?: string;
+    phoneImpressions?: string;
     ctr?: number;
     averageCpc?: string;
     searchImpressionShare?: number;
@@ -54,6 +56,17 @@ export type GoogleAdsStreamRow = {
     auctionInsightSearchPositionAboveRate?: number;
     auctionInsightSearchTopOfPageRate?: number;
     auctionInsightSearchOutrankingShare?: number;
+  };
+  callView?: {
+    resourceName?: string;
+    callerCountryCode?: string;
+    callerAreaCode?: string;
+    callDurationSeconds?: string;
+    startCallDateTime?: string;
+    endCallDateTime?: string;
+    callStatus?: string;
+    type?: string;
+    callTrackingDisplayLocation?: string;
   };
   segments?: {
     auctionInsightDomain?: string;

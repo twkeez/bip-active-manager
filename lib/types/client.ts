@@ -348,6 +348,8 @@ export type AdsCampaignMetric = {
   all_conversions?: number;
   view_through_conversions?: number;
   conversions_value?: number;
+  phone_calls?: number;
+  phone_impressions?: number;
   ctr: number;
   search_impression_share?: number | null;
   search_rank_lost_impression_share?: number | null;
@@ -365,6 +367,22 @@ export type AdsAuctionInsightRow = {
   position_above_rate: number | null;
   top_of_page_rate: number | null;
   outranking_share: number | null;
+};
+
+// One row from the Google Ads call_view resource — an individual phone call
+// driven by call assets. Google exposes area code + duration + status, not the
+// caller's full number.
+export type AdsCallRow = {
+  resource_name: string;
+  campaign_name: string;
+  start_time: string | null;
+  end_time: string | null;
+  duration_seconds: number;
+  status: string; // e.g. RECEIVED / MISSED
+  call_type: string;
+  caller_area_code: string | null;
+  caller_country_code: string | null;
+  display_location: string; // AD / LANDING_PAGE
 };
 
 export type AdsQualityBucket =
@@ -409,6 +427,8 @@ export type AdsSnapshot = {
     all_conversions?: number;
     view_through_conversions?: number;
     conversions_value?: number;
+    phone_calls?: number;
+    phone_impressions?: number;
     ctr: number;
     average_cpc: number;
     conversion_rate?: number | null;
@@ -423,6 +443,7 @@ export type AdsSnapshot = {
   campaigns: AdsCampaignMetric[];
   auction_insights?: AdsAuctionInsightRow[];
   keyword_quality?: AdsKeywordQualityRow[];
+  calls?: AdsCallRow[];
   created_at: string;
   updated_at: string;
 };

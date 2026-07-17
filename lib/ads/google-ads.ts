@@ -6,7 +6,7 @@ import {
   createSearchStreamContext,
   searchStream,
 } from "@/lib/ads/google-ads-stream";
-import type { AdsKeywordQualityRow } from "@/lib/types/client";
+import type { AdsCallRow, AdsKeywordQualityRow } from "@/lib/types/client";
 import type { SearchStreamContext } from "@/lib/ads/google-ads-stream";
 
 export type AdsCampaignRow = {
@@ -20,6 +20,8 @@ export type AdsCampaignRow = {
   all_conversions: number;
   view_through_conversions: number;
   conversions_value: number;
+  phone_calls?: number;
+  phone_impressions?: number;
   ctr: number;
   search_impression_share: number | null;
   search_rank_lost_impression_share: number | null;
@@ -48,6 +50,8 @@ export type AdsTotals = {
   all_conversions: number;
   view_through_conversions: number;
   conversions_value: number;
+  phone_calls?: number;
+  phone_impressions?: number;
   ctr: number;
   average_cpc: number;
   conversion_rate: number | null;
@@ -68,7 +72,54 @@ export type AdsSyncResult = {
   campaigns: AdsCampaignRow[];
   auctionInsights: AdsAuctionInsightRow[];
   keywordQuality: AdsKeywordQualityRow[];
+  calls: AdsCallRow[];
 };
+
+// Per-call detail from the call_view resource. Only accounts with call assets /
+// call-only ads using Google forwarding numbers return rows; Google retains the
+// detailed data for a limited window. Best-effort — the caller wraps it so a
+// failure (call reporting off, resource unavailable) yields no calls, not a
+// failed sync.
+async function fetchCallDetails(
+  ctx: SearchStreamContext,
+  startDate: string,
+  endDate: string,
+): Promise<AdsCallRow[]> {
+  const query = `
+    SELECT
+      call_view.resource_name,
+      call_view.caller_country_code,
+      call_view.caller_area_code,
+      call_view.call_duration_seconds,
+      call_view.start_call_date_time,
+      call_view.end_call_date_time,
+      call_view.call_status,
+      call_view.type,
+      call_view.call_tracking_display_location,
+      campaign.name,
+      segments.date
+    FROM call_view
+    WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
+    ORDER BY segments.date DESC
+    LIMIT 500
+  `;
+  return searchStream(ctx, query, (row) => {
+    const cv = row.callView;
+    if (!cv) return null;
+    return {
+      resource_name: cv.resourceName ?? "",
+      campaign_name: row.campaign?.name ?? "Unnamed campaign",
+      start_time: cv.startCallDateTime ?? null,
+      end_time: cv.endCallDateTime ?? null,
+      duration_seconds: Number(cv.callDurationSeconds ?? 0),
+      status: cv.callStatus ?? "UNKNOWN",
+      call_type: cv.type ?? "UNKNOWN",
+      caller_area_code: cv.callerAreaCode ?? null,
+      caller_country_code: cv.callerCountryCode ?? null,
+      display_location: cv.callTrackingDisplayLocation ?? "UNKNOWN",
+    };
+  });
+}
 
 async function fetchKeywordQuality(
   ctx: SearchStreamContext,
@@ -150,6 +201,8 @@ export async function runGoogleAdsSync(
       metrics.all_conversions,
       metrics.view_through_conversions,
       metrics.conversions_value,
+      metrics.phone_calls,
+      metrics.phone_impressions,
       metrics.ctr,
       metrics.average_cpc,
       metrics.search_impression_share,
@@ -177,6 +230,8 @@ export async function runGoogleAdsSync(
         all_conversions: Number(row.metrics?.allConversions ?? 0),
         view_through_conversions: Number(row.metrics?.viewThroughConversions ?? 0),
         conversions_value: Number(row.metrics?.conversionsValue ?? 0),
+        phone_calls: Number(row.metrics?.phoneCalls ?? 0),
+        phone_impressions: Number(row.metrics?.phoneImpressions ?? 0),
         ctr: Number(row.metrics?.ctr ?? 0),
         search_impression_share:
           typeof row.metrics?.searchImpressionShare === "number"
@@ -215,6 +270,8 @@ export async function runGoogleAdsSync(
       acc.all_conversions += row.all_conversions;
       acc.view_through_conversions += row.view_through_conversions;
       acc.conversions_value += row.conversions_value;
+      acc.phone_calls += row.phone_calls ?? 0;
+      acc.phone_impressions += row.phone_impressions ?? 0;
       return acc;
     },
     {
@@ -226,6 +283,8 @@ export async function runGoogleAdsSync(
       all_conversions: 0,
       view_through_conversions: 0,
       conversions_value: 0,
+      phone_calls: 0,
+      phone_impressions: 0,
     },
   );
 
@@ -320,6 +379,13 @@ export async function runGoogleAdsSync(
     // Optional
   }
 
+  let calls: AdsCallRow[] = [];
+  try {
+    calls = await fetchCallDetails(ctx, startDate, endDate);
+  } catch {
+    // Optional — call reporting may be off for this account.
+  }
+
   return {
     customerId,
     startDate,
@@ -328,6 +394,7 @@ export async function runGoogleAdsSync(
     campaigns,
     auctionInsights,
     keywordQuality,
+    calls,
   };
 }
 

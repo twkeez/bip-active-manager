@@ -30,6 +30,13 @@ export const REPORTING_METRIC_REGISTRY = [
     defaultOrder: 16,
   },
   {
+    id: "ads-calls-30d",
+    label: "Calls from ads (30d)",
+    source: "ads",
+    defaultEnabled: true,
+    defaultOrder: 17,
+  },
+  {
     id: "ads-cpa-30d",
     label: "Ads CPA (30d)",
     source: "ads",

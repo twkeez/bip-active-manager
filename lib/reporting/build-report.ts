@@ -445,6 +445,14 @@ export function buildReportingKpis(params: {
       definition: "Conversions divided by clicks over the current 30-day window.",
       updated_at: params.adsSnapshot?.updated_at ?? null,
     },
+    "ads-calls-30d": {
+      label: "Calls from ads (30d)",
+      value: adsTotals ? Math.round(adsTotals.phone_calls ?? 0).toLocaleString() : "Not synced",
+      source: "ads",
+      definition:
+        "Phone calls driven by ads (via call assets / call-only ads) in the current 30-day window.",
+      updated_at: params.adsSnapshot?.updated_at ?? null,
+    },
     "ads-cpa-30d": {
       label: "Ads CPA (30d)",
       value:
