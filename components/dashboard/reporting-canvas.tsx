@@ -34,15 +34,6 @@ function kpiValue(
   }
   return value;
 }
-function parseNumericPosition(value: string) {
-  const parsed = Number.parseFloat(value.replace(/,/g, ""));
-  return Number.isFinite(parsed) ? parsed : null;
-}
-function computeVisibilityIndex(avgPosition: number | null) {
-  if (avgPosition == null) return "Not synced";
-  const index = Math.max(0, Math.min(100, 100 - avgPosition));
-  return `${index.toFixed(2)}%`;
-}
 function buildPpcMetrics(
   kpis: Map<string, ReportingKpiCard>,
   adsSnapshot: AdsSnapshot | null,
@@ -80,12 +71,6 @@ function buildSeoMetrics(
   keywordHealthRows: KeywordHealthRow[],
 ) {
   const impressions = kpiValue(kpis, "gsc-impressions");
-  const avgPositionRaw = kpis.get("gsc-avg-position-30d")?.value;
-  const avgPosition =
-    avgPositionRaw && avgPositionRaw !== "Not synced"
-      ? parseNumericPosition(avgPositionRaw)
-      : null;
-  const visibility = computeVisibilityIndex(avgPosition);
   const trackedCount = keywordTargets.length;
   const indexedCount =
     keywordHealthRows.length > 0
@@ -93,7 +78,7 @@ function buildSeoMetrics(
           (row) => row.current_impressions > 0 || row.current_clicks > 0,
         ).length
       : keywordTargets.filter((row) => row.is_active).length;
-  return { impressions, visibility, indexedCount, trackedCount };
+  return { impressions, indexedCount, trackedCount };
 }
 function buildConnectionIssues(freshness: ReportingFreshnessItem[]) {
   return freshness
@@ -345,10 +330,9 @@ export default function ReportingCanvas({
 
           <TrendingUp size={16} /> Organic Search &amp; Reach Performance
         </h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
           <MetricTile label="Global Impressions" value={seo.impressions} />
-          <MetricTile label="Search Visibility Index" value={seo.visibility} />
           <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
             
             <p className="text-xs text-bip-muted">Keyword Index Count</p>
