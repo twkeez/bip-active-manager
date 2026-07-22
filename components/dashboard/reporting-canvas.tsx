@@ -18,6 +18,7 @@ import type {
   ReportingFreshnessItem,
   ReportingKpiCard,
 } from "@/lib/types/client";
+import { channelColor } from "@/lib/reporting/channel-colors";
 function kpiValue(
   kpis: Map<string, ReportingKpiCard>,
   id: string,
@@ -33,15 +34,6 @@ function kpiValue(
     return fallback;
   }
   return value;
-}
-function parseNumericPosition(value: string) {
-  const parsed = Number.parseFloat(value.replace(/,/g, ""));
-  return Number.isFinite(parsed) ? parsed : null;
-}
-function computeVisibilityIndex(avgPosition: number | null) {
-  if (avgPosition == null) return "Not synced";
-  const index = Math.max(0, Math.min(100, 100 - avgPosition));
-  return `${index.toFixed(2)}%`;
 }
 function buildPpcMetrics(
   kpis: Map<string, ReportingKpiCard>,
@@ -80,12 +72,6 @@ function buildSeoMetrics(
   keywordHealthRows: KeywordHealthRow[],
 ) {
   const impressions = kpiValue(kpis, "gsc-impressions");
-  const avgPositionRaw = kpis.get("gsc-avg-position-30d")?.value;
-  const avgPosition =
-    avgPositionRaw && avgPositionRaw !== "Not synced"
-      ? parseNumericPosition(avgPositionRaw)
-      : null;
-  const visibility = computeVisibilityIndex(avgPosition);
   const trackedCount = keywordTargets.length;
   const indexedCount =
     keywordHealthRows.length > 0
@@ -93,7 +79,7 @@ function buildSeoMetrics(
           (row) => row.current_impressions > 0 || row.current_clicks > 0,
         ).length
       : keywordTargets.filter((row) => row.is_active).length;
-  return { impressions, visibility, indexedCount, trackedCount };
+  return { impressions, indexedCount, trackedCount };
 }
 function buildConnectionIssues(freshness: ReportingFreshnessItem[]) {
   return freshness
@@ -255,6 +241,12 @@ export default function ReportingCanvas({
               <MetricTile label="Avg Session Duration" value={formatGa4Time(ga4Snapshot.totals?.avg_session_duration_seconds)} />
             </div>
             {(ga4Snapshot.channel_breakdown ?? []).length > 0 && (
+              <div className="mt-4 rounded-xl border border-bip-border p-4">
+                <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Traffic by Channel</p>
+                <ChannelMixBars rows={ga4Snapshot.channel_breakdown ?? []} />
+              </div>
+            )}
+            {(ga4Snapshot.channel_breakdown ?? []).length > 0 && (
               <div className="mt-4 overflow-hidden rounded-xl border border-bip-border">
                 <table className="w-full text-sm">
                   <thead className="bg-bip-card/50 text-[11px] uppercase tracking-wide text-bip-muted">
@@ -345,10 +337,9 @@ export default function ReportingCanvas({
 
           <TrendingUp size={16} /> Organic Search &amp; Reach Performance
         </h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
           <MetricTile label="Global Impressions" value={seo.impressions} />
-          <MetricTile label="Search Visibility Index" value={seo.visibility} />
           <div className="rounded-xl border border-bip-border bg-bip-card/50 p-5">
             
             <p className="text-xs text-bip-muted">Keyword Index Count</p>
@@ -428,6 +419,41 @@ function gaCount(v: number | null | undefined): string {
 function gaPct(v: number | null | undefined): string {
   const n = gaNum(v);
   return n == null ? "—" : `${(n * 100).toFixed(1)}%`;
+}
+// Horizontal bars sized by each channel's share of total sessions — the
+// traffic-mix visual (Direct / Organic / Paid / …) for the internal canvas.
+function ChannelMixBars({
+  rows,
+}: {
+  rows: Array<{ channel: string; sessions: number }>;
+}) {
+  const sorted = [...rows].sort((a, b) => (b.sessions ?? 0) - (a.sessions ?? 0)).slice(0, 8);
+  const total = sorted.reduce((sum, r) => sum + (r.sessions ?? 0), 0);
+  if (total <= 0) return null;
+  return (
+    <div className="space-y-2.5">
+      {sorted.map((row, i) => {
+        const share = ((row.sessions ?? 0) / total) * 100;
+        return (
+          <div key={row.channel} className="flex items-center gap-3">
+            <div className="w-32 shrink-0 truncate text-xs text-bip-text" title={row.channel}>
+              {row.channel}
+            </div>
+            <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-bip-border/40">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${Math.max(share, 1.5)}%`, background: channelColor(row.channel, i) }}
+              />
+            </div>
+            <div className="w-24 shrink-0 text-right">
+              <span className="text-xs font-semibold text-bip-text">{share.toFixed(1)}%</span>
+              <span className="text-[10px] text-bip-muted"> · {gaCount(row.sessions)}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 function Ga4CanvasTable({
   title, headers, rows,

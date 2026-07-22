@@ -343,18 +343,6 @@ export function buildReportingKpis(params: {
       : null;
   const gscClicks = params.gscPageMetrics.reduce((sum, row) => sum + row.clicks, 0);
   const gscImpressions = params.gscPageMetrics.reduce((sum, row) => sum + row.impressions, 0);
-  const gscWeightedPositionNumerator = params.gscPageMetrics.reduce(
-    (sum, row) => sum + row.position * Math.max(1, row.impressions),
-    0,
-  );
-  const gscWeightedPositionDenominator = params.gscPageMetrics.reduce(
-    (sum, row) => sum + Math.max(1, row.impressions),
-    0,
-  );
-  const gscAvgPosition =
-    gscWeightedPositionDenominator > 0
-      ? gscWeightedPositionNumerator / gscWeightedPositionDenominator
-      : null;
   const gscCtr = gscImpressions > 0 ? gscClicks / gscImpressions : null;
   const socialCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).getTime();
   const socialWindow = params.socialDailyRows.filter((row) => {
@@ -384,11 +372,15 @@ export function buildReportingKpis(params: {
   const seoOpenCount = params.crawlIssueCount + params.technicalFindingCount;
   const seoCriticalCount = params.technicalCriticalCount ?? 0;
   const gscCritical = params.gscSignals.filter((signal) => signal.severity === "critical").length;
+  // Use the conversion rate and CPA that the Ads sync stores on the snapshot so
+  // the KPI cards and the Ads channel block always agree (single source of
+  // truth). Both come from lib/ads/google-ads.ts; conversion_rate is a fraction
+  // (0–1), cost_per_conversion is already in dollars.
   const adsConversionRate =
-    adsTotals && adsTotals.clicks > 0 ? adsTotals.conversions / adsTotals.clicks : null;
-  const adsCpaMicros =
-    adsTotals && adsTotals.conversions > 0
-      ? adsTotals.cost_micros / adsTotals.conversions
+    adsTotals && typeof adsTotals.conversion_rate === "number" ? adsTotals.conversion_rate : null;
+  const adsCpa =
+    adsTotals && typeof adsTotals.cost_per_conversion === "number"
+      ? adsTotals.cost_per_conversion
       : null;
   const auctionRows = params.adsSnapshot?.auction_insights ?? [];
   const auctionOverlapRows = auctionRows.filter(
@@ -455,10 +447,7 @@ export function buildReportingKpis(params: {
     },
     "ads-cpa-30d": {
       label: "Ads CPA (30d)",
-      value:
-        adsCpaMicros == null
-          ? "Not synced"
-          : `$${(adsCpaMicros / 1_000_000).toFixed(2)}`,
+      value: adsCpa == null ? "Not synced" : `$${adsCpa.toFixed(2)}`,
       source: "ads",
       definition: "Average ad cost per conversion over the current 30-day window.",
       updated_at: params.adsSnapshot?.updated_at ?? null,
@@ -491,14 +480,6 @@ export function buildReportingKpis(params: {
       definition: "Total Search Console page clicks for the latest 30-day range.",
       updated_at: params.gscSnapshotUpdatedAt,
     },
-    "gsc-avg-position-30d": {
-      label: "Search Avg Position (30d)",
-      value: gscAvgPosition == null ? "Not synced" : gscAvgPosition.toFixed(2),
-      source: "search_console",
-      definition:
-        "Impression-weighted average Search Console position across synced page rows.",
-      updated_at: params.gscSnapshotUpdatedAt,
-    },
     "gsc-ctr-30d": {
       label: "Search CTR (30d)",
       value: gscCtr == null ? "Not synced" : `${(gscCtr * 100).toFixed(2)}%`,
@@ -510,7 +491,8 @@ export function buildReportingKpis(params: {
       label: "Social reach (30d)",
       value: params.socialConnected ? socialReach.toLocaleString() : "Not connected",
       source: "social",
-      definition: "Summed daily social reach over the last 30 days.",
+      definition:
+        "De-duplicated period reach per platform over the last 30 days (Instagram; Facebook page reach is unavailable from Meta and excluded).",
       updated_at: params.socialDailyRows[0]?.created_at ?? null,
     },
     "social-engagement": {
@@ -1187,16 +1169,6 @@ function buildSearchConsoleChannelBlock(params: {
   const prevClicks = params.gscPreviousPageMetrics.reduce((sum, row) => sum + row.clicks, 0);
   const prevImpressions = params.gscPreviousPageMetrics.reduce((sum, row) => sum + row.impressions, 0);
   const prevCtr = prevImpressions > 0 ? (prevClicks / prevImpressions) * 100 : 0;
-  const avgPosition = avg(
-    params.gscCurrentPageMetrics
-      .map((row) => row.position)
-      .filter((value) => Number.isFinite(value)),
-  );
-  const prevAvgPosition = avg(
-    params.gscPreviousPageMetrics
-      .map((row) => row.position)
-      .filter((value) => Number.isFinite(value)),
-  );
   return {
     source: "search_console",
     title: "Google Search Console",
@@ -1207,7 +1179,6 @@ function buildSearchConsoleChannelBlock(params: {
       toPeriodMetric("Clicks", clicks, prevClicks || null),
       toPeriodMetric("Impressions", impressions, prevImpressions || null),
       toPeriodMetric("CTR", ctr, prevCtr || null, "%"),
-      toPeriodMetric("Average Position", avgPosition, prevAvgPosition),
     ],
   };
 }

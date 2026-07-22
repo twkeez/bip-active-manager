@@ -51,13 +51,6 @@ export const REPORTING_METRIC_REGISTRY = [
     defaultOrder: 20,
   },
   {
-    id: "gsc-avg-position-30d",
-    label: "Search Avg Position (30d)",
-    source: "search_console",
-    defaultEnabled: false,
-    defaultOrder: 22,
-  },
-  {
     id: "gsc-ctr-30d",
     label: "Search CTR (30d)",
     source: "search_console",
