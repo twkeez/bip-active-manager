@@ -4,6 +4,7 @@ import type { ReportDraft } from "@/lib/reporting/draft-types";
 import { METRIC_LABELS, type ReportConfig } from "@/lib/reporting/report-config-types";
 import type { ReportPeriodMetric } from "@/lib/reporting/types";
 import { buildSocialByPlatform, type PlatformSocial } from "@/lib/reporting/social-metrics";
+import { channelColor } from "@/lib/reporting/channel-colors";
 
 const adsLabelToKey: Record<string, string> = Object.fromEntries(
   Object.entries(METRIC_LABELS.google_ads ?? {}).map(([k, v]) => [v, k]),
@@ -85,6 +86,58 @@ function Ga4TrendChart({ points }: { points: Array<{ date: string; sessions: num
           <path d={area} fill={`${C_SEARCH}14`} stroke="none" />
           <path d={line} fill="none" stroke={C_SEARCH} strokeWidth={2} />
         </svg>
+      </div>
+    </section>
+  );
+}
+
+// Traffic-mix visual: one horizontal bar per GA4 channel, length ∝ share of
+// total sessions, so Direct / Organic / Paid / etc. read at a glance. Rendered
+// as inline-styled divs (no chart lib) so it survives html2canvas/PDF export
+// identically to the on-screen view.
+function Ga4ChannelMixChart({
+  rows,
+}: {
+  rows: Array<{ channel: string; sessions: number; users: number; engagementRate: number }>;
+}) {
+  const sorted = [...rows].sort((a, b) => b.sessions - a.sessions).slice(0, 8);
+  const total = sorted.reduce((sum, r) => sum + r.sessions, 0);
+  if (total <= 0) return null;
+  return (
+    <section style={{ breakInside: "avoid" }} className="mb-4">
+      <SectionLabel title="Traffic by Channel" color={C_SEARCH} />
+      <div className="rounded-2xl p-4" style={{ border: "1px solid #e5e7eb" }}>
+        {sorted.map((row, i) => {
+          const pct = (row.sessions / total) * 100;
+          const color = channelColor(row.channel, i);
+          return (
+            <div
+              key={row.channel}
+              className="flex items-center gap-3"
+              style={{ marginTop: i === 0 ? 0 : 10 }}
+            >
+              <div
+                className="text-xs text-gray-600"
+                style={{ width: 130, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              >
+                {row.channel}
+              </div>
+              <div
+                className="rounded-full"
+                style={{ flex: 1, height: 14, background: "#f3f4f6", overflow: "hidden" }}
+              >
+                <div
+                  className="rounded-full"
+                  style={{ width: `${Math.max(pct, 1.5)}%`, height: "100%", background: color }}
+                />
+              </div>
+              <div className="text-right" style={{ width: 96, flexShrink: 0 }}>
+                <span className="text-xs font-semibold text-gray-700">{pct.toFixed(1)}%</span>
+                <span className="text-[10px] text-gray-400"> · {row.sessions.toLocaleString()}</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -403,6 +456,12 @@ export default function ReportPreview({ report, config, draft, printMode = false
                   <MetricCard key={m.label} metric={m} accent={C_SEARCH} />
                 ))}
               </div>
+
+              {ga4.channelBreakdown && ga4.channelBreakdown.length > 0 && (
+                <div className="mt-4">
+                  <Ga4ChannelMixChart rows={ga4.channelBreakdown} />
+                </div>
+              )}
 
               {ga4.channelBreakdown && ga4.channelBreakdown.length > 0 && (
                 <div className="mt-4 rounded-2xl overflow-hidden" style={{ border: "1px solid #e5e7eb" }}>

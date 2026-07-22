@@ -1,6 +1,7 @@
 import type { ClientReportModel, ReportChannelBlock, ReportPeriodMetric } from "@/lib/reporting/types";
 import type { ReportConfig } from "@/lib/reporting/report-config-types";
 import { buildSocialByPlatform } from "@/lib/reporting/social-metrics";
+import { channelColor } from "@/lib/reporting/channel-colors";
 
 // Brand palette mirrors lib/site-audit/seo-audit-word.ts so report and audit
 // deliverables look consistent. All colors inline-hex (Word can't read CSS vars).
@@ -70,6 +71,28 @@ function pct(fraction: number): string {
   return `${(fraction * 100).toFixed(1)}%`;
 }
 
+// Traffic-mix visual for Word. Word can't render CSS-width bars reliably, so the
+// bar is drawn with colored block glyphs (█) scaled to each channel's share of
+// total sessions — which converts to docx exactly as authored.
+function channelMixHtml(rows: Array<{ channel: string; sessions: number }>): string {
+  const sorted = [...rows].sort((a, b) => b.sessions - a.sessions).slice(0, 8);
+  const total = sorted.reduce((sum, r) => sum + r.sessions, 0);
+  if (total <= 0) return "";
+  const trs = sorted
+    .map((r, i) => {
+      const share = (r.sessions / total) * 100;
+      const glyphs = Math.max(1, Math.round(share / 2)); // 50 glyphs == 100%
+      const color = channelColor(r.channel, i);
+      return `<tr>` +
+        `<td style="padding:1px 8px 1px 0;font-size:12px;color:${INK};white-space:nowrap;">${esc(r.channel)}</td>` +
+        `<td style="padding:1px 8px;font-size:12px;color:${color};line-height:1;">${"█".repeat(glyphs)}</td>` +
+        `<td style="padding:1px 0;font-size:12px;color:${INK};text-align:right;white-space:nowrap;">${share.toFixed(1)}%</td>` +
+        `</tr>`;
+    })
+    .join("");
+  return `<table style="border-collapse:collapse;width:100%;margin:0 0 8px;">${trs}</table>`;
+}
+
 function pagePath(url: string): string {
   return url.replace(/^https?:\/\/[^/]+/, "") || "/";
 }
@@ -84,7 +107,8 @@ function ga4Html(ga4: ReportChannelBlock, config: ReportConfig): string {
   if (ga4.channelBreakdown?.length) {
     html += block(
       "Traffic by channel",
-      table(["Channel", "Sessions", "Engagement"], ga4.channelBreakdown.map((r) => [r.channel, r.sessions.toLocaleString(), pct(r.engagementRate)])),
+      channelMixHtml(ga4.channelBreakdown) +
+        table(["Channel", "Sessions", "Engagement"], ga4.channelBreakdown.map((r) => [r.channel, r.sessions.toLocaleString(), pct(r.engagementRate)])),
     );
   }
   if (ga4.topPages?.length) {
