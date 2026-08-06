@@ -1,8 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, Loader2, Search, Sparkles, Stethoscope, TrendingUp } from "lucide-react";
-import type { AccountDiagnostic, Finding } from "@/lib/ads/account-diagnostic";
+import { BookOpen, Check, Copy, ExternalLink, Loader2, Search, Sparkles, Stethoscope, TrendingUp } from "lucide-react";
+import type {
+  AccountDiagnostic,
+  AuctionRow,
+  ConversionTrust,
+  Finding,
+  QsComponents,
+  TrustSignal,
+} from "@/lib/ads/account-diagnostic";
+import type { AdsQualityBucket } from "@/lib/types/client";
 import { ErrorState } from "@/components/ui/feedback";
 import { StatTile, StatTiles } from "@/components/ui/stat-tile";
 import { ToolPage } from "@/components/ui/tool-page";
@@ -37,6 +45,193 @@ function CopyButton({ text, label }: { text: string; label: string }) {
     >
       {done ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />} {done ? "Copied" : label}
     </button>
+  );
+}
+
+const TRUST_SEV: Record<TrustSignal["severity"], { ring: string; text: string; dot: string }> = {
+  critical: { ring: "border-red-500/40 bg-red-500/5", text: "text-red-300", dot: "bg-red-400" },
+  warning: { ring: "border-amber-500/40 bg-amber-500/5", text: "text-amber-300", dot: "bg-amber-400" },
+  ok: { ring: "border-emerald-500/40 bg-emerald-500/5", text: "text-emerald-300", dot: "bg-emerald-400" },
+};
+
+const VERDICT: Record<ConversionTrust["verdict"], { ring: string; text: string; label: string }> = {
+  broken: { ring: "border-red-500/40 bg-red-500/10", text: "text-red-300", label: "Broken" },
+  shaky: { ring: "border-amber-500/40 bg-amber-500/10", text: "text-amber-300", label: "Shaky" },
+  trustworthy: { ring: "border-emerald-500/40 bg-emerald-500/10", text: "text-emerald-300", label: "Trustworthy" },
+};
+
+const prettyCounting = (c: string) => (/MANY/i.test(c) ? "Every" : /ONE/i.test(c) ? "One" : c || "—");
+const prettyEnum = (s: string) => (s ? s.replace(/_/g, " ").toLowerCase() : "—");
+
+// "Can you believe these numbers?" — the gate before any conversion/CPA figure.
+function ConversionTrustPanel({ trust }: { trust: ConversionTrust }) {
+  const v = VERDICT[trust.verdict];
+  return (
+    <section>
+      <h2 className="mb-2 text-sm font-semibold text-bip-text">Can you trust these conversions?</h2>
+      <div className={`rounded-xl border p-4 ${v.ring}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className={`text-sm font-semibold ${v.text}`}>{trust.headline}</p>
+          <div className="flex items-center gap-3 text-xs text-bip-muted">
+            <span className={`rounded-full border px-2 py-0.5 font-medium ${v.ring} ${v.text}`}>{v.label}</span>
+            <span>
+              Account conv. rate:{" "}
+              <span className="tabular-nums text-bip-text">
+                {trust.accountConvRatePct == null ? "—" : `${trust.accountConvRatePct}%`}
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-3 space-y-2">
+          {trust.signals.map((s) => {
+            const c = TRUST_SEV[s.severity];
+            return (
+              <div key={s.id} className={`rounded-lg border p-3 ${c.ring}`}>
+                <p className={`flex items-center gap-2 text-sm font-medium ${c.text}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} /> {s.label}
+                </p>
+                <p className="mt-1 text-xs text-bip-muted">{s.detail}</p>
+                <p className="mt-1 text-[11px] text-bip-muted/80">{s.evidence}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        {trust.actions.length > 0 && (
+          <div className="mt-3 overflow-x-auto rounded-lg border border-bip-border">
+            <table className="w-full min-w-[520px] text-xs">
+              <thead>
+                <tr className="border-b border-bip-border text-left uppercase tracking-wide text-bip-muted">
+                  <th className="px-3 py-2 font-medium">Conversion action</th>
+                  <th className="px-3 py-2 font-medium">Category</th>
+                  <th className="px-3 py-2 font-medium">Counting</th>
+                  <th className="px-3 py-2 font-medium">Flags</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trust.actions.map((a) => (
+                  <tr key={a.name} className="border-b border-bip-border last:border-b-0">
+                    <td className="max-w-[200px] truncate px-3 py-1.5 text-bip-text">{a.name}</td>
+                    <td className="px-3 py-1.5 text-bip-muted">{prettyEnum(a.category)}</td>
+                    <td className="px-3 py-1.5 text-bip-muted">{prettyCounting(a.counting)}</td>
+                    <td className="px-3 py-1.5">
+                      <div className="flex flex-wrap gap-1">
+                        {a.flags.length === 0 ? (
+                          <span className="text-bip-muted/60">—</span>
+                        ) : (
+                          a.flags.map((f) => (
+                            <span
+                              key={f}
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                                f === "call"
+                                  ? "bg-emerald-500/10 text-emerald-300"
+                                  : "bg-amber-500/10 text-amber-300"
+                              }`}
+                            >
+                              {f}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function Bucket({ b }: { b: AdsQualityBucket }) {
+  if (b === "BELOW_AVERAGE")
+    return <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[11px] font-medium text-red-300">Below avg</span>;
+  if (b === "ABOVE_AVERAGE")
+    return <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-medium text-emerald-300">Above avg</span>;
+  if (b === "AVERAGE") return <span className="text-[11px] text-bip-muted">Average</span>;
+  return <span className="text-[11px] text-bip-muted/60">—</span>;
+}
+
+// Per-keyword Quality Score components — Below-average = the exact lever to pull.
+function QsComponentsPanel({ qs }: { qs: QsComponents }) {
+  if (qs.rows.length === 0) return null;
+  const { summary } = qs;
+  return (
+    <section>
+      <h2 className="mb-1 text-sm font-semibold text-bip-text">Quality Score components — where to work</h2>
+      <p className="mb-2 text-xs text-bip-muted">
+        The QS number is a smoothed diagnostic, not the auction. Its components tell you what to fix. Across{" "}
+        {summary.totalScored} scored keywords: {summary.belowExpectedCtr} below on expected CTR, {summary.belowAdRelevance} on
+        ad relevance, {summary.belowLandingPage} on landing page.
+      </p>
+      <div className="overflow-x-auto rounded-xl border border-bip-border bg-bip-card">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead>
+            <tr className="border-b border-bip-border text-left text-[11px] uppercase tracking-wide text-bip-muted">
+              <th className="px-4 py-2 font-medium">Keyword</th>
+              <th className="px-4 py-2 text-right font-medium">Spend</th>
+              <th className="px-4 py-2 text-right font-medium">QS</th>
+              <th className="px-4 py-2 font-medium">Expected CTR</th>
+              <th className="px-4 py-2 font-medium">Ad relevance</th>
+              <th className="px-4 py-2 font-medium">Landing page</th>
+            </tr>
+          </thead>
+          <tbody>
+            {qs.rows.map((r) => (
+              <tr key={`${r.campaign}-${r.kw}`} className="border-b border-bip-border last:border-b-0">
+                <td className="max-w-[220px] truncate px-4 py-2 text-bip-text" title={`${r.kw} · ${r.campaign}`}>
+                  {r.kw}
+                </td>
+                <td className="px-4 py-2 text-right tabular-nums text-bip-muted">{usd(r.cost)}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-bip-text">{r.qs ?? "—"}</td>
+                <td className="px-4 py-2"><Bucket b={r.expectedCtr} /></td>
+                <td className="px-4 py-2"><Bucket b={r.adRelevance} /></td>
+                <td className="px-4 py-2"><Bucket b={r.landingPage} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+// Who you're actually fighting in the auction (data we already fetch).
+function AuctionInsightsPanel({ rows }: { rows: AuctionRow[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <section>
+      <h2 className="mb-1 text-sm font-semibold text-bip-text">Auction insights — who you&apos;re fighting</h2>
+      <p className="mb-2 text-xs text-bip-muted">
+        Competitors showing on the same searches. Overlap = how often you both appeared; Outranking = how often you ranked
+        above them.
+      </p>
+      <div className="overflow-x-auto rounded-xl border border-bip-border bg-bip-card">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead>
+            <tr className="border-b border-bip-border text-left text-[11px] uppercase tracking-wide text-bip-muted">
+              <th className="px-4 py-2 font-medium">Competitor</th>
+              <th className="px-4 py-2 text-right font-medium">Impr. share</th>
+              <th className="px-4 py-2 text-right font-medium">Overlap</th>
+              <th className="px-4 py-2 text-right font-medium">You outrank</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.domain} className="border-b border-bip-border last:border-b-0">
+                <td className="max-w-[240px] truncate px-4 py-2 text-bip-text">{r.domain}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-bip-muted">{pctOrDash(r.impressionShare)}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-bip-muted">{pctOrDash(r.overlap)}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-bip-muted">{pctOrDash(r.outranking)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -126,15 +321,8 @@ export default function AdsDiagnosticView({ clients }: { clients: ClientOption[]
             <StatTile label="Findings" value={String(result.findings.length)} />
           </StatTiles>
 
-          {/* Tracking gate */}
-          {result.tracking.severity !== "ok" && (
-            <div className={`rounded-xl border p-4 ${result.tracking.severity === "critical" ? "border-red-500/40 bg-red-500/5" : "border-amber-500/40 bg-amber-500/5"}`}>
-              <p className={`flex items-center gap-1.5 text-sm font-semibold ${result.tracking.severity === "critical" ? "text-red-300" : "text-amber-300"}`}>
-                <AlertTriangle className="h-4 w-4" /> Conversion tracking
-              </p>
-              <p className="mt-1 text-sm text-bip-muted">{result.tracking.note}</p>
-            </div>
-          )}
+          {/* Conversion trust — the gate before any conversion/CPA number is believed */}
+          <ConversionTrustPanel trust={result.conversionTrust} />
 
           {/* Findings */}
           <section>
@@ -190,6 +378,12 @@ export default function AdsDiagnosticView({ clients }: { clients: ClientOption[]
               </div>
             </section>
           )}
+
+          {/* Quality Score components — the levers behind rank */}
+          <QsComponentsPanel qs={result.qsComponents} />
+
+          {/* Auction insights — competitive context (previously fetched but unused) */}
+          <AuctionInsightsPanel rows={result.auctionInsights} />
 
           {/* Drafts */}
           <section className="space-y-4">

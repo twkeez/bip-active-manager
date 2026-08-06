@@ -1,6 +1,10 @@
 import type { AccountDiagnosticRaw, DiagCampaign, DiagConvAction, DiagKeyword } from "@/lib/ads/account-diagnostic-fetch";
 import { buildGoogleAdsUiUrl } from "@/lib/ads/google-ads-ui-links";
 import type { GlobalAdsIssueType } from "@/lib/ads/global-optimization";
+import {
+  IMPLAUSIBLE_CONV_RATE_MIN_CLICKS,
+  IMPLAUSIBLE_CONV_RATE_THRESHOLD,
+} from "@/lib/ads/conversion-integrity";
 import type { AdsQualityBucket } from "@/lib/types/client";
 
 // Turns the raw pull into a prioritized, explainable diagnosis plus ready-to-apply
@@ -70,11 +74,66 @@ export type SpineRow = {
   verdict: string;
 };
 
+// Conversion-tracking trust — "can you believe these numbers?". The gate before
+// any conversion/CPA figure means anything. Each signal is a legible red flag.
+export type TrustSignal = {
+  id: string;
+  severity: "critical" | "warning" | "ok";
+  label: string;
+  detail: string;
+  evidence: string;
+};
+
+export type TrustActionRow = {
+  name: string;
+  category: string;
+  type: string;
+  counting: string;
+  status: string;
+  flags: string[];
+};
+
+export type ConversionTrust = {
+  verdict: "trustworthy" | "shaky" | "broken";
+  headline: string;
+  accountConvRatePct: number | null; // conversions / clicks, as a percent
+  signals: TrustSignal[];
+  actions: TrustActionRow[];
+};
+
+// Competitor auction insight (surfaced from data we already fetch).
+export type AuctionRow = {
+  domain: string;
+  impressionShare: number | null;
+  overlap: number | null;
+  outranking: number | null;
+};
+
+// Per-keyword Quality Score components — "Below average on one tells you where to work".
+export type QsComponentRow = {
+  kw: string;
+  campaign: string;
+  qs: number | null;
+  expectedCtr: AdsQualityBucket;
+  adRelevance: AdsQualityBucket;
+  landingPage: AdsQualityBucket;
+  cost: number;
+  belowCount: number;
+};
+
+export type QsComponents = {
+  rows: QsComponentRow[];
+  summary: { belowExpectedCtr: number; belowAdRelevance: number; belowLandingPage: number; totalScored: number };
+};
+
 export type AccountDiagnostic = {
   customerId: string;
   window: { start: string; end: string };
   totals: { cost: number; conv: number; cpa: number | null; prevCost: number; prevConv: number };
   tracking: { ok: boolean; severity: "critical" | "warning" | "ok"; note: string; hasCallConv: boolean };
+  conversionTrust: ConversionTrust;
+  auctionInsights: AuctionRow[];
+  qsComponents: QsComponents;
   spine: SpineRow[];
   findings: Finding[];
   drafts: {
@@ -218,13 +277,204 @@ function assessTracking(actions: DiagConvAction[], totalConv: number, totalCost:
   return { ok: true, severity: "ok" as const, note: `${enabled.length} conversion actions enabled, calls tracked.`, hasCallConv };
 }
 
+// Conversion categories where counting "every" is legitimate (a sale can happen
+// repeatedly). For everything else — leads, calls, bookings — "every" inflates.
+const PURCHASE_CATEGORIES = new Set(["PURCHASE", "ADD_TO_CART", "BEGIN_CHECKOUT", "STORE_SALE", "SUBSCRIBE_PAID"]);
+const isLeadCategory = (category: string) => !PURCHASE_CATEGORIES.has((category ?? "").toUpperCase());
+const isCallAction = (a: DiagConvAction) => /CALL/i.test(a.category) || /CALL/i.test(a.type) || /call/i.test(a.name);
+const countsEvery = (a: DiagConvAction) => /MANY/i.test(a.counting);
+
+// Builds the conversion-tracking trust view: rate anomalies (pixel loops,
+// implausibly high rates), misconfigured counting/categories, and missing call
+// tracking — the gate before any conversion or CPA number can be believed.
+function buildConversionTrust(
+  raw: AccountDiagnosticRaw,
+  totalClicks: number,
+  totalConv: number,
+  totalCost: number,
+): ConversionTrust {
+  const enabled = raw.conversionActions.filter((a) => a.status === "ENABLED");
+  const signals: TrustSignal[] = [];
+  const accountConvRate = totalClicks > 0 ? totalConv / totalClicks : null;
+
+  if (enabled.length === 0) {
+    signals.push({
+      id: "none",
+      severity: "critical",
+      label: "No conversion tracking",
+      detail:
+        "No enabled conversion actions — the account is optimizing blind. No conversion or CPA figure here can be trusted until leads are tracked.",
+      evidence: "0 enabled conversion actions",
+    });
+  } else if (totalCost > 0 && totalConv === 0) {
+    signals.push({
+      id: "not_firing",
+      severity: "critical",
+      label: "Spending with zero conversions",
+      detail: "Real spend but nothing recorded — the conversion tag likely isn't firing at all.",
+      evidence: `$${round(totalCost)} spend · 0 conversions`,
+    });
+  }
+
+  // Pixel loop: more conversions than clicks (rate > 100%).
+  const loops = raw.campaigns.filter((c) => c.clicks > IMPLAUSIBLE_CONV_RATE_MIN_CLICKS && c.conv >= c.clicks);
+  if (loops.length > 0) {
+    const worst = [...loops].sort((a, b) => b.conv / b.clicks - a.conv / a.clicks)[0]!;
+    signals.push({
+      id: "loop",
+      severity: "critical",
+      label: "Impossible conversion rate (over 100%)",
+      detail:
+        "At least one campaign records more conversions than clicks — the classic signature of a tag firing on every page load, or a thank-you page that reloads.",
+      evidence: `${loops.length} campaign(s) · worst: "${worst.name}" ${worst.conv} conv on ${worst.clicks} clicks`,
+    });
+  }
+
+  // Implausibly high (but under 100%) conversion rate — the "excessive rate" tell.
+  const highRate = raw.campaigns.filter(
+    (c) =>
+      c.clicks > IMPLAUSIBLE_CONV_RATE_MIN_CLICKS &&
+      c.conv < c.clicks &&
+      c.conv / c.clicks > IMPLAUSIBLE_CONV_RATE_THRESHOLD,
+  );
+  if (highRate.length > 0) {
+    const worst = [...highRate].sort((a, b) => b.conv / b.clicks - a.conv / a.clicks)[0]!;
+    signals.push({
+      id: "high_rate",
+      severity: "warning",
+      label: "Suspiciously high conversion rate",
+      detail: `Conversion rates above ${Math.round(
+        IMPLAUSIBLE_CONV_RATE_THRESHOLD * 100,
+      )}% are rare for genuine leads — usually a page view or form load being counted as a conversion. Worth verifying what actually fires.`,
+      evidence: `${highRate.length} campaign(s) · worst: "${worst.name}" ${Math.round(
+        (worst.conv / worst.clicks) * 100,
+      )}% (${worst.conv} conv / ${worst.clicks} clicks)`,
+    });
+  }
+
+  // Counting "every" on a lead action inflates the count.
+  const countEvery = enabled.filter((a) => countsEvery(a) && isLeadCategory(a.category) && !isCallAction(a));
+  if (countEvery.length > 0) {
+    signals.push({
+      id: "counting",
+      severity: "warning",
+      label: 'Counting "every" conversion on a lead action',
+      detail:
+        'Lead actions (form fills, bookings) should count "One" per click — "Every" inflates the number when one visitor triggers it more than once.',
+      evidence: countEvery.map((a) => a.name).slice(0, 4).join(", ") || `${countEvery.length} action(s)`,
+    });
+  }
+
+  // A page view counted as a conversion.
+  const pageViews = enabled.filter((a) => /PAGE_VIEW/i.test(a.category));
+  if (pageViews.length > 0) {
+    signals.push({
+      id: "page_view",
+      severity: "warning",
+      label: "A page view is counted as a conversion",
+      detail:
+        "A page-view conversion action means ordinary visits are being counted as leads — one of the most common reasons conversion counts look inflated.",
+      evidence: pageViews.map((a) => a.name).slice(0, 4).join(", ") || `${pageViews.length} action(s)`,
+    });
+  }
+
+  // Missing call tracking for a call-driven practice.
+  if (enabled.length > 0 && !enabled.some(isCallAction)) {
+    signals.push({
+      id: "no_call",
+      severity: "warning",
+      label: "No phone-call conversion",
+      detail:
+        "For a practice that runs on phone calls, calls from ads should be a tracked conversion (with a minimum call length) — otherwise your best leads are invisible to the account.",
+      evidence: "No call-category action among enabled conversions",
+    });
+  }
+
+  const hasCrit = signals.some((s) => s.severity === "critical");
+  const hasWarn = signals.some((s) => s.severity === "warning");
+  const verdict: ConversionTrust["verdict"] = hasCrit ? "broken" : hasWarn ? "shaky" : "trustworthy";
+  if (!hasCrit && !hasWarn) {
+    signals.push({
+      id: "ok",
+      severity: "ok",
+      label: "Tracking looks trustworthy",
+      detail: `${enabled.length} enabled conversion action(s), a plausible conversion rate, and calls tracked.`,
+      evidence: `${enabled.length} enabled · ${accountConvRate != null ? `${Math.round(accountConvRate * 100)}% conv rate` : "—"}`,
+    });
+  }
+  const headline =
+    verdict === "broken"
+      ? "Don't trust these conversion numbers yet — fix tracking first."
+      : verdict === "shaky"
+        ? "Treat these conversion numbers with caution — a few things look off."
+        : "Conversion tracking looks trustworthy.";
+
+  const actions: TrustActionRow[] = enabled.map((a) => {
+    const flags: string[] = [];
+    if (countsEvery(a) && isLeadCategory(a.category) && !isCallAction(a)) flags.push("counts every");
+    if (/PAGE_VIEW/i.test(a.category)) flags.push("page view");
+    if (isCallAction(a)) flags.push("call");
+    return { name: a.name, category: a.category, type: a.type, counting: a.counting, status: a.status, flags };
+  });
+
+  return {
+    verdict,
+    headline,
+    accountConvRatePct: accountConvRate != null ? Math.round(accountConvRate * 1000) / 10 : null,
+    signals,
+    actions,
+  };
+}
+
+// Top competitors from auction insights — data already fetched, previously unused.
+function buildAuctionInsights(raw: AccountDiagnosticRaw): AuctionRow[] {
+  return raw.auction
+    .slice(0, 12)
+    .map((a) => ({ domain: a.domain, impressionShare: a.IS, overlap: a.overlap, outranking: a.outranking }));
+}
+
+// Per-keyword QS components, surfacing the keywords with a Below-average lever.
+function buildQsComponents(raw: AccountDiagnosticRaw): QsComponents {
+  const hasBucket = (b: AdsQualityBucket) => b === "BELOW_AVERAGE" || b === "AVERAGE" || b === "ABOVE_AVERAGE";
+  const isBelow = (b: AdsQualityBucket) => b === "BELOW_AVERAGE";
+  const rows: QsComponentRow[] = raw.keywords
+    .filter((k) => isBelow(k.expectedCtr) || isBelow(k.adRelevance) || isBelow(k.landingPage))
+    .map((k) => ({
+      kw: k.kw,
+      campaign: k.campaign,
+      qs: k.qs,
+      expectedCtr: k.expectedCtr,
+      adRelevance: k.adRelevance,
+      landingPage: k.landingPage,
+      cost: k.cost,
+      belowCount: [k.expectedCtr, k.adRelevance, k.landingPage].filter(isBelow).length,
+    }))
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 15);
+  return {
+    rows,
+    summary: {
+      belowExpectedCtr: raw.keywords.filter((k) => isBelow(k.expectedCtr)).length,
+      belowAdRelevance: raw.keywords.filter((k) => isBelow(k.adRelevance)).length,
+      belowLandingPage: raw.keywords.filter((k) => isBelow(k.landingPage)).length,
+      totalScored: raw.keywords.filter(
+        (k) => hasBucket(k.expectedCtr) || hasBucket(k.adRelevance) || hasBucket(k.landingPage) || k.qs != null,
+      ).length,
+    },
+  };
+}
+
 export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
   const search = raw.campaigns.filter(isSearch);
   const totalCost = round(raw.campaigns.reduce((s, c) => s + c.cost, 0));
   const totalConv = Math.round(raw.campaigns.reduce((s, c) => s + c.conv, 0) * 10) / 10;
+  const totalClicks = raw.campaigns.reduce((s, c) => s + c.clicks, 0);
   const accountCpa = totalConv > 0 ? round(totalCost / totalConv) : null;
 
   const tracking = assessTracking(raw.conversionActions, totalConv, totalCost);
+  const conversionTrust = buildConversionTrust(raw, totalClicks, totalConv, totalCost);
+  const auctionInsights = buildAuctionInsights(raw);
+  const qsComponents = buildQsComponents(raw);
 
   const spine: SpineRow[] = search.map((c) => {
     const cpa = c.conv > 0 ? round(c.cost / c.conv) : null;
@@ -422,6 +672,9 @@ export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
     window: raw.window,
     totals: { cost: totalCost, conv: totalConv, cpa: accountCpa, prevCost: raw.prev.cost, prevConv: raw.prev.conv },
     tracking,
+    conversionTrust,
+    auctionInsights,
+    qsComponents,
     spine,
     findings,
     drafts: { negatives, wastedSpend, budgetMoves, bidMoves, deviceMoves },
