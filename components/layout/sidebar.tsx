@@ -62,6 +62,9 @@ const SERVICES_ACCENT = "#ce2084";
 // Amber/gold — sets the Illuminare portfolio apart as its own section.
 const ILLUMINARE_ACCENT = "#e0a82e";
 
+// Azure blue — groups the Google Ads tools into their own section.
+const ADS_ACCENT = "#2f9bef";
+
 const ILLUMINARE: NavItem[] = [
   { label: "Clients", href: "/illuminare", icon: Building2 },
 ];
@@ -76,12 +79,15 @@ const SERVICES: NavItem[] = [
   { label: "Reference Library", href: "/services/library", icon: FolderOpen },
 ];
 
-const TOOLS: NavItem[] = [
+const ADS: NavItem[] = [
   { label: "Ads Health", href: "/ads-health", icon: Gauge },
-  { label: "Ad Cost Trends", href: "/ad-spend-trends", icon: TrendingUp, adminOnly: true },
-  { label: "Ad Calls", href: "/ads-calls", icon: Phone, adminOnly: true },
   { label: "Ads Diagnostic", href: "/ads-diagnostic", icon: Activity, adminOnly: true },
   { label: "Ads Planner", href: "/ads-planner", icon: Target, adminOnly: true },
+  { label: "Ad Cost Trends", href: "/ad-spend-trends", icon: TrendingUp, adminOnly: true },
+  { label: "Ad Calls", href: "/ads-calls", icon: Phone, adminOnly: true },
+];
+
+const TOOLS: NavItem[] = [
   { label: "Wins", href: "/wins", icon: Trophy, adminOnly: true },
   { label: "Report Template", href: "/reports/template", icon: FileText, adminOnly: true },
   { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
@@ -256,6 +262,10 @@ export default function Sidebar({
             <div className="border-t border-[var(--bip-border)]" />
 
             <SectionGroup label="Services" items={SERVICES} role={role} accentColor={SERVICES_ACCENT} />
+
+            <div className="border-t border-[var(--bip-border)]" />
+
+            <SectionGroup label="Ads" items={ADS} role={role} accentColor={ADS_ACCENT} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
