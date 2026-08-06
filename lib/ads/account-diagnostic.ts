@@ -5,6 +5,7 @@ import {
   IMPLAUSIBLE_CONV_RATE_MIN_CLICKS,
   IMPLAUSIBLE_CONV_RATE_THRESHOLD,
 } from "@/lib/ads/conversion-integrity";
+import { ABS_TOP_LOW, LOST_BUDGET_WATCH, LOST_RANK_WATCH } from "@/lib/ads/thresholds";
 import type { AdsQualityBucket } from "@/lib/types/client";
 
 // Turns the raw pull into a prioritized, explainable diagnosis plus ready-to-apply
@@ -145,10 +146,11 @@ export type AccountDiagnostic = {
   };
 };
 
-// Thresholds — deliberately explicit so the "why" is legible and tunable.
-const LOST_BUDGET_PCT = 10; // losing >10% of impressions to budget is worth flagging
-const LOST_RANK_PCT = 20; // >20% lost to Ad Rank = a bid/relevance problem
-const ABS_TOP_LOW = 25; // <25% of impressions in the top slot = weak prominence
+// Impression-share thresholds come from the shared source of truth (lib/ads/
+// thresholds.ts) so this deep-dive and the roll-ups agree. Local aliases keep the
+// "why" legible inline. The diagnostic keys off the WATCH tier (flag early).
+const LOST_BUDGET_PCT = LOST_BUDGET_WATCH; // losing >10% of impressions to budget is worth flagging
+const LOST_RANK_PCT = LOST_RANK_WATCH; // >20% lost to Ad Rank = a bid/relevance problem
 const NEG_MIN_COST = 10; // a search term costing >= $10 with 0 conversions is waste
 const HIGH_CPA_MULT = 2; // a campaign at >2x the account CPA is inefficient
 const MAX_BUDGET_LIFT = 0.5; // never suggest more than +50% budget in one move

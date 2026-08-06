@@ -1,8 +1,12 @@
 import { formatCostMicros, isBelowAverage } from "@/lib/ads/quality-score";
 import { isSyncableAdsCustomerId } from "@/lib/ads/customer-id";
+import { lostIsCritical, lostIsWatch } from "@/lib/ads/thresholds";
 import type { AdsCampaignMetric, AdsKeywordQualityRow, AdsSnapshot } from "@/lib/types/client";
 
-export const GLOBAL_LOST_IS_THRESHOLD_PCT = 15;
+// Budget vs rank use different cutoffs, from the shared source of truth. The
+// roll-up flags at the WATCH tier.
+const lostMetric = (issueType: "budget_capped" | "rank_lost") =>
+  issueType === "budget_capped" ? "budget" : "rank";
 
 export type GlobalAdsIssueType =
   | "ad_relevance"
@@ -49,9 +53,9 @@ function severityWeight(severity: GlobalAdsIssueSeverity) {
   return 1;
 }
 
-function lostIsSeverity(pct: number): GlobalAdsIssueSeverity {
-  if (pct >= 25) return "critical";
-  if (pct >= GLOBAL_LOST_IS_THRESHOLD_PCT) return "high";
+function lostIsSeverity(pct: number, metric: "budget" | "rank"): GlobalAdsIssueSeverity {
+  if (pct >= lostIsCritical(metric)) return "critical";
+  if (pct >= lostIsWatch(metric)) return "high";
   return "medium";
 }
 
@@ -99,9 +103,10 @@ function pushCampaignLostIsIssue(
     lostShare: number;
   },
 ) {
+  const metric = lostMetric(input.issueType);
   const pct = input.lostShare * 100;
-  if (pct <= GLOBAL_LOST_IS_THRESHOLD_PCT) return;
-  const severity = lostIsSeverity(pct);
+  if (pct <= lostIsWatch(metric)) return;
+  const severity = lostIsSeverity(pct, metric);
   issues.push({
     id: `${input.client.id}:${input.issueType}:${input.campaign.campaign_id}`,
     clientId: input.client.id,
@@ -177,7 +182,7 @@ export function buildGlobalAdsIssues(input: {
           issueLabel: "Budget Capped",
           lostShare: campaign.search_budget_lost_impression_share,
         });
-        if (campaign.search_budget_lost_impression_share * 100 > GLOBAL_LOST_IS_THRESHOLD_PCT) {
+        if (campaign.search_budget_lost_impression_share * 100 > lostIsWatch("budget")) {
           hasCampaignBudgetIssue = true;
         }
       }
@@ -189,7 +194,7 @@ export function buildGlobalAdsIssues(input: {
           issueLabel: "Ad Rank Loss",
           lostShare: campaign.search_rank_lost_impression_share,
         });
-        if (campaign.search_rank_lost_impression_share * 100 > GLOBAL_LOST_IS_THRESHOLD_PCT) {
+        if (campaign.search_rank_lost_impression_share * 100 > lostIsWatch("rank")) {
           hasCampaignRankIssue = true;
         }
       }
@@ -199,10 +204,10 @@ export function buildGlobalAdsIssues(input: {
     if (
       !hasCampaignBudgetIssue &&
       typeof budgetLost === "number" &&
-      budgetLost * 100 > GLOBAL_LOST_IS_THRESHOLD_PCT
+      budgetLost * 100 > lostIsWatch("budget")
     ) {
       const pct = budgetLost * 100;
-      const severity = lostIsSeverity(pct);
+      const severity = lostIsSeverity(pct, "budget");
       issues.push({
         id: `${client.id}:budget_capped:account`,
         clientId: client.id,
@@ -224,10 +229,10 @@ export function buildGlobalAdsIssues(input: {
     if (
       !hasCampaignRankIssue &&
       typeof rankLost === "number" &&
-      rankLost * 100 > GLOBAL_LOST_IS_THRESHOLD_PCT
+      rankLost * 100 > lostIsWatch("rank")
     ) {
       const pct = rankLost * 100;
-      const severity = lostIsSeverity(pct);
+      const severity = lostIsSeverity(pct, "rank");
       issues.push({
         id: `${client.id}:rank_lost:account`,
         clientId: client.id,

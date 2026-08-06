@@ -1,5 +1,6 @@
 import { buildQualityScoreSignals } from "@/lib/ads/quality-score";
 import { formatCostMicros } from "@/lib/ads/quality-score";
+import { LOST_BUDGET_CRITICAL, LOST_RANK_CRITICAL } from "@/lib/ads/thresholds";
 import type {
   AdsCampaignMetric,
   AdsKeywordQualityRow,
@@ -85,7 +86,7 @@ export function buildAdsSignals(
   const rankLost = totals.search_rank_lost_impression_share;
   const budgetLost = totals.search_budget_lost_impression_share;
 
-  if (typeof budgetLost === "number" && budgetLost > 0.25) {
+  if (typeof budgetLost === "number" && budgetLost > LOST_BUDGET_CRITICAL / 100) {
     signals.push({
       signal_id: "ads_budget_lost_impression_share",
       severity: budgetLost > 0.4 ? "critical" : "watch",
@@ -97,7 +98,7 @@ export function buildAdsSignals(
     });
   }
 
-  if (typeof rankLost === "number" && rankLost > 0.3) {
+  if (typeof rankLost === "number" && rankLost > LOST_RANK_CRITICAL / 100) {
     signals.push({
       signal_id: "ads_rank_lost_impression_share",
       severity: rankLost > 0.5 ? "critical" : "watch",

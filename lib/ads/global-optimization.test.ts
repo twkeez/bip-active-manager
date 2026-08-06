@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildGlobalAdsIssues, summarizeGlobalAdsIssues } from "@/lib/ads/global-optimization";
+import { LOST_BUDGET_WATCH } from "@/lib/ads/thresholds";
 import type { AdsKeywordQualityRow, AdsSnapshot } from "@/lib/types/client";
 
 function keywordRow(
@@ -108,7 +109,7 @@ describe("buildGlobalAdsIssues", () => {
     expect(issues.some((issue) => issue.issueLabel === "Expected CTR")).toBe(true);
   });
 
-  it("skips impression share leakage at or below 15%", () => {
+  it("skips budget leakage at or below the shared budget watch threshold", () => {
     const issues = buildGlobalAdsIssues({
       clients,
       snapshots: [
@@ -121,7 +122,7 @@ describe("buildGlobalAdsIssues", () => {
             conversions: 5,
             ctr: 0.1,
             average_cpc: 10_000,
-            search_budget_lost_impression_share: 0.15,
+            search_budget_lost_impression_share: LOST_BUDGET_WATCH / 100, // exactly at the line → skipped
             search_rank_lost_impression_share: null,
           },
         }),
