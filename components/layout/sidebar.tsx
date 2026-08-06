@@ -26,7 +26,9 @@ import {
   Map,
   MapPinned,
   Phone,
+  Radar,
   ScanSearch,
+  Shield,
   ShieldCheck,
   Sparkles,
   Stethoscope,
@@ -82,7 +84,10 @@ const SERVICES: NavItem[] = [
 const ADS: NavItem[] = [
   { label: "Ads Health", href: "/ads-health", icon: Gauge },
   { label: "Ads Diagnostic", href: "/ads-diagnostic", icon: Activity, adminOnly: true },
+  { label: "Conversion Integrity", href: "/conversion-integrity", icon: Radar },
   { label: "Ads Planner", href: "/ads-planner", icon: Target, adminOnly: true },
+  { label: "Global Ads Optimization", href: "/global-ads-optimization", icon: Globe },
+  { label: "PPC Defense", href: "/ppc-defense", icon: Shield },
   { label: "Ad Cost Trends", href: "/ad-spend-trends", icon: TrendingUp, adminOnly: true },
   { label: "Ad Calls", href: "/ads-calls", icon: Phone, adminOnly: true },
 ];
