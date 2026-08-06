@@ -92,7 +92,7 @@ export const APP_MODULES: AppModule[] = [
   },
   {
     id: "conversion-integrity",
-    label: "Conversion Radar",
+    label: "Conversion Integrity",
     description: "Cross-account conversion tracking integrity and pixel anomaly detection.",
     href: "/conversion-integrity",
     icon: ShieldAlert,

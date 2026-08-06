@@ -92,12 +92,18 @@ const ADS: NavItem[] = [
   { label: "Ad Calls", href: "/ads-calls", icon: Phone, adminOnly: true },
 ];
 
+// Supporting onboarding tools + config, gathered from Sales and Tools where they
+// were mis-filed. The main Onboarding queue/wizard stays in Primary.
+const ONBOARDING: NavItem[] = [
+  { label: "Strategy Mapper", href: "/onboarding-strategy-mapper", icon: Compass, adminOnly: true },
+  { label: "Vet Onboarding", href: "/vet-onboarding", icon: Stethoscope, adminOnly: true },
+  { label: "Onboarding Settings", href: "/onboarding-settings", icon: ClipboardList, adminOnly: true },
+];
+
 const TOOLS: NavItem[] = [
   { label: "Wins", href: "/wins", icon: Trophy, adminOnly: true },
   { label: "Report Template", href: "/reports/template", icon: FileText, adminOnly: true },
   { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
-  { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
-  { label: "Onboarding Settings", href: "/onboarding-settings", icon: ClipboardList, adminOnly: true },
 ];
 
 const SEO_TOOLS: NavItem[] = [
@@ -106,6 +112,7 @@ const SEO_TOOLS: NavItem[] = [
   { label: "SEO Ops", href: "/seo-ops", icon: ClipboardCheck },
   { label: "Site Audit", href: "/site-audit", icon: Globe },
   { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
+  { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
 ];
 
 const UTILITIES: NavItem[] = [
@@ -114,8 +121,6 @@ const UTILITIES: NavItem[] = [
 
 const SALES: NavItem[] = [
   { label: "Sales Lab", href: "/sales-lab", icon: Sparkles, adminOnly: true },
-  { label: "Strategy Mapper", href: "/onboarding-strategy-mapper", icon: Compass, adminOnly: true },
-  { label: "Vet Onboarding", href: "/vet-onboarding", icon: Stethoscope, adminOnly: true },
 ];
 
 // The trimmed navigation non-admin users (strategists) see.
@@ -263,6 +268,10 @@ export default function Sidebar({
             <div className="border-t border-[var(--bip-border)]" />
 
             <SectionGroup label="Illuminare" items={ILLUMINARE} role={role} accentColor={ILLUMINARE_ACCENT} />
+
+            <div className="border-t border-[var(--bip-border)]" />
+
+            <SectionGroup label="Onboarding" items={ONBOARDING} role={role} />
 
             <div className="border-t border-[var(--bip-border)]" />
 

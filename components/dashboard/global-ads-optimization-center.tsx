@@ -188,7 +188,7 @@ export default function GlobalAdsOptimizationCenter({
               href="/conversion-integrity"
               className="rounded-lg border border-bip-border px-3 py-1.5 text-xs font-medium text-bip-muted transition hover:text-bip-text"
             >
-              Conversion Radar
+              Conversion Integrity
             </Link>
             <Link
               href="/ppc-defense"

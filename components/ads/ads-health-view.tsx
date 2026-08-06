@@ -64,7 +64,7 @@ export default function AdsHealthView({
       icon: Target,
       blurb: "Tracking gaps and anomalies — the foundation every other metric rests on.",
       rows: [
-        { label: "Tracking anomalies", accounts: conversion, href: "/conversion-integrity", hrefLabel: "Conversion Radar" },
+        { label: "Tracking anomalies", accounts: conversion, href: "/conversion-integrity", hrefLabel: "Conversion Integrity" },
       ],
     },
   ];
