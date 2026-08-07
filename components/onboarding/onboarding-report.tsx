@@ -63,7 +63,7 @@ export default function OnboardingReport({
   model: OnboardingReportModel;
   mode: "client" | "internal";
 }) {
-  const { client, serviceTiers, intake, keywords, connectionsHealth } = model;
+  const { client, serviceTiers, intake, keywords, connectionsHealth, kickoff } = model;
   const active = getClientActiveServices(client);
   const activeKeys = (["seo", "ppc", "smm", "blog", "orm"] as ServiceKey[]).filter((k) => active[k]);
   const plan = intake?.service_start_plan ?? {};
@@ -242,6 +242,24 @@ export default function OnboardingReport({
       {mode === "internal" && (
         <>
           <div className="my-6 border-t border-gray-200" />
+          <Section title="Basecamp kickoff message">
+            <p className="mb-1.5 text-xs text-gray-500">
+              Ready to send{kickoff.isOverride ? " · customized for this client" : ""} · Thread title:{" "}
+              <span className="font-medium text-gray-700">{kickoff.title}</span>
+            </p>
+            {kickoff.body.trim() ? (
+              <div
+                className="whitespace-pre-line rounded-md border border-gray-200 bg-gray-50 p-3 text-gray-800"
+                style={{ breakInside: "avoid" }}
+              >
+                {kickoff.body}
+              </div>
+            ) : (
+              <p className="text-gray-500">
+                No kickoff template configured yet — set it up in Onboarding Settings.
+              </p>
+            )}
+          </Section>
           {intake?.pipeline_notes && (
             <Section title="Strategist brief">
               <p className="whitespace-pre-line text-gray-700">{intake.pipeline_notes}</p>
