@@ -151,11 +151,18 @@ Largely **no schema changes needed** — the current tables already support this
 
 ## 8. Phasing (nothing breaks mid-flight)
 
-**Phase 0 — Module extraction (invisible).**
-Refactor the wizard's per-step if/else into step modules (§7a). No UX change; behavior identical. This de-risks everything after.
+**Phase 0 — Module extraction (invisible). ✅ DONE.**
+Refactored the wizard's per-step if/else into step modules (§7a) under
+`components/dashboard/onboarding/` (controller hook + steps + registry). No UX
+change; behavior identical. This de-risks everything after.
+*Known minor nuance:* per-step result panels (discovery, competitor ads,
+campaign plan, brand assets, kickoff date) now re-seed from the initially-loaded
+data when a collapsed step is reopened, so an in-session re-run result is shown
+again only after a page reload (it is persisted server-side). Becomes moot in
+Phase 1 where one step is in focus at a time.
 
-**Phase 1 — Guided wizard.**
-Turn `/onboarding` into the linear stepper: progress rail, single focus pane, "Mark done → Next," honest progress (§6), persistent "N steps left" banner (§3.3). Still uses the same steps/data.
+**Phase 1 — Guided wizard.** *(next)*
+Turn `/onboarding` into the linear stepper: progress rail, single focus pane, "Mark done → Next," honest progress (§6 — ✅ done), persistent "N steps left" banner (§3.3 — ✅ done). Still uses the same steps/data.
 
 **Phase 2 — By-service map.**
 Build the Mode B overview from the step modules; make the client workspace onboarding tab render it (§4, §7b). Fold connections-health into service groups. Implement the flip rule (§2).
