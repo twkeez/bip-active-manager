@@ -161,8 +161,11 @@ data when a collapsed step is reopened, so an in-session re-run result is shown
 again only after a page reload (it is persisted server-side). Becomes moot in
 Phase 1 where one step is in focus at a time.
 
-**Phase 1 — Guided wizard.** *(next)*
-Turn `/onboarding` into the linear stepper: progress rail, single focus pane, "Mark done → Next," honest progress (§6 — ✅ done), persistent "N steps left" banner (§3.3 — ✅ done). Still uses the same steps/data.
+**Phase 1 — Guided wizard. ✅ DONE.**
+`/onboarding` is now the linear stepper: progress rail (done/current/upcoming
++ locked at-launch steps), single focus pane with Back / "Next: <label>"
+navigation, honest progress (§6 — ✅ done), persistent "N steps left" banner
+(§3.3 — ✅ done). Same steps/data; shell-only change on the Phase 0 modules.
 
 **Phase 2 — By-service map.**
 Build the Mode B overview from the step modules; make the client workspace onboarding tab render it (§4, §7b). Fold connections-health into service groups. Implement the flip rule (§2).
