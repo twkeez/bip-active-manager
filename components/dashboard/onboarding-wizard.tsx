@@ -215,6 +215,19 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
   // The expanded step (accordion is single-open). Drives keyword prefetch below.
   const current = items.find((i) => i.itemKey === openKey) ?? null;
 
+  // Honest overall progress: count required steps across BOTH phases, so the
+  // bar never reads 100% while launch-phase work is still outstanding.
+  const overallRequiredTotal = evaluation
+    ? evaluation.foundationRequiredTotalCount + evaluation.launchRequiredTotalCount
+    : 0;
+  const overallRequiredDone = evaluation
+    ? evaluation.foundationRequiredDoneCount + evaluation.launchRequiredDoneCount
+    : 0;
+  const overallPercent =
+    overallRequiredTotal === 0 ? 100 : Math.round((overallRequiredDone / overallRequiredTotal) * 100);
+  // Required foundation steps still undone — surfaced so skipping is never silent.
+  const stepsLeft = items.filter((i) => i.requiredForGraduation && !i.done);
+
   const commsTone = useMemo(() => {
     if (!evaluation) return null;
     if (evaluation.commsCadence === "overdue") return "overdue";
@@ -1077,10 +1090,13 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-sm font-semibold text-bip-text">
-              Onboarding · {evaluation.progressPercent}%
+              Onboarding · {overallPercent}%
             </p>
             <p className="text-xs text-bip-muted">
-              {evaluation.requiredDoneCount} of {evaluation.requiredTotalCount} required steps done
+              Foundation {evaluation.foundationRequiredDoneCount}/{evaluation.foundationRequiredTotalCount}
+              {evaluation.launchRequiredTotalCount > 0
+                ? ` · Launch ${evaluation.launchRequiredDoneCount}/${evaluation.launchRequiredTotalCount}`
+                : ""}
               {evaluation.daysInOnboarding != null ? ` · Day ${evaluation.daysInOnboarding}` : ""}
             </p>
           </div>
@@ -1105,8 +1121,14 @@ export default function OnboardingWizard({ clientId, onOpenTab, onEditClient, on
           </div>
         </div>
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-bip-fill">
-          <div className="h-full rounded-full bg-bip-accent transition-all" style={{ width: `${evaluation.progressPercent}%` }} />
+          <div className="h-full rounded-full bg-bip-accent transition-all" style={{ width: `${overallPercent}%` }} />
         </div>
+        {stepsLeft.length > 0 && (
+          <p className="mt-2 rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-300">
+            {stepsLeft.length} step{stepsLeft.length > 1 ? "s" : ""} left before this client can go active:{" "}
+            <span className="text-amber-200">{stepsLeft.map((s) => s.label).join(", ")}</span>
+          </p>
+        )}
         {commsTone && (
           <p className={`mt-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${commsTone === "overdue" ? "bg-red-500/10 text-red-300" : "bg-amber-500/10 text-amber-300"}`}>
             <AlertTriangle className="h-3.5 w-3.5" /> {evaluation.commsCadenceLabel}

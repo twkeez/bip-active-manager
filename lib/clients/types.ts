@@ -139,6 +139,15 @@ export type ClientOnboardingEvaluation = {
   progressPercent: number;
   requiredDoneCount: number;
   requiredTotalCount: number;
+  /**
+   * Required-step progress split by phase, so the UI can show honest numbers
+   * (foundation and launch tracked separately) and never read 100% while
+   * launch-phase work is still outstanding.
+   */
+  foundationRequiredDoneCount: number;
+  foundationRequiredTotalCount: number;
+  launchRequiredDoneCount: number;
+  launchRequiredTotalCount: number;
   setupBlocked: boolean;
   commsCadence: OnboardingCommsCadence;
   commsCadenceLabel: string;

@@ -11,6 +11,7 @@ import type {
   DetailTabLink,
   OnboardingCommsCadence,
   OnboardingItemStatus,
+  OnboardingPhase,
   OnboardingQueueSummary,
 } from "@/lib/clients/types";
 import type { BasecampThreadEvent, ClientRow } from "@/lib/types/client";
@@ -389,6 +390,19 @@ export function evaluateClientOnboarding(
       ? 100
       : Math.round((requiredDoneCount / requiredTotalCount) * 100);
 
+  // Honest per-phase required-step counts for display. Unlike progressPercent
+  // (which intentionally ignores deferred steps for gating), these count every
+  // required step by phase so the UI can show "Foundation x/y · Launch a/b" and
+  // never claim 100% while launch work remains.
+  const requiredByPhase = (phase: OnboardingPhase) =>
+    evaluatedItems.filter((item) => item.phase === phase && item.requiredForGraduation);
+  const foundationRequired = requiredByPhase("foundation");
+  const launchRequired = requiredByPhase("at_launch");
+  const foundationRequiredDoneCount = foundationRequired.filter((item) => item.done).length;
+  const foundationRequiredTotalCount = foundationRequired.length;
+  const launchRequiredDoneCount = launchRequired.filter((item) => item.done).length;
+  const launchRequiredTotalCount = launchRequired.length;
+
   // Missing at_launch connections aren't a "block" while they're deferred.
   const setupBlocked = !deferAtLaunch && setup.missingRequired.length > 0;
   const foundationComplete =
@@ -429,6 +443,10 @@ export function evaluateClientOnboarding(
     progressPercent,
     requiredDoneCount,
     requiredTotalCount,
+    foundationRequiredDoneCount,
+    foundationRequiredTotalCount,
+    launchRequiredDoneCount,
+    launchRequiredTotalCount,
     setupBlocked,
     commsCadence,
     commsCadenceLabel,
