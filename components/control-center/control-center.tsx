@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import type { ControlCenterClient } from "@/app/(app)/control-center/page";
 
 // ─── NOVA-style palette: warm charcoal · cream · cyan ────────────────────────
 const C = {
@@ -213,19 +214,125 @@ function Panel({ title, tag = "STANDBY", accentHeader = C.cream, children, style
 
 // ─── Panel content ────────────────────────────────────────────────────────────
 
-function ClientPulsePanel() {
+function ClientSelectorPanel({
+  clients,
+  selectedId,
+  onSelect,
+}: {
+  clients: ControlCenterClient[];
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+}) {
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase();
+    return q
+      ? clients.filter(
+          (c) =>
+            c.account_name.toLowerCase().includes(q) ||
+            (c.marketing_strategist ?? "").toLowerCase().includes(q)
+        )
+      : clients;
+  }, [clients, query]);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
-      <div style={{ display: "flex", gap: 28 }}>
-        <MetricBlock label="ACTIVE CLIENTS" value="─ ─ ─" />
-        <MetricBlock label="NEEDS REPLY" value="─ ─ ─" />
-        <MetricBlock label="CRITICAL ALERTS" value="─ ─ ─" />
-        <MetricBlock label="NEW THIS MONTH" value="─ ─ ─" />
+    <div style={{ display: "flex", flexDirection: "column", gap: 0, flex: 1, overflow: "hidden" }}>
+      {/* Stats row */}
+      <div style={{ display: "flex", gap: 28, marginBottom: 10 }}>
+        <MetricBlock label="TOTAL CLIENTS" value={String(clients.length)} />
+        <MetricBlock label="SELECTED" value={selectedId ? "1" : "─"} />
       </div>
       <Divider />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 8 }}>
-        <WaveformDecoration />
-        <StandbyLabel label="CLIENT HEALTH · ALERT COUNTS · STRATEGIST BREAKDOWN" />
+
+      {/* Search */}
+      <div style={{ padding: "8px 0 6px", position: "relative" }}>
+        <span style={{ position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: C.creamDim, pointerEvents: "none" }}>
+          ▶
+        </span>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="SEARCH CLIENT OR STRATEGIST..."
+          style={{
+            width: "100%",
+            background: "transparent",
+            border: "none",
+            borderBottom: `1px solid ${C.border}`,
+            outline: "none",
+            color: C.cream,
+            fontSize: 10,
+            letterSpacing: "0.1em",
+            fontFamily: FONT,
+            paddingLeft: 14,
+            paddingBottom: 5,
+          }}
+        />
+      </div>
+
+      {/* List */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          marginTop: 4,
+        }}
+      >
+        {filtered.length === 0 && (
+          <div style={{ color: C.creamDim, fontSize: 10, letterSpacing: "0.1em", padding: "12px 0", textAlign: "center" }}>
+            NO MATCH
+          </div>
+        )}
+        {filtered.map((client) => {
+          const active = client.id === selectedId;
+          return (
+            <button
+              key={client.id}
+              onClick={() => onSelect(client.id)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                width: "100%",
+                background: active ? "rgba(110, 206, 206, 0.08)" : "transparent",
+                border: "none",
+                borderLeft: active ? `2px solid ${C.cyan}` : "2px solid transparent",
+                padding: "5px 8px",
+                cursor: "pointer",
+                textAlign: "left",
+                fontFamily: FONT,
+              }}
+            >
+              <div
+                style={{
+                  width: 5,
+                  height: 5,
+                  background: active ? C.cyan : C.creamDimmer,
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 10,
+                  color: active ? C.cyan : C.cream,
+                  letterSpacing: "0.06em",
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {client.account_name.toUpperCase()}
+              </span>
+              {client.marketing_strategist && (
+                <span style={{ fontSize: 8, color: C.creamDim, letterSpacing: "0.04em", flexShrink: 0 }}>
+                  {client.marketing_strategist.split(" ")[0].toUpperCase()}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -374,10 +481,13 @@ function PlatformStatusPanel() {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function ControlCenter() {
+export function ControlCenter({ clients }: { clients: ControlCenterClient[] }) {
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
   const [blink, setBlink] = useState(true);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+
+  const selectedClient = clients.find((c) => c.id === selectedClientId) ?? null;
 
   useEffect(() => {
     const tick = () => {
@@ -461,21 +571,41 @@ export function ControlCenter() {
           </div>
         </div>
 
-        {/* Center: status */}
+        {/* Center: selected client or status indicators */}
         <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
-          {[
-            { label: "SYSTEM", value: "ONLINE", color: C.green },
-            { label: "SYNC", value: "IDLE", color: C.amber },
-            { label: "AI", value: "READY", color: C.cyan },
-          ].map(({ label, value, color }) => (
-            <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-              <span style={{ fontSize: 8, color: C.creamDim, letterSpacing: "0.12em" }}>{label}</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <Dot color={color} pulse />
-                <span style={{ fontSize: 10, color, letterSpacing: "0.1em" }}>{value}</span>
+          {selectedClient ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 8, color: C.creamDim, letterSpacing: "0.12em" }}>WORKING ON</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 5, height: 5, background: C.cyan }} />
+                <span style={{ fontSize: 11, color: C.cyan, letterSpacing: "0.1em", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {selectedClient.account_name.toUpperCase()}
+                </span>
+                <button
+                  onClick={() => setSelectedClientId(null)}
+                  style={{ background: "none", border: "none", color: C.creamDim, fontSize: 10, cursor: "pointer", fontFamily: FONT, letterSpacing: "0.06em", padding: 0 }}
+                >
+                  ✕
+                </button>
               </div>
             </div>
-          ))}
+          ) : (
+            <>
+              {[
+                { label: "SYSTEM", value: "ONLINE", color: C.green },
+                { label: "SYNC", value: "IDLE", color: C.amber },
+                { label: "AI", value: "READY", color: C.cyan },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                  <span style={{ fontSize: 8, color: C.creamDim, letterSpacing: "0.12em" }}>{label}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <Dot color={color} pulse />
+                    <span style={{ fontSize: 10, color, letterSpacing: "0.1em" }}>{value}</span>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
         {/* Right: clock */}
@@ -499,8 +629,12 @@ export function ControlCenter() {
           gap: 10,
         }}
       >
-        <Panel title="CLIENT PULSE" accentHeader={C.cream} style={{ gridColumn: "span 8", minHeight: 160 }}>
-          <ClientPulsePanel />
+        <Panel title="CLIENT SELECTOR" accentHeader={C.cream} style={{ gridColumn: "span 8", minHeight: 300, maxHeight: 400 }}>
+          <ClientSelectorPanel
+            clients={clients}
+            selectedId={selectedClientId}
+            onSelect={setSelectedClientId}
+          />
         </Panel>
         <Panel title="SYSTEM ALERTS" accentHeader={C.red} style={{ gridColumn: "span 4", minHeight: 160 }}>
           <SystemAlertsPanel />
