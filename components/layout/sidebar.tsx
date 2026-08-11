@@ -13,6 +13,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   Compass,
+  Cpu,
   Eye,
   EyeOff,
   FileDown,
@@ -52,6 +53,7 @@ type NavItem = {
 
 const PRIMARY: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Control Center", href: "/control-center", icon: Cpu, adminOnly: true },
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
   { label: "My Tasks", href: "/my-tasks", icon: CheckSquare },
