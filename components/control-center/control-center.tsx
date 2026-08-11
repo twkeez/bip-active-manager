@@ -13,9 +13,9 @@ const C = {
   amber: "#ffaa00",
   red: "#ff3355",
   purple: "#cc88ff",
-  textPrimary: "#a8c8e0",
-  textMid: "#3a5a78",
-  textDim: "#1e3048",
+  textPrimary: "#c0d8f0",
+  textMid: "#6a90b0",
+  textDim: "#2a4060",
 };
 
 const FONT = "'Courier New', 'Lucida Console', monospace";
@@ -105,7 +105,7 @@ function Panel({ title, accent = C.cyan, status = "STANDBY", children, style }: 
         <span
           style={{
             color: accent,
-            fontSize: 10,
+            fontSize: 12,
             letterSpacing: "0.14em",
             fontWeight: "bold",
             textShadow: `0 0 8px ${accent}`,
@@ -115,7 +115,7 @@ function Panel({ title, accent = C.cyan, status = "STANDBY", children, style }: 
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <StatusDot color={statusColor} pulse={status === "NOMINAL" || status === "WARNING"} />
-          <span style={{ color: statusColor, fontSize: 8, letterSpacing: "0.1em" }}>{status}</span>
+          <span style={{ color: statusColor, fontSize: 10, letterSpacing: "0.1em" }}>{status}</span>
         </div>
       </div>
 
@@ -131,13 +131,13 @@ function PlaceholderBars({ count = 5, accent = C.cyan }: { count?: number; accen
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 48, fontSize: 8, color: C.textMid, letterSpacing: "0.05em" }}>
-            {String.fromCharCode(65 + i)}─────
+          <div style={{ width: 52, fontSize: 10, color: C.textMid, letterSpacing: "0.05em" }}>
+            {String.fromCharCode(65 + i)}────
           </div>
           <div
             style={{
               flex: 1,
-              height: 2,
+              height: 3,
               background: C.textDim,
               position: "relative",
             }}
@@ -150,11 +150,11 @@ function PlaceholderBars({ count = 5, accent = C.cyan }: { count?: number; accen
                 height: "100%",
                 width: `${[42, 67, 31, 88, 55][i % 5]}%`,
                 background: accent,
-                opacity: 0.25,
+                opacity: 0.35,
               }}
             />
           </div>
-          <span style={{ fontSize: 8, color: C.textMid, width: 28, textAlign: "right" }}>
+          <span style={{ fontSize: 10, color: C.textMid, width: 32, textAlign: "right" }}>
             ─ ─ ─
           </span>
         </div>
@@ -173,13 +173,13 @@ function StandbyMessage({ label }: { label: string }) {
         justifyContent: "center",
         height: "100%",
         gap: 8,
-        opacity: 0.5,
+        opacity: 0.75,
       }}
     >
-      <span style={{ fontSize: 9, color: C.textMid, letterSpacing: "0.12em" }}>
-        ━━━━━━━ NO DATA ━━━━━━━
+      <span style={{ fontSize: 11, color: C.textMid, letterSpacing: "0.12em" }}>
+        ━━━━━ NO DATA ━━━━━
       </span>
-      <span style={{ fontSize: 8, color: C.textMid, letterSpacing: "0.06em", textAlign: "center" }}>
+      <span style={{ fontSize: 10, color: C.textMid, letterSpacing: "0.06em", textAlign: "center" }}>
         {label}
       </span>
     </div>
@@ -189,8 +189,8 @@ function StandbyMessage({ label }: { label: string }) {
 function MetricBlock({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <span style={{ fontSize: 8, color: C.textMid, letterSpacing: "0.1em" }}>{label}</span>
-      <span style={{ fontSize: 18, color: C.textPrimary, letterSpacing: "0.05em", fontWeight: "bold" }}>
+      <span style={{ fontSize: 10, color: C.textMid, letterSpacing: "0.1em" }}>{label}</span>
+      <span style={{ fontSize: 20, color: C.textPrimary, letterSpacing: "0.05em", fontWeight: "bold" }}>
         {value}
       </span>
     </div>
@@ -231,8 +231,8 @@ function SystemAlertsPanel() {
       ].map(({ label, color, count }) => (
         <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <StatusDot color={color} />
-          <span style={{ fontSize: 9, color, letterSpacing: "0.08em", flex: 1 }}>{label}</span>
-          <span style={{ fontSize: 14, color, fontWeight: "bold" }}>{count}</span>
+          <span style={{ fontSize: 11, color, letterSpacing: "0.08em", flex: 1 }}>{label}</span>
+          <span style={{ fontSize: 18, color, fontWeight: "bold" }}>{count}</span>
         </div>
       ))}
       <GridLine />
@@ -335,9 +335,9 @@ function PlatformStatusPanel() {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <StatusDot color={color} />
-              <span style={{ fontSize: 7, color, letterSpacing: "0.06em" }}>{status}</span>
+              <span style={{ fontSize: 9, color, letterSpacing: "0.06em" }}>{status}</span>
             </div>
-            <span style={{ fontSize: 8, color: C.textMid, letterSpacing: "0.06em", lineHeight: 1.3 }}>
+            <span style={{ fontSize: 10, color: C.textMid, letterSpacing: "0.06em", lineHeight: 1.3 }}>
               {name}
             </span>
           </div>
@@ -470,7 +470,7 @@ export function ControlCenter() {
             >
               BIP CONTROL CENTER
             </div>
-            <div style={{ fontSize: 8, color: C.textMid, letterSpacing: "0.12em" }}>
+            <div style={{ fontSize: 10, color: C.textMid, letterSpacing: "0.12em" }}>
               BEYOND INDIGO PETS · MARKETING INTELLIGENCE
             </div>
           </div>
@@ -484,10 +484,10 @@ export function ControlCenter() {
             { label: "AI", value: "READY", color: C.cyan },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <span style={{ fontSize: 7, color: C.textMid, letterSpacing: "0.1em" }}>{label}</span>
+              <span style={{ fontSize: 9, color: C.textMid, letterSpacing: "0.1em" }}>{label}</span>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <StatusDot color={color} pulse />
-                <span style={{ fontSize: 9, color, letterSpacing: "0.08em" }}>{value}</span>
+                <span style={{ fontSize: 11, color, letterSpacing: "0.08em" }}>{value}</span>
               </div>
             </div>
           ))}
@@ -507,7 +507,7 @@ export function ControlCenter() {
             {time || "──:──:──"}
             <span style={{ opacity: blink ? 0 : 1, transition: "opacity 0.1s" }}> </span>
           </div>
-          <div style={{ fontSize: 8, color: C.textMid, letterSpacing: "0.08em", marginTop: 2 }}>
+          <div style={{ fontSize: 10, color: C.textMid, letterSpacing: "0.08em", marginTop: 2 }}>
             {date || "─── ─── ── ────"}
           </div>
         </div>
@@ -628,7 +628,7 @@ export function ControlCenter() {
             background: `rgba(0,204,255,0.08)`,
           }}
         >
-          <span style={{ fontSize: 8, color: C.cyan, letterSpacing: "0.14em", fontWeight: "bold" }}>
+          <span style={{ fontSize: 10, color: C.cyan, letterSpacing: "0.14em", fontWeight: "bold" }}>
             ▶ LIVE
           </span>
         </div>
@@ -640,7 +640,7 @@ export function ControlCenter() {
               display: "inline-block",
               whiteSpace: "nowrap",
               animation: "ticker-scroll 30s linear infinite",
-              fontSize: 9,
+              fontSize: 11,
               color: C.textMid,
               letterSpacing: "0.1em",
             }}
