@@ -373,7 +373,6 @@ export function ControlCenter() {
   return (
     <div
       style={{
-        background: C.bg,
         minHeight: "100%",
         fontFamily: FONT,
         color: C.textPrimary,
@@ -393,37 +392,7 @@ export function ControlCenter() {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        @keyframes scanline {
-          0% { background-position: 0 0; }
-          100% { background-position: 0 100%; }
-        }
       `}</style>
-
-      {/* Scanlines overlay */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          pointerEvents: "none",
-          zIndex: 100,
-          background:
-            "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px)",
-        }}
-      />
-
-      {/* Subtle grid background */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          pointerEvents: "none",
-          zIndex: 0,
-          backgroundImage:
-            `linear-gradient(rgba(0,204,255,0.03) 1px, transparent 1px),
-             linear-gradient(90deg, rgba(0,204,255,0.03) 1px, transparent 1px)`,
-          backgroundSize: "48px 48px",
-        }}
-      />
 
       {/* ── Header ── */}
       <header
