@@ -107,6 +107,8 @@ export type OnboardingItemStatus = {
   sortOrder: number;
   requiredForGraduation: boolean;
   phase: OnboardingPhase;
+  /** The service this step belongs to (null = shared/foundation). Drives by-service grouping in the map view. */
+  requiresService: ClientServiceKey | null;
   /** An at_launch step that is currently deferred (launch pending, not yet launched). */
   deferred: boolean;
   done: boolean;

@@ -19,7 +19,7 @@ import type {
 } from "@/lib/dashboard/client-workspace-types";
 import ClientPlaybookView from "@/components/playbook/client-playbook-view";
 import ClientRunOfShowView from "@/components/dashboard/client-run-of-show-view";
-import ClientOnboardingView from "@/components/dashboard/client-onboarding-view";
+import OnboardingMap from "@/components/dashboard/onboarding/onboarding-map";
 import ClientProfileView from "@/components/dashboard/client-profile-view";
 import type { StrategistContact } from "@/lib/team/strategist-roster";
 import { openableBasecampUrl, previewText } from "@/lib/basecamp/display";
@@ -614,7 +614,7 @@ export default function ClientSimpleTabView({
         );
       case "onboarding":
         return (
-          <ClientOnboardingView
+          <OnboardingMap
             clientId={client.id}
             recentThreads={data.threadEvents.filter((e) => !e.is_internal)}
             onOpenTab={(tab) => {

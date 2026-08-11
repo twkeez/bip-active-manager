@@ -23,6 +23,7 @@ import { ALLOWED_RADIUS_MILES } from "@/lib/local-rank/constants";
 import type { ClientRankZoneRow } from "@/lib/local-rank/types";
 import type { ClientKeywordTarget } from "@/lib/types/client";
 import LocalRankGridPanel from "@/components/local-rank/local-rank-grid-panel";
+import { ContentPlanEditor } from "@/components/social/content-plan-editor";
 
 type ClientStub = Pick<ClientRow, "id" | "account_name" | "marketing_strategist" | "tier">;
 
@@ -1271,6 +1272,14 @@ function ServicePlaybookTab({
       label: "Audit",
       caption: "The recurring full-site SEO audit — schedule and past runs.",
       node: auditSlot,
+    });
+  }
+  if (tierKey.startsWith("social-")) {
+    subTabs.push({
+      key: "content",
+      label: "Content",
+      caption: "AI-generated monthly content plan — posts, captions, and shot lists.",
+      node: <ContentPlanEditor clientId={client.id} clientName={client.account_name} />,
     });
   }
 

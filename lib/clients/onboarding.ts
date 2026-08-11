@@ -300,6 +300,7 @@ export function evaluateOnboardingItemStatus(
     sortOrder: item.sort_order,
     requiredForGraduation: item.required_for_graduation,
     phase: item.phase,
+    requiresService: item.requires_service,
     deferred,
     done,
     autoVerified,

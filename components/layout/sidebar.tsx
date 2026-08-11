@@ -7,6 +7,7 @@ import {
   BookOpen,
   Building2,
   CalendarClock,
+  CalendarDays,
   CheckSquare,
   ChevronDown,
   ClipboardCheck,
@@ -101,6 +102,7 @@ const ONBOARDING: NavItem[] = [
 ];
 
 const TOOLS: NavItem[] = [
+  { label: "Social Planner", href: "/social-planner", icon: CalendarDays, adminOnly: true },
   { label: "Wins", href: "/wins", icon: Trophy, adminOnly: true },
   { label: "Report Template", href: "/reports/template", icon: FileText, adminOnly: true },
   { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
