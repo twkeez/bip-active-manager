@@ -306,14 +306,16 @@ function SocialMetricsPanel() {
   );
 }
 
+type IntegrationStatus = "NOMINAL" | "WARNING" | "CRITICAL" | "OFFLINE";
+
 function PlatformStatusPanel() {
-  const integrations = [
-    { name: "GOOGLE ADS", status: "OFFLINE" as const },
-    { name: "GOOGLE ANALYTICS", status: "OFFLINE" as const },
-    { name: "SEARCH CONSOLE", status: "OFFLINE" as const },
-    { name: "GOOGLE MY BUSINESS", status: "OFFLINE" as const },
-    { name: "BASECAMP", status: "OFFLINE" as const },
-    { name: "META ADS", status: "OFFLINE" as const },
+  const integrations: { name: string; status: IntegrationStatus }[] = [
+    { name: "GOOGLE ADS", status: "OFFLINE" },
+    { name: "GOOGLE ANALYTICS", status: "OFFLINE" },
+    { name: "SEARCH CONSOLE", status: "OFFLINE" },
+    { name: "GOOGLE MY BUSINESS", status: "OFFLINE" },
+    { name: "BASECAMP", status: "OFFLINE" },
+    { name: "META ADS", status: "OFFLINE" },
   ];
 
   return (
