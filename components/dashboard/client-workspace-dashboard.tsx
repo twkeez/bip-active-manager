@@ -34,43 +34,53 @@ import {
 import type { ClientWorkspaceInitialData } from "@/lib/dashboard/client-workspace-types";
 import NotifyStrategistButton from "@/components/dashboard/notify-strategist-button";
 import type { StrategistContact } from "@/lib/team/strategist-roster";
-import { CommsStatusCard, ConnectionsTab } from "@/components/dashboard/client-simple-tab-view";
+import { ConnectionsTab } from "@/components/dashboard/client-simple-tab-view";
 
 function formatRelativeDays(value: string | null | undefined): string | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (days <= 0) return "Today";
-  if (days === 1) return "1 day ago";
-  return `${days} days ago`;
+  if (days <= 0) return "today";
+  if (days === 1) return "1d ago";
+  return `${days}d ago`;
 }
 
-// Big rounded launch button — opens a tool preloaded for this client.
-function LaunchButton({
+// Tinted tactile action card — opens a tool preloaded for this client.
+function ActionCard({
   href,
   icon: Icon,
   label,
   sub,
+  tint,
 }: {
   href: string;
   icon: React.ElementType;
   label: string;
   sub: string;
+  tint: "indigo" | "purple" | "blue";
 }) {
+  const tints = {
+    indigo: "bg-indigo-50 text-indigo-600",
+    purple: "bg-purple-50 text-purple-600",
+    blue: "bg-blue-50 text-blue-600",
+  }[tint];
   return (
     <Link
       href={href}
-      className="group flex flex-1 items-center gap-4 rounded-2xl border border-neutral-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-neutral-900 hover:shadow-md"
+      className="group flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50/60 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition group-hover:bg-neutral-900 group-hover:text-white">
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tints}`}>
         <Icon size={20} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-neutral-900">{label}</span>
-        <span className="block text-xs text-neutral-400">{sub}</span>
+        <span className="block text-sm font-bold tracking-tight text-slate-900">{label}</span>
+        <span className="block text-xs font-medium text-slate-500">{sub}</span>
       </span>
-      <ArrowUpRight size={16} className="shrink-0 text-neutral-300 transition group-hover:text-neutral-900" />
+      <ArrowUpRight
+        size={16}
+        className="shrink-0 text-slate-300 transition-all group-hover:translate-x-0.5 group-hover:text-slate-900"
+      />
     </Link>
   );
 }
@@ -122,11 +132,31 @@ export default function ClientWorkspaceDashboard({
   const latestClientThread = clientThreads[0] ?? null;
   const showReplyAlert = shouldShowReplyAlert(client);
   const tierLabel = norm(client.tier) || "Unassigned tier";
+  const urgent = (client.days_stale ?? 0) >= 14;
 
   // Hours
   const pkgHours = client.total_package_hours ?? 0;
   const stratHours = client.hours_for_strategist ?? 0;
   const hoursPercent = pkgHours > 0 ? Math.min(100, (stratHours / pkgHours) * 100) : 0;
+
+  // Single human-readable comms status line.
+  const lastCommRelative = formatRelativeDays(client.last_communication_at);
+  const commsBadge = client.needs_reply
+    ? {
+        label: `Client replied ${lastCommRelative ?? "recently"} • Action needed`,
+        className: urgent
+          ? "bg-red-50 text-red-700 border-red-200/60"
+          : "bg-amber-50 text-amber-700 border-amber-200/60",
+      }
+    : client.last_communication_at
+      ? {
+          label: `${client.last_event_is_internal ? "We" : "Client"} replied ${lastCommRelative ?? "recently"} • All caught up`,
+          className: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
+        }
+      : {
+          label: "No recent messages",
+          className: "bg-slate-50 text-slate-500 border-slate-200/60",
+        };
 
   async function handleNoReplyNeeded() {
     setAckError(null);
@@ -190,396 +220,374 @@ export default function ClientWorkspaceDashboard({
   return (
     <main
       data-theme="light"
-      className="flex-1 min-h-screen bg-neutral-50 font-sans text-neutral-900"
+      className="min-h-screen flex-1 bg-slate-50/50 font-sans text-slate-900"
     >
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <header className="border-b border-neutral-200 bg-white px-6 py-5">
-        <Link
-          href={clientsListHref}
-          className="mb-3 inline-flex items-center gap-1 text-xs text-neutral-400 transition hover:text-neutral-700"
-        >
-          <ArrowLeft size={12} /> Back to clients
-        </Link>
-        <div className="flex flex-wrap items-start gap-6">
-          {/* Name + ID */}
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-neutral-900">{client.account_name}</h1>
-            <p className="mt-0.5 text-sm text-neutral-400">
-              #{client.id}
-              {norm(client.marketing_strategist)
-                ? ` · ${client.marketing_strategist}`
-                : ""}
-            </p>
-          </div>
+      <div className="mx-auto max-w-7xl space-y-5 p-6">
 
-          {/* Status */}
-          <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-              Status
-            </p>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Active
-            </span>
-            <p className="mt-1.5 text-[11px] text-neutral-400">{tierLabel}</p>
-            {services.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {services.map((s) => (
-                  <span
-                    key={s}
-                    className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700"
-                  >
-                    {s}
-                  </span>
-                ))}
+        {/* ── Hero header card ──────────────────────────────────── */}
+        <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+          <Link
+            href={clientsListHref}
+            className="mb-4 inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition hover:text-slate-900"
+          >
+            <ArrowLeft size={12} /> Back to clients
+          </Link>
+          <div className="flex flex-wrap items-start justify-between gap-6">
+            {/* Identity */}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                  {client.account_name}
+                </h1>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/60 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  Active
+                </span>
               </div>
-            )}
-          </div>
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                #{client.id}
+                {norm(client.marketing_strategist) ? ` · ${client.marketing_strategist}` : ""}
+                {` · ${tierLabel}`}
+              </p>
 
-          {/* Hours */}
-          {pkgHours > 0 && (
-            <div className="min-w-[160px]">
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-                Monthly hours
-              </p>
-              <p className="text-sm font-semibold text-neutral-800">
-                {stratHours} / {pkgHours} hrs
-              </p>
-              <div className="mt-1.5 h-1.5 w-full rounded-full bg-neutral-200">
-                <div
-                  className="h-1.5 rounded-full bg-indigo-500 transition-all"
-                  style={{ width: `${hoursPercent}%` }}
-                />
-              </div>
-              <p className="mt-1 text-[10px] text-neutral-400">
-                {Math.round(hoursPercent)}% used
-              </p>
-            </div>
-          )}
-
-          {/* Contact */}
-          <div className="min-w-[190px]">
-            <div className="mb-1.5 flex items-center gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-                Contact
-              </p>
-              <button
-                type="button"
-                onClick={openEdit}
-                className="text-neutral-300 transition hover:text-indigo-500"
-                title="Edit contact"
-              >
-                <Pencil size={11} />
-              </button>
-            </div>
-            {editing ? (
-              <div className="space-y-1.5">
-                <input
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  placeholder="Contact name"
-                  className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-800 focus:border-indigo-500 focus:outline-none"
-                />
-                <input
-                  value={draftEmail}
-                  onChange={(e) => setDraftEmail(e.target.value)}
-                  placeholder="Email address"
-                  className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-800 focus:border-indigo-500 focus:outline-none"
-                />
-                <input
-                  value={draftDrive}
-                  onChange={(e) => setDraftDrive(e.target.value)}
-                  placeholder="Shared drive URL"
-                  className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-800 focus:border-indigo-500 focus:outline-none"
-                />
-                {saveError && (
-                  <p className="text-[11px] text-red-500">{saveError}</p>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleSaveContact()}
-                    disabled={saving}
-                    className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    {saving && <Loader2 size={10} className="animate-spin" />}
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditing(false)}
-                    className="rounded-md px-2 py-1 text-[11px] text-neutral-400 hover:text-neutral-700"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <p className="text-sm font-medium text-neutral-800">
-                  {displayName ?? "—"}
-                </p>
-                {displayEmail ? (
-                  <p className="text-xs text-neutral-500">{displayEmail}</p>
+              {/* Contact */}
+              <div className="mt-3">
+                {editing ? (
+                  <div className="max-w-xs space-y-1.5">
+                    <input
+                      value={draftName}
+                      onChange={(e) => setDraftName(e.target.value)}
+                      placeholder="Contact name"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
+                    />
+                    <input
+                      value={draftEmail}
+                      onChange={(e) => setDraftEmail(e.target.value)}
+                      placeholder="Email address"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
+                    />
+                    <input
+                      value={draftDrive}
+                      onChange={(e) => setDraftDrive(e.target.value)}
+                      placeholder="Shared drive URL"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
+                    />
+                    {saveError && <p className="text-[11px] text-red-500">{saveError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleSaveContact()}
+                        disabled={saving}
+                        className="flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+                      >
+                        {saving && <Loader2 size={10} className="animate-spin" />}
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditing(false)}
+                        className="rounded-lg px-2 py-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-900"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <button
                     type="button"
                     onClick={openEdit}
-                    className="text-xs text-indigo-500 hover:underline"
+                    className="group inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition hover:text-slate-900"
                   >
-                    Add contact info
+                    {displayName || displayEmail ? (
+                      <>
+                        {displayName ?? displayEmail}
+                        {displayName && displayEmail ? ` · ${displayEmail}` : ""}
+                      </>
+                    ) : (
+                      "Add contact info"
+                    )}
+                    <Pencil size={10} className="text-slate-300 group-hover:text-slate-500" />
                   </button>
                 )}
               </div>
+
+              {/* Service tags */}
+              {services.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {services.map((s) => (
+                    <span
+                      key={s}
+                      className="rounded-full border border-slate-200/80 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Monthly hours widget */}
+            {pkgHours > 0 && (
+              <div className="w-56 shrink-0">
+                <p className="text-xs font-medium text-slate-500">Monthly hours</p>
+                <p className="mt-1 text-xl font-bold tracking-tight text-slate-900">
+                  {stratHours}
+                  <span className="text-sm font-medium text-slate-500"> / {pkgHours} hrs</span>
+                </p>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-2 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
+                    style={{ width: `${hoursPercent}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  {Math.round(hoursPercent)}% used
+                </p>
+              </div>
             )}
           </div>
-        </div>
-      </header>
+        </section>
 
-      {/* ── Comms alert ─────────────────────────────────────────── */}
-      {showReplyAlert && (
-        <div
-          className={`mx-6 mt-5 flex flex-col items-start justify-between gap-4 rounded-xl border p-4 sm:flex-row sm:items-center ${
-            (client.days_stale ?? 0) >= 14
-              ? "border-red-200 bg-red-50"
-              : "border-amber-200 bg-amber-50"
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <AlertTriangle
-              className={`mt-0.5 shrink-0 ${(client.days_stale ?? 0) >= 14 ? "text-red-500" : "text-amber-500"}`}
-              size={18}
-            />
-            <div>
-              <h4
-                className={`font-semibold ${(client.days_stale ?? 0) >= 14 ? "text-red-700" : "text-amber-700"}`}
-              >
-                Action Required: Unanswered Client Thread
-              </h4>
-              <p className="mt-1 text-sm text-neutral-700">
-                {latestClientThread ? (
-                  <>
-                    Last response{" "}
-                    {formatRelativeDays(latestClientThread.occurred_at)
-                      ? `(${formatRelativeDays(latestClientThread.occurred_at)})`
-                      : ""}
-                    :{" "}
-                    <span className="italic text-neutral-500">
-                      &ldquo;{previewText(latestClientThread, 120)}&rdquo;
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    Client was last to respond
-                    {client.days_stale != null
-                      ? ` (${client.days_stale} day${client.days_stale === 1 ? "" : "s"} ago)`
-                      : ""}
-                    .{" "}
-                    <Link
-                      href={`/dashboard/clients/${clientId}?tab=comms`}
-                      className="text-indigo-600 underline-offset-2 hover:underline"
-                    >
-                      Open Comms tab
-                    </Link>{" "}
-                    for details.
-                  </>
+        {/* ── Compact alert ─────────────────────────────────────── */}
+        {showReplyAlert && (
+          <div
+            className={`flex flex-col justify-between gap-3 rounded-2xl border p-4 shadow-sm sm:flex-row sm:items-center ${
+              urgent ? "border-red-200/80 bg-red-50/70" : "border-amber-200/80 bg-amber-50/70"
+            }`}
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <AlertTriangle
+                size={16}
+                className={`shrink-0 ${urgent ? "text-red-500" : "text-amber-500"}`}
+              />
+              <p className="min-w-0 truncate text-sm">
+                <span className={`font-bold ${urgent ? "text-red-700" : "text-amber-700"}`}>
+                  Awaiting reply
+                  {lastCommRelative ? ` · ${lastCommRelative}` : ""}
+                </span>
+                {latestClientThread && (
+                  <span className="ml-2 truncate text-xs font-medium italic text-slate-500">
+                    &ldquo;{previewText(latestClientThread, 90)}&rdquo;
+                  </span>
                 )}
               </p>
             </div>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {latestClientThread && (
-              <NotifyStrategistButton
-                client={client}
-                thread={latestClientThread}
-                roster={strategistRoster}
-                userEmail={userEmail}
-                appUrl={appUrl}
-              />
-            )}
-            <button
-              type="button"
-              onClick={() => void handleNoReplyNeeded()}
-              disabled={acknowledging}
-              className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
-            >
-              {acknowledging && <Loader2 size={14} className="animate-spin" />}
-              No reply needed
-            </button>
-            {latestClientThread &&
-              openableBasecampUrl(latestClientThread.thread_url) && (
+            <div className="flex shrink-0 items-center gap-2">
+              {latestClientThread && (
+                <NotifyStrategistButton
+                  client={client}
+                  thread={latestClientThread}
+                  roster={strategistRoster}
+                  userEmail={userEmail}
+                  appUrl={appUrl}
+                />
+              )}
+              <button
+                type="button"
+                onClick={() => void handleNoReplyNeeded()}
+                disabled={acknowledging}
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium text-slate-500 transition hover:text-slate-900 disabled:opacity-60"
+              >
+                {acknowledging && <Loader2 size={12} className="animate-spin" />}
+                No reply needed
+              </button>
+              {latestClientThread && openableBasecampUrl(latestClientThread.thread_url) && (
                 <a
                   href={openableBasecampUrl(latestClientThread.thread_url) ?? "#"}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium text-white transition ${
-                    (client.days_stale ?? 0) >= 14
-                      ? "bg-red-600 hover:bg-red-500"
-                      : "bg-amber-500 hover:bg-amber-400"
+                  className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2 text-xs font-bold text-white shadow-sm transition ${
+                    urgent ? "bg-red-600 hover:bg-red-500" : "bg-amber-500 hover:bg-amber-400"
                   }`}
                 >
-                  Open in Basecamp <ExternalLink size={14} />
+                  Open in Basecamp <ExternalLink size={12} />
                 </a>
               )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {ackError && (
-        <div className="mx-6 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {ackError}
-        </div>
-      )}
+        {ackError && (
+          <div className="rounded-2xl border border-red-200/80 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {ackError}
+          </div>
+        )}
 
-      {/* ── Body ────────────────────────────────────────────────── */}
-      <div className="space-y-5 p-6">
-
-        {/* Launch bar — tools preloaded for this client */}
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <LaunchButton
+        {/* ── Action cards ──────────────────────────────────────── */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <ActionCard
             href={`/reports/${clientId}`}
             icon={FileBarChart}
             label="Reporting"
             sub="Build this client's report"
+            tint="indigo"
           />
-          <LaunchButton
+          <ActionCard
             href={`/social-planner?client=${clientId}`}
             icon={CalendarDays}
             label="Social Media"
             sub="Calendar builder for this practice"
+            tint="purple"
           />
           {isAdminUser && norm(client.ads_customer_id) && (
-            <LaunchButton
+            <ActionCard
               href={`/ads-diagnostic?customer=${encodeURIComponent(norm(client.ads_customer_id) ?? "")}`}
               icon={Activity}
               label="Ads Diagnostics"
               sub="Deep-dive this ads account"
+              tint="blue"
             />
           )}
         </div>
 
-        {/* Comms status + Quick Links */}
-        <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
+        {/* ── Main split ────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
 
-          {/* Comms status (from the Comms tab) */}
-          <section>
-            <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-              Communication
-            </h2>
-            <CommsStatusCard data={data} />
-          </section>
-
-          {/* Quick Links */}
-          <div className="rounded-xl border border-neutral-200 bg-white p-4">
-            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-              Quick Links
-            </h3>
-            <ul className="space-y-0.5">
-              {websiteHref && (
-                <li>
-                  <a
-                    href={websiteHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-50"
+          {/* Communication & Activity */}
+          <section className="lg:col-span-8">
+            <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all hover:shadow-md">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                <h2 className="text-sm font-bold tracking-tight text-slate-900">Communication</h2>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`rounded-full border px-3 py-1 text-xs font-medium ${commsBadge.className}`}
                   >
-                    <Globe size={14} className="shrink-0 text-neutral-400" />
-                    Website
-                    <ExternalLink size={10} className="ml-auto text-neutral-300" />
-                  </a>
-                </li>
-              )}
-              {norm(client.ads_customer_id) && (
-                <li>
-                  <Link
-                    href={`/dashboard/clients/${clientId}?tab=ads`}
-                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-50"
-                  >
-                    <BarChart3 size={14} className="shrink-0 text-neutral-400" />
-                    Google Ads
-                  </Link>
-                </li>
-              )}
-              <li>
-                {displayDrive ? (
-                  <a
-                    href={displayDrive}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-50"
-                  >
-                    <HardDrive size={14} className="shrink-0 text-neutral-400" />
-                    Shared Drive
-                    <ExternalLink size={10} className="ml-auto text-neutral-300" />
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={openEdit}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-400 transition hover:bg-neutral-50"
-                  >
-                    <HardDrive size={14} className="shrink-0" />
-                    Add shared drive
-                  </button>
-                )}
-              </li>
-            </ul>
-          </div>
-        </div>
+                    {commsBadge.label}
+                  </span>
+                  {latestClientThread && openableBasecampUrl(latestClientThread.thread_url) && (
+                    <a
+                      href={openableBasecampUrl(latestClientThread.thread_url) ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition hover:text-slate-900"
+                    >
+                      Open thread <ExternalLink size={11} />
+                    </a>
+                  )}
+                </div>
+              </div>
 
-        {/* Bottom: Connections + Recent Activity */}
-        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-
-          {/* Connections (from the Connections tab) */}
-          <section>
-            <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-              Connections
-            </h2>
-            <ConnectionsTab data={data} onSaved={() => router.refresh()} />
-          </section>
-
-          {/* Recent Activity */}
-          <div>
-            <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-              Recent Activity
-            </h2>
-            <div className="rounded-xl border border-neutral-200 bg-white">
+              {/* Message feed */}
               {data.threadEvents.length === 0 ? (
-                <p className="p-5 text-sm text-neutral-400">No recent activity.</p>
+                <p className="p-5 text-sm text-slate-500">No synced messages in the last 30 days.</p>
               ) : (
-                <ul className="divide-y divide-neutral-100">
-                  {data.threadEvents.slice(0, 7).map((event) => (
-                    <li key={event.id} className="flex gap-3 px-4 py-3">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[11px] font-bold text-indigo-600">
+                <ul className="divide-y divide-slate-100">
+                  {data.threadEvents.slice(0, 10).map((event) => (
+                    <li key={event.id} className="flex gap-3 px-5 py-3.5">
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                          event.is_internal
+                            ? "bg-slate-100 text-slate-500"
+                            : "bg-indigo-50 text-indigo-600"
+                        }`}
+                      >
                         {(event.author_email ?? "?")[0]?.toUpperCase() ?? "?"}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-medium text-neutral-700">
+                          <p className="text-xs font-medium text-slate-700">
                             {(event.author_email ?? "").split("@")[0]}
+                            <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                              {event.is_internal ? "Internal" : "Client"}
+                            </span>
                           </p>
-                          <p className="shrink-0 text-[11px] text-neutral-400">
+                          <p className="shrink-0 text-xs font-medium text-slate-400">
                             {formatRelativeDays(event.occurred_at)}
                           </p>
                         </div>
-                        <p className="mt-0.5 truncate text-[11px] text-neutral-400">
-                          {previewText(event, 80)}
+                        <p className="mt-0.5 truncate text-xs text-slate-500">
+                          {previewText(event, 110)}
                         </p>
                       </div>
+                      {openableBasecampUrl(event.thread_url) && (
+                        <a
+                          href={openableBasecampUrl(event.thread_url) ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 shrink-0 text-slate-300 transition hover:text-slate-700"
+                        >
+                          <ExternalLink size={12} />
+                        </a>
+                      )}
                     </li>
                   ))}
                 </ul>
               )}
-              {data.threadEvents.length > 7 && (
-                <div className="border-t border-neutral-100 px-4 py-2.5 text-center">
+              {data.threadEvents.length > 10 && (
+                <div className="border-t border-slate-100 px-5 py-3 text-center">
                   <Link
                     href={`/dashboard/clients/${clientId}?tab=comms`}
                     className="text-xs font-medium text-indigo-600 hover:underline"
                   >
-                    View all in Comms
+                    View full history
                   </Link>
                 </div>
               )}
+            </div>
+          </section>
+
+          {/* Quick tools column */}
+          <div className="space-y-5 lg:col-span-4">
+
+            {/* Quick Links widget */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+              <h3 className="mb-3 text-sm font-bold tracking-tight text-slate-900">Quick Links</h3>
+              <ul className="space-y-0.5">
+                {websiteHref && (
+                  <li>
+                    <a
+                      href={websiteHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    >
+                      <Globe size={14} className="shrink-0 text-slate-400" />
+                      Website
+                      <ExternalLink size={10} className="ml-auto text-slate-300" />
+                    </a>
+                  </li>
+                )}
+                {norm(client.ads_customer_id) && (
+                  <li>
+                    <Link
+                      href={`/dashboard/clients/${clientId}?tab=ads`}
+                      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    >
+                      <BarChart3 size={14} className="shrink-0 text-slate-400" />
+                      Google Ads
+                    </Link>
+                  </li>
+                )}
+                <li>
+                  {displayDrive ? (
+                    <a
+                      href={displayDrive}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    >
+                      <HardDrive size={14} className="shrink-0 text-slate-400" />
+                      Shared Drive
+                      <ExternalLink size={10} className="ml-auto text-slate-300" />
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={openEdit}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-400 transition hover:bg-slate-50"
+                    >
+                      <HardDrive size={14} className="shrink-0" />
+                      Add shared drive
+                    </button>
+                  )}
+                </li>
+              </ul>
+            </div>
+
+            {/* Connections */}
+            <div>
+              <h3 className="mb-3 text-sm font-bold tracking-tight text-slate-900">Connections</h3>
+              <ConnectionsTab data={data} onSaved={() => router.refresh()} />
             </div>
           </div>
         </div>
