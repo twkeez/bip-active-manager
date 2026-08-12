@@ -31,17 +31,10 @@ import {
   getClientActiveServices,
   norm,
 } from "@/lib/clients/service-active";
-import type {
-  ClientDetailTab,
-  ClientWorkspaceInitialData,
-} from "@/lib/dashboard/client-workspace-types";
+import type { ClientWorkspaceInitialData } from "@/lib/dashboard/client-workspace-types";
 import NotifyStrategistButton from "@/components/dashboard/notify-strategist-button";
 import type { StrategistContact } from "@/lib/team/strategist-roster";
 import { CommsStatusCard, ConnectionsTab } from "@/components/dashboard/client-simple-tab-view";
-
-const DETAIL_TABS: Array<{ id: ClientDetailTab; label: string }> = [
-  { id: "comms", label: "Comms" },
-];
 
 function formatRelativeDays(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -342,35 +335,6 @@ export default function ClientWorkspaceDashboard({
           </div>
         </div>
       </header>
-
-      {/* ── Tab nav ─────────────────────────────────────────────── */}
-      <nav className="border-b border-neutral-200 bg-white px-6">
-        <div className="-mb-px flex">
-          <Link
-            href={`/dashboard/clients/${clientId}`}
-            className="border-b-2 border-indigo-600 px-4 py-3 text-xs font-semibold text-indigo-600"
-          >
-            Overview
-          </Link>
-          {DETAIL_TABS.map((tab) => (
-            <Link
-              key={tab.id}
-              href={`/dashboard/clients/${clientId}?tab=${tab.id}`}
-              className="border-b-2 border-transparent px-4 py-3 text-xs font-medium text-neutral-500 transition hover:text-neutral-800"
-            >
-              {tab.label}
-            </Link>
-          ))}
-          {norm(client.ads_customer_id) && (
-            <Link
-              href={`/dashboard/clients/${clientId}?tab=ads`}
-              className="border-b-2 border-transparent px-4 py-3 text-xs font-medium text-neutral-500 transition hover:text-neutral-800"
-            >
-              Ads
-            </Link>
-          )}
-        </div>
-      </nav>
 
       {/* ── Comms alert ─────────────────────────────────────────── */}
       {showReplyAlert && (
