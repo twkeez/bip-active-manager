@@ -128,6 +128,19 @@ const SocialIcon = () => (
   </svg>
 );
 
+const PlannerIcon = () => (
+  <svg viewBox="0 0 32 32" width={40} height={40} xmlns="http://www.w3.org/2000/svg">
+    {/* Document page */}
+    <path d="M7 3 h13 l5 5 v21 h-18 z" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <path d="M20 3 v5 h5" fill="none" stroke="#000" strokeWidth="1.5" />
+    <line x1="10" y1="13" x2="22" y2="13" stroke="#000" strokeWidth="1.5" />
+    <line x1="10" y1="17" x2="22" y2="17" stroke="#000" strokeWidth="1.5" />
+    <line x1="10" y1="21" x2="17" y2="21" stroke="#000" strokeWidth="1.5" />
+    {/* Sparkle */}
+    <path d="M25 18 l1.2 3 3 1.2 -3 1.2 -1.2 3 -1.2 -3 -3 -1.2 3 -1.2 z" fill="#000" />
+  </svg>
+);
+
 const SettingsIcon = () => (
   <svg viewBox="0 0 32 32" width={40} height={40} xmlns="http://www.w3.org/2000/svg">
     <circle cx="16" cy="16" r="14" fill="#fff" stroke="#000" strokeWidth="1.5" />
@@ -233,6 +246,7 @@ export function ControlCenter({ clients }: { clients: ControlCenterClient[] }) {
     { label: "Ads", href: "/ads-health", icon: <AdsIcon /> },
     { label: "Onboarding", href: "/onboarding", icon: <OnboardingIcon /> },
     { label: "Social Media", href: "/social-planner", icon: <SocialIcon /> },
+    { label: "AI Planner", href: "/ai-planner", icon: <PlannerIcon /> },
     { label: "Settings", href: "/dashboard/cockpit", icon: <SettingsIcon /> },
   ];
 

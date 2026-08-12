@@ -38,6 +38,7 @@ import {
   TrendingUp,
   Trophy,
   User,
+  Wand2,
   Zap,
 } from "lucide-react";
 import { useState } from "react";
@@ -104,6 +105,7 @@ const ONBOARDING: NavItem[] = [
 ];
 
 const TOOLS: NavItem[] = [
+  { label: "AI Planner", href: "/ai-planner", icon: Wand2, adminOnly: true },
   { label: "Social Planner", href: "/social-planner", icon: CalendarDays, adminOnly: true },
   { label: "Wins", href: "/wins", icon: Trophy, adminOnly: true },
   { label: "Report Template", href: "/reports/template", icon: FileText, adminOnly: true },
