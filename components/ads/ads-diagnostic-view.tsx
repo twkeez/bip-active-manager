@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BookOpen, Check, Copy, ExternalLink, Loader2, Search, Sparkles, Stethoscope, TrendingUp } from "lucide-react";
 import type {
   AccountDiagnostic,
@@ -247,6 +247,12 @@ export default function AdsDiagnosticView({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AccountDiagnostic | null>(null);
   const [playbook, setPlaybook] = useState<Record<string, { label: string; content: string }>>({});
+
+  // Arriving from a client page (?customer=…) → run the diagnosis immediately.
+  useEffect(() => {
+    if (initialCustomerId) void run(initialCustomerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCustomerId]);
 
   async function run(id: string) {
     const cid = id.trim();

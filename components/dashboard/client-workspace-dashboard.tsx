@@ -17,6 +17,7 @@ import {
   Loader2,
   Pencil,
 } from "lucide-react";
+import { isSyncableAdsCustomerId } from "@/lib/ads/customer-id";
 import { previewText, openableBasecampUrl } from "@/lib/basecamp/display";
 import {
   acknowledgeNoReply,
@@ -429,7 +430,7 @@ export default function ClientWorkspaceDashboard({
             sub="Calendar builder for this practice"
             tint="purple"
           />
-          {isAdminUser && norm(client.ads_customer_id) && (
+          {isAdminUser && isSyncableAdsCustomerId(client.ads_customer_id) && (
             <ActionCard
               href={`/ads-diagnostic?customer=${encodeURIComponent(norm(client.ads_customer_id) ?? "")}`}
               icon={Activity}
