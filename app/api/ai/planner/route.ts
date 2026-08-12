@@ -2,12 +2,15 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import {
   AI_PLANNER_MODEL,
+  additionsOutputFormat,
+  buildExtendPrompt,
   buildGeneratePrompt,
   buildIdeasPrompt,
   buildRefinePrompt,
   ideasOutputFormat,
   planOutputFormat,
   sectionOutputFormat,
+  type PlanAddition,
   type PlanDoc,
   type PlanIdea,
   type PlanSection,
@@ -20,6 +23,7 @@ export const maxDuration = 300;
 type Body =
   | { action: "brainstorm"; goal?: string; clientName?: string; url?: string; notes?: string; exclude?: string[] }
   | { action: "generate"; goal?: string; clientName?: string; url?: string; notes?: string; ideas?: PlanIdea[] }
+  | { action: "extend"; doc?: PlanDoc; ideas?: PlanIdea[] }
   | { action: "refine"; doc?: PlanDoc; sectionIndex?: number; instruction?: string };
 
 export async function POST(request: Request) {
@@ -105,6 +109,27 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "The model returned an empty plan. Try again." }, { status: 502 });
       }
       return NextResponse.json({ doc: parsed });
+    }
+
+    if (body.action === "extend") {
+      const doc = body.doc;
+      const ideas = Array.isArray(body.ideas) ? body.ideas : [];
+      if (!doc?.sections?.length || ideas.length === 0) {
+        return NextResponse.json({ error: "Missing plan or new ideas." }, { status: 400 });
+      }
+
+      const message = await anthropic.messages.parse({
+        model: AI_PLANNER_MODEL,
+        max_tokens: 8192,
+        messages: [{ role: "user", content: buildExtendPrompt({ doc, ideas }) }],
+        output_config: { format: additionsOutputFormat },
+      });
+
+      const parsed = message.parsed_output as { additions?: PlanAddition[] } | null;
+      if (!parsed?.additions?.length) {
+        return NextResponse.json({ error: "The model returned no additions. Try again." }, { status: 502 });
+      }
+      return NextResponse.json({ additions: parsed.additions });
     }
 
     if (body.action === "refine") {

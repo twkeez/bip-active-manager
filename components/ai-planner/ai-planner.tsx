@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { PlannerClient } from "@/app/(app)/ai-planner/page";
-import type { PlanDoc, PlanIdea, PlanSection } from "@/lib/ai-planner/plan";
+import type { PlanAddition, PlanDoc, PlanIdea, PlanSection } from "@/lib/ai-planner/plan";
 
 // Same Classic Mac OS palette as the Control Center.
 const C = {
@@ -154,6 +154,8 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
   // Document
   const [doc, setDoc] = useState<PlanDoc | null>(null);
   const [building, setBuilding] = useState(false);
+  // Titles of ideas already woven into the document — "Add to Plan" only sends the rest.
+  const [builtTitles, setBuiltTitles] = useState<string[]>([]);
   const [view, setView] = useState<"ideas" | "doc">("ideas");
   const [error, setError] = useState<string | null>(null);
 
@@ -175,6 +177,7 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
   const selectedClient = clients.find((c) => c.id === clientId) ?? null;
   const goal = projectType === PROJECT_TYPES[0] ? customGoal.trim() : projectType;
   const checkedCount = ideas?.filter((i) => i.checked).length ?? 0;
+  const newIdeas = (ideas ?? []).filter((i) => i.checked && !builtTitles.includes(i.title));
 
   const grouped = useMemo(() => {
     const map = new Map<string, { idea: BoardIdea; index: number }[]>();
@@ -212,6 +215,7 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
     else {
       setBrainstorming(true);
       setDoc(null);
+      setBuiltTitles([]);
       setActiveSection(null);
       setEditingSection(null);
     }
@@ -252,24 +256,47 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
   }
 
   async function buildPlan() {
-    if (!ideas || checkedCount === 0 || building) return;
+    if (!ideas || building) return;
+    const strip = (list: BoardIdea[]) => list.map(({ title, description, category }) => ({ title, description, category }));
     setBuilding(true);
     setError(null);
     setActiveSection(null);
     setEditingSection(null);
     try {
-      const res = await fetch("/api/ai/planner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "generate",
-          ...briefPayload(),
-          ideas: ideas.filter((i) => i.checked).map(({ title, description, category }) => ({ title, description, category })),
-        }),
-      });
-      const data = (await res.json()) as { doc?: PlanDoc; error?: string };
-      if (!res.ok || !data.doc) throw new Error(data.error ?? "Plan build failed");
-      setDoc(data.doc);
+      if (!doc) {
+        // First build — write the document from every checked idea.
+        const checked = ideas.filter((i) => i.checked);
+        if (checked.length === 0) return;
+        const res = await fetch("/api/ai/planner", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "generate", ...briefPayload(), ideas: strip(checked) }),
+        });
+        const data = (await res.json()) as { doc?: PlanDoc; error?: string };
+        if (!res.ok || !data.doc) throw new Error(data.error ?? "Plan build failed");
+        setDoc(data.doc);
+        setBuiltTitles(checked.map((i) => i.title));
+      } else {
+        // Plan exists — weave only the newly checked ideas in as new sections,
+        // leaving every existing section (and Tom's edits) untouched.
+        if (newIdeas.length === 0) return;
+        const res = await fetch("/api/ai/planner", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "extend", doc, ideas: strip(newIdeas) }),
+        });
+        const data = (await res.json()) as { additions?: PlanAddition[]; error?: string };
+        if (!res.ok || !data.additions) throw new Error(data.error ?? "Add to plan failed");
+        const sections = [...doc.sections];
+        for (const { heading, content, insertBefore } of data.additions) {
+          const at = insertBefore ? sections.findIndex((s) => s.heading === insertBefore) : -1;
+          const section = { heading, content };
+          if (at >= 0) sections.splice(at, 0, section);
+          else sections.push(section);
+        }
+        setDoc({ ...doc, sections });
+        setBuiltTitles([...builtTitles, ...newIdeas.map((i) => i.title)]);
+      }
       setView("doc");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Plan build failed");
@@ -475,7 +502,12 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
                       >
                         <span style={{ paddingTop: 1 }}><MacCheckbox checked={idea.checked} /></span>
                         <span style={{ flex: 1 }}>
-                          <span style={{ fontSize: 12, fontWeight: "bold", display: "block" }}>{idea.title}</span>
+                          <span style={{ fontSize: 12, fontWeight: "bold", display: "block" }}>
+                            {idea.title}
+                            {builtTitles.includes(idea.title) && (
+                              <span style={{ fontWeight: "normal", fontSize: 10, color: C.textSecondary, border: `1px solid ${C.border}`, padding: "0 4px", marginLeft: 6, borderRadius: 6 }}>in plan</span>
+                            )}
+                          </span>
                           {idea.description && (
                             <span style={{ fontSize: 11, color: C.textSecondary, display: "block", lineHeight: 1.4 }}>{idea.description}</span>
                           )}
@@ -508,9 +540,11 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
                       {gettingMore ? "Thinking…" : "More Ideas"}
                     </MacButton>
                     <div style={{ flex: 1 }} />
-                    <span style={{ fontSize: 11, fontFamily: FONT, color: C.textSecondary }}>{checkedCount} selected</span>
-                    <MacButton primary onClick={buildPlan} disabled={checkedCount === 0 || building}>
-                      {building ? "Writing…" : `Build Plan`}
+                    <span style={{ fontSize: 11, fontFamily: FONT, color: C.textSecondary }}>
+                      {doc ? `${newIdeas.length} new to add` : `${checkedCount} selected`}
+                    </span>
+                    <MacButton primary onClick={buildPlan} disabled={building || (doc ? newIdeas.length === 0 : checkedCount === 0)}>
+                      {building ? "Writing…" : doc ? "Add to Plan" : "Build Plan"}
                     </MacButton>
                   </div>
                 </div>

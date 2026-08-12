@@ -141,6 +141,51 @@ Section content rules:
 If you cannot read the website, still produce the plan from the goal and notes — just keep claims generic rather than invented.`;
 }
 
+const additionsSchema = {
+  type: "object",
+  properties: {
+    additions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          heading: { type: "string" },
+          content: { type: "string" },
+          insertBefore: { type: "string" },
+        },
+        required: ["heading", "content", "insertBefore"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["additions"],
+  additionalProperties: false,
+} as const;
+
+export const additionsOutputFormat = jsonSchemaOutputFormat(additionsSchema);
+
+export type PlanAddition = PlanSection & { insertBefore: string };
+
+export function buildExtendPrompt(params: { doc: PlanDoc; ideas: PlanIdea[] }): string {
+  const { doc, ideas } = params;
+  return `You are a senior marketing strategist at Beyond Indigo, a veterinary marketing agency. A client-facing plan document already exists, and the strategist has approved ADDITIONAL tactics to work into it. The existing document must NOT be rewritten — you only write new sections.
+
+The existing document, titled "${doc.title}":
+${doc.sections.map((s) => `\n## ${s.heading}\n${s.content}`).join("\n")}
+
+Newly approved tactics to add:
+${ideas.map((i) => `• [${i.category}] ${i.title} — ${i.description}`).join("\n")}
+
+Return additions: one or more NEW sections covering the new tactics, matching the document's voice and formatting (client-friendly plain English, short paragraphs, "- " dash lists, no markdown headers, never mention AI).
+
+For each addition:
+- heading: a section heading in the same style as the existing ones.
+- content: the fleshed-out tactic(s) — group related new tactics into one section where natural.
+- insertBefore: the EXACT heading of the existing section this should be placed before, chosen so the document still reads in a logical order (tactics before measurement/timeline/"what we need" style sections). Use an empty string to place it at the end.
+
+Do not restate, revise, or duplicate anything already in the document — additions only.`;
+}
+
 export function buildRefinePrompt(params: {
   doc: PlanDoc;
   sectionIndex: number;
