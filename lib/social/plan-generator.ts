@@ -27,6 +27,12 @@ function buildPostDates(year: number, month: number, postsPerWeek: number): stri
   return dates;
 }
 
+export type SelectedIdea = {
+  title: string;
+  description: string;
+  shot_idea?: string;
+};
+
 export async function generateSocialPlan(params: {
   apiKey: string;
   clientName: string;
@@ -39,10 +45,12 @@ export async function generateSocialPlan(params: {
   postsPerWeek: number;
   ideas: SocialIdea[];
   recentCampaignTypes: string[];
+  selectedIdeas?: SelectedIdea[];
 }): Promise<GeneratedPost[]> {
   const {
     apiKey, clientName, month, year, specialty, tone, notes,
     standingCampaigns, postsPerWeek, ideas, recentCampaignTypes,
+    selectedIdeas,
   } = params;
 
   const monthName = MONTH_NAMES[month];
@@ -57,6 +65,17 @@ export async function generateSocialPlan(params: {
   const ideasBlock = ideas.length > 0
     ? ideas.map((i) => `- ${i.title}: ${i.description}`).join("\n")
     : "No ideas in repository yet — use your best judgment.";
+
+  const selectedBlock = selectedIdeas && selectedIdeas.length > 0
+    ? `THE STRATEGIST HAND-PICKED THESE CONCEPTS — every one of them MUST appear in the plan:
+${selectedIdeas.map((i) => `- ${i.title}: ${i.description}${i.shot_idea ? ` [Shot idea: ${i.shot_idea}]` : ""}`).join("\n")}
+
+Rules for the picked concepts:
+- Each picked concept gets at least one post; a recurring-series concept may appear twice if the calendar has room.
+- Where a shot idea is given, build the post's shot_list from it (expand with practical phone-shooting detail).
+- Fill any REMAINING dates with standing campaigns, fitting awareness days, and safe evergreen content — but the picked concepts come first and set the month's personality.
+`
+    : "";
 
   const avoidBlock = recentCampaignTypes.length > 0
     ? `Avoid repeating these campaign types (used in the past 3 months): ${recentCampaignTypes.join(", ")}.`
@@ -81,6 +100,7 @@ ${standingBlock}
 ${monthName.toUpperCase()} AWARENESS DAYS (use 2–3 naturally, not every post):
 ${awarenessBlock}
 
+${selectedBlock}
 IDEA BANK (draw from these but don't use all of them):
 ${ideasBlock}
 

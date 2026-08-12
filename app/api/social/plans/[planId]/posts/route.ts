@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getProfile, isAdmin } from "@/lib/auth/profile";
 import type { SocialContentPost } from "@/lib/social/types";
 
+// Open to all authenticated team members — strategists edit their calendars.
 export async function PUT(request: Request, { params }: { params: Promise<{ planId: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const profile = await getProfile(supabase);
-  if (!isAdmin(profile)) return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
   const { planId } = await params;
   let body: { postId: number; updates: Partial<SocialContentPost> };

@@ -106,7 +106,7 @@ const ONBOARDING: NavItem[] = [
 
 const TOOLS: NavItem[] = [
   { label: "AI Planner", href: "/ai-planner", icon: Wand2, adminOnly: true },
-  { label: "Social Planner", href: "/social-planner", icon: CalendarDays, adminOnly: true },
+  { label: "Social Planner", href: "/social-planner", icon: CalendarDays },
   { label: "Wins", href: "/wins", icon: Trophy, adminOnly: true },
   { label: "Report Template", href: "/reports/template", icon: FileText, adminOnly: true },
   { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
@@ -134,6 +134,7 @@ const USER_NAV: NavItem[] = [
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
   { label: "My Tasks", href: "/my-tasks", icon: CheckSquare },
+  { label: "Social Planner", href: "/social-planner", icon: CalendarDays },
   { label: "Reporting", href: "/reports/doc-to-pdf", icon: FileDown },
 ];
 

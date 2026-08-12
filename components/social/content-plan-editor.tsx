@@ -261,10 +261,21 @@ function ClientProfileForm({
   );
 }
 
-export function ContentPlanEditor({ clientId, clientName }: { clientId: number; clientName: string }) {
+export function ContentPlanEditor({
+  clientId,
+  clientName,
+  initialMonth,
+  initialYear,
+}: {
+  clientId: number;
+  clientName: string;
+  initialMonth?: number;
+  initialYear?: number;
+}) {
   const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(initialMonth ?? now.getMonth() + 1);
+  const [year, setYear] = useState(initialYear ?? now.getFullYear());
+  const [briefCopied, setBriefCopied] = useState(false);
   const [plans, setPlans] = useState<SocialPlanWithPosts[]>([]);
   const [profile, setProfile] = useState<SocialClientProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -309,6 +320,25 @@ export function ContentPlanEditor({ clientId, clientName }: { clientId: number; 
     setGenerating(false);
   }
 
+  // Client-facing "photo homework" — every shot the practice needs to capture this month.
+  async function copyPhotoBrief() {
+    if (!currentPlan) return;
+    const lines = [
+      `${clientName} — ${MONTH_NAMES[month]} Photo & Video List`,
+      "",
+      "Here's everything we need from you this month. Phone photos are perfect — candid beats polished!",
+      "",
+      ...currentPlan.posts
+        .filter((p) => p.shot_list)
+        .map((p) => `• ${formatDate(p.post_date)} — ${p.campaign_label}:\n  ${p.shot_list}`),
+      "",
+      "Send everything to your Beyond Indigo strategist whenever it's ready. Thank you!",
+    ];
+    await navigator.clipboard.writeText(lines.join("\n"));
+    setBriefCopied(true);
+    setTimeout(() => setBriefCopied(false), 1500);
+  }
+
   function updatePost(planId: number, updated: SocialContentPost) {
     setPlans((prev) => prev.map((p) => p.id !== planId ? p : { ...p, posts: p.posts.map((post) => post.id === updated.id ? updated : post) }));
   }
@@ -332,6 +362,11 @@ export function ContentPlanEditor({ clientId, clientName }: { clientId: number; 
           </select>
         </div>
         <div className="flex gap-2">
+          {currentPlan && (
+            <button onClick={copyPhotoBrief} className="px-3 py-1.5 rounded-md border text-xs text-gray-600">
+              {briefCopied ? "Copied!" : "📸 Copy photo brief"}
+            </button>
+          )}
           <button onClick={() => setShowProfile((v) => !v)} className="px-3 py-1.5 rounded-md border text-xs text-gray-600">
             {showProfile ? "Hide profile" : "Content profile"}
           </button>

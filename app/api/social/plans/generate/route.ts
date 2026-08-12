@@ -1,23 +1,24 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getProfile, isAdmin } from "@/lib/auth/profile";
-import { generateSocialPlan } from "@/lib/social/plan-generator";
+import { generateSocialPlan, type SelectedIdea } from "@/lib/social/plan-generator";
 import type { SocialIdea, SocialClientProfile, SocialContentPlan, SocialContentPost } from "@/lib/social/types";
+
+export const maxDuration = 300;
 
 type GenerateBody = {
   clientId: number;
   clientName: string;
   month: number;
   year: number;
+  selectedIdeas?: SelectedIdea[];
 };
 
+// Open to all authenticated team members — strategists build calendars too.
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const profile = await getProfile(supabase);
-  if (!isAdmin(profile)) return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
     postsPerWeek: clientProfile?.posts_per_week ?? 3,
     ideas,
     recentCampaignTypes,
+    selectedIdeas: Array.isArray(body.selectedIdeas) ? body.selectedIdeas : undefined,
   });
 
   // Upsert the plan (replace if exists for this month/year)

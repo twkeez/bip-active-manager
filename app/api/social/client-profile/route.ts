@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getProfile, isAdmin } from "@/lib/auth/profile";
 import type { SocialClientProfile } from "@/lib/social/types";
 
 export async function GET(request: Request) {
@@ -23,12 +22,11 @@ export async function GET(request: Request) {
   return NextResponse.json(data ?? null);
 }
 
+// Open to all authenticated team members — strategists maintain their clients' profiles.
 export async function PUT(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const profile = await getProfile(supabase);
-  if (!isAdmin(profile)) return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
   let body: { clientId: number } & Partial<SocialClientProfile>;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }

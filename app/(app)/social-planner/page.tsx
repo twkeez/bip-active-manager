@@ -13,15 +13,21 @@ export default async function SocialPlannerPage() {
   if (!user) redirect("/login");
 
   const profile = await getProfile(supabase);
-  if (!isAdmin(profile)) redirect("/dashboard");
 
   const admin = createAdminClient();
-  const { data: ideas } = await admin
-    .from("social_idea_repository")
-    .select("*")
-    .order("campaign_type")
-    .order("title")
-    .returns<SocialIdea[]>();
+  const [{ data: ideas }, { data: clients }] = await Promise.all([
+    admin
+      .from("social_idea_repository")
+      .select("*")
+      .order("campaign_type")
+      .order("title")
+      .returns<SocialIdea[]>(),
+    admin
+      .from("clients")
+      .select("id, account_name")
+      .order("account_name")
+      .returns<{ id: number; account_name: string }[]>(),
+  ]);
 
-  return <SocialPlannerStudio initialIdeas={ideas ?? []} />;
+  return <SocialPlannerStudio initialIdeas={ideas ?? []} clients={clients ?? []} isAdminUser={isAdmin(profile)} />;
 }
