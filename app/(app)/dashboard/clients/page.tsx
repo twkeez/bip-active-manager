@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { loadClientListData } from "@/lib/dashboard/load-client-list-data";
-import ClientListView from "@/components/clients/client-list-view";
+import ClientSelectHome from "@/components/clients/client-select-home";
 
 export default async function ClientsPage() {
   const supabase = await createClient();
@@ -22,5 +22,5 @@ export default async function ClientsPage() {
     );
   }
 
-  return <ClientListView {...data} />;
+  return <ClientSelectHome {...data} />;
 }

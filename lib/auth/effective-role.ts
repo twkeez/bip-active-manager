@@ -17,6 +17,8 @@ export function resolveEffectiveRole(
 }
 
 /** Where a given role should land after login / from the app root. */
-export function landingPathForRole(role: UserRole): string {
-  return role === "admin" ? "/dashboard" : "/dashboard/clients";
+// Everyone lands on the client selection homescreen; the admin dashboard
+// stays reachable via the sidebar.
+export function landingPathForRole(_role: UserRole): string {
+  return "/dashboard/clients";
 }
