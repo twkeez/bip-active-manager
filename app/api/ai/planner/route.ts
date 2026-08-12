@@ -3,10 +3,13 @@ import { NextResponse } from "next/server";
 import {
   AI_PLANNER_MODEL,
   buildGeneratePrompt,
+  buildIdeasPrompt,
   buildRefinePrompt,
+  ideasOutputFormat,
   planOutputFormat,
   sectionOutputFormat,
   type PlanDoc,
+  type PlanIdea,
   type PlanSection,
 } from "@/lib/ai-planner/plan";
 import { getProfile, isAdmin } from "@/lib/auth/profile";
@@ -15,7 +18,8 @@ import { createClient } from "@/lib/supabase/server";
 export const maxDuration = 300;
 
 type Body =
-  | { action: "generate"; goal?: string; clientName?: string; url?: string; notes?: string }
+  | { action: "brainstorm"; goal?: string; clientName?: string; url?: string; notes?: string; exclude?: string[] }
+  | { action: "generate"; goal?: string; clientName?: string; url?: string; notes?: string; ideas?: PlanIdea[] }
   | { action: "refine"; doc?: PlanDoc; sectionIndex?: number; instruction?: string };
 
 export async function POST(request: Request) {
@@ -40,6 +44,37 @@ export async function POST(request: Request) {
   const anthropic = new Anthropic({ apiKey });
 
   try {
+    if (body.action === "brainstorm") {
+      const goal = (body.goal ?? "").trim();
+      if (!goal) return NextResponse.json({ error: "Describe the goal first." }, { status: 400 });
+      const url = (body.url ?? "").trim();
+
+      const message = await anthropic.messages.parse({
+        model: AI_PLANNER_MODEL,
+        max_tokens: 4096,
+        ...(url ? { tools: [{ type: "web_search_20250305" as const, name: "web_search" as const }] } : {}),
+        messages: [
+          {
+            role: "user",
+            content: buildIdeasPrompt({
+              goal,
+              clientName: (body.clientName ?? "").trim(),
+              url,
+              notes: (body.notes ?? "").trim(),
+              exclude: (body.exclude ?? []).filter((t) => typeof t === "string" && t.trim()),
+            }),
+          },
+        ],
+        output_config: { format: ideasOutputFormat },
+      });
+
+      const parsed = message.parsed_output as { ideas?: PlanIdea[] } | null;
+      if (!parsed?.ideas?.length) {
+        return NextResponse.json({ error: "The model returned no ideas. Try again." }, { status: 502 });
+      }
+      return NextResponse.json({ ideas: parsed.ideas });
+    }
+
     if (body.action === "generate") {
       const goal = (body.goal ?? "").trim();
       if (!goal) return NextResponse.json({ error: "Describe the goal first." }, { status: 400 });
@@ -58,6 +93,7 @@ export async function POST(request: Request) {
               clientName: (body.clientName ?? "").trim(),
               url,
               notes: (body.notes ?? "").trim(),
+              ideas: Array.isArray(body.ideas) ? body.ideas : undefined,
             }),
           },
         ],

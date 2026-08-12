@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { PlannerClient } from "@/app/(app)/ai-planner/page";
-import type { PlanDoc, PlanSection } from "@/lib/ai-planner/plan";
+import type { PlanDoc, PlanIdea, PlanSection } from "@/lib/ai-planner/plan";
 
 // Same Classic Mac OS palette as the Control Center.
 const C = {
@@ -31,6 +31,8 @@ const PROJECT_TYPES = [
   "Reactivate lapsed clients",
   "Launch a new service line",
 ];
+
+type BoardIdea = PlanIdea & { checked: boolean; custom?: boolean };
 
 function MacWindow({ title, children, style }: { title: string; children: React.ReactNode; style?: React.CSSProperties }) {
   return (
@@ -64,6 +66,29 @@ function MacButton({ children, onClick, disabled, primary }: { children: React.R
     >
       {children}
     </button>
+  );
+}
+
+// Classic Mac checkbox — a crisp square with an ✕ mark.
+function MacCheckbox({ checked }: { checked: boolean }) {
+  return (
+    <span
+      style={{
+        width: 13,
+        height: 13,
+        border: `1px solid ${C.border}`,
+        background: C.window,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 11,
+        lineHeight: 1,
+        flexShrink: 0,
+        fontFamily: FONT,
+      }}
+    >
+      {checked ? "✕" : ""}
+    </span>
   );
 }
 
@@ -120,9 +145,16 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
   const [url, setUrl] = useState("");
   const [notes, setNotes] = useState("");
 
+  // Idea board
+  const [ideas, setIdeas] = useState<BoardIdea[] | null>(null);
+  const [brainstorming, setBrainstorming] = useState(false);
+  const [gettingMore, setGettingMore] = useState(false);
+  const [customIdea, setCustomIdea] = useState("");
+
   // Document
   const [doc, setDoc] = useState<PlanDoc | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const [building, setBuilding] = useState(false);
+  const [view, setView] = useState<"ideas" | "doc">("ideas");
   const [error, setError] = useState<string | null>(null);
 
   // Per-section state
@@ -142,6 +174,17 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
 
   const selectedClient = clients.find((c) => c.id === clientId) ?? null;
   const goal = projectType === PROJECT_TYPES[0] ? customGoal.trim() : projectType;
+  const checkedCount = ideas?.filter((i) => i.checked).length ?? 0;
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, { idea: BoardIdea; index: number }[]>();
+    (ideas ?? []).forEach((idea, index) => {
+      const key = idea.category || "Ideas";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push({ idea, index });
+    });
+    return [...map.entries()];
+  }, [ideas]);
 
   function pickClient(idStr: string) {
     if (!idStr) {
@@ -154,9 +197,63 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
     if (client?.website) setUrl(client.website);
   }
 
-  async function generate() {
-    if (!goal || generating) return;
-    setGenerating(true);
+  function briefPayload() {
+    return {
+      goal,
+      clientName: selectedClient?.account_name ?? "",
+      url: url.trim(),
+      notes: notes.trim(),
+    };
+  }
+
+  async function brainstorm(more: boolean) {
+    if (!goal || brainstorming || gettingMore) return;
+    if (more) setGettingMore(true);
+    else {
+      setBrainstorming(true);
+      setDoc(null);
+      setActiveSection(null);
+      setEditingSection(null);
+    }
+    setError(null);
+    setView("ideas");
+    try {
+      const res = await fetch("/api/ai/planner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "brainstorm",
+          ...briefPayload(),
+          exclude: more ? (ideas ?? []).map((i) => i.title) : [],
+        }),
+      });
+      const data = (await res.json()) as { ideas?: PlanIdea[]; error?: string };
+      if (!res.ok || !data.ideas) throw new Error(data.error ?? "Brainstorm failed");
+      const fresh = data.ideas.map((i) => ({ ...i, checked: false }));
+      setIdeas(more ? [...(ideas ?? []), ...fresh] : fresh);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Brainstorm failed");
+    } finally {
+      setBrainstorming(false);
+      setGettingMore(false);
+    }
+  }
+
+  function toggleIdea(index: number) {
+    if (!ideas) return;
+    setIdeas(ideas.map((idea, i) => (i === index ? { ...idea, checked: !idea.checked } : idea)));
+  }
+
+  function addCustomIdea() {
+    const t = customIdea.trim();
+    if (!t) return;
+    setIdeas([...(ideas ?? []), { title: t, description: "", category: "Your Ideas", checked: true, custom: true }]);
+    setCustomIdea("");
+  }
+
+  async function buildPlan() {
+    if (!ideas || checkedCount === 0 || building) return;
+    setBuilding(true);
     setError(null);
     setActiveSection(null);
     setEditingSection(null);
@@ -166,19 +263,18 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "generate",
-          goal,
-          clientName: selectedClient?.account_name ?? "",
-          url: url.trim(),
-          notes: notes.trim(),
+          ...briefPayload(),
+          ideas: ideas.filter((i) => i.checked).map(({ title, description, category }) => ({ title, description, category })),
         }),
       });
       const data = (await res.json()) as { doc?: PlanDoc; error?: string };
-      if (!res.ok || !data.doc) throw new Error(data.error ?? "Generation failed");
+      if (!res.ok || !data.doc) throw new Error(data.error ?? "Plan build failed");
       setDoc(data.doc);
+      setView("doc");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Generation failed");
+      setError(e instanceof Error ? e.message : "Plan build failed");
     } finally {
-      setGenerating(false);
+      setBuilding(false);
     }
   }
 
@@ -236,6 +332,9 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
+
+  const showingDoc = view === "doc" && doc;
+  const windowTitle = showingDoc ? doc!.title : ideas ? `Idea Board — ${goal || "Untitled"}` : "Untitled Plan";
 
   return (
     <div style={{ background: C.desktop, minHeight: "100%", fontFamily: FONT, display: "flex", flexDirection: "column" }}>
@@ -298,18 +397,18 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={{ ...inputStyle, resize: "vertical" }} placeholder="Anything you want the plan to hit — budget, tone, specific ideas…" />
             </div>
 
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <MacButton primary onClick={generate} disabled={!goal || generating}>
-                {generating ? "Thinking…" : doc ? "Regenerate" : "Generate Plan"}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <MacButton primary onClick={() => brainstorm(false)} disabled={!goal || brainstorming || building}>
+                {brainstorming ? "Thinking…" : ideas ? "New Brainstorm" : "Brainstorm Ideas"}
               </MacButton>
-              {doc && (
-                <MacButton onClick={copyText}>{copied ? "Copied!" : "Copy Text"}</MacButton>
-              )}
+              {doc && view === "doc" && <MacButton onClick={copyText}>{copied ? "Copied!" : "Copy Text"}</MacButton>}
+              {doc && view === "ideas" && <MacButton onClick={() => setView("doc")}>View Plan</MacButton>}
+              {ideas && view === "doc" && <MacButton onClick={() => setView("ideas")}>Idea Board</MacButton>}
             </div>
 
-            {generating && (
+            {brainstorming && (
               <div style={{ fontSize: 10, fontFamily: FONT, color: C.textSecondary }}>
-                Reading the site and drafting… this takes 30–60 seconds.
+                Reading the site and brainstorming… ~30 seconds.
               </div>
             )}
 
@@ -319,7 +418,12 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
               </div>
             )}
 
-            {doc && !generating && (
+            {ideas && !showingDoc && !brainstorming && (
+              <div style={{ fontSize: 10, fontFamily: FONT, color: C.textSecondary, borderTop: "1px solid #ddd", paddingTop: 8 }}>
+                Check the ideas you like, add your own, then click <strong>Build Plan</strong>. "More Ideas" brings fresh angles without repeats.
+              </div>
+            )}
+            {showingDoc && (
               <div style={{ fontSize: 10, fontFamily: FONT, color: C.textSecondary, borderTop: "1px solid #ddd", paddingTop: 8 }}>
                 Click a section in the document to edit, refine, or remove it.
               </div>
@@ -327,34 +431,107 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
           </div>
         </MacWindow>
 
-        {/* Document window */}
-        <MacWindow title={doc ? doc.title : "Untitled Plan"} style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ flex: 1, overflowY: "auto", background: "#c8c8c8", padding: 18 }}>
-            <div style={{ background: C.window, border: `1px solid ${C.border}`, maxWidth: 700, margin: "0 auto", padding: "42px 52px", minHeight: "100%", boxShadow: C.shadow }}>
-              {!doc && !generating && (
-                <div style={{ textAlign: "center", color: C.textSecondary, fontFamily: FONT, fontSize: 12, paddingTop: 80 }}>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
-                  Fill in the brief and click <strong>Generate Plan</strong>.<br />
-                  The document will appear here.
+        {/* Document / Idea board window */}
+        <MacWindow title={windowTitle} style={{ flex: 1, minWidth: 0 }}>
+          {/* Idea board */}
+          {!showingDoc && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+                {!ideas && !brainstorming && (
+                  <div style={{ textAlign: "center", color: C.textSecondary, fontFamily: FONT, fontSize: 12, paddingTop: 80 }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>💡</div>
+                    Fill in the brief and click <strong>Brainstorm Ideas</strong>.<br />
+                    You'll check off the ones you like before any plan is written.
+                  </div>
+                )}
+                {!ideas && brainstorming && (
+                  <div style={{ textAlign: "center", color: C.textSecondary, fontFamily: FONT, fontSize: 12, paddingTop: 80 }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+                    Brainstorming ideas…
+                  </div>
+                )}
+                {grouped.map(([category, items]) => (
+                  <div key={category} style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, fontFamily: FONT, fontWeight: "bold", borderBottom: `1px solid ${C.border}`, paddingBottom: 2, marginBottom: 4 }}>
+                      {category}
+                    </div>
+                    {items.map(({ idea, index }) => (
+                      <button
+                        key={index}
+                        onClick={() => toggleIdea(index)}
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          alignItems: "flex-start",
+                          width: "100%",
+                          textAlign: "left",
+                          background: idea.checked ? "#e8e8ff" : "transparent",
+                          border: "none",
+                          borderBottom: "1px solid #eee",
+                          padding: "5px 4px",
+                          cursor: "pointer",
+                          fontFamily: FONT,
+                        }}
+                      >
+                        <span style={{ paddingTop: 1 }}><MacCheckbox checked={idea.checked} /></span>
+                        <span style={{ flex: 1 }}>
+                          <span style={{ fontSize: 12, fontWeight: "bold", display: "block" }}>{idea.title}</span>
+                          {idea.description && (
+                            <span style={{ fontSize: 11, color: C.textSecondary, display: "block", lineHeight: 1.4 }}>{idea.description}</span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                {gettingMore && (
+                  <div style={{ fontSize: 11, fontFamily: FONT, color: C.textSecondary, padding: 8 }}>⏳ Getting more ideas…</div>
+                )}
+              </div>
+
+              {/* Idea board footer */}
+              {ideas && (
+                <div style={{ borderTop: `1px solid ${C.border}`, background: C.buttonFace, padding: 8, display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input
+                      type="text"
+                      value={customIdea}
+                      onChange={(e) => setCustomIdea(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addCustomIdea()}
+                      placeholder="Add your own idea…"
+                      style={{ ...inputStyle, flex: 1 }}
+                    />
+                    <MacButton onClick={addCustomIdea} disabled={!customIdea.trim()}>Add</MacButton>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <MacButton onClick={() => brainstorm(true)} disabled={gettingMore || brainstorming || building}>
+                      {gettingMore ? "Thinking…" : "More Ideas"}
+                    </MacButton>
+                    <div style={{ flex: 1 }} />
+                    <span style={{ fontSize: 11, fontFamily: FONT, color: C.textSecondary }}>{checkedCount} selected</span>
+                    <MacButton primary onClick={buildPlan} disabled={checkedCount === 0 || building}>
+                      {building ? "Writing…" : `Build Plan`}
+                    </MacButton>
+                  </div>
                 </div>
               )}
-              {!doc && generating && (
-                <div style={{ textAlign: "center", color: C.textSecondary, fontFamily: FONT, fontSize: 12, paddingTop: 80 }}>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
-                  Drafting your plan…
-                </div>
-              )}
-              {doc && (
+            </div>
+          )}
+
+          {/* Document */}
+          {showingDoc && (
+            <div style={{ flex: 1, overflowY: "auto", background: "#c8c8c8", padding: 18 }}>
+              <div style={{ background: C.window, border: `1px solid ${C.border}`, maxWidth: 700, margin: "0 auto", padding: "42px 52px", minHeight: "100%", boxShadow: C.shadow }}>
                 <div style={{ fontFamily: FONT_DOC, fontSize: 14, lineHeight: 1.55, color: C.text }}>
-                  <h1 style={{ fontSize: 24, margin: "0 0 6px", fontFamily: FONT, lineHeight: 1.2 }}>{doc.title}</h1>
+                  <h1 style={{ fontSize: 24, margin: "0 0 6px", fontFamily: FONT, lineHeight: 1.2 }}>{doc!.title}</h1>
                   {selectedClient && (
                     <div style={{ fontSize: 11, fontFamily: FONT, color: C.textSecondary, marginBottom: 14 }}>
                       Prepared for {selectedClient.account_name} · Beyond Indigo
                     </div>
                   )}
-                  <p style={{ margin: "0 0 20px", fontStyle: "italic" }}>{doc.intro}</p>
+                  <p style={{ margin: "0 0 20px", fontStyle: "italic" }}>{doc!.intro}</p>
 
-                  {doc.sections.map((section, i) => {
+                  {doc!.sections.map((section, i) => {
                     const active = activeSection === i;
                     return (
                       <div
@@ -415,9 +592,9 @@ export function AiPlanner({ clients }: { clients: PlannerClient[] }) {
                     );
                   })}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
         </MacWindow>
       </div>
     </div>

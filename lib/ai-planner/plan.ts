@@ -49,20 +49,84 @@ const sectionSchema = {
 
 export const sectionOutputFormat = jsonSchemaOutputFormat(sectionSchema);
 
+export type PlanIdea = { title: string; description: string; category: string };
+
+const ideasSchema = {
+  type: "object",
+  properties: {
+    ideas: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          description: { type: "string" },
+          category: { type: "string" },
+        },
+        required: ["title", "description", "category"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["ideas"],
+  additionalProperties: false,
+} as const;
+
+export const ideasOutputFormat = jsonSchemaOutputFormat(ideasSchema);
+
+export function buildIdeasPrompt(params: {
+  goal: string;
+  clientName: string;
+  url: string;
+  notes: string;
+  exclude: string[];
+}): string {
+  const { goal, clientName, url, notes, exclude } = params;
+  return `You are a senior marketing strategist at Beyond Indigo, a veterinary marketing agency, brainstorming tactics with a colleague.
+
+The goal: ${goal}
+${clientName ? `The client: ${clientName}` : ""}
+${url ? `Their website (read it with web search for real context — services, tone, booking options, current offers): ${url}` : ""}
+${notes ? `Context and constraints from the strategist:\n${notes}` : ""}
+
+Propose 10-14 concrete, specific tactic ideas the strategist can pick from. Spread them across channels — typical categories: "Website", "Google Business Profile & Local SEO", "Paid Ads", "Email & SMS", "Front Desk & Operations", "Social Media". Use only categories that fit the goal; name them exactly as you group them.
+
+Each idea:
+- title: a short, punchy label (4-8 words).
+- description: 1-2 sentences saying exactly what we'd do and why it moves the goal — specific to THIS practice when you can read their site (reference real services, offers, booking tools).
+- category: which channel group it belongs to.
+
+Rules:
+- Only tactics a veterinary marketing agency actually delivers (ads, local SEO, website changes, GBP, email/SMS, front-desk scripts, social).
+- Each idea must stand alone — the strategist will check off a subset and discard the rest.
+- Range from safe bets to a couple of bolder swings.
+${exclude.length ? `- Do NOT repeat these ideas already on the board (bring genuinely new angles):\n${exclude.map((t) => `  • ${t}`).join("\n")}` : ""}`;
+}
+
 export function buildGeneratePrompt(params: {
   goal: string;
   clientName: string;
   url: string;
   notes: string;
+  ideas?: PlanIdea[];
 }): string {
-  const { goal, clientName, url, notes } = params;
+  const { goal, clientName, url, notes, ideas } = params;
+  const approved = ideas?.length
+    ? `\nThe strategist reviewed a brainstorm and APPROVED exactly these tactics — the plan must be built around them:
+${ideas.map((i) => `• [${i.category}] ${i.title} — ${i.description}`).join("\n")}
+
+Rules for using the approved list:
+- Every approved tactic must appear in the plan, fleshed out with practice-specific detail.
+- Do NOT introduce major new tactics beyond the approved list. Supporting detail (measurement, timeline, what we need from the client) is expected — new channels or campaigns are not.
+- Group approved tactics into sensible sections; keep their intent intact.\n`
+    : "";
   return `You are a senior marketing strategist at Beyond Indigo, a veterinary marketing agency. Draft a polished, CLIENT-FACING project plan document.
 
 The goal: ${goal}
 ${clientName ? `The client: ${clientName}` : ""}
 ${url ? `Their website (read it with web search for real context — services, tone, booking options): ${url}` : ""}
 ${notes ? `Additional context and constraints from the strategist:\n${notes}` : ""}
-
+${approved}
 Write the plan as a document the client will actually read:
 - title: a clear, professional document title (no "AI" mentions).
 - intro: 2-4 sentences framing the goal and why this plan will work — warm, confident, plain English.
