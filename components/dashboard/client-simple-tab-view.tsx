@@ -235,7 +235,8 @@ function MapsUrlLookup({ clientId, onFound }: { clientId: number; onFound: (plac
   );
 }
 
-function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; onSaved?: () => void }) {
+// Exported so the client overview page can surface connections directly.
+export function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; onSaved?: () => void }) {
   const { client, socialConnections } = data;
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -487,36 +488,44 @@ function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitialData; o
   );
 }
 
-function CommsTab({ data }: { data: ClientWorkspaceInitialData }) {
+// Exported so the client overview page can surface comms status directly.
+export function CommsStatusCard({ data }: { data: ClientWorkspaceInitialData }) {
   const { client, threadEvents } = data;
   const clientThreads = threadEvents.filter((e) => !e.is_internal);
   const latestClient = clientThreads[0] ?? null;
 
   return (
+    <div className="bip-card p-5">
+      <p className="bip-section-label mb-3">Status</p>
+      <dl>
+        <DataRow
+          label="Awaiting reply"
+          value={client.needs_reply ? `Yes — client last responded ${formatRelative(client.last_communication_at)}` : "No"}
+        />
+        <DataRow label="Days since last communication" value={client.days_stale != null ? `${client.days_stale} day${client.days_stale !== 1 ? "s" : ""}` : undefined} />
+        <DataRow label="Last communication" value={formatRelative(client.last_communication_at)} />
+        <DataRow label="Last message from" value={client.last_event_is_internal == null ? undefined : client.last_event_is_internal ? "Internal" : "Client"} />
+      </dl>
+      {latestClient && openableBasecampUrl(latestClient.thread_url) && (
+        <a
+          href={openableBasecampUrl(latestClient.thread_url) ?? "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-2 text-xs text-bip-muted hover:text-bip-text transition-colors"
+        >
+          Open latest thread in Basecamp <ExternalLink size={11} />
+        </a>
+      )}
+    </div>
+  );
+}
+
+function CommsTab({ data }: { data: ClientWorkspaceInitialData }) {
+  const { threadEvents } = data;
+
+  return (
     <div className="space-y-5">
-      {/* Status */}
-      <div className="bip-card p-5">
-        <p className="bip-section-label mb-3">Status</p>
-        <dl>
-          <DataRow
-            label="Awaiting reply"
-            value={client.needs_reply ? `Yes — client last responded ${formatRelative(client.last_communication_at)}` : "No"}
-          />
-          <DataRow label="Days since last communication" value={client.days_stale != null ? `${client.days_stale} day${client.days_stale !== 1 ? "s" : ""}` : undefined} />
-          <DataRow label="Last communication" value={formatRelative(client.last_communication_at)} />
-          <DataRow label="Last message from" value={client.last_event_is_internal == null ? undefined : client.last_event_is_internal ? "Internal" : "Client"} />
-        </dl>
-        {latestClient && openableBasecampUrl(latestClient.thread_url) && (
-          <a
-            href={openableBasecampUrl(latestClient.thread_url) ?? "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-bip-border px-3 py-2 text-xs text-bip-muted hover:text-bip-text transition-colors"
-          >
-            Open latest thread in Basecamp <ExternalLink size={11} />
-          </a>
-        )}
-      </div>
+      <CommsStatusCard data={data} />
 
       {/* Recent threads */}
       {threadEvents.length > 0 && (

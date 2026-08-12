@@ -7,7 +7,12 @@ import type { SocialIdea } from "@/lib/social/types";
 
 export const metadata = { title: "Social Planner" };
 
-export default async function SocialPlannerPage() {
+export default async function SocialPlannerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ client?: string }>;
+}) {
+  const { client: clientParam } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -29,5 +34,14 @@ export default async function SocialPlannerPage() {
       .returns<{ id: number; account_name: string }[]>(),
   ]);
 
-  return <SocialPlannerStudio initialIdeas={ideas ?? []} clients={clients ?? []} isAdminUser={isAdmin(profile)} />;
+  const initialClientId = clientParam && Number.isInteger(Number(clientParam)) ? Number(clientParam) : undefined;
+
+  return (
+    <SocialPlannerStudio
+      initialIdeas={ideas ?? []}
+      clients={clients ?? []}
+      isAdminUser={isAdmin(profile)}
+      initialClientId={initialClientId}
+    />
+  );
 }

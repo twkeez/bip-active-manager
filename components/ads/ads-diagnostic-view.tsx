@@ -235,8 +235,14 @@ function AuctionInsightsPanel({ rows }: { rows: AuctionRow[] }) {
   );
 }
 
-export default function AdsDiagnosticView({ clients }: { clients: ClientOption[] }) {
-  const [customerId, setCustomerId] = useState("");
+export default function AdsDiagnosticView({
+  clients,
+  initialCustomerId,
+}: {
+  clients: ClientOption[];
+  initialCustomerId?: string;
+}) {
+  const [customerId, setCustomerId] = useState(initialCustomerId ?? "");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AccountDiagnostic | null>(null);

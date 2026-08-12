@@ -18,10 +18,12 @@ export function SocialPlannerStudio({
   initialIdeas,
   clients,
   isAdminUser,
+  initialClientId,
 }: {
   initialIdeas: SocialIdea[];
   clients: CalendarClient[];
   isAdminUser: boolean;
+  initialClientId?: number;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("calendar");
 
@@ -50,7 +52,9 @@ export function SocialPlannerStudio({
         ))}
       </div>
 
-      {activeTab === "calendar" && <CalendarBuilder clients={clients} bankIdeas={initialIdeas} isAdminUser={isAdminUser} />}
+      {activeTab === "calendar" && (
+        <CalendarBuilder clients={clients} bankIdeas={initialIdeas} isAdminUser={isAdminUser} initialClientId={initialClientId} />
+      )}
       {activeTab === "ideas" && <IdeaRepositoryTab initialIdeas={initialIdeas} />}
       {activeTab === "awareness" && <AwarenessDaysTab />}
     </div>

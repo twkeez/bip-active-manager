@@ -16,6 +16,7 @@ type ClientWorkspaceProps = ClientWorkspaceInitialData & {
   syncState?: BasecampSyncState | null;
   strategistRoster?: StrategistContact[];
   appUrl?: string;
+  isAdminUser?: boolean;
 };
 
 export default function ClientWorkspace({
@@ -24,6 +25,7 @@ export default function ClientWorkspace({
   syncState = null,
   strategistRoster = [],
   appUrl,
+  isAdminUser = false,
   ...data
 }: ClientWorkspaceProps) {
   // Simple tabs — clean shell, no client-manager
@@ -59,6 +61,7 @@ export default function ClientWorkspace({
       userEmail={userEmail}
       strategistRoster={strategistRoster}
       appUrl={appUrl}
+      isAdminUser={isAdminUser}
     />
   );
 }

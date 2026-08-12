@@ -5,7 +5,12 @@ import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
 import type { ClientRow } from "@/lib/types/client";
 
-export default async function AdsDiagnosticPage() {
+export default async function AdsDiagnosticPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ customer?: string }>;
+}) {
+  const { customer: customerParam } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -24,5 +29,7 @@ export default async function AdsDiagnosticPage() {
     .filter((c) => isSyncableAdsCustomerId(c.ads_customer_id))
     .map((c) => ({ name: c.account_name ?? "Unnamed", customerId: c.ads_customer_id as string }));
 
-  return <AdsDiagnosticView clients={clients} />;
+  const initialCustomerId = clients.some((c) => c.customerId === customerParam) ? customerParam : undefined;
+
+  return <AdsDiagnosticView clients={clients} initialCustomerId={initialCustomerId} />;
 }

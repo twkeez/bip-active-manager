@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import ClientWorkspace from "@/components/dashboard/client-workspace";
 import { loadClientWorkspaceData } from "@/lib/dashboard/load-client-workspace-data";
 import { parseClientDetailTab } from "@/lib/dashboard/client-workspace-types";
+import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
 import { getStrategistRoster } from "@/lib/team/strategist-roster";
 import type { BasecampSyncState } from "@/lib/types/client";
@@ -27,6 +28,7 @@ export default async function ClientWorkspacePage({
   if (!user) {
     redirect("/login");
   }
+  const profile = await getProfile(supabase);
   const data = await loadClientWorkspaceData(supabase, clientId);
   if (!data) {
     notFound();
@@ -47,6 +49,7 @@ export default async function ClientWorkspacePage({
       initialTab={parseClientDetailTab(query.tab)}
       strategistRoster={strategistRoster}
       appUrl={appUrl}
+      isAdminUser={isAdmin(profile)}
     />
   );
 }

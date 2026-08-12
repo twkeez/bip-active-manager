@@ -4,18 +4,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  Activity,
   AlertTriangle,
   ArrowLeft,
+  ArrowUpRight,
   BarChart3,
-  BookOpen,
+  CalendarDays,
   ExternalLink,
+  FileBarChart,
   Globe,
   HardDrive,
   Loader2,
   Pencil,
-  Share2,
-  TrendingDown,
-  TrendingUp,
 } from "lucide-react";
 import { previewText, openableBasecampUrl } from "@/lib/basecamp/display";
 import {
@@ -37,14 +37,10 @@ import type {
 } from "@/lib/dashboard/client-workspace-types";
 import NotifyStrategistButton from "@/components/dashboard/notify-strategist-button";
 import type { StrategistContact } from "@/lib/team/strategist-roster";
-import { FocusCard } from "@/components/dashboard/strategist-cockpit";
-import { toCockpitViewModel } from "@/lib/dashboard/cockpit-view-model";
+import { CommsStatusCard, ConnectionsTab } from "@/components/dashboard/client-simple-tab-view";
 
 const DETAIL_TABS: Array<{ id: ClientDetailTab; label: string }> = [
   { id: "comms", label: "Comms" },
-  { id: "onboarding", label: "Onboarding" },
-  { id: "playbook", label: "Playbook" },
-  { id: "connections", label: "Connections" },
 ];
 
 function formatRelativeDays(value: string | null | undefined): string | null {
@@ -57,44 +53,32 @@ function formatRelativeDays(value: string | null | undefined): string | null {
   return `${days} days ago`;
 }
 
-function KpiCard({
+// Big rounded launch button — opens a tool preloaded for this client.
+function LaunchButton({
+  href,
+  icon: Icon,
   label,
-  value,
   sub,
-  trend,
 }: {
+  href: string;
+  icon: React.ElementType;
   label: string;
-  value: string | null;
-  sub?: string;
-  trend?: number | null;
+  sub: string;
 }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-        {label}
-      </p>
-      {value === null ? (
-        <p className="text-sm text-neutral-300">No data</p>
-      ) : (
-        <>
-          <div className="flex items-end gap-2">
-            <span className="text-2xl font-bold text-neutral-900">{value}</span>
-            {trend !== null && trend !== undefined && (
-              <span
-                className={`mb-0.5 flex items-center gap-0.5 text-xs font-semibold ${
-                  trend >= 0 ? "text-emerald-600" : "text-red-500"
-                }`}
-              >
-                {trend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                {trend > 0 ? "+" : ""}
-                {trend}%
-              </span>
-            )}
-          </div>
-          {sub && <p className="mt-0.5 text-[11px] text-neutral-400">{sub}</p>}
-        </>
-      )}
-    </div>
+    <Link
+      href={href}
+      className="group flex flex-1 items-center gap-4 rounded-2xl border border-neutral-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-neutral-900 hover:shadow-md"
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition group-hover:bg-neutral-900 group-hover:text-white">
+        <Icon size={20} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-neutral-900">{label}</span>
+        <span className="block text-xs text-neutral-400">{sub}</span>
+      </span>
+      <ArrowUpRight size={16} className="shrink-0 text-neutral-300 transition group-hover:text-neutral-900" />
+    </Link>
   );
 }
 
@@ -103,11 +87,13 @@ export default function ClientWorkspaceDashboard({
   userEmail,
   strategistRoster = [],
   appUrl,
+  isAdminUser = false,
 }: {
   data: ClientWorkspaceInitialData;
   userEmail?: string;
   strategistRoster?: StrategistContact[];
   appUrl?: string;
+  isAdminUser?: boolean;
 }) {
   const router = useRouter();
   const [clientsListHref, setClientsListHref] = useState(CLIENT_LIST_PATH);
@@ -143,29 +129,6 @@ export default function ClientWorkspaceDashboard({
   const latestClientThread = clientThreads[0] ?? null;
   const showReplyAlert = shouldShowReplyAlert(client);
   const tierLabel = norm(client.tier) || "Unassigned tier";
-
-  // Cockpit signals
-  const cockpit = toCockpitViewModel(data);
-  const p1Items = cockpit.focus.filter((f) => f.priority === "P1");
-  const p2Items = cockpit.focus.filter((f) => f.priority === "P2");
-  const wins = cockpit.features.filter((f) => !f.title.startsWith("No clean wins"));
-
-  // KPI data
-  const totalClicks = data.gscPageMetrics.reduce((sum, m) => sum + m.clicks, 0);
-  const ga4Sessions = data.ga4Snapshot?.totals.sessions ?? null;
-  const prevGa4Sessions = data.ga4Snapshot?.previous_totals?.sessions ?? null;
-  const sessionTrend =
-    ga4Sessions !== null && prevGa4Sessions !== null && prevGa4Sessions > 0
-      ? Math.round(((ga4Sessions - prevGa4Sessions) / prevGa4Sessions) * 100)
-      : null;
-  const adsConversions = data.adsSnapshot?.totals.conversions ?? null;
-  const adsCostMicros = data.adsSnapshot?.totals.cost_micros ?? null;
-  const cpa =
-    adsConversions && adsCostMicros && adsConversions > 0
-      ? `$${(adsCostMicros / 1_000_000 / adsConversions).toFixed(0)} CPA`
-      : null;
-  const gbpRating = data.gbpSnapshot?.rating ?? null;
-  const gbpTotal = data.gbpSnapshot?.user_ratings_total ?? null;
 
   // Hours
   const pkgHours = client.total_package_hours ?? 0;
@@ -507,127 +470,39 @@ export default function ClientWorkspaceDashboard({
       {/* ── Body ────────────────────────────────────────────────── */}
       <div className="space-y-5 p-6">
 
-        {/* Top row: Command Center + Quick Links */}
+        {/* Launch bar — tools preloaded for this client */}
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <LaunchButton
+            href={`/reports/${clientId}`}
+            icon={FileBarChart}
+            label="Reporting"
+            sub="Build this client's report"
+          />
+          <LaunchButton
+            href={`/social-planner?client=${clientId}`}
+            icon={CalendarDays}
+            label="Social Media"
+            sub="Calendar builder for this practice"
+          />
+          {isAdminUser && norm(client.ads_customer_id) && (
+            <LaunchButton
+              href={`/ads-diagnostic?customer=${encodeURIComponent(norm(client.ads_customer_id) ?? "")}`}
+              icon={Activity}
+              label="Ads Diagnostics"
+              sub="Deep-dive this ads account"
+            />
+          )}
+        </div>
+
+        {/* Comms status + Quick Links */}
         <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
 
-          {/* Command Center */}
+          {/* Comms status (from the Comms tab) */}
           <section>
             <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-              Command Center
+              Communication
             </h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {/* Critical */}
-              <div
-                className={`rounded-xl border-l-4 p-4 ${
-                  p1Items.length > 0
-                    ? "border-red-500 bg-red-50"
-                    : "border-neutral-200 bg-white"
-                }`}
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full ${p1Items.length > 0 ? "bg-red-500" : "bg-neutral-300"}`}
-                  />
-                  <span
-                    className={`text-sm font-semibold ${p1Items.length > 0 ? "text-red-700" : "text-neutral-400"}`}
-                  >
-                    Critical: {p1Items.length}
-                  </span>
-                </div>
-                {p1Items.length === 0 ? (
-                  <p className="text-xs text-neutral-400">No critical issues</p>
-                ) : (
-                  <>
-                    {p1Items.slice(0, 2).map((item, i) => (
-                      <p
-                        key={i}
-                        className="mt-1 text-xs leading-snug text-red-700"
-                      >
-                        {item.title}
-                      </p>
-                    ))}
-                    {p1Items.length > 2 && (
-                      <p className="mt-1 text-[11px] text-red-400">
-                        +{p1Items.length - 2} more below
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Warning */}
-              <div
-                className={`rounded-xl border-l-4 p-4 ${
-                  p2Items.length > 0
-                    ? "border-amber-400 bg-amber-50"
-                    : "border-neutral-200 bg-white"
-                }`}
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full ${p2Items.length > 0 ? "bg-amber-400" : "bg-neutral-300"}`}
-                  />
-                  <span
-                    className={`text-sm font-semibold ${p2Items.length > 0 ? "text-amber-700" : "text-neutral-400"}`}
-                  >
-                    Warning: {p2Items.length}
-                  </span>
-                </div>
-                {p2Items.length === 0 ? (
-                  <p className="text-xs text-neutral-400">No warnings</p>
-                ) : (
-                  <>
-                    {p2Items.slice(0, 2).map((item, i) => (
-                      <p
-                        key={i}
-                        className="mt-1 text-xs leading-snug text-amber-700"
-                      >
-                        {item.title}
-                      </p>
-                    ))}
-                    {p2Items.length > 2 && (
-                      <p className="mt-1 text-[11px] text-amber-500">
-                        +{p2Items.length - 2} more below
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Good */}
-              <div
-                className={`rounded-xl border-l-4 p-4 ${
-                  wins.length > 0
-                    ? "border-emerald-500 bg-emerald-50"
-                    : "border-neutral-200 bg-white"
-                }`}
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full ${wins.length > 0 ? "bg-emerald-500" : "bg-neutral-300"}`}
-                  />
-                  <span
-                    className={`text-sm font-semibold ${wins.length > 0 ? "text-emerald-700" : "text-neutral-400"}`}
-                  >
-                    Good: {wins.length}
-                  </span>
-                </div>
-                {wins.length === 0 ? (
-                  <p className="text-xs text-neutral-400">
-                    Address critical items first
-                  </p>
-                ) : (
-                  wins.slice(0, 2).map((win, i) => (
-                    <p
-                      key={i}
-                      className="mt-1 text-xs leading-snug text-emerald-700"
-                    >
-                      {win.title}
-                    </p>
-                  ))
-                )}
-              </div>
-            </div>
+            <CommsStatusCard data={data} />
           </section>
 
           {/* Quick Links */}
@@ -662,24 +537,6 @@ export default function ClientWorkspaceDashboard({
                 </li>
               )}
               <li>
-                <Link
-                  href={`/reports/${clientId}/draft`}
-                  className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-50"
-                >
-                  <Share2 size={14} className="shrink-0 text-neutral-400" />
-                  Reporting
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href={`/dashboard/clients/${clientId}?tab=playbook`}
-                  className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-50"
-                >
-                  <BookOpen size={14} className="shrink-0 text-neutral-400" />
-                  Service Playbook
-                </Link>
-              </li>
-              <li>
                 {displayDrive ? (
                   <a
                     href={displayDrive}
@@ -706,55 +563,16 @@ export default function ClientWorkspaceDashboard({
           </div>
         </div>
 
-        {/* KPI Scorecard */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard
-            label="Organic clicks"
-            value={totalClicks > 0 ? totalClicks.toLocaleString() : null}
-            sub="Last 30 days · GSC"
-          />
-          <KpiCard
-            label="GA4 sessions"
-            value={ga4Sessions !== null ? ga4Sessions.toLocaleString() : null}
-            sub="Last 30 days"
-            trend={sessionTrend}
-          />
-          <KpiCard
-            label="Paid conversions"
-            value={adsConversions !== null ? adsConversions.toLocaleString() : null}
-            sub={cpa ?? "Google Ads"}
-          />
-          <KpiCard
-            label="GBP rating"
-            value={gbpRating !== null ? `${gbpRating.toFixed(1)}★` : null}
-            sub={gbpTotal !== null ? `${gbpTotal.toLocaleString()} reviews` : undefined}
-          />
-        </div>
-
-        {/* Bottom: Focus Queue + Recent Activity */}
+        {/* Bottom: Connections + Recent Activity */}
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
 
-          {/* Focus Queue */}
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-                Focus Queue
-              </h2>
-              <span className="text-[11px] text-neutral-300">
-                Internal only
-                {cockpit.client.syncedAt ? ` · synced ${cockpit.client.syncedAt}` : ""}
-              </span>
-            </div>
-            {cockpit.focus.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-neutral-300 p-8 text-center text-sm text-neutral-400">
-                No open signals this period.
-              </div>
-            ) : (
-              cockpit.focus.map((item) => (
-                <FocusCard key={item.id} item={item} />
-              ))
-            )}
-          </div>
+          {/* Connections (from the Connections tab) */}
+          <section>
+            <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+              Connections
+            </h2>
+            <ConnectionsTab data={data} onSaved={() => router.refresh()} />
+          </section>
 
           {/* Recent Activity */}
           <div>

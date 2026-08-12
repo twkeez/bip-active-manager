@@ -56,16 +56,20 @@ export function CalendarBuilder({
   clients,
   bankIdeas,
   isAdminUser,
+  initialClientId,
 }: {
   clients: CalendarClient[];
   bankIdeas: SocialIdea[];
   isAdminUser: boolean;
+  initialClientId?: number;
 }) {
   const now = new Date();
   const defaultMonth = now.getMonth() + 2 > 12 ? 1 : now.getMonth() + 2; // default to next month
   const defaultYear = now.getMonth() + 2 > 12 ? now.getFullYear() + 1 : now.getFullYear();
 
-  const [clientId, setClientId] = useState<number | "">("");
+  const [clientId, setClientId] = useState<number | "">(
+    initialClientId != null && clients.some((c) => c.id === initialClientId) ? initialClientId : "",
+  );
   const [month, setMonth] = useState(defaultMonth);
   const [year, setYear] = useState(defaultYear);
 
