@@ -4,19 +4,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
+  KeyboardCode,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
+  closestCorners,
+  getFirstCollision,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
+  type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
-import { CalendarDays, GripVertical, Lock, PanelLeftOpen, Sparkles, X } from "lucide-react";
+import { CalendarDays, GripVertical, Link2, Lock, PanelLeftOpen, Sparkles, X } from "lucide-react";
 import { getCampaignType } from "@/lib/social/campaign-types";
 import { resolveAwarenessDate, toDateString } from "@/lib/social/awareness-resolver";
+import { expandSeries, type SeriesExpansion } from "@/lib/social/series-expansion";
 import { purposeStyle } from "@/lib/social/purpose-style";
 import type { FreshIdea } from "@/lib/social/idea-brainstorm";
 import type {
@@ -46,7 +51,7 @@ type BoardFreshIdea = FreshIdea & { saved?: boolean; custom?: boolean };
 /** What a dragged source card carries into a day cell. */
 type SourcePayload = {
   type: "source";
-  kind: "idea" | "fresh" | "awareness";
+  kind: "idea" | "fresh" | "awareness" | "series";
   sourceId: number | null;
   title: string;
   description: string;
@@ -78,6 +83,51 @@ function buildMonthGrid(year: number, month: number): GridCell[] {
   }
   return cells;
 }
+
+// dnd-kit's default keyboard step is a fixed 25px, so on a grid of 120px-tall
+// cells ArrowDown never reaches the next week — keyboard users could only place
+// into the first row. This jumps to the nearest droppable in the pressed
+// direction instead.
+const ARROW_KEYS = [KeyboardCode.Down, KeyboardCode.Right, KeyboardCode.Up, KeyboardCode.Left];
+
+const gridCoordinateGetter: KeyboardCoordinateGetter = (
+  event,
+  { context: { active, droppableRects, droppableContainers, collisionRect } },
+) => {
+  if (!ARROW_KEYS.includes(event.code as KeyboardCode)) return;
+  event.preventDefault();
+  if (!active || !collisionRect) return;
+
+  const candidates = droppableContainers.getEnabled().filter((entry) => {
+    if (!entry || entry.disabled) return false;
+    const rect = droppableRects.get(entry.id);
+    if (!rect) return false;
+    switch (event.code) {
+      case KeyboardCode.Down: return collisionRect.top < rect.top;
+      case KeyboardCode.Up: return collisionRect.top > rect.top;
+      case KeyboardCode.Left: return collisionRect.left >= rect.left + rect.width;
+      case KeyboardCode.Right: return collisionRect.left + collisionRect.width <= rect.left;
+      default: return false;
+    }
+  });
+
+  const collisions = closestCorners({
+    active,
+    collisionRect,
+    droppableRects,
+    droppableContainers: candidates,
+    pointerCoordinates: null,
+  });
+  const closestId = getFirstCollision(collisions, "id");
+  if (closestId == null) return;
+
+  const rect = droppableRects.get(closestId);
+  if (!rect) return;
+  return {
+    x: rect.left + (rect.width - collisionRect.width) / 2,
+    y: rect.top + (rect.height - collisionRect.height) / 2,
+  };
+};
 
 function todayString(): string {
   const now = new Date();
@@ -160,11 +210,14 @@ function PostChip({
   dotClass,
   onSelect,
   selected,
+  partsTotal,
 }: {
   post: SocialContentPost;
   dotClass: string;
   onSelect: () => void;
   selected: boolean;
+  /** Total parts in this post's arc, for the "2/5" badge. */
+  partsTotal?: number;
 }) {
   const needsCaption = !post.caption_draft?.trim();
   // Locked posts are not draggable at all — they can't be moved or deleted.
@@ -188,9 +241,18 @@ function PostChip({
       } focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400`}
     >
       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass}`} />
+      {post.series_id != null && (
+        <Link2 size={9} className="shrink-0 text-violet-500" aria-label="Part of a series" />
+      )}
       <span className="min-w-0 flex-1 truncate text-[0.7rem] font-medium text-slate-700">
         {post.campaign_label}
       </span>
+      {post.series_part != null && (
+        <span className="shrink-0 rounded bg-violet-50 px-1 text-[0.6rem] font-semibold tabular-nums text-violet-700">
+          {post.series_part}
+          {partsTotal ? `/${partsTotal}` : ""}
+        </span>
+      )}
       {needsCaption && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title="Needs caption" />}
       {post.locked && <Lock size={9} className="shrink-0 text-slate-400" />}
     </div>
@@ -291,6 +353,12 @@ export function CalendarBuilder({
   const [elapsed, setElapsed] = useState(0);
   const [writeResult, setWriteResult] = useState<{ updated: number; skipped: number } | null>(null);
 
+  // Series expansion awaiting confirmation — nothing is written until confirmed.
+  const [pendingSeries, setPendingSeries] = useState<
+    { series: SocialSeriesWithParts; dropDate: string; expansion: SeriesExpansion } | null
+  >(null);
+  const [placingSeries, setPlacingSeries] = useState(false);
+
   // Client-facing display name
   const [publicNames, setPublicNames] = useState<Record<number, string | null>>({});
   const [publicNameDraft, setPublicNameDraft] = useState("");
@@ -331,7 +399,7 @@ export function CalendarBuilder({
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: gridCoordinateGetter }),
   );
 
   // ── Load the plan whenever (client, month, year) changes ───────────────────
@@ -624,6 +692,54 @@ export function CalendarBuilder({
     setActiveDrag((event.active.data.current as SourcePayload | PostPayload) ?? null);
   }
 
+  /** Write a confirmed series expansion in one request. */
+  async function commitSeriesExpansion() {
+    if (!client || !pendingSeries || placingSeries) return;
+    const { series: s, expansion } = pendingSeries;
+    if (expansion.posts.length === 0) {
+      setPendingSeries(null);
+      return;
+    }
+    setPlacingSeries(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/social/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: client.id,
+          month,
+          year,
+          items: expansion.posts.map((p) => ({
+            postDate: p.postDate,
+            kind: "series" as const,
+            title: p.campaignLabel,
+            campaignType: s.campaign_type,
+            seriesId: s.id,
+            seriesPart: p.seriesPart,
+            shotList: p.shotList,
+          })),
+        }),
+      });
+      const data = (await res.json()) as {
+        posts?: SocialContentPost[];
+        plan?: SocialContentPlan;
+        error?: string;
+      };
+      if (!res.ok || !data.posts) throw new Error(data.error ?? "Could not place the series");
+      setPlan((prev) =>
+        prev && prev.id > 0
+          ? { ...prev, posts: [...prev.posts, ...data.posts!] }
+          : ({ ...(data.plan as SocialContentPlan), posts: data.posts! } as SocialPlanWithPosts),
+      );
+      setPendingSeries(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not place the series");
+    } finally {
+      setPlacingSeries(false);
+    }
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     const payload = event.active.data.current as SourcePayload | PostPayload | undefined;
     setActiveDrag(null);
@@ -633,7 +749,15 @@ export function CalendarBuilder({
     const targetDate = typeof overId === "string" && overId.startsWith("cell:") ? overId.slice(5) : null;
 
     if (payload.type === "source") {
-      if (targetDate) void placeSource(payload, targetDate);
+      if (!targetDate) return;
+      // A series can create many posts, so it always goes through a preview.
+      if (payload.kind === "series") {
+        const s = visibleSeries.find((x) => x.id === payload.sourceId);
+        if (!s) return;
+        setPendingSeries({ series: s, dropDate: targetDate, expansion: expandSeries(s, targetDate, year, month) });
+        return;
+      }
+      void placeSource(payload, targetDate);
       return;
     }
 
@@ -950,9 +1074,49 @@ export function CalendarBuilder({
         {railTab === "series" && (
           <>
             {visibleSeries.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-400">No active series.</p>
+              <p className="px-2 py-8 text-center text-sm text-slate-400">
+                No active series. Create one in the Series tab, then drag it here to lay out a whole run at once.
+              </p>
             ) : (
-              visibleSeries.map((s) => <SeriesCard key={s.id} series={s} />)
+              visibleSeries.map((s) => {
+                const isArc = s.kind === "arc";
+                return (
+                  <DraggableCard
+                    key={s.id}
+                    id={`series:${s.id}`}
+                    payload={{
+                      type: "source",
+                      kind: "series",
+                      sourceId: s.id,
+                      title: s.title,
+                      description: s.description,
+                      campaignType: s.campaign_type,
+                    }}
+                    title={s.title}
+                    description={s.description}
+                    pills={
+                      <>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
+                            isArc
+                              ? "border-violet-200/60 bg-violet-50 text-violet-700"
+                              : "border-sky-200/60 bg-sky-50 text-sky-700"
+                          }`}
+                        >
+                          {isArc ? "Arc" : "Recurring"}
+                        </span>
+                        <span className="text-xs font-medium text-slate-400">
+                          {isArc
+                            ? `${s.parts.length} part${s.parts.length === 1 ? "" : "s"}${s.spacing_days ? ` · every ${s.spacing_days}d` : ""}`
+                            : [s.cadence, s.day_of_week != null ? WEEKDAY_HEADS[s.day_of_week] : null]
+                                .filter(Boolean)
+                                .join(" · ")}
+                        </span>
+                      </>
+                    }
+                  />
+                );
+              })
             )}
           </>
         )}
@@ -975,6 +1139,77 @@ export function CalendarBuilder({
       onDragCancel={() => setActiveDrag(null)}
     >
       <div className="flex min-h-0 flex-1 flex-col">
+        {/* Series expansion preview — nothing is written until this is confirmed */}
+        {pendingSeries && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setPendingSeries(null)}
+          >
+            <div
+              className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl border border-slate-200/80 bg-white shadow-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="border-b border-slate-100 p-6 pb-4">
+                <h3 className="text-base font-bold tracking-tight text-slate-900">
+                  Add &ldquo;{pendingSeries.series.title}&rdquo; to {MONTH_NAMES[month]}?
+                </h3>
+                <p className="mt-2 text-sm text-slate-500">
+                  {pendingSeries.expansion.posts.length === 0
+                    ? "Nothing would land inside this month."
+                    : pendingSeries.expansion.posts.length === 1
+                      ? "This creates 1 post with an empty caption."
+                      : `This creates ${pendingSeries.expansion.posts.length} posts, all with empty captions.`}
+                </p>
+                {pendingSeries.expansion.clipped > 0 && (
+                  <p className="mt-2 rounded-lg border border-amber-200/60 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                    {pendingSeries.expansion.posts.length} of {pendingSeries.expansion.totalWanted}{" "}
+                    {pendingSeries.series.kind === "arc" ? "parts" : "posts"} fall in {MONTH_NAMES[month]};{" "}
+                    {pendingSeries.expansion.clipped} would land in the next month and will be skipped.
+                  </p>
+                )}
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+                <ol className="space-y-1.5">
+                  {pendingSeries.expansion.posts.map((p, i) => (
+                    <li key={`${p.postDate}-${i}`} className="flex items-center gap-3 text-sm">
+                      <span className="w-28 shrink-0 font-medium text-slate-400">{friendlyDate(p.postDate)}</span>
+                      <span className="min-w-0 flex-1 truncate text-slate-900">{p.campaignLabel}</span>
+                      {p.seriesPart != null && (
+                        <span className="shrink-0 rounded bg-violet-50 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-violet-700">
+                          {p.seriesPart}/{pendingSeries.series.parts.length}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-slate-100 p-6 pt-4">
+                <button
+                  onClick={() => setPendingSeries(null)}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void commitSeriesExpansion()}
+                  disabled={placingSeries || pendingSeries.expansion.posts.length === 0}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-slate-700 disabled:opacity-40"
+                >
+                  {placingSeries
+                    ? "Creating…"
+                    : `Create ${pendingSeries.expansion.posts.length} post${
+                        pendingSeries.expansion.posts.length === 1 ? "" : "s"
+                      }`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Delete confirmation */}
         {confirmDelete && (
           <div
@@ -1199,6 +1434,11 @@ export function CalendarBuilder({
                           post={post}
                           selected={post.id === selectedPostId}
                           onSelect={() => setSelectedPostId(post.id)}
+                          partsTotal={
+                            post.series_id != null
+                              ? series.find((s) => s.id === post.series_id)?.parts.length
+                              : undefined
+                          }
                           dotClass={
                             purposeStyle(post.idea_id != null ? purposeByIdeaId.get(post.idea_id) ?? null : null).dot
                           }

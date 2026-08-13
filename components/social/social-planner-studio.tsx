@@ -73,7 +73,12 @@ export function SocialPlannerStudio({
       )}
       {activeTab === "series" && (
         <div className="p-6">
-          <SeriesTab series={series} clients={clients} />
+          <SeriesTab
+            series={series}
+            clients={clients}
+            selectedClientId={initialClientId ?? null}
+            isAdminUser={isAdminUser}
+          />
         </div>
       )}
     </div>
