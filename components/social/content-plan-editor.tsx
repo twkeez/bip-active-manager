@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Lock, LockOpen } from "lucide-react";
 import { getCampaignType } from "@/lib/social/campaign-types";
 import type { SocialPlanWithPosts, SocialContentPost, SocialClientProfile, StandingCampaign, PostStatus } from "@/lib/social/types";
 
@@ -47,7 +48,32 @@ function PostCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ caption_draft: post.caption_draft ?? "", shot_list: post.shot_list ?? "", hashtags: post.hashtags ?? "" });
   const [saving, setSaving] = useState(false);
+  // Optimistic lock state — falls back to the server value, reverts on failure.
+  const [lockedOverride, setLockedOverride] = useState<boolean | null>(null);
+  const [lockError, setLockError] = useState(false);
   const ct = getCampaignType(post.campaign_type);
+  const locked = lockedOverride ?? post.locked;
+
+  async function toggleLock() {
+    const next = !locked;
+    setLockedOverride(next);
+    setLockError(false);
+    try {
+      const res = await fetch(`/api/social/plans/${planId}/posts`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: post.id, updates: { locked: next } }),
+      });
+      if (!res.ok) throw new Error("Lock failed");
+      const updated = (await res.json()) as SocialContentPost;
+      setLockedOverride(null);
+      onUpdate(updated);
+    } catch {
+      setLockedOverride(null); // revert to the server value
+      setLockError(true);
+      setTimeout(() => setLockError(false), 2500);
+    }
+  }
 
   async function saveEdits() {
     setSaving(true);
@@ -84,6 +110,31 @@ function PostCard({
         <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[post.status]}`}>
           {STATUS_LABELS[post.status]}
         </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            void toggleLock();
+          }}
+          title={
+            lockError
+              ? "Could not change lock — try again"
+              : locked
+                ? "Locked — protected from rebuild"
+                : "Lock to protect from rebuild"
+          }
+          aria-label={locked ? "Locked — protected from rebuild" : "Lock to protect from rebuild"}
+          aria-pressed={locked}
+          className={`shrink-0 rounded-md border p-1 transition-colors ${
+            lockError
+              ? "border-red-200 bg-red-50 text-red-600"
+              : locked
+                ? "border-slate-200 bg-slate-100 text-slate-700"
+                : "border-transparent text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          {locked ? <Lock size={13} /> : <LockOpen size={13} />}
+        </button>
         <span className="text-gray-400 text-xs">{expanded ? "▲" : "▼"}</span>
       </div>
 
