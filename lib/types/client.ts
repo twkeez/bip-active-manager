@@ -1,6 +1,10 @@
 export type ClientRow = {
   id: number;
+  /** Internal identifier — what the team searches by. May carry a group prefix. */
   account_name: string;
+  /** Client-facing name for generated copy. NULL = fall back to account_name.
+   *  Resolve with getClientDisplayName() from @/lib/clients/display-name. */
+  public_name: string | null;
   marketing_strategist: string | null;
   total_package_hours: number | null;
   hours_for_strategist: number | null;
@@ -79,7 +83,9 @@ export type ClientInsert = Omit<
   | "reply_acknowledged_at"
   | "reply_acknowledged_for_occurred_at"
   | "days_stale"
->;
+  // Optional on insert — null means "use account_name".
+  | "public_name"
+> & { public_name?: string | null };
 
 export type BasecampSyncState = {
   id: number;

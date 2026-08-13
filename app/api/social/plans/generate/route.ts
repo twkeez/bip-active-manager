@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClientDisplayName } from "@/lib/clients/display-name";
 import { writeCaptions, type CaptionRequestPost } from "@/lib/social/caption-writer";
 import type {
   SocialAwarenessDay,
@@ -83,9 +84,9 @@ export async function POST(request: Request) {
   const [clientRes, profileRes] = await Promise.all([
     admin
       .from("clients")
-      .select("account_name, website")
+      .select("account_name, public_name, website")
       .eq("id", plan.client_id)
-      .maybeSingle<{ account_name: string; website: string | null }>(),
+      .maybeSingle<{ account_name: string; public_name: string | null; website: string | null }>(),
     admin
       .from("social_client_profiles")
       .select("*")
@@ -124,7 +125,8 @@ export async function POST(request: Request) {
   try {
     written = await writeCaptions({
       apiKey,
-      clientName: clientRes.data.account_name,
+      // Client-facing name — account_name may carry an internal group prefix.
+      clientName: getClientDisplayName(clientRes.data),
       website: clientRes.data.website,
       specialty: profileRes.data?.specialty ?? null,
       tone: profileRes.data?.tone ?? null,

@@ -40,9 +40,9 @@ export default async function SocialPlannerPage({
       .returns<SocialIdea[]>(),
     admin
       .from("clients")
-      .select("id, account_name")
+      .select("id, account_name, public_name")
       .order("account_name")
-      .returns<{ id: number; account_name: string }[]>(),
+      .returns<{ id: number; account_name: string; public_name: string | null }[]>(),
     // Only verified + active days are usable; the rest are a review backlog.
     admin
       .from("social_awareness_days")

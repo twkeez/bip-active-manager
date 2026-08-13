@@ -38,7 +38,7 @@ const MONTH_NAMES = [
 
 const WEEKDAY_HEADS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export type CalendarClient = { id: number; account_name: string };
+export type CalendarClient = { id: number; account_name: string; public_name: string | null };
 
 type RailTab = "ideas" | "fresh" | "days" | "series";
 type BoardFreshIdea = FreshIdea & { saved?: boolean; custom?: boolean };
@@ -291,10 +291,43 @@ export function CalendarBuilder({
   const [elapsed, setElapsed] = useState(0);
   const [writeResult, setWriteResult] = useState<{ updated: number; skipped: number } | null>(null);
 
+  // Client-facing display name
+  const [publicNames, setPublicNames] = useState<Record<number, string | null>>({});
+  const [publicNameDraft, setPublicNameDraft] = useState("");
+  const [savingPublicName, setSavingPublicName] = useState(false);
+
   // Temp ids for optimistic inserts, replaced by the server row on success.
   const tempId = useRef(-1);
 
   const client = clients.find((c) => c.id === clientId) ?? null;
+  // Server value, overridden locally once saved in this session.
+  const publicName = client ? publicNames[client.id] ?? client.public_name : null;
+  const needsPublicName = Boolean(client && !publicName?.trim());
+
+  async function savePublicName() {
+    if (!client || savingPublicName) return;
+    const value = publicNameDraft.trim();
+    if (!value) return;
+    setSavingPublicName(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ public_name: value }),
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        throw new Error(err.error ?? "Could not save the public name");
+      }
+      setPublicNames((prev) => ({ ...prev, [client.id]: value }));
+      setPublicNameDraft("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save the public name");
+    } finally {
+      setSavingPublicName(false);
+    }
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -1032,6 +1065,34 @@ export function CalendarBuilder({
             Drag a card onto a day — or focus its handle and press space, then arrow to a day.
           </p>
         </div>
+
+        {/* Captions will use the internal account name unless a public one is set. */}
+        {needsPublicName && client && (
+          <div className="mx-6 mb-3 rounded-xl border border-amber-200/60 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-900">
+              Captions will use{" "}
+              <span className="font-semibold">&ldquo;{client.account_name}&rdquo;</span> — set a public
+              name if that&rsquo;s not what clients should see.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <input
+                value={publicNameDraft}
+                onChange={(e) => setPublicNameDraft(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void savePublicName()}
+                placeholder={client.account_name}
+                aria-label="Client-facing practice name"
+                className="min-w-64 flex-1 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-amber-400 sm:flex-none"
+              />
+              <button
+                onClick={() => void savePublicName()}
+                disabled={!publicNameDraft.trim() || savingPublicName}
+                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-slate-700 disabled:opacity-40"
+              >
+                {savingPublicName ? "Saving…" : "Save public name"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {error && (
           <p className="mx-6 mb-3 rounded-xl border border-red-200/80 bg-red-50 px-4 py-2.5 text-sm text-red-700">

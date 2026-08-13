@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClientDisplayName } from "@/lib/clients/display-name";
 import { generateFreshIdeas } from "@/lib/social/idea-brainstorm";
 import type { SocialClientProfile, StandingCampaign } from "@/lib/social/types";
 
@@ -31,7 +32,11 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const [clientRes, profileRes] = await Promise.all([
-    admin.from("clients").select("account_name, website").eq("id", clientId).maybeSingle<{ account_name: string; website: string | null }>(),
+    admin
+      .from("clients")
+      .select("account_name, public_name, website")
+      .eq("id", clientId)
+      .maybeSingle<{ account_name: string; public_name: string | null; website: string | null }>(),
     admin.from("social_client_profiles").select("*").eq("client_id", clientId).maybeSingle<SocialClientProfile>(),
   ]);
 
@@ -41,7 +46,8 @@ export async function POST(request: Request) {
   try {
     const ideas = await generateFreshIdeas({
       apiKey,
-      clientName: clientRes.data.account_name,
+      // Client-facing name — account_name may carry an internal group prefix.
+      clientName: getClientDisplayName(clientRes.data),
       website: clientRes.data.website,
       month,
       specialty: profile?.specialty ?? null,

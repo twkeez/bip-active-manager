@@ -82,6 +82,7 @@ export async function PATCH(
     "harvest_project_id",
     "harvest_client_id",
     "website",
+    "public_name",
     "contact_name",
     "contact_email",
     "shared_drive_url",
