@@ -263,12 +263,9 @@ export default function ClientSelectHome({
         if (filter === "enterprise") return (client.tier ?? "").toLowerCase().includes("enterprise");
         return true;
       })
-      .sort((a, b) => {
-        const order: Record<RowStatus, number> = { needs_reply: 0, alert: 1, onboarding: 2, ok: 3 };
-        const sd = order[a.status] - order[b.status];
-        if (sd !== 0) return sd;
-        return (a.client.account_name ?? "").localeCompare(b.client.account_name ?? "");
-      });
+      .sort((a, b) =>
+        (a.client.account_name ?? "").localeCompare(b.client.account_name ?? ""),
+      );
   }, [enriched, query, filter, strategist, showWebsiteOnly]);
 
   const counts = useMemo(
