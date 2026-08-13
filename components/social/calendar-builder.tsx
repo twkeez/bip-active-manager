@@ -34,7 +34,7 @@ import type {
   SocialSeriesWithParts,
 } from "@/lib/social/types";
 import { SOCIAL_PURPOSES } from "@/lib/social/types";
-import { SeriesCard } from "./series-tab";
+import { PostDetailPanel } from "./post-detail-panel";
 
 const MONTH_NAMES = [
   "", "January", "February", "March", "April", "May", "June",
@@ -347,6 +347,10 @@ export function CalendarBuilder({
   const [activeDrag, setActiveDrag] = useState<SourcePayload | PostPayload | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<SocialContentPost | null>(null);
+  // The detail panel shares the rail's column, so unsaved edits are guarded
+  // before anything swaps it away.
+  const [panelDirty, setPanelDirty] = useState(false);
+  const [pendingNav, setPendingNav] = useState<(() => void) | null>(null);
 
   // Caption generation
   const [writing, setWriting] = useState(false);
@@ -525,6 +529,27 @@ export function CalendarBuilder({
     () => (plan?.posts ?? []).find((p) => p.id === selectedPostId) ?? null,
     [plan, selectedPostId],
   );
+
+  /** Run `action`, but ask first if the open panel has unsaved edits. */
+  const guardNav = useCallback(
+    (action: () => void) => {
+      if (panelDirty) setPendingNav(() => action);
+      else action();
+    },
+    [panelDirty],
+  );
+
+  const applyPostUpdate = useCallback((updated: SocialContentPost) => {
+    setPlan((prev) =>
+      prev ? { ...prev, posts: prev.posts.map((p) => (p.id === updated.id ? updated : p)) } : prev,
+    );
+  }, []);
+
+  const removePostLocally = useCallback((postId: number) => {
+    setPlan((prev) => (prev ? { ...prev, posts: prev.posts.filter((p) => p.id !== postId) } : prev));
+    setSelectedPostId(null);
+    setPanelDirty(false);
+  }, []);
 
   // Locked posts are never rewritten, so they don't count toward the button.
   const needsCaption = useMemo(
@@ -1139,6 +1164,45 @@ export function CalendarBuilder({
       onDragCancel={() => setActiveDrag(null)}
     >
       <div className="flex min-h-0 flex-1 flex-col">
+        {/* Unsaved edits in the detail panel */}
+        {pendingNav && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setPendingNav(null)}
+          >
+            <div
+              className="w-full max-w-sm rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-base font-bold tracking-tight text-slate-900">Discard unsaved changes?</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                This post has edits you haven&rsquo;t saved. Leaving now loses them.
+              </p>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  onClick={() => setPendingNav(null)}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+                >
+                  Keep editing
+                </button>
+                <button
+                  onClick={() => {
+                    const run = pendingNav;
+                    setPendingNav(null);
+                    setPanelDirty(false);
+                    run?.();
+                  }}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-slate-700"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Series expansion preview — nothing is written until this is confirmed */}
         {pendingSeries && (
           <div
@@ -1336,7 +1400,29 @@ export function CalendarBuilder({
         )}
 
         <div className="flex min-h-0 flex-1 gap-5 px-6 pb-6">
-          <aside className="hidden w-[360px] shrink-0 xl:block">{rail}</aside>
+          {/* One column: sources, or the open post. Widens for editing. */}
+          <aside
+            className={`hidden shrink-0 transition-[width] duration-150 xl:block ${
+              selectedPost ? "w-[480px]" : "w-[360px]"
+            }`}
+          >
+            {selectedPost && plan ? (
+              <PostDetailPanel
+                key={selectedPost.id}
+                post={selectedPost}
+                planId={plan.id}
+                series={series}
+                awarenessDays={awarenessDays}
+                onBack={() => guardNav(() => { setSelectedPostId(null); setPanelDirty(false); })}
+                onClose={() => guardNav(() => { setSelectedPostId(null); setPanelDirty(false); })}
+                onUpdated={applyPostUpdate}
+                onDeleted={removePostLocally}
+                onDirtyChange={setPanelDirty}
+              />
+            ) : (
+              rail
+            )}
+          </aside>
 
           {railOpen && (
             <div className="fixed inset-0 z-40 flex xl:hidden" role="dialog" aria-modal="true">
@@ -1433,7 +1519,7 @@ export function CalendarBuilder({
                           key={post.id}
                           post={post}
                           selected={post.id === selectedPostId}
-                          onSelect={() => setSelectedPostId(post.id)}
+                          onSelect={() => guardNav(() => setSelectedPostId(post.id))}
                           partsTotal={
                             post.series_id != null
                               ? series.find((s) => s.id === post.series_id)?.parts.length
@@ -1448,37 +1534,7 @@ export function CalendarBuilder({
                   ))}
                 </div>
 
-                {/* Detail area for the selected chip */}
-                {selectedPost && (
-                  <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
-                    <p className="text-sm font-semibold text-slate-900">{selectedPost.campaign_label}</p>
-                    <span className="text-xs font-medium text-slate-400">{friendlyDate(selectedPost.post_date)}</span>
-                    {getCampaignType(selectedPost.campaign_type) && (
-                      <span className="rounded-full border border-slate-200/60 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600">
-                        {getCampaignType(selectedPost.campaign_type)!.label}
-                      </span>
-                    )}
-                    {!selectedPost.caption_draft?.trim() && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/60 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                        Needs caption
-                      </span>
-                    )}
-                    {selectedPost.locked && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                        <Lock size={10} /> Locked
-                      </span>
-                    )}
-                    <button
-                      onClick={() => setSelectedPostId(null)}
-                      className="ml-auto text-xs font-medium text-slate-400 hover:text-slate-900"
-                    >
-                      Close
-                    </button>
-                  </div>
-                )}
-
-                {loadingPlan && <p className="mt-3 text-xs font-medium text-slate-400">Loading plan…</p>}
+                {loadingPlan &&<p className="mt-3 text-xs font-medium text-slate-400">Loading plan…</p>}
                 {!loadingPlan && !plan && (
                   <p className="mt-3 text-xs font-medium text-slate-400">
                     Nothing planned for {MONTH_NAMES[month]} {year} — drag a card from the left onto a day to start.
