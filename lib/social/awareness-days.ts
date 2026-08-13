@@ -1,3 +1,19 @@
+/**
+ * @deprecated Superseded by the `social_awareness_days` table
+ * (migration 20260813130000_social_planner_schema.sql), which stores real date
+ * rules — nth-weekday, week-of, month-long — instead of a fixed day number, and
+ * carries `verified` / `source_url` provenance.
+ *
+ * These 37 entries were ported into that table as a REVIEW BACKLOG:
+ * `verified = false`, `is_active = false`. They are AI-generated with no
+ * sources, so several dates are wrong or vague (entries named "…Week" are
+ * stored as month_long because this array had no way to express a week).
+ * Nothing here should reach a client until a human verifies and activates it.
+ *
+ * Still imported by `plan-generator.ts` and `awareness-days-tab.tsx`. Those
+ * should move to reading the table (filtered to `is_active = true`) and
+ * resolving dates with `resolveAwarenessDate()` from ./awareness-resolver.
+ */
 export type AwarenessDay = {
   name: string;
   month: number;
