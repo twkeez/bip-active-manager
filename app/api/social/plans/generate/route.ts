@@ -1,20 +1,29 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateSocialPlan, type SelectedIdea } from "@/lib/social/plan-generator";
-import type { SocialIdea, SocialClientProfile, SocialContentPlan, SocialContentPost } from "@/lib/social/types";
+import { writeCaptions, type CaptionRequestPost } from "@/lib/social/caption-writer";
+import type {
+  SocialAwarenessDay,
+  SocialClientProfile,
+  SocialContentPlan,
+  SocialContentPost,
+  SocialIdea,
+  StandingCampaign,
+} from "@/lib/social/types";
 
 export const maxDuration = 300;
 
+// Fills in copy for posts a strategist has already placed on the calendar.
+// This route never creates, deletes, moves, or re-topics a post — placement is
+// manual. It only writes caption_draft and shot_list.
+
 type GenerateBody = {
-  clientId: number;
-  clientName: string;
-  month: number;
-  year: number;
-  selectedIdeas?: SelectedIdea[];
+  planId?: number;
+  /** When present, write for exactly these posts regardless of whether their
+   *  caption is already filled (backs a per-post "rewrite" action). */
+  postIds?: number[];
 };
 
-// Open to all authenticated team members — strategists build calendars too.
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -26,151 +35,128 @@ export async function POST(request: Request) {
   let body: GenerateBody;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
-  const { clientId, clientName, month, year } = body;
-  if (!clientId || !clientName || !month || !year) {
-    return NextResponse.json({ error: "clientId, clientName, month, year required" }, { status: 400 });
+  const planId = Number(body.planId);
+  if (!Number.isInteger(planId) || planId <= 0) {
+    return NextResponse.json({ error: "planId required" }, { status: 400 });
   }
+  const requestedIds = Array.isArray(body.postIds)
+    ? body.postIds.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+    : null;
 
   const admin = createAdminClient();
 
-  // Load client profile, active ideas, and last 3 months of plans in parallel
-  const [profileRes, ideasRes, historyRes] = await Promise.all([
-    admin.from("social_client_profiles").select("*").eq("client_id", clientId).maybeSingle<SocialClientProfile>(),
-    admin.from("social_idea_repository").select("*").eq("is_active", true).order("campaign_type").returns<SocialIdea[]>(),
-    admin.from("social_content_plans").select("campaign_types_used").eq("client_id", clientId)
-      .order("plan_year", { ascending: false }).order("plan_month", { ascending: false }).limit(3)
-      .returns<Pick<SocialContentPlan, "campaign_types_used">[]>(),
-  ]);
-
-  const clientProfile = profileRes.data;
-  const ideas = ideasRes.data ?? [];
-  const recentCampaignTypes = [...new Set((historyRes.data ?? []).flatMap((p) => p.campaign_types_used))];
-
-  const posts = await generateSocialPlan({
-    apiKey,
-    clientName,
-    month,
-    year,
-    specialty: clientProfile?.specialty ?? null,
-    tone: clientProfile?.tone ?? null,
-    notes: clientProfile?.notes ?? null,
-    standingCampaigns: (clientProfile?.standing_campaigns as { name: string; description: string }[]) ?? [],
-    postsPerWeek: clientProfile?.posts_per_week ?? 3,
-    ideas,
-    recentCampaignTypes,
-    selectedIdeas: Array.isArray(body.selectedIdeas) ? body.selectedIdeas : undefined,
-  });
-
-  // Upsert the plan (regenerate in place if one exists for this month/year)
-  const { data: existingPlan } = await admin
-    .from("social_content_plans")
-    .select("id, status")
-    .eq("client_id", clientId)
-    .eq("plan_month", month)
-    .eq("plan_year", year)
-    .maybeSingle<Pick<SocialContentPlan, "id" | "status">>();
-
-  const campaignTypesUsed = [...new Set(posts.map((p) => p.campaign_type))];
-  const awarenessNamesUsed = posts
-    .filter((p) => p.campaign_type === "awareness_day")
-    .map((p) => p.campaign_label);
-
-  let planId: number;
-  let preservedCount = 0;
-  let replacedCount = 0;
-  // Dates already spoken for by preserved posts — new posts skip these so a day
-  // never ends up with two posts.
-  const preservedDates = new Set<string>();
-
-  if (existingPlan) {
-    // Work the strategist has touched is never destroyed: a post is preserved if
-    // it is locked, or if it has moved past "idea" (brief sent, drafted, approved…).
-    const { data: existingPosts } = await admin
-      .from("social_content_posts")
-      .select("id, post_date, status, locked")
-      .eq("plan_id", existingPlan.id)
-      .returns<Pick<SocialContentPost, "id" | "post_date" | "status" | "locked">[]>();
-
-    const preserved = (existingPosts ?? []).filter((p) => p.locked || p.status !== "idea");
-    const replaceable = (existingPosts ?? []).filter((p) => !p.locked && p.status === "idea");
-
-    preservedCount = preserved.length;
-    replacedCount = replaceable.length;
-    for (const p of preserved) preservedDates.add(p.post_date);
-
-    if (replaceable.length > 0) {
-      const { error: deleteError } = await admin
-        .from("social_content_posts")
-        .delete()
-        .in("id", replaceable.map((p) => p.id));
-      if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
-    }
-
-    // Keep an advanced plan status (approved / sent_to_client) intact; only a
-    // plan still in draft stays in draft.
-    await admin.from("social_content_plans").update({
-      campaign_types_used: campaignTypesUsed,
-      awareness_days_used: awarenessNamesUsed,
-      updated_at: new Date().toISOString(),
-    }).eq("id", existingPlan.id);
-    planId = existingPlan.id;
-  } else {
-    const { data: newPlan, error: planError } = await admin
-      .from("social_content_plans")
-      .insert({
-        client_id: clientId,
-        plan_month: month,
-        plan_year: year,
-        campaign_types_used: campaignTypesUsed,
-        awareness_days_used: awarenessNamesUsed,
-        created_by: user.email,
-      })
-      .select("id")
-      .single<{ id: number }>();
-    if (planError || !newPlan) return NextResponse.json({ error: planError?.message ?? "Failed to create plan" }, { status: 500 });
-    planId = newPlan.id;
-  }
-
-  const postRows = posts
-    .map((p, i) => ({ post: p, sortOrder: i }))
-    .filter(({ post }) => !preservedDates.has(post.post_date))
-    .map(({ post, sortOrder }) => ({
-      plan_id: planId,
-      client_id: clientId,
-      post_date: post.post_date,
-      platform: post.platform,
-      campaign_type: post.campaign_type,
-      campaign_label: post.campaign_label,
-      caption_draft: post.caption_draft,
-      shot_list: post.shot_list,
-      hashtags: post.hashtags,
-      status: "idea" as const,
-      locked: false,
-      sort_order: sortOrder,
-    }));
-
-  if (postRows.length > 0) {
-    const { error: insertError } = await admin.from("social_content_posts").insert(postRows);
-    if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
-  }
-
-  const { data: savedPosts } = await admin
-    .from("social_content_posts")
-    .select("*")
-    .eq("plan_id", planId)
-    .order("sort_order")
-    .returns<SocialContentPost[]>();
-
-  const { data: savedPlan } = await admin
+  const { data: plan, error: planError } = await admin
     .from("social_content_plans")
     .select("*")
     .eq("id", planId)
-    .single<SocialContentPlan>();
+    .maybeSingle<SocialContentPlan>();
+  if (planError) return NextResponse.json({ error: planError.message }, { status: 500 });
+  if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 });
 
-  return NextResponse.json({
-    plan: savedPlan,
-    posts: savedPosts ?? [],
-    preservedCount,
-    replacedCount,
+  const { data: allPosts, error: postsError } = await admin
+    .from("social_content_posts")
+    .select("*")
+    .eq("plan_id", planId)
+    .order("post_date")
+    .returns<SocialContentPost[]>();
+  if (postsError) return NextResponse.json({ error: postsError.message }, { status: 500 });
+
+  const posts = allPosts ?? [];
+  const isEmpty = (v: string | null) => !v || v.trim() === "";
+
+  // Locked posts are never rewritten, even when explicitly requested.
+  const lockedSkipped = posts.filter(
+    (p) => p.locked && (requestedIds ? requestedIds.includes(p.id) : isEmpty(p.caption_draft) || isEmpty(p.shot_list)),
+  ).length;
+
+  const candidates = posts.filter((p) => {
+    if (p.locked) return false;
+    if (requestedIds) return requestedIds.includes(p.id);
+    return isEmpty(p.caption_draft) || isEmpty(p.shot_list);
   });
+
+  if (candidates.length === 0) {
+    return NextResponse.json({ updated: 0, skipped: lockedSkipped });
+  }
+
+  // Context: practice, profile, and a concept line per post.
+  const [clientRes, profileRes] = await Promise.all([
+    admin
+      .from("clients")
+      .select("account_name, website")
+      .eq("id", plan.client_id)
+      .maybeSingle<{ account_name: string; website: string | null }>(),
+    admin
+      .from("social_client_profiles")
+      .select("*")
+      .eq("client_id", plan.client_id)
+      .maybeSingle<SocialClientProfile>(),
+  ]);
+  if (!clientRes.data) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+
+  // Resolve each post's concept from its provenance link, falling back to the label.
+  const ideaIds = [...new Set(candidates.map((p) => p.idea_id).filter((id): id is number => id != null))];
+  const awarenessIds = [...new Set(candidates.map((p) => p.awareness_day_id).filter((id): id is number => id != null))];
+
+  const [ideasRes, awarenessRes] = await Promise.all([
+    ideaIds.length
+      ? admin.from("social_idea_repository").select("id, description").in("id", ideaIds).returns<Pick<SocialIdea, "id" | "description">[]>()
+      : Promise.resolve({ data: [] as Pick<SocialIdea, "id" | "description">[] }),
+    awarenessIds.length
+      ? admin.from("social_awareness_days").select("id, content_angle").in("id", awarenessIds).returns<Pick<SocialAwarenessDay, "id" | "content_angle">[]>()
+      : Promise.resolve({ data: [] as Pick<SocialAwarenessDay, "id" | "content_angle">[] }),
+  ]);
+
+  const ideaById = new Map((ideasRes.data ?? []).map((i) => [i.id, i.description]));
+  const awarenessById = new Map((awarenessRes.data ?? []).map((a) => [a.id, a.content_angle]));
+
+  const requestPosts: CaptionRequestPost[] = candidates.map((p) => ({
+    id: p.id,
+    post_date: p.post_date,
+    campaign_label: p.campaign_label,
+    description:
+      (p.idea_id != null ? ideaById.get(p.idea_id) : undefined) ??
+      (p.awareness_day_id != null ? awarenessById.get(p.awareness_day_id) : undefined) ??
+      p.campaign_label,
+  }));
+
+  let written;
+  try {
+    written = await writeCaptions({
+      apiKey,
+      clientName: clientRes.data.account_name,
+      website: clientRes.data.website,
+      specialty: profileRes.data?.specialty ?? null,
+      tone: profileRes.data?.tone ?? null,
+      notes: profileRes.data?.notes ?? null,
+      standingCampaigns: (profileRes.data?.standing_campaigns as StandingCampaign[]) ?? [],
+      posts: requestPosts,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Caption generation failed";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+
+  // Only write back to posts we actually asked about, scoped by id AND plan_id.
+  const candidateIds = new Set(candidates.map((p) => p.id));
+  let updated = 0;
+  for (const entry of written) {
+    if (!candidateIds.has(entry.post_id)) continue;
+    if (!entry.caption_draft?.trim() && !entry.shot_list?.trim()) continue;
+    const { error } = await admin
+      .from("social_content_posts")
+      .update({
+        caption_draft: entry.caption_draft,
+        shot_list: entry.shot_list,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", entry.post_id)
+      .eq("plan_id", planId);
+    if (!error) updated += 1;
+  }
+
+  // Anything we asked about that came back empty or missing, plus locked posts.
+  const skipped = lockedSkipped + (candidates.length - updated);
+
+  return NextResponse.json({ updated, skipped });
 }

@@ -286,6 +286,11 @@ export function CalendarBuilder({
   const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<SocialContentPost | null>(null);
 
+  // Caption generation
+  const [writing, setWriting] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [writeResult, setWriteResult] = useState<{ updated: number; skipped: number } | null>(null);
+
   // Temp ids for optimistic inserts, replaced by the server row on success.
   const tempId = useRef(-1);
 
@@ -322,6 +327,14 @@ export function CalendarBuilder({
   useEffect(() => {
     void loadPlan();
   }, [loadPlan]);
+
+  // Elapsed-seconds ticker while captions are being written.
+  useEffect(() => {
+    if (!writing) return;
+    setElapsed(0);
+    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [writing]);
 
   // ── Derived source lists ───────────────────────────────────────────────────
 
@@ -411,6 +424,35 @@ export function CalendarBuilder({
     () => (plan?.posts ?? []).find((p) => p.id === selectedPostId) ?? null,
     [plan, selectedPostId],
   );
+
+  // Locked posts are never rewritten, so they don't count toward the button.
+  const needsCaption = useMemo(
+    () => (plan?.posts ?? []).filter((p) => !p.locked && !p.caption_draft?.trim()),
+    [plan],
+  );
+
+  async function writeCaptionsForPlan(postIds?: number[]) {
+    if (!plan || plan.id < 0 || writing) return;
+    setWriting(true);
+    setWriteResult(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/social/plans/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id, ...(postIds ? { postIds } : {}) }),
+      });
+      const data = (await res.json()) as { updated?: number; skipped?: number; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Caption generation failed");
+      setWriteResult({ updated: data.updated ?? 0, skipped: data.skipped ?? 0 });
+      // Pull the written copy back so the amber dots clear.
+      await loadPlan();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Caption generation failed");
+    } finally {
+      setWriting(false);
+    }
+  }
 
   // ── Placement ──────────────────────────────────────────────────────────────
 
@@ -1025,6 +1067,41 @@ export function CalendarBuilder({
               </div>
             ) : (
               <>
+                {/* Caption generation */}
+                <div className="mb-3 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => void writeCaptionsForPlan()}
+                    disabled={!plan || plan.id < 0 || needsCaption.length === 0 || writing}
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-slate-700 disabled:opacity-40"
+                  >
+                    {writing
+                      ? "Writing…"
+                      : `Write captions for ${needsCaption.length} post${needsCaption.length === 1 ? "" : "s"}`}
+                  </button>
+                  {writeResult && !writing && (
+                    <span className="text-xs font-medium text-slate-500">
+                      Wrote {writeResult.updated} post{writeResult.updated === 1 ? "" : "s"}
+                      {writeResult.skipped > 0 && ` · skipped ${writeResult.skipped}`}
+                    </span>
+                  )}
+                </div>
+
+                {writing && (
+                  <div className="mb-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-900">
+                        Writing captions and shot lists…
+                      </p>
+                      <span className="text-xs font-medium tabular-nums text-slate-500">{elapsed}s</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-1.5 w-full animate-pulse rounded-full bg-gradient-to-r from-indigo-500 to-violet-500" />
+                    </div>
+                    <p className="mt-2 text-xs text-slate-400">Usually 40-75 seconds for a full month.</p>
+                  </div>
+                )}
+
+                <div className={writing ? "pointer-events-none opacity-60 transition-opacity" : "transition-opacity"}>
                 {monthLongDays.length > 0 && (
                   <div className="mb-3 space-y-1.5">
                     {monthLongDays.map((d) => (
@@ -1106,6 +1183,7 @@ export function CalendarBuilder({
                     Nothing planned for {MONTH_NAMES[month]} {year} — drag a card from the left onto a day to start.
                   </p>
                 )}
+                </div>
               </>
             )}
           </section>

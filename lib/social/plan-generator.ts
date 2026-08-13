@@ -1,3 +1,13 @@
+/**
+ * @deprecated Unused. Whole-month generation is gone — a strategist places
+ * posts manually on the calendar (drag-and-drop in calendar-builder.tsx), and
+ * `POST /api/social/plans/generate` now only writes copy for posts that already
+ * exist, via `lib/social/caption-writer.ts`.
+ *
+ * Nothing imports this file. It is kept only as a reference for the old
+ * date-cadence logic (buildPostDates) in case that's wanted for a scheduling
+ * assistant later; delete it once that's settled.
+ */
 import Anthropic from "@anthropic-ai/sdk";
 import { getAwarenessDaysForMonth } from "./awareness-days";
 import type { SocialIdea, StandingCampaign, GeneratedPost } from "./types";
