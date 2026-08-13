@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { getCampaignType } from "@/lib/social/campaign-types";
 import type { FreshIdea } from "@/lib/social/idea-brainstorm";
-import type { SocialIdea } from "@/lib/social/types";
+import type { SocialIdea, SocialPlanWithPosts } from "@/lib/social/types";
 import { ContentPlanEditor } from "./content-plan-editor";
 
 const MONTH_NAMES = [
@@ -84,6 +84,10 @@ export function CalendarBuilder({
   // Build state
   const [building, setBuilding] = useState(false);
   const [builtKey, setBuiltKey] = useState<string | null>(null); // `${clientId}-${month}-${year}` once built
+  const [checkingExisting, setCheckingExisting] = useState(false);
+  // Set when regenerating a month that already holds protected work.
+  const [confirmRebuild, setConfirmRebuild] = useState<{ preserved: number; replaced: number } | null>(null);
+  const [lastPreserved, setLastPreserved] = useState<number | null>(null);
 
   const client = clients.find((c) => c.id === clientId) ?? null;
   const selectedCount = bankChecked.length + fresh.filter((f) => f.checked).length;
@@ -155,8 +159,37 @@ export function CalendarBuilder({
     if (res.ok) setFresh(fresh.map((f, i) => (i === index ? { ...f, saved: true } : f)));
   }
 
+  // Entry point: check whether this month already holds protected work before
+  // generating anything. Protected = locked, or moved past "idea".
   async function buildCalendar() {
+    if (!client || selectedCount === 0 || building || checkingExisting) return;
+    setError(null);
+    setCheckingExisting(true);
+    try {
+      const res = await fetch(`/api/social/plans?clientId=${client.id}`);
+      const plans = (await res.json()) as SocialPlanWithPosts[] | { error?: string };
+      if (res.ok && Array.isArray(plans)) {
+        const existing = plans.find((p) => p.plan_month === month && p.plan_year === year);
+        if (existing) {
+          const preserved = existing.posts.filter((p) => p.locked || p.status !== "idea").length;
+          const replaced = existing.posts.length - preserved;
+          if (preserved > 0) {
+            setConfirmRebuild({ preserved, replaced });
+            return; // wait for explicit confirmation
+          }
+        }
+      }
+    } catch {
+      // Pre-check is advisory; the server still preserves protected posts.
+    } finally {
+      setCheckingExisting(false);
+    }
+    await runGenerate();
+  }
+
+  async function runGenerate() {
     if (!client || selectedCount === 0 || building) return;
+    setConfirmRebuild(null);
     setBuilding(true);
     setError(null);
     try {
@@ -169,10 +202,9 @@ export function CalendarBuilder({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId: client.id, clientName: client.account_name, month, year, selectedIdeas }),
       });
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string };
-        throw new Error(err.error ?? "Calendar build failed");
-      }
+      const payload = (await res.json()) as { error?: string; preservedCount?: number };
+      if (!res.ok) throw new Error(payload.error ?? "Calendar build failed");
+      setLastPreserved(payload.preservedCount ?? 0);
       setBuiltKey(`${client.id}-${month}-${year}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Calendar build failed");
@@ -185,6 +217,61 @@ export function CalendarBuilder({
 
   return (
     <div className="space-y-6" data-theme="light">
+      {/* Rebuild confirmation — this month already holds protected work */}
+      {confirmRebuild && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setConfirmRebuild(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold tracking-tight text-slate-900">
+              Rebuild {MONTH_NAMES[month]} {year}?
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">
+              This month already has a calendar. Work your team has touched is protected —
+              everything else is rewritten.
+            </p>
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between rounded-xl border border-emerald-200/60 bg-emerald-50 px-4 py-2.5">
+                <span className="text-sm font-medium text-emerald-700">Kept as-is</span>
+                <span className="text-sm font-bold text-emerald-700">
+                  {confirmRebuild.preserved} post{confirmRebuild.preserved === 1 ? "" : "s"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-amber-200/60 bg-amber-50 px-4 py-2.5">
+                <span className="text-sm font-medium text-amber-700">Replaced</span>
+                <span className="text-sm font-bold text-amber-700">
+                  {confirmRebuild.replaced} post{confirmRebuild.replaced === 1 ? "" : "s"}
+                </span>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              Locked posts and any post past &ldquo;Idea&rdquo; (brief sent, drafted, approved,
+              scheduled, posted) are kept, along with their dates.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmRebuild(null)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void runGenerate()}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-slate-700"
+              >
+                Rebuild {confirmRebuild.replaced} post{confirmRebuild.replaced === 1 ? "" : "s"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Step 1 — who and when */}
       <div className="flex items-end gap-3 flex-wrap">
         <div>
@@ -353,11 +440,15 @@ export function CalendarBuilder({
             <strong>{selectedCount}</strong> idea{selectedCount === 1 ? "" : "s"} picked for {MONTH_NAMES[month]} — the rest of the month fills in around them.
           </p>
           <button
-            onClick={buildCalendar}
-            disabled={selectedCount === 0 || building}
+            onClick={() => void buildCalendar()}
+            disabled={selectedCount === 0 || building || checkingExisting}
             className="px-5 py-2 rounded-md bg-gray-900 text-white text-sm font-medium disabled:opacity-50 shrink-0"
           >
-            {building ? "Writing the month…" : `Build ${MONTH_NAMES[month]} calendar`}
+            {building
+              ? "Writing the month…"
+              : checkingExisting
+                ? "Checking…"
+                : `Build ${MONTH_NAMES[month]} calendar`}
           </button>
         </div>
       )}
@@ -366,7 +457,14 @@ export function CalendarBuilder({
       {client && builtKey && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">{MONTH_NAMES[month]} {year} — {client.account_name}</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-sm font-semibold text-gray-900">{MONTH_NAMES[month]} {year} — {client.account_name}</h3>
+              {lastPreserved != null && lastPreserved > 0 && (
+                <span className="rounded-full border border-emerald-200/60 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                  {lastPreserved} existing post{lastPreserved === 1 ? "" : "s"} kept
+                </span>
+              )}
+            </div>
             <button onClick={() => setBuiltKey(null)} className="text-xs text-gray-500 hover:text-gray-900 underline">← Back to idea board</button>
           </div>
           <ContentPlanEditor key={builtKey} clientId={client.id} clientName={client.account_name} initialMonth={month} initialYear={year} />

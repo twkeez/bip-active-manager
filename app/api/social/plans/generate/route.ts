@@ -61,14 +61,14 @@ export async function POST(request: Request) {
     selectedIdeas: Array.isArray(body.selectedIdeas) ? body.selectedIdeas : undefined,
   });
 
-  // Upsert the plan (replace if exists for this month/year)
+  // Upsert the plan (regenerate in place if one exists for this month/year)
   const { data: existingPlan } = await admin
     .from("social_content_plans")
-    .select("id")
+    .select("id, status")
     .eq("client_id", clientId)
     .eq("plan_month", month)
     .eq("plan_year", year)
-    .maybeSingle<{ id: number }>();
+    .maybeSingle<Pick<SocialContentPlan, "id" | "status">>();
 
   const campaignTypesUsed = [...new Set(posts.map((p) => p.campaign_type))];
   const awarenessNamesUsed = posts
@@ -76,14 +76,41 @@ export async function POST(request: Request) {
     .map((p) => p.campaign_label);
 
   let planId: number;
+  let preservedCount = 0;
+  let replacedCount = 0;
+  // Dates already spoken for by preserved posts — new posts skip these so a day
+  // never ends up with two posts.
+  const preservedDates = new Set<string>();
 
   if (existingPlan) {
-    // Delete old posts then update plan
-    await admin.from("social_content_posts").delete().eq("plan_id", existingPlan.id);
+    // Work the strategist has touched is never destroyed: a post is preserved if
+    // it is locked, or if it has moved past "idea" (brief sent, drafted, approved…).
+    const { data: existingPosts } = await admin
+      .from("social_content_posts")
+      .select("id, post_date, status, locked")
+      .eq("plan_id", existingPlan.id)
+      .returns<Pick<SocialContentPost, "id" | "post_date" | "status" | "locked">[]>();
+
+    const preserved = (existingPosts ?? []).filter((p) => p.locked || p.status !== "idea");
+    const replaceable = (existingPosts ?? []).filter((p) => !p.locked && p.status === "idea");
+
+    preservedCount = preserved.length;
+    replacedCount = replaceable.length;
+    for (const p of preserved) preservedDates.add(p.post_date);
+
+    if (replaceable.length > 0) {
+      const { error: deleteError } = await admin
+        .from("social_content_posts")
+        .delete()
+        .in("id", replaceable.map((p) => p.id));
+      if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
+
+    // Keep an advanced plan status (approved / sent_to_client) intact; only a
+    // plan still in draft stays in draft.
     await admin.from("social_content_plans").update({
       campaign_types_used: campaignTypesUsed,
       awareness_days_used: awarenessNamesUsed,
-      status: "draft",
       updated_at: new Date().toISOString(),
     }).eq("id", existingPlan.id);
     planId = existingPlan.id;
@@ -104,22 +131,28 @@ export async function POST(request: Request) {
     planId = newPlan.id;
   }
 
-  const postRows = posts.map((p, i) => ({
-    plan_id: planId,
-    client_id: clientId,
-    post_date: p.post_date,
-    platform: p.platform,
-    campaign_type: p.campaign_type,
-    campaign_label: p.campaign_label,
-    caption_draft: p.caption_draft,
-    shot_list: p.shot_list,
-    hashtags: p.hashtags,
-    status: "idea" as const,
-    sort_order: i,
-  }));
+  const postRows = posts
+    .map((p, i) => ({ post: p, sortOrder: i }))
+    .filter(({ post }) => !preservedDates.has(post.post_date))
+    .map(({ post, sortOrder }) => ({
+      plan_id: planId,
+      client_id: clientId,
+      post_date: post.post_date,
+      platform: post.platform,
+      campaign_type: post.campaign_type,
+      campaign_label: post.campaign_label,
+      caption_draft: post.caption_draft,
+      shot_list: post.shot_list,
+      hashtags: post.hashtags,
+      status: "idea" as const,
+      locked: false,
+      sort_order: sortOrder,
+    }));
 
-  const { error: insertError } = await admin.from("social_content_posts").insert(postRows);
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+  if (postRows.length > 0) {
+    const { error: insertError } = await admin.from("social_content_posts").insert(postRows);
+    if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+  }
 
   const { data: savedPosts } = await admin
     .from("social_content_posts")
@@ -134,5 +167,10 @@ export async function POST(request: Request) {
     .eq("id", planId)
     .single<SocialContentPlan>();
 
-  return NextResponse.json({ plan: savedPlan, posts: savedPosts ?? [] });
+  return NextResponse.json({
+    plan: savedPlan,
+    posts: savedPosts ?? [],
+    preservedCount,
+    replacedCount,
+  });
 }

@@ -55,6 +55,8 @@ export type SocialContentPost = {
   shot_list: string | null;
   hashtags: string | null;
   status: PostStatus;
+  /** Locked posts survive plan regeneration — never deleted or replaced. */
+  locked: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
