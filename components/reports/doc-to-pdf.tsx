@@ -28,7 +28,7 @@ const MUTED = "#6c7488";
 const HAIRLINE = "#e0e3ec";
 
 const FONT_HEADING = "'Poppins', system-ui, sans-serif";
-const FONT_BODY = "'Source Sans 3', system-ui, sans-serif";
+const FONT_BODY = "'Instrument Sans', system-ui, sans-serif";
 
 const BLOCK_TYPES: { value: DocBlockType; label: string }[] = [
   { value: "h1", label: "Heading 1" },

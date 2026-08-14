@@ -60,7 +60,7 @@
 
   /* --- Typography --- */
   --font-heading: var(--font-poppins), "Poppins", system-ui, sans-serif;
-  --font-body:    var(--font-source-sans), "Source Sans 3", system-ui, sans-serif;
+  --font-body:    var(--font-instrument-sans), "Instrument Sans", system-ui, sans-serif;
 
   /* --- Radii --- */
   --radius-sm:   6px;
@@ -183,7 +183,7 @@
   /* Semantic surface tokens */
   --color-bip-fill:    var(--surface-2);
   --color-bip-hover:   var(--surface-hover);
-  --font-sans: var(--font-source-sans);
+  --font-sans: var(--font-instrument-sans);
   --font-mono: var(--font-geist-mono);
 }
 

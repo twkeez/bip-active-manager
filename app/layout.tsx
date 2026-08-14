@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins, Source_Sans_3, Geist_Mono, Instrument_Sans, Instrument_Serif } from "next/font/google";
+import { Poppins, Geist_Mono, Instrument_Sans, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -9,16 +9,8 @@ const poppins = Poppins({
   display: "swap",
 });
 
-const sourceSans3 = Source_Sans_3({
-  variable: "--font-source-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
-  display: "swap",
-});
-
-// Typeface pair for the redesigned Clients page. Loaded here so the variables
-// exist app-wide, but only applied on that page.
+// App-wide body font (and the redesign's typeface). Replaced Source Sans 3,
+// whose italic files Google rotated out from under next/font, breaking builds.
 const instrumentSans = Instrument_Sans({
   variable: "--font-instrument-sans",
   subsets: ["latin"],
@@ -52,7 +44,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="light"
-      className={`${poppins.variable} ${sourceSans3.variable} ${geistMono.variable} ${instrumentSans.variable} ${instrumentSerif.variable} h-full antialiased`}
+      className={`${poppins.variable} ${geistMono.variable} ${instrumentSans.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-bip-page text-[var(--text-muted)]">
         {children}
