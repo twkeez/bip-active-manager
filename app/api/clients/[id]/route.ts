@@ -63,9 +63,9 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid client ID" }, { status: 400 });
   }
 
-  let body: Record<string, string | null>;
+  let body: Record<string, string | number | boolean | null>;
   try {
-    body = (await request.json()) as Record<string, string | null>;
+    body = (await request.json()) as Record<string, string | number | boolean | null>;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -96,8 +96,9 @@ export async function PATCH(
     "orm",
   ] as const;
   const numericAllowed = ["total_package_hours", "hours_for_strategist"] as const;
+  const booleanAllowed = ["awaiting_website_launch"] as const;
 
-  const patch: Record<string, string | number | null> = {};
+  const patch: Record<string, string | number | boolean | null> = {};
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(body, key)) {
       const value = body[key];
@@ -113,6 +114,14 @@ export async function PATCH(
         const n = Number(value);
         patch[key] = Number.isFinite(n) ? n : null;
       }
+    }
+  }
+
+  for (const key of booleanAllowed) {
+    if (Object.prototype.hasOwnProperty.call(body, key)) {
+      // Accept a real boolean, or the strings a form might send.
+      const value = body[key] as unknown;
+      patch[key] = value === true || value === "true";
     }
   }
 

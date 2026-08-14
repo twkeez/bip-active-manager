@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins, Source_Sans_3, Geist_Mono } from "next/font/google";
+import { Poppins, Source_Sans_3, Geist_Mono, Instrument_Sans, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -14,6 +14,23 @@ const sourceSans3 = Source_Sans_3({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   style: ["normal", "italic"],
+  display: "swap",
+});
+
+// Typeface pair for the redesigned Clients page. Loaded here so the variables
+// exist app-wide, but only applied on that page.
+const instrumentSans = Instrument_Sans({
+  variable: "--font-instrument-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["italic"],
   display: "swap",
 });
 
@@ -35,7 +52,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="light"
-      className={`${poppins.variable} ${sourceSans3.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${poppins.variable} ${sourceSans3.variable} ${geistMono.variable} ${instrumentSans.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-bip-page text-[var(--text-muted)]">
         {children}
