@@ -15,15 +15,17 @@ import type { UserRole } from "@/lib/auth/profile";
  */
 const REDESIGNED_ROUTES = ["/dashboard/clients"];
 
+/** /dashboard/clients/123 — the redesigned client overview. */
+const CLIENT_DETAIL_PATTERN = /^\/dashboard\/clients\/\d+$/;
+
 export default function SidebarSwitch(props: {
   role: UserRole;
   actualRole: UserRole;
   userName: string;
 }) {
   const pathname = usePathname();
-  // Exact match: the client workspace at /dashboard/clients/[id] keeps the
-  // original sidebar, since only the list page has been redesigned.
-  const useRedesign = REDESIGNED_ROUTES.includes(pathname);
+  const useRedesign =
+    REDESIGNED_ROUTES.includes(pathname) || CLIENT_DETAIL_PATTERN.test(pathname);
 
   if (useRedesign) {
     return <SidebarRedesign role={props.role} userName={props.userName} />;

@@ -1,7 +1,8 @@
 "use client";
 import ClientWorkspaceTabs from "@/components/dashboard/client-workspace/client-workspace-tabs";
 import ClientSimpleTabView, { SIMPLE_TABS } from "@/components/dashboard/client-simple-tab-view";
-import ClientWorkspaceDashboard from "@/components/dashboard/client-workspace-dashboard";
+import ClientOverview from "@/components/dashboard/client-overview";
+import type { ClientOverviewExtras } from "@/lib/dashboard/load-client-overview-extras";
 import type { BasecampSyncState } from "@/lib/types/client";
 import { workspaceDataToManagerProps } from "@/lib/dashboard/load-client-workspace-data";
 import type {
@@ -17,6 +18,7 @@ type ClientWorkspaceProps = ClientWorkspaceInitialData & {
   strategistRoster?: StrategistContact[];
   appUrl?: string;
   isAdminUser?: boolean;
+  overviewExtras: ClientOverviewExtras;
 };
 
 export default function ClientWorkspace({
@@ -26,6 +28,7 @@ export default function ClientWorkspace({
   strategistRoster = [],
   appUrl,
   isAdminUser = false,
+  overviewExtras,
   ...data
 }: ClientWorkspaceProps) {
   // Simple tabs — clean shell, no client-manager
@@ -54,14 +57,8 @@ export default function ClientWorkspace({
     );
   }
 
-  // Default landing: new command-center overview.
+  // Default landing: the redesigned widget-driven client overview.
   return (
-    <ClientWorkspaceDashboard
-      data={data}
-      userEmail={userEmail}
-      strategistRoster={strategistRoster}
-      appUrl={appUrl}
-      isAdminUser={isAdminUser}
-    />
+    <ClientOverview data={data} extras={overviewExtras} isAdminUser={isAdminUser} />
   );
 }

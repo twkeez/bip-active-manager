@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadReportForClient } from "@/lib/reporting/load-report";
 import { renderReportWord, reportWordFilename } from "@/lib/reporting/report-word";
+import { stampReportRun } from "@/lib/reporting/stamp-report-run";
 
 export async function GET(request: Request, context: { params: Promise<{ clientId: string }> }) {
   const { clientId: clientIdRaw } = await context.params;
@@ -22,6 +23,9 @@ export async function GET(request: Request, context: { params: Promise<{ clientI
 
   const html = renderReportWord(loaded.report, loaded.config);
   const filename = reportWordFilename(loaded.report);
+
+  // A Word export is a report going out — record it for the client overview.
+  await stampReportRun(clientId);
 
   return new NextResponse(html, {
     status: 200,

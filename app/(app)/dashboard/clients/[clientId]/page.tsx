@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import ClientWorkspace from "@/components/dashboard/client-workspace";
 import { loadClientWorkspaceData } from "@/lib/dashboard/load-client-workspace-data";
+import { loadClientOverviewExtras } from "@/lib/dashboard/load-client-overview-extras";
 import { parseClientDetailTab } from "@/lib/dashboard/client-workspace-types";
 import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
@@ -39,6 +40,7 @@ export default async function ClientWorkspacePage({
     .eq("id", 1)
     .maybeSingle();
   const syncState = (syncStateRaw as BasecampSyncState | null) ?? null;
+  const overviewExtras = await loadClientOverviewExtras(supabase, clientId);
   const strategistRoster = getStrategistRoster();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   return (
@@ -50,6 +52,7 @@ export default async function ClientWorkspacePage({
       strategistRoster={strategistRoster}
       appUrl={appUrl}
       isAdminUser={isAdmin(profile)}
+      overviewExtras={overviewExtras}
     />
   );
 }

@@ -42,6 +42,8 @@ export type ClientRow = {
   contact_email?: string | null;
   shared_drive_url?: string | null;
   gtm_container_id?: string | null;
+  /** When a report was last produced for this client. NULL = never. */
+  last_report_run_at?: string | null;
   created_at: string;
 };
 
