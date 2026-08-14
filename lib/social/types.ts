@@ -29,6 +29,12 @@ export type SocialIdea = {
   title: string;
   description: string;
   campaign_type: string;
+  /** Browsing bucket for the repository accordion. NULL = Uncategorized. */
+  category: string | null;
+  /** Defaults the post editor pre-fills with when this idea is placed. */
+  default_pillar: string | null;
+  default_subheadline: string | null;
+  default_photo_suggestion: string | null;
   purpose: SocialPurpose | null;
   source: SocialIdeaSource;
   tags: string[];
@@ -164,12 +170,18 @@ export type SocialContentPost = {
   platform: "both" | "instagram" | "facebook";
   campaign_type: string;
   campaign_label: string;
+  // ── The export sheet's shape. These five fields ARE the SMM team handoff. ──
+  content_pillar: string | null;
+  headline: string | null;
+  subheadline: string | null;
+  photo_suggestion: string | null;
+  /** @deprecated Superseded by headline/subheadline. Kept so drafts survive. */
   caption_draft: string | null;
+  /** @deprecated Superseded by photo_suggestion. */
   shot_list: string | null;
+  /** @deprecated Not part of the export sheet. */
   hashtags: string | null;
   status: PostStatus;
-  /** Locked posts survive plan regeneration — never deleted or replaced. */
-  locked: boolean;
   sort_order: number;
   // Provenance — where this post came from. All nullable; a post may have none.
   idea_id: number | null;
@@ -209,4 +221,17 @@ export type GeneratedPost = {
   caption_draft: string;
   shot_list: string;
   hashtags: string;
+};
+
+/**
+ * A month's seasonal list is hidden until someone confirms that year's dates —
+ * awareness days move year to year, so last year's list is not trustworthy.
+ * A row's existence IS the verification; absence means unverified.
+ */
+export type SocialAwarenessVerification = {
+  id: number;
+  year: number;
+  month: number;
+  verified_at: string;
+  verified_by: string | null;
 };

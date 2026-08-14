@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Lock, LockOpen } from "lucide-react";
 import { getCampaignType } from "@/lib/social/campaign-types";
 import type { SocialPlanWithPosts, SocialContentPost, SocialClientProfile, StandingCampaign, PostStatus } from "@/lib/social/types";
 
@@ -46,34 +45,13 @@ function PostCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({ caption_draft: post.caption_draft ?? "", shot_list: post.shot_list ?? "", hashtags: post.hashtags ?? "" });
+  const [draft, setDraft] = useState({
+    headline: post.headline ?? "",
+    subheadline: post.subheadline ?? "",
+    photo_suggestion: post.photo_suggestion ?? "",
+  });
   const [saving, setSaving] = useState(false);
-  // Optimistic lock state — falls back to the server value, reverts on failure.
-  const [lockedOverride, setLockedOverride] = useState<boolean | null>(null);
-  const [lockError, setLockError] = useState(false);
   const ct = getCampaignType(post.campaign_type);
-  const locked = lockedOverride ?? post.locked;
-
-  async function toggleLock() {
-    const next = !locked;
-    setLockedOverride(next);
-    setLockError(false);
-    try {
-      const res = await fetch(`/api/social/plans/${planId}/posts`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId: post.id, updates: { locked: next } }),
-      });
-      if (!res.ok) throw new Error("Lock failed");
-      const updated = (await res.json()) as SocialContentPost;
-      setLockedOverride(null);
-      onUpdate(updated);
-    } catch {
-      setLockedOverride(null); // revert to the server value
-      setLockError(true);
-      setTimeout(() => setLockError(false), 2500);
-    }
-  }
 
   async function saveEdits() {
     setSaving(true);
@@ -110,31 +88,6 @@ function PostCard({
         <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[post.status]}`}>
           {STATUS_LABELS[post.status]}
         </span>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            void toggleLock();
-          }}
-          title={
-            lockError
-              ? "Could not change lock — try again"
-              : locked
-                ? "Locked — protected from rebuild"
-                : "Lock to protect from rebuild"
-          }
-          aria-label={locked ? "Locked — protected from rebuild" : "Lock to protect from rebuild"}
-          aria-pressed={locked}
-          className={`shrink-0 rounded-md border p-1 transition-colors ${
-            lockError
-              ? "border-red-200 bg-red-50 text-red-600"
-              : locked
-                ? "border-slate-200 bg-slate-100 text-slate-700"
-                : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          {locked ? <Lock size={13} /> : <LockOpen size={13} />}
-        </button>
         <span className="text-gray-400 text-xs">{expanded ? "▲" : "▼"}</span>
       </div>
 
@@ -156,29 +109,29 @@ function PostCard({
           {editing ? (
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-500">Caption draft</label>
-                <textarea
-                  value={draft.caption_draft}
-                  onChange={(e) => setDraft((d) => ({ ...d, caption_draft: e.target.value }))}
-                  className="w-full mt-1 px-3 py-2 rounded-md border text-sm resize-none"
-                  rows={5}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">Shot list (what photo/video to take)</label>
-                <textarea
-                  value={draft.shot_list}
-                  onChange={(e) => setDraft((d) => ({ ...d, shot_list: e.target.value }))}
-                  className="w-full mt-1 px-3 py-2 rounded-md border text-sm resize-none"
-                  rows={3}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">Hashtags</label>
+                <label className="text-xs text-gray-500">Headline</label>
                 <input
-                  value={draft.hashtags}
-                  onChange={(e) => setDraft((d) => ({ ...d, hashtags: e.target.value }))}
-                  className="w-full mt-1 px-3 py-1.5 rounded-md border text-sm"
+                  value={draft.headline}
+                  onChange={(e) => setDraft((d) => ({ ...d, headline: e.target.value }))}
+                  className="w-full mt-1 px-3 py-1.5 rounded-md border text-sm font-medium"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Subheadline</label>
+                <textarea
+                  value={draft.subheadline}
+                  onChange={(e) => setDraft((d) => ({ ...d, subheadline: e.target.value }))}
+                  className="w-full mt-1 px-3 py-2 rounded-md border text-sm resize-none"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Photo suggestion</label>
+                <textarea
+                  value={draft.photo_suggestion}
+                  onChange={(e) => setDraft((d) => ({ ...d, photo_suggestion: e.target.value }))}
+                  className="w-full mt-1 px-3 py-2 rounded-md border text-sm resize-none"
+                  rows={2}
                 />
               </div>
               <div className="flex gap-2">
@@ -191,17 +144,15 @@ function PostCard({
           ) : (
             <div className="space-y-3">
               <div>
-                <p className="text-xs text-gray-500 mb-1">Caption draft</p>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">{post.caption_draft || <span className="italic text-gray-400">No caption yet</span>}</p>
+                <p className="text-xs text-gray-500 mb-1">Headline</p>
+                <p className="text-sm font-medium text-gray-800">{post.headline || <span className="italic font-normal text-gray-400">No headline yet</span>}</p>
+                {post.subheadline && <p className="mt-1 text-sm text-gray-600">{post.subheadline}</p>}
               </div>
-              {post.shot_list && (
+              {post.photo_suggestion && (
                 <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                  <p className="text-xs font-medium text-amber-800 mb-1">📸 Shot list for client</p>
-                  <p className="text-sm text-amber-900">{post.shot_list}</p>
+                  <p className="text-xs font-medium text-amber-800 mb-1">📸 Photo suggestion</p>
+                  <p className="text-sm text-amber-900">{post.photo_suggestion}</p>
                 </div>
-              )}
-              {post.hashtags && (
-                <p className="text-xs text-gray-400">{post.hashtags}</p>
               )}
               <button onClick={() => setEditing(true)} className="text-xs text-gray-500 hover:text-gray-900 underline">Edit</button>
             </div>
@@ -380,8 +331,8 @@ export function ContentPlanEditor({
       "Here's everything we need from you this month. Phone photos are perfect — candid beats polished!",
       "",
       ...currentPlan.posts
-        .filter((p) => p.shot_list)
-        .map((p) => `• ${formatDate(p.post_date)} — ${p.campaign_label}:\n  ${p.shot_list}`),
+        .filter((p) => p.photo_suggestion)
+        .map((p) => `• ${formatDate(p.post_date)} — ${p.headline || p.campaign_label}:\n  ${p.photo_suggestion}`),
       "",
       "Send everything to your Beyond Indigo strategist whenever it's ready. Thank you!",
     ];

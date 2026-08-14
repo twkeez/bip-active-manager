@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getClientDisplayName } from "@/lib/clients/display-name";
-import { writeCaptions, type CaptionRequestPost } from "@/lib/social/caption-writer";
+import { draftPosts, type DraftRequestPost } from "@/lib/social/post-writer";
 import type {
   SocialAwarenessDay,
   SocialClientProfile,
@@ -65,19 +65,15 @@ export async function POST(request: Request) {
   const posts = allPosts ?? [];
   const isEmpty = (v: string | null) => !v || v.trim() === "";
 
-  // Locked posts are never rewritten, even when explicitly requested.
-  const lockedSkipped = posts.filter(
-    (p) => p.locked && (requestedIds ? requestedIds.includes(p.id) : isEmpty(p.caption_draft) || isEmpty(p.shot_list)),
-  ).length;
-
+  // Without an explicit selection, only fill posts that are actually missing
+  // sheet copy — never silently rewrite something a strategist has written.
   const candidates = posts.filter((p) => {
-    if (p.locked) return false;
     if (requestedIds) return requestedIds.includes(p.id);
-    return isEmpty(p.caption_draft) || isEmpty(p.shot_list);
+    return isEmpty(p.headline) || isEmpty(p.subheadline) || isEmpty(p.photo_suggestion);
   });
 
   if (candidates.length === 0) {
-    return NextResponse.json({ updated: 0, skipped: lockedSkipped });
+    return NextResponse.json({ updated: 0, skipped: 0 });
   }
 
   // Context: practice, profile, and a concept line per post.
@@ -111,10 +107,11 @@ export async function POST(request: Request) {
   const ideaById = new Map((ideasRes.data ?? []).map((i) => [i.id, i.description]));
   const awarenessById = new Map((awarenessRes.data ?? []).map((a) => [a.id, a.content_angle]));
 
-  const requestPosts: CaptionRequestPost[] = candidates.map((p) => ({
+  const requestPosts: DraftRequestPost[] = candidates.map((p) => ({
     id: p.id,
     post_date: p.post_date,
     campaign_label: p.campaign_label,
+    content_pillar: p.content_pillar,
     description:
       (p.idea_id != null ? ideaById.get(p.idea_id) : undefined) ??
       (p.awareness_day_id != null ? awarenessById.get(p.awareness_day_id) : undefined) ??
@@ -123,7 +120,7 @@ export async function POST(request: Request) {
 
   let written;
   try {
-    written = await writeCaptions({
+    written = await draftPosts({
       apiKey,
       // Client-facing name — account_name may carry an internal group prefix.
       clientName: getClientDisplayName(clientRes.data),
@@ -135,7 +132,7 @@ export async function POST(request: Request) {
       posts: requestPosts,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Caption generation failed";
+    const msg = err instanceof Error ? err.message : "Draft generation failed";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 
@@ -144,12 +141,14 @@ export async function POST(request: Request) {
   let updated = 0;
   for (const entry of written) {
     if (!candidateIds.has(entry.post_id)) continue;
-    if (!entry.caption_draft?.trim() && !entry.shot_list?.trim()) continue;
+    if (!entry.headline?.trim()) continue;
     const { error } = await admin
       .from("social_content_posts")
       .update({
-        caption_draft: entry.caption_draft,
-        shot_list: entry.shot_list,
+        content_pillar: entry.content_pillar,
+        headline: entry.headline,
+        subheadline: entry.subheadline,
+        photo_suggestion: entry.photo_suggestion,
         updated_at: new Date().toISOString(),
       })
       .eq("id", entry.post_id)
@@ -157,8 +156,8 @@ export async function POST(request: Request) {
     if (!error) updated += 1;
   }
 
-  // Anything we asked about that came back empty or missing, plus locked posts.
-  const skipped = lockedSkipped + (candidates.length - updated);
+  // Anything we asked about that came back empty or missing.
+  const skipped = candidates.length - updated;
 
   return NextResponse.json({ updated, skipped });
 }

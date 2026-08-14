@@ -2,15 +2,17 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PostStatus, SocialContentPost } from "@/lib/social/types";
+import { isContentPillar, CONTENT_PILLARS } from "@/lib/social/taxonomy";
 
 // Only these columns may be written from the client. Anything else is rejected
 // rather than silently ignored, so a typo surfaces instead of losing an edit.
 const EDITABLE_FIELDS = [
-  "caption_draft",
-  "shot_list",
-  "hashtags",
+  // The export sheet's fields — what the SMM team receives.
+  "content_pillar",
+  "headline",
+  "subheadline",
+  "photo_suggestion",
   "status",
-  "locked",
   "sort_order",
   "post_date",
 ] as const;
@@ -62,21 +64,25 @@ export async function PUT(request: Request, { params }: { params: Promise<{ plan
   for (const key of Object.keys(rawUpdates) as EditableField[]) {
     const value = rawUpdates[key];
     switch (key) {
-      case "caption_draft":
-      case "shot_list":
-      case "hashtags":
+      case "headline":
+      case "subheadline":
+      case "photo_suggestion":
         if (value !== null && typeof value !== "string") {
           return NextResponse.json({ error: `${key} must be a string or null` }, { status: 400 });
+        }
+        break;
+      case "content_pillar":
+        // Null is allowed — posts predating pillars have none until edited.
+        if (value !== null && !isContentPillar(value)) {
+          return NextResponse.json(
+            { error: `content_pillar must be null or one of: ${CONTENT_PILLARS.join(", ")}` },
+            { status: 400 },
+          );
         }
         break;
       case "status":
         if (typeof value !== "string" || !VALID_STATUSES.has(value as PostStatus)) {
           return NextResponse.json({ error: `status must be one of: ${[...VALID_STATUSES].join(", ")}` }, { status: 400 });
-        }
-        break;
-      case "locked":
-        if (typeof value !== "boolean") {
-          return NextResponse.json({ error: "locked must be a boolean" }, { status: 400 });
         }
         break;
       case "sort_order":

@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, Layers, Repeat, Trash2 } from "lucide-react";
 import { CAMPAIGN_TYPES, getCampaignType } from "@/lib/social/campaign-types";
 import { purposeStyle } from "@/lib/social/purpose-style";
 import { SOCIAL_PURPOSES, type SocialPurpose, type SocialSeriesWithParts } from "@/lib/social/types";
-import type { CalendarClient } from "./calendar-builder";
+import type { PlannerClient } from "./planner/planner-board";
 
 const CADENCE_LABEL: Record<string, string> = {
   weekly: "Weekly",
@@ -57,7 +57,7 @@ export function SeriesTab({
   isAdminUser,
 }: {
   series: SocialSeriesWithParts[];
-  clients: CalendarClient[];
+  clients: PlannerClient[];
   selectedClientId?: number | null;
   isAdminUser: boolean;
 }) {

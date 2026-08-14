@@ -34,16 +34,15 @@ export function buildPlanText(params: {
   ];
 
   for (const p of [...posts].sort(byDate)) {
-    lines.push(`── ${longDate(p.post_date)} — ${p.campaign_label}`);
+    lines.push(`── ${longDate(p.post_date)} — ${p.content_pillar ?? "No pillar"}`);
     lines.push("");
-    lines.push(p.caption_draft?.trim() ? p.caption_draft.trim() : "[no caption yet]");
-    if (p.hashtags?.trim()) {
-      lines.push("");
-      lines.push(p.hashtags.trim());
+    lines.push(p.headline?.trim() ? p.headline.trim() : "[no headline yet]");
+    if (p.subheadline?.trim()) {
+      lines.push(p.subheadline.trim());
     }
-    if (p.shot_list?.trim()) {
+    if (p.photo_suggestion?.trim()) {
       lines.push("");
-      lines.push(`Photo/video to request: ${p.shot_list.trim()}`);
+      lines.push(`Photo suggestion: ${p.photo_suggestion.trim()}`);
     }
     lines.push("");
   }
@@ -59,7 +58,7 @@ export function buildPhotoBriefText(params: {
   posts: SocialContentPost[];
 }): string {
   const { clientName, month, year, posts } = params;
-  const withShots = [...posts].sort(byDate).filter((p) => p.shot_list?.trim());
+  const withShots = [...posts].sort(byDate).filter((p) => p.photo_suggestion?.trim());
 
   const lines: string[] = [
     `${clientName} — ${MONTHS[month]} ${year} photo & video list`,
@@ -72,8 +71,8 @@ export function buildPhotoBriefText(params: {
     lines.push("Nothing to capture yet — we'll send this over once the month is written.");
   } else {
     for (const p of withShots) {
-      lines.push(`• ${longDate(p.post_date)} — ${p.campaign_label}`);
-      lines.push(`  ${p.shot_list!.trim()}`);
+      lines.push(`• ${longDate(p.post_date)} — ${p.headline?.trim() || "Untitled"}`);
+      lines.push(`  ${p.photo_suggestion!.trim()}`);
       lines.push("");
     }
     lines.push("Send everything to your Beyond Indigo strategist whenever it's ready. Thank you!");
@@ -88,23 +87,34 @@ function csvCell(value: string | null | undefined): string {
   return /[",]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
-/** Spreadsheet-friendly, one row per post. */
+/** "September 2" — the date format the agency's own export sheet uses. */
+export function exportDate(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return `${MONTHS[d.getUTCMonth() + 1]} ${d.getUTCDate()}`;
+}
+
+/**
+ * The sheet handed to the SMM team. Columns and date format mirror the
+ * agency's existing export exactly — see design_handoff_social_planner's
+ * sample-export.csv, which this is tested against.
+ */
 export function buildPlanCsv(posts: SocialContentPost[]): string {
-  const header = ["Date", "Title", "Campaign type", "Caption", "Shot list", "Hashtags"];
+  const header = ["Date", "Content Pillar", "Headline", "Subheadline", "Photo Suggestion"];
   const rows = [...posts].sort(byDate).map((p) =>
     [
-      p.post_date,
-      csvCell(p.campaign_label),
-      p.campaign_type,
-      csvCell(p.caption_draft),
-      csvCell(p.shot_list),
-      csvCell(p.hashtags),
+      csvCell(exportDate(p.post_date)),
+      csvCell(p.content_pillar),
+      csvCell(p.headline),
+      csvCell(p.subheadline),
+      csvCell(p.photo_suggestion),
     ].join(","),
   );
-  return [header.join(","), ...rows].join("\n") + "\n";
+  // CRLF per RFC 4180 — matches the agency's existing sheet and keeps Excel happy.
+  return [header.join(","), ...rows].join("\r\n") + "\r\n";
 }
 
 export function exportFileName(clientName: string, month: number, year: number, ext: string): string {
   const slug = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return `${slug}-${MONTHS[month].toLowerCase()}-${year}.${ext}`;
+  return `${slug}-social-${MONTHS[month].toLowerCase()}-${year}.${ext}`;
 }

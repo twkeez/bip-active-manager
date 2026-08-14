@@ -204,16 +204,12 @@ export async function DELETE(request: Request) {
 
   const admin = createAdminClient();
 
-  // A locked post is protected from deletion as well as from regeneration.
   const { data: post } = await admin
     .from("social_content_posts")
-    .select("id, locked")
+    .select("id")
     .eq("id", postId)
-    .maybeSingle<Pick<SocialContentPost, "id" | "locked">>();
+    .maybeSingle<Pick<SocialContentPost, "id">>();
   if (!post) return NextResponse.json({ error: "Post not found" }, { status: 404 });
-  if (post.locked) {
-    return NextResponse.json({ error: "This post is locked. Unlock it before deleting." }, { status: 409 });
-  }
 
   const { error } = await admin.from("social_content_posts").delete().eq("id", postId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

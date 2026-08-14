@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarBuilder, type CalendarClient } from "./calendar-builder";
+import { PlannerBoard, type PlannerClient } from "./planner/planner-board";
 import { IdeaRepositoryTab } from "./idea-repository-tab";
 import { SeriesTab } from "./series-tab";
 import type { SocialAwarenessDay, SocialIdea, SocialSeriesWithParts } from "@/lib/social/types";
@@ -23,7 +23,7 @@ export function SocialPlannerStudio({
   initialClientId,
 }: {
   initialIdeas: SocialIdea[];
-  clients: CalendarClient[];
+  clients: PlannerClient[];
   awarenessDays: SocialAwarenessDay[];
   series: SocialSeriesWithParts[];
   isAdminUser: boolean;
@@ -57,7 +57,7 @@ export function SocialPlannerStudio({
       </div>
 
       {activeTab === "builder" && (
-        <CalendarBuilder
+        <PlannerBoard
           clients={clients}
           bankIdeas={initialIdeas}
           awarenessDays={awarenessDays}
