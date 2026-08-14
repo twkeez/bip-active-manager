@@ -86,7 +86,7 @@ describe("buildPlanCsv", () => {
 
   it("starts with the header row", () => {
     expect(buildPlanCsv([]).split("\n")[0]).toBe(
-      "Date,Title,Campaign type,Status,Locked,Caption,Shot list,Hashtags",
+      "Date,Title,Campaign type,Caption,Shot list,Hashtags",
     );
   });
 });

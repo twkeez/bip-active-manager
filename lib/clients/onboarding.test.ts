@@ -7,6 +7,7 @@ function baseClient(overrides: Partial<ClientRow> = {}): ClientRow {
   return {
     id: 1,
     account_name: "Test Client",
+    public_name: null,
     marketing_strategist: "Alex",
     total_package_hours: 10,
     hours_for_strategist: 8,

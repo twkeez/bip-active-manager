@@ -234,11 +234,22 @@ function PostChip({
       ref={setNodeRef}
       {...(post.locked ? {} : attributes)}
       {...(post.locked ? {} : listeners)}
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
-      title={`${post.campaign_label}${needsCaption ? " — needs caption" : ""}${post.locked ? " (locked)" : ""}`}
-      className={`mb-1 flex items-center gap-1.5 rounded-md border bg-white px-1.5 py-1 shadow-sm transition ${
-        selected ? "border-indigo-400 ring-1 ring-indigo-300" : "border-slate-200/80"
-      } ${post.locked ? "cursor-default" : "cursor-grab active:cursor-grabbing"} ${
+      onKeyDown={(e) => {
+        // Space is dnd-kit's "pick up"; Enter opens the post.
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      title={`${post.campaign_label}${needsCaption ? " — needs caption" : ""}${
+        post.locked ? " (locked)" : ""
+      } — click to open, hold to drag`}
+      className={`mb-1 flex items-center gap-1.5 rounded-md border bg-white px-1.5 py-1 shadow-sm transition hover:border-slate-400 ${
+        selected ? "border-indigo-400 ring-2 ring-indigo-400" : "border-slate-200/80"
+      } ${post.locked ? "cursor-pointer" : "cursor-pointer active:cursor-grabbing"} ${
         isDragging ? "opacity-40" : ""
       } focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400`}
     >
@@ -440,7 +451,10 @@ export function CalendarBuilder({
   }
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    // Movement-based, deliberately generous. Only actual dragging (>10px)
+    // starts a drag, so a click opens the post no matter how long it is held —
+    // a delay-based constraint would turn a slow click into a drag instead.
+    useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
     useSensor(KeyboardSensor, { coordinateGetter: gridCoordinateGetter }),
   );
 

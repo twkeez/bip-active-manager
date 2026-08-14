@@ -16,6 +16,7 @@ function client(
   return {
     id,
     account_name: name,
+    public_name: null,
     marketing_strategist: null,
     total_package_hours: null,
     hours_for_strategist: null,

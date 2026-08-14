@@ -3,10 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Sparkles, Trash2, X } from "lucide-react";
 import { getCampaignType } from "@/lib/social/campaign-types";
-import { POST_STATUSES, POST_STATUS_LABELS, POST_STATUS_STYLES } from "@/lib/social/post-status";
 import { PostLockToggle } from "./post-lock-toggle";
 import type {
-  PostStatus,
   SocialAwarenessDay,
   SocialContentPost,
   SocialSeriesWithParts,
@@ -28,7 +26,6 @@ type Draft = {
   caption_draft: string;
   shot_list: string;
   hashtags: string;
-  status: PostStatus;
 };
 
 function draftFrom(post: SocialContentPost): Draft {
@@ -36,7 +33,6 @@ function draftFrom(post: SocialContentPost): Draft {
     caption_draft: post.caption_draft ?? "",
     shot_list: post.shot_list ?? "",
     hashtags: post.hashtags ?? "",
-    status: post.status,
   };
 }
 
@@ -87,8 +83,7 @@ export function PostDetailPanel({
     return (
       base.caption_draft !== draft.caption_draft ||
       base.shot_list !== draft.shot_list ||
-      base.hashtags !== draft.hashtags ||
-      base.status !== draft.status
+      base.hashtags !== draft.hashtags
     );
   }, [post, draft]);
 
@@ -123,7 +118,6 @@ export function PostDetailPanel({
             caption_draft: draft.caption_draft,
             shot_list: draft.shot_list,
             hashtags: draft.hashtags,
-            status: draft.status,
           },
         }),
       });
@@ -294,25 +288,6 @@ export function PostDetailPanel({
           />
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-slate-500">Status</label>
-          <div className="flex flex-wrap gap-1.5">
-            {POST_STATUSES.map((s) => {
-              const active = draft.status === s;
-              return (
-                <button
-                  key={s}
-                  onClick={() => setDraft((d) => ({ ...d, status: s }))}
-                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${
-                    active ? POST_STATUS_STYLES[s] : "border-slate-200/80 bg-white text-slate-500 hover:border-slate-400"
-                  }`}
-                >
-                  {POST_STATUS_LABELS[s]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       {/* Actions */}

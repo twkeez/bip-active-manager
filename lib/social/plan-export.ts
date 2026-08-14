@@ -35,7 +35,6 @@ export function buildPlanText(params: {
 
   for (const p of [...posts].sort(byDate)) {
     lines.push(`── ${longDate(p.post_date)} — ${p.campaign_label}`);
-    lines.push(`Status: ${p.status}${p.locked ? " (locked)" : ""}`);
     lines.push("");
     lines.push(p.caption_draft?.trim() ? p.caption_draft.trim() : "[no caption yet]");
     if (p.hashtags?.trim()) {
@@ -91,14 +90,12 @@ function csvCell(value: string | null | undefined): string {
 
 /** Spreadsheet-friendly, one row per post. */
 export function buildPlanCsv(posts: SocialContentPost[]): string {
-  const header = ["Date", "Title", "Campaign type", "Status", "Locked", "Caption", "Shot list", "Hashtags"];
+  const header = ["Date", "Title", "Campaign type", "Caption", "Shot list", "Hashtags"];
   const rows = [...posts].sort(byDate).map((p) =>
     [
       p.post_date,
       csvCell(p.campaign_label),
       p.campaign_type,
-      p.status,
-      p.locked ? "yes" : "no",
       csvCell(p.caption_draft),
       csvCell(p.shot_list),
       csvCell(p.hashtags),
