@@ -18,10 +18,12 @@ import {
   type DragStartEvent,
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
-import { CalendarDays, GripVertical, Link2, Lock, PanelLeftOpen, Sparkles, X } from "lucide-react";
+import { CalendarDays, Download, GripVertical, Link2, Lock, PanelLeftOpen, Plus, Sparkles, X } from "lucide-react";
 import { getCampaignType } from "@/lib/social/campaign-types";
 import { resolveAwarenessDate, toDateString } from "@/lib/social/awareness-resolver";
 import { expandSeries, type SeriesExpansion } from "@/lib/social/series-expansion";
+import { buildPhotoBriefText, buildPlanCsv, buildPlanText, exportFileName } from "@/lib/social/plan-export";
+import { getClientDisplayName } from "@/lib/clients/display-name";
 import { purposeStyle } from "@/lib/social/purpose-style";
 import type { FreshIdea } from "@/lib/social/idea-brainstorm";
 import type {
@@ -265,20 +267,32 @@ function DayCell({
   cell,
   isToday,
   marks,
+  onQuickAdd,
   children,
 }: {
   cell: GridCell;
   isToday: boolean;
   marks: string[];
+  /** Create an ad-hoc post on this day from a typed title. */
+  onQuickAdd?: (title: string) => void;
   children: React.ReactNode;
 }) {
   // Adjacent-month cells are never drop targets.
   const { setNodeRef, isOver } = useDroppable({ id: `cell:${cell.dateStr}`, disabled: !cell.inMonth });
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+
+  function commit() {
+    const t = title.trim();
+    if (t && onQuickAdd) onQuickAdd(t);
+    setTitle("");
+    setAdding(false);
+  }
 
   return (
     <div
       ref={cell.inMonth ? setNodeRef : undefined}
-      className={`min-h-[120px] rounded-xl border p-2 transition-colors ${
+      className={`group min-h-[120px] rounded-xl border p-2 transition-colors ${
         cell.inMonth
           ? isOver
             ? "border-indigo-300 bg-indigo-50/50"
@@ -289,6 +303,16 @@ function DayCell({
       <div className="mb-1 flex items-center gap-1.5">
         <span className={`text-sm ${cell.inMonth ? "text-slate-500" : "text-slate-300"}`}>{cell.day}</span>
         {isToday && <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+        {cell.inMonth && onQuickAdd && !adding && (
+          <button
+            onClick={() => setAdding(true)}
+            aria-label={`Add a post on day ${cell.day}`}
+            title="Add your own post"
+            className="ml-auto rounded p-0.5 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-slate-900 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+          >
+            <Plus size={12} />
+          </button>
+        )}
       </div>
       {marks.map((name) => (
         <div
@@ -300,6 +324,20 @@ function DayCell({
         </div>
       ))}
       {children}
+      {adding && (
+        <input
+          autoFocus
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") { setTitle(""); setAdding(false); }
+          }}
+          onBlur={commit}
+          placeholder="Post title…"
+          className="mt-1 w-full rounded-md border border-indigo-300 bg-white px-1.5 py-1 text-[0.7rem] outline-none"
+        />
+      )}
     </div>
   );
 }
@@ -544,6 +582,20 @@ export function CalendarBuilder({
       prev ? { ...prev, posts: prev.posts.map((p) => (p.id === updated.id ? updated : p)) } : prev,
     );
   }, []);
+
+  /** Ad-hoc post typed straight onto a day — no idea, series, or awareness row. */
+  const quickAdd = useCallback(
+    (dateStr: string, title: string) => {
+      void placeSource(
+        { type: "source", kind: "fresh", sourceId: null, title, description: "", campaignType: "series" },
+        dateStr,
+      );
+    },
+    // placeSource is declared below and closes over current state; it is stable
+    // enough for this callback's purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [client, month, year, plan],
+  );
 
   const removePostLocally = useCallback((postId: number) => {
     setPlan((prev) => (prev ? { ...prev, posts: prev.posts.filter((p) => p.id !== postId) } : prev));
@@ -842,6 +894,47 @@ export function CalendarBuilder({
       }),
     });
     if (res.ok) setFresh(fresh.map((f, i) => (i === index ? { ...f, saved: true } : f)));
+  }
+
+  // ── Export ─────────────────────────────────────────────────────────────────
+
+  const [exportOpen, setExportOpen] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const exportName = client ? getClientDisplayName(client) : "";
+  const exportPosts = plan?.posts ?? [];
+
+  function downloadFile(contents: string, mime: string, ext: string) {
+    const url = URL.createObjectURL(new Blob([contents], { type: `${mime};charset=utf-8` }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = exportFileName(exportName, month, year, ext);
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function copyText(kind: "plan" | "brief") {
+    const text =
+      kind === "plan"
+        ? buildPlanText({ clientName: exportName, month, year, posts: exportPosts })
+        : buildPhotoBriefText({ clientName: exportName, month, year, posts: exportPosts });
+    setExportOpen(false);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(kind);
+      setTimeout(() => setCopied(null), 1800);
+    } catch {
+      // Some browsers block clipboard writes (permissions, unfocused window).
+      // Fall back to a download so the export still lands somewhere useful.
+      downloadFile(text, "text/plain", "txt");
+      setCopied("file");
+      setTimeout(() => setCopied(null), 3000);
+    }
+  }
+
+  function downloadCsv() {
+    downloadFile(buildPlanCsv(exportPosts), "text/csv", "csv");
+    setExportOpen(false);
   }
 
   const years = [now.getFullYear(), now.getFullYear() + 1];
@@ -1424,17 +1517,48 @@ export function CalendarBuilder({
             )}
           </aside>
 
-          {railOpen && (
+          {/* Below xl the column is hidden, so the same content opens as a drawer.
+              A selected post opens it automatically — otherwise the detail panel
+              would be unreachable on a narrower screen. */}
+          {(railOpen || selectedPost) && (
             <div className="fixed inset-0 z-40 flex xl:hidden" role="dialog" aria-modal="true">
-              <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm" onClick={() => setRailOpen(false)} />
-              <div className="relative z-10 flex h-full w-[360px] max-w-[90vw] flex-col bg-slate-50 p-4 shadow-xl">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-bold tracking-tight text-slate-900">Sources</p>
-                  <button onClick={() => setRailOpen(false)} className="text-slate-400 hover:text-slate-900">
-                    <X size={16} />
-                  </button>
-                </div>
-                <div className="min-h-0 flex-1">{rail}</div>
+              <div
+                className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm"
+                onClick={() =>
+                  selectedPost
+                    ? guardNav(() => { setSelectedPostId(null); setPanelDirty(false); })
+                    : setRailOpen(false)
+                }
+              />
+              <div
+                className={`relative z-10 flex h-full max-w-[95vw] flex-col bg-slate-50 p-4 shadow-xl ${
+                  selectedPost ? "w-[480px]" : "w-[360px]"
+                }`}
+              >
+                {selectedPost && plan ? (
+                  <PostDetailPanel
+                    key={selectedPost.id}
+                    post={selectedPost}
+                    planId={plan.id}
+                    series={series}
+                    awarenessDays={awarenessDays}
+                    onBack={() => guardNav(() => { setSelectedPostId(null); setPanelDirty(false); setRailOpen(true); })}
+                    onClose={() => guardNav(() => { setSelectedPostId(null); setPanelDirty(false); })}
+                    onUpdated={applyPostUpdate}
+                    onDeleted={removePostLocally}
+                    onDirtyChange={setPanelDirty}
+                  />
+                ) : (
+                  <>
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-bold tracking-tight text-slate-900">Sources</p>
+                      <button onClick={() => setRailOpen(false)} className="text-slate-400 hover:text-slate-900">
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="min-h-0 flex-1">{rail}</div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -1460,6 +1584,55 @@ export function CalendarBuilder({
                       ? "Writing…"
                       : `Write captions for ${needsCaption.length} post${needsCaption.length === 1 ? "" : "s"}`}
                   </button>
+
+                  {/* Export */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setExportOpen((v) => !v)}
+                      disabled={exportPosts.length === 0}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-400 hover:text-slate-900 disabled:opacity-40"
+                    >
+                      <Download size={13} />
+                      Export
+                    </button>
+                    {exportOpen && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
+                        <div className="absolute left-0 top-full z-20 mt-1 w-60 overflow-hidden rounded-xl border border-slate-200/80 bg-white py-1 shadow-lg">
+                          <button
+                            onClick={() => void copyText("plan")}
+                            className="block w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Copy full month
+                            <span className="block text-slate-400">Captions, shot lists, hashtags</span>
+                          </button>
+                          <button
+                            onClick={() => void copyText("brief")}
+                            className="block w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Copy client photo brief
+                            <span className="block text-slate-400">Just what the practice must shoot</span>
+                          </button>
+                          <button
+                            onClick={downloadCsv}
+                            className="block w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Download CSV
+                            <span className="block text-slate-400">One row per post, for a spreadsheet</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {copied && (
+                    <span className="text-xs font-medium text-emerald-600">
+                      {copied === "plan"
+                        ? "Month copied"
+                        : copied === "brief"
+                          ? "Photo brief copied"
+                          : "Clipboard blocked — downloaded as a file instead"}
+                    </span>
+                  )}
                   {writeResult && !writing && (
                     <span className="text-xs font-medium text-slate-500">
                       Wrote {writeResult.updated} post{writeResult.updated === 1 ? "" : "s"}
@@ -1513,6 +1686,7 @@ export function CalendarBuilder({
                       cell={cell}
                       isToday={cell.dateStr === today}
                       marks={cell.inMonth ? awarenessByDate.get(cell.dateStr) ?? [] : []}
+                      onQuickAdd={(title) => quickAdd(cell.dateStr, title)}
                     >
                       {(postsByDate.get(cell.dateStr) ?? []).map((post) => (
                         <PostChip
