@@ -19,6 +19,8 @@ export const DATAFORSEO_ENDPOINTS = {
     "https://api.dataforseo.com/v3/business_data/google/my_business_info/live",
   domainRankOverview:
     "https://api.dataforseo.com/v3/dataforseo_labs/google/domain_rank_overview/live",
+  backlinksSummary: "https://api.dataforseo.com/v3/backlinks/summary/live",
+  backlinksList: "https://api.dataforseo.com/v3/backlinks/backlinks/live",
 } as const;
 
 export function cleanDomain(input: string): string {

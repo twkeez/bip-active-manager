@@ -25,6 +25,7 @@ import {
   Handshake,
   Layers,
   LayoutDashboard,
+  Link2,
   Map,
   MapPinned,
   Phone,
@@ -118,6 +119,7 @@ const SEO_TOOLS: NavItem[] = [
   { label: "SEO Ops", href: "/seo-ops", icon: ClipboardCheck },
   { label: "Site Audit", href: "/site-audit", icon: Globe },
   { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
+  { label: "Backlinks", href: "/backlinks", icon: Link2 },
   { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
 ];
 

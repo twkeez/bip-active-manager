@@ -42,6 +42,40 @@ export type CompetitorRow = {
   estimatedTraffic: number;
 };
 
+// Backlinks — who links to a client site. Sourced from the DataForSEO
+// Backlinks API, which is billed separately from the Labs/SERP endpoints
+// (~2.4c per call), so lookups are always user-initiated, never on mount.
+export type BacklinkSummary = {
+  target: string;
+  rank: number | null;
+  backlinks: number | null;
+  referringDomains: number | null;
+  referringMainDomains: number | null;
+  referringDomainsNofollow: number | null;
+  brokenBacklinks: number | null;
+  spamScore: number | null;
+  firstSeen: string | null;
+  cms: string | null;
+};
+
+export type BacklinkRow = {
+  id: number;
+  domainFrom: string;
+  urlFrom: string;
+  urlTo: string;
+  pageTitle: string | null;
+  anchor: string | null;
+  dofollow: boolean;
+  spamScore: number | null;
+  domainRank: number | null;
+  linksFromDomain: number;
+  isLost: boolean;
+  isNew: boolean;
+  isBroken: boolean;
+  firstSeen: string | null;
+  lastSeen: string | null;
+};
+
 export type DataForSeoRequestBody = {
   action?: DataForSeoAction;
   clientDomain?: string;
