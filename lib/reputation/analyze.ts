@@ -75,6 +75,7 @@ A Markdown table with two columns: "Trait" and "What it sounds like in reviews".
 
 Rules for the whole report:
 - Ground every claim in the reviews above. Do not infer what a practice is probably like from what veterinary practices are generally like.
+- Never cite reviews by number. The bracketed indices above exist only to separate the reviews for you; the reader has no way to look them up, so "[56]" or "[5, 10, 12, 17]" is clutter on the page. Carry the evidence in the reviewer's own words instead, and when the weight of a pattern matters, say it in prose — "named in roughly two dozen reviews", "three reviewers mention this and no more".
 - This report covers strengths only. Do not include criticisms, weaknesses, or improvement suggestions.
 - Do not invent staff names, incidents, or quotes. If you are unsure whether something is a real pattern, leave it out.
 - Write in plain, direct prose for a busy strategist. No preamble, no closing summary, no filler.`;

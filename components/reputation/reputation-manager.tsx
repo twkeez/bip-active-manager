@@ -114,8 +114,8 @@ function ReportBody({ markdown }: { markdown: string }) {
     const numbered = line.match(/^(\d+)\.\s+(.*)$/);
     if (numbered) {
       nodes.push(
-        <p key={index} className="mb-3 pl-6 -indent-6 text-sm leading-relaxed text-bip-muted">
-          <span className="font-semibold text-bip-text">{numbered[1]}. </span>
+        <p key={index} className="mb-3 pl-6 -indent-6 text-sm leading-relaxed text-bip-text">
+          <span className="font-semibold">{numbered[1]}. </span>
           {renderInline(numbered[2], `n-${index}`)}
         </p>,
       );
@@ -124,7 +124,7 @@ function ReportBody({ markdown }: { markdown: string }) {
     }
 
     nodes.push(
-      <p key={index} className="mb-3 text-sm leading-relaxed text-bip-muted">
+      <p key={index} className="mb-3 text-sm leading-relaxed text-bip-text">
         {renderInline(line, `p-${index}`)}
       </p>,
     );
