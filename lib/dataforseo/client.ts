@@ -21,7 +21,17 @@ export const DATAFORSEO_ENDPOINTS = {
     "https://api.dataforseo.com/v3/dataforseo_labs/google/domain_rank_overview/live",
   backlinksSummary: "https://api.dataforseo.com/v3/backlinks/summary/live",
   backlinksList: "https://api.dataforseo.com/v3/backlinks/backlinks/live",
+  // Reviews are task-based, not live: post a task, then poll task_get. The
+  // standard queue sat >15min in testing; priority 2 returned in ~60s.
+  reviewsTaskPost: "https://api.dataforseo.com/v3/business_data/google/reviews/task_post",
+  reviewsTaskGet: "https://api.dataforseo.com/v3/business_data/google/reviews/task_get",
 } as const;
+
+// my_business_info resolves reliably by place id and returns "No Search
+// Results" for a plain business name, so always address it this way.
+export function placeIdKeyword(placeId: string): string {
+  return `place_id:${placeId.trim()}`;
+}
 
 export function cleanDomain(input: string): string {
   let domain = input.trim().toLowerCase();

@@ -27,6 +27,7 @@ import {
   LayoutDashboard,
   Link2,
   Map,
+  MessageSquareQuote,
   MapPinned,
   Phone,
   Radar,
@@ -120,6 +121,7 @@ const SEO_TOOLS: NavItem[] = [
   { label: "Site Audit", href: "/site-audit", icon: Globe },
   { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
   { label: "Backlinks", href: "/backlinks", icon: Link2 },
+  { label: "Reputation", href: "/reputation", icon: MessageSquareQuote },
   { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
 ];
 

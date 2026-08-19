@@ -54,3 +54,38 @@ export async function generateClaudeContent(
 export async function generateClaudeText(prompt: string): Promise<string> {
   return generateClaudeContent([{ text: prompt }]);
 }
+
+// Long-form synthesis (reputation reports and similar) needs a stronger model
+// and far more room than the Haiku/2048 default above, which cannot hold a
+// multi-section analysis over a hundred reviews. Streaming is required at this
+// token ceiling or the request hits the SDK's HTTP timeout.
+const REPORT_MODEL = "claude-opus-5";
+
+export async function generateClaudeReport(
+  prompt: string,
+  options?: { maxOutputTokens?: number },
+): Promise<{ text: string; model: string }> {
+  const stream = client.messages.stream({
+    model: REPORT_MODEL,
+    max_tokens: options?.maxOutputTokens ?? 16000,
+    thinking: { type: "adaptive" },
+    messages: [
+      { role: "user", content: [{ type: "text", text: stripLoneSurrogates(prompt) }] },
+    ],
+  });
+
+  const message = await stream.finalMessage();
+  if (message.stop_reason === "refusal") {
+    throw new Error("Claude declined to write this report.");
+  }
+
+  const text = message.content
+    .filter(
+      (block): block is Anthropic.Messages.TextBlock => block.type === "text",
+    )
+    .map((block) => block.text)
+    .join("\n")
+    .trim();
+  if (!text) throw new Error("Claude returned an empty report.");
+  return { text, model: REPORT_MODEL };
+}
