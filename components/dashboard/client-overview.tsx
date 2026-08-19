@@ -9,6 +9,7 @@ import {
   BarChart3,
   Grid2x2,
   Loader2,
+  MessageSquareQuote,
   RefreshCw,
   Share2,
   Target,
@@ -536,6 +537,15 @@ export default function ClientOverview({
     : "Run an audit";
   const adsRunnable = isAdminUser && isSyncableAdsCustomerId(client.ads_customer_id);
 
+  // Reputation reads Google reviews by Place ID, so the tile only makes sense
+  // for clients that have one — 215 of 248 today.
+  const reputationRunnable = Boolean(norm(client.google_place_id));
+  const reputationSub = extras.reputationReportAt
+    ? `Analysed ${shortDate(extras.reputationReportAt)} · ${agoLabel(extras.reputationReportAt)}`
+    : extras.reviewRating != null
+      ? `${extras.reviewRating} ★ · ${extras.reviewVotes ?? 0} reviews · no analysis yet`
+      : "Read the reviews";
+
   async function toggleLaunch() {
     const next = !awaitingLaunch;
     setLaunchSaving(true);
@@ -804,6 +814,16 @@ export default function ClientOverview({
               stroke={T.amber}
               title="Google Ads audit"
               sub={adsSub}
+            />
+          )}
+          {reputationRunnable && (
+            <ModuleTile
+              href={`/reputation?clientId=${client.id}`}
+              icon={MessageSquareQuote}
+              tint={T.greenTint}
+              stroke={T.green}
+              title="Reputation"
+              sub={reputationSub}
             />
           )}
         </div>
