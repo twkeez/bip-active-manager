@@ -180,9 +180,14 @@ export async function getReviewTask(
     | null;
   if (!result?.items) return { ok: true, pending: true };
 
-  const reviews = result.items
-    .filter((item): item is ReviewPayload & { review_id: string } => Boolean(item?.review_id))
-    .map((item) => ({
+  // Deduplicate on review_id before returning. A single upsert command cannot
+  // touch the same conflict target twice — Postgres raises 21000 and the whole
+  // batch fails — so a repeated id from DataForSEO would lose every review in
+  // the pull, not just the duplicate.
+  const seen = new Map<string, ReviewRecord>();
+  for (const item of result.items) {
+    if (!item?.review_id || seen.has(item.review_id)) continue;
+    seen.set(item.review_id, {
       reviewId: item.review_id,
       rating: typeof item.rating?.value === "number" ? item.rating.value : null,
       reviewText: item.review_text?.trim() ? item.review_text : null,
@@ -190,7 +195,9 @@ export async function getReviewTask(
       reviewedAt: toIso(item.timestamp),
       ownerAnswer: item.owner_answer?.trim() ? item.owner_answer : null,
       localGuide: item.local_guide === true,
-    }));
+    });
+  }
+  const reviews = [...seen.values()];
 
   return {
     ok: true,
