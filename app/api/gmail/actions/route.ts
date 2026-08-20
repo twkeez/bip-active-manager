@@ -21,7 +21,9 @@ type ActionBody = {
     | "unstar"
     | "create_task"
     | "blacklist_sender"
-    | "set_high_priority";
+    | "always_high_priority_sender"
+    | "set_high_priority"
+    | "set_needs_action";
   value?: boolean;
 };
 
@@ -83,6 +85,36 @@ export async function POST(request: Request) {
     } else if (body.action === "set_high_priority") {
       const next = body.value !== false;
       await admin.from("user_email_messages").update({ is_high_priority: next, updated_at: now }).eq("id", message.id);
+    } else if (body.action === "set_needs_action") {
+      const next = body.value !== false;
+      await admin
+        .from("user_email_messages")
+        .update({
+          needs_action: next,
+          // triage_status tracks where the message lives; needs_action is the
+          // flag on top of it. Clearing the flag returns it to the inbox.
+          triage_status: next ? "needs_action" : "inbox",
+          updated_at: now,
+        })
+        .eq("id", message.id);
+    } else if (body.action === "always_high_priority_sender") {
+      if (!message.from_email) throw new Error("Sender email missing");
+      const active = body.value !== false;
+      await upsertSenderRule(admin, {
+        userId: user.id,
+        sender: message.from_email,
+        ruleType: "always_high_priority",
+        isActive: active,
+      });
+      // Apply the rule to mail already in the store, not just future sync —
+      // otherwise marking a sender important appears to do nothing.
+      if (active) {
+        await admin
+          .from("user_email_messages")
+          .update({ is_high_priority: true, updated_at: now })
+          .eq("owner_user_id", user.id)
+          .eq("from_email", message.from_email);
+      }
     } else if (body.action === "blacklist_sender") {
       if (!message.from_email) throw new Error("Sender email missing");
       await upsertSenderRule(admin, {

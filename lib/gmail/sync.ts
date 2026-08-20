@@ -61,7 +61,13 @@ async function processInboxPage(params: {
           rules: params.rules,
         });
         const triageStatus = senderEval.isBlacklisted ? "archived" : "inbox";
-        const needsAction = !senderEval.isBlacklisted;
+        // needs_action is the owner's own "come back to this" flag, set from the
+        // inbox or by turning a message into a task. Sync must never set it —
+        // doing so marked every message and made the view a copy of the inbox.
+        //
+        // is_high_priority is likewise owned by the user and the AI scorer, so
+        // it is only ever raised here, never cleared. Writing the computed value
+        // unconditionally wiped manual flags and AI scores on the next sync.
         const isHighPriority = senderEval.isAlwaysHighPriority || normalized.isStarred;
         const { error } = await params.admin.from("user_email_messages").upsert(
           {
@@ -81,8 +87,7 @@ async function processInboxPage(params: {
             is_read: normalized.isRead,
             is_starred: normalized.isStarred,
             triage_status: triageStatus,
-            needs_action: needsAction,
-            is_high_priority: isHighPriority,
+            ...(isHighPriority ? { is_high_priority: true } : {}),
             raw_payload: normalized.rawPayload,
             last_synced_at: params.now,
             updated_at: params.now,

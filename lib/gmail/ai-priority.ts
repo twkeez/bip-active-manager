@@ -16,6 +16,55 @@ const VALID = new Set(["high", "medium", "low"]);
  * needs to look at them. One batched Claude call; resilient — on any failure it
  * leaves messages unscored rather than throwing (so sync still succeeds).
  */
+/**
+ * How many inbox messages still have no AI score. Drives the progress readout
+ * in the inbox so the High priority view can be trusted or not accordingly.
+ */
+export async function countUnassessedEmails(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<{ total: number; assessed: number }> {
+  const base = () =>
+    admin
+      .from("user_email_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_user_id", userId)
+      .eq("triage_status", "inbox");
+
+  const [total, assessed] = await Promise.all([
+    base(),
+    base().not("ai_assessed_at", "is", null),
+  ]);
+
+  return { total: total.count ?? 0, assessed: assessed.count ?? 0 };
+}
+
+/**
+ * Score a backlog in sequential batches. One batch is a single Claude call, so
+ * this trades wall-clock for coverage; the caller caps how many batches run per
+ * request to stay inside the serverless timeout.
+ */
+export async function scoreBacklog(
+  admin: SupabaseClient,
+  userId: string,
+  options?: { batches?: number; batchSize?: number },
+): Promise<{ scored: number; batches: number }> {
+  const batches = Math.max(1, Math.min(options?.batches ?? 6, 20));
+  const batchSize = Math.max(1, Math.min(options?.batchSize ?? 25, 50));
+
+  let scored = 0;
+  let ran = 0;
+  for (let i = 0; i < batches; i += 1) {
+    const result = await scoreUnassessedEmails(admin, userId, batchSize);
+    ran += 1;
+    scored += result.scored;
+    // A batch that scores nothing means the backlog is drained, or Claude
+    // failed — either way, stop rather than burning the remaining batches.
+    if (result.scored === 0) break;
+  }
+  return { scored, batches: ran };
+}
+
 export async function scoreUnassessedEmails(
   admin: SupabaseClient,
   userId: string,

@@ -7,14 +7,17 @@ import {
   ArrowLeft,
   CheckSquare,
   ExternalLink,
+  Flag,
   Inbox as InboxIcon,
   Loader2,
   Mail,
   MailOpen,
   RefreshCw,
+  Sparkles,
   Star,
   Trash2,
   TriangleAlert,
+  UserCheck,
 } from "lucide-react";
 import AppHeaderActions, { ModuleHeaderLinks } from "@/components/layout/app-header-actions";
 import type { UserEmailMessageRow } from "@/lib/gmail/types";
@@ -65,6 +68,8 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
   const [connected, setConnected] = useState<boolean | null>(null);
   const [connectMeta, setConnectMeta] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ total: number; assessed: number } | null>(null);
+  const [scoring, setScoring] = useState(false);
 
   const loadMessages = useCallback(
     async (nextView: View = view) => {
@@ -100,9 +105,42 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
     }
   }, []);
 
+  const loadProgress = useCallback(async () => {
+    try {
+      const response = await fetch("/api/gmail/score", { cache: "no-store" });
+      if (!response.ok) return;
+      setProgress((await response.json()) as { total: number; assessed: number });
+    } catch {
+      // Progress is a readout, not a blocker — leave it unknown on failure.
+    }
+  }, []);
+
+  // Score in repeated requests rather than one long one: each call handles six
+  // batches, and the loop stops when the backlog stops shrinking.
+  const scoreBacklog = useCallback(async () => {
+    if (scoring) return;
+    setScoring(true);
+    setError(null);
+    try {
+      for (let round = 0; round < 20; round += 1) {
+        const response = await fetch("/api/gmail/score", { method: "POST" });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error ?? "Scoring failed.");
+        setProgress({ total: payload.total, assessed: payload.assessed });
+        if (payload.scored === 0 || payload.assessed >= payload.total) break;
+      }
+      await loadMessages(view);
+    } catch (scoreError) {
+      setError(scoreError instanceof Error ? scoreError.message : "Scoring failed.");
+    } finally {
+      setScoring(false);
+    }
+  }, [scoring, view, loadMessages]);
+
   useEffect(() => {
     void loadConnectStatus();
-  }, [loadConnectStatus]);
+    void loadProgress();
+  }, [loadConnectStatus, loadProgress]);
 
   useEffect(() => {
     void loadMessages(view);
@@ -233,9 +271,37 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
               >
                 Pull recent
               </button>
+              <button
+                type="button"
+                onClick={() => void scoreBacklog()}
+                disabled={scoring}
+                title="Have Claude rate the importance of every unscored message"
+                className="inline-flex items-center gap-2 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text transition hover:bg-bip-page disabled:opacity-50"
+              >
+                {scoring ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Sparkles className="h-4 w-4" aria-hidden />
+                )}
+                Score inbox
+              </button>
             </>
           )}
         </div>
+
+        {progress && progress.total > 0 && (
+          <p className="mb-3 text-xs text-bip-muted">
+            {progress.assessed >= progress.total ? (
+              <>All {progress.total.toLocaleString()} inbox messages rated for importance.</>
+            ) : (
+              <>
+                {progress.assessed.toLocaleString()} of {progress.total.toLocaleString()} messages
+                rated · High priority only reflects the {progress.assessed.toLocaleString()} scored
+                so far.
+              </>
+            )}
+          </p>
+        )}
 
         <div className="mb-4 flex flex-wrap gap-1.5">
           {VIEWS.map((entry) => (
@@ -344,21 +410,54 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
 
                 <div className="mb-4 flex flex-wrap gap-1.5">
                   {[
-                    { action: "archive", label: "Archive", icon: Archive },
-                    { action: "trash", label: "Delete", icon: Trash2 },
-                    { action: "create_task", label: "To task", icon: CheckSquare },
-                  ].map(({ action, label, icon: Icon }) => (
+                    {
+                      action: "archive",
+                      label: "Archive",
+                      icon: Archive,
+                      hint: "Removes it from your Gmail inbox too",
+                    },
+                    {
+                      action: "trash",
+                      label: "Delete",
+                      icon: Trash2,
+                      hint: "Moves it to Gmail's trash — recoverable for 30 days",
+                    },
+                    {
+                      action: "create_task",
+                      label: "To task",
+                      icon: CheckSquare,
+                      hint: "Creates a task in My Tasks linked back to this email",
+                    },
+                  ].map(({ action, label, icon: Icon, hint }) => (
                     <button
                       key={action}
                       type="button"
                       onClick={() => void runAction(action)}
                       disabled={acting}
+                      title={hint}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border bg-bip-page px-3 py-1.5 text-xs text-bip-text transition hover:bg-bip-fill disabled:opacity-50"
                     >
                       <Icon className="h-3 w-3" aria-hidden />
                       {label}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => void runAction("set_needs_action", !selected.needs_action)}
+                    disabled={acting}
+                    title="Your own come-back-to-this flag. Gmail never sees it."
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition hover:bg-bip-fill disabled:opacity-50 ${
+                      selected.needs_action
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                        : "border-bip-border bg-bip-page text-bip-text"
+                    }`}
+                  >
+                    <Flag
+                      className={`h-3 w-3 ${selected.needs_action ? "fill-current" : ""}`}
+                      aria-hidden
+                    />
+                    {selected.needs_action ? "On my list" : "Needs action"}
+                  </button>
                   <button
                     type="button"
                     onClick={() => void runAction(selected.is_read ? "mark_unread" : "mark_read")}
@@ -397,6 +496,18 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
                     <TriangleAlert className="h-3 w-3" aria-hidden />
                     {selected.is_high_priority ? "Unflag" : "Flag important"}
                   </button>
+                  {selected.from_email && (
+                    <button
+                      type="button"
+                      onClick={() => void runAction("always_high_priority_sender", true)}
+                      disabled={acting}
+                      title={`Always treat mail from ${selected.from_email} as high priority, including everything already in the store`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border bg-bip-page px-3 py-1.5 text-xs text-bip-text transition hover:bg-bip-fill disabled:opacity-50"
+                    >
+                      <UserCheck className="h-3 w-3" aria-hidden />
+                      Always important from this sender
+                    </button>
+                  )}
                 </div>
 
                 <div className="max-h-[45vh] overflow-auto whitespace-pre-wrap text-sm leading-relaxed text-bip-text">
