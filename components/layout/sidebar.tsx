@@ -23,6 +23,7 @@ import {
   Globe,
   GraduationCap,
   Handshake,
+  Inbox,
   Layers,
   LayoutDashboard,
   Link2,
@@ -104,6 +105,12 @@ const ONBOARDING: NavItem[] = [
   { label: "Strategy Mapper", href: "/onboarding-strategy-mapper", icon: Compass, adminOnly: true },
   { label: "Vet Onboarding", href: "/vet-onboarding", icon: Stethoscope, adminOnly: true },
   { label: "Onboarding Settings", href: "/onboarding-settings", icon: ClipboardList, adminOnly: true },
+];
+
+// Gmail triage, lifted out of My Tasks so it has room to grow into a real
+// inbox (threaded conversations, flagged mail on the dashboard).
+const INBOX: NavItem[] = [
+  { label: "Inbox", href: "/inbox", icon: Inbox },
 ];
 
 const TOOLS: NavItem[] = [
@@ -275,6 +282,10 @@ export default function Sidebar({
                 <NavLink key={item.href} item={item} role={role} />
               ))}
             </div>
+
+            <div className="border-t border-[var(--bip-border)]" />
+
+            <SectionGroup label="Inbox" items={INBOX} role={role} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
