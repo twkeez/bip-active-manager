@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import SidebarSwitch from "@/components/layout/sidebar-switch";
 import { getProfile } from "@/lib/auth/profile";
 import { resolveEffectiveRole, VIEW_AS_COOKIE } from "@/lib/auth/effective-role";
+import { getAppMode } from "@/lib/auth/app-mode";
 
 export default async function AppLayout({
   children,
@@ -33,6 +34,7 @@ export default async function AppLayout({
         role={effectiveRole}
         actualRole={actualRole}
         userName={profile?.full_name ?? ""}
+        appMode={getAppMode()}
       />
       <main className="flex flex-1 flex-col overflow-y-auto">{children}</main>
     </div>

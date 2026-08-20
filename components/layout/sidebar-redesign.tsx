@@ -18,6 +18,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import type { UserRole } from "@/lib/auth/profile";
+import { isNavItemVisible, type AppMode } from "@/lib/auth/app-mode";
 
 // Sidebar from the Clients redesign handoff. Runs alongside the original
 // sidebar rather than replacing it — see components/layout/sidebar-switch.tsx.
@@ -58,9 +59,18 @@ const SUPPORT: NavItem[] = [
   { label: "Client Expectations", href: "/client-expectations", icon: CalendarClock, adminOnly: true },
 ];
 
-function NavLink({ item, role }: { item: NavItem; role: UserRole }) {
+function NavLink({
+  item,
+  role,
+  appMode,
+}: {
+  item: NavItem;
+  role: UserRole;
+  appMode: AppMode;
+}) {
   const pathname = usePathname();
   if (item.adminOnly && role !== "admin") return null;
+  if (!isNavItemVisible(item.href, appMode)) return null;
   const active =
     item.href === "/dashboard"
       ? pathname === "/dashboard"
@@ -84,8 +94,20 @@ function NavLink({ item, role }: { item: NavItem; role: UserRole }) {
   );
 }
 
-function Section({ label, items, role }: { label: string; items: NavItem[]; role: UserRole }) {
-  const visible = items.filter((i) => !i.adminOnly || role === "admin");
+function Section({
+  label,
+  items,
+  role,
+  appMode,
+}: {
+  label: string;
+  items: NavItem[];
+  role: UserRole;
+  appMode: AppMode;
+}) {
+  const visible = items.filter(
+    (i) => (!i.adminOnly || role === "admin") && isNavItemVisible(i.href, appMode),
+  );
   if (visible.length === 0) return null;
   return (
     <div>
@@ -97,7 +119,7 @@ function Section({ label, items, role }: { label: string; items: NavItem[]; role
       </p>
       <div className="flex flex-col gap-0.5">
         {items.map((item) => (
-          <NavLink key={item.href} item={item} role={role} />
+          <NavLink key={item.href} item={item} role={role} appMode={appMode} />
         ))}
       </div>
     </div>
@@ -107,9 +129,11 @@ function Section({ label, items, role }: { label: string; items: NavItem[]; role
 export default function SidebarRedesign({
   role,
   userName,
+  appMode,
 }: {
   role: UserRole;
   userName: string;
+  appMode: AppMode;
 }) {
   const initials =
     userName
@@ -147,9 +171,9 @@ export default function SidebarRedesign({
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
-        <Section label="Workspace" items={WORKSPACE} role={role} />
-        <Section label="Growth" items={GROWTH} role={role} />
-        <Section label="Support" items={SUPPORT} role={role} />
+        <Section label="Workspace" items={WORKSPACE} role={role} appMode={appMode} />
+        <Section label="Growth" items={GROWTH} role={role} appMode={appMode} />
+        <Section label="Support" items={SUPPORT} role={role} appMode={appMode} />
       </nav>
 
       {/* Footer */}

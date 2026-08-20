@@ -47,6 +47,7 @@ import {
 import { useState } from "react";
 import type { UserRole } from "@/lib/auth/profile";
 import { VIEW_AS_COOKIE } from "@/lib/auth/effective-role";
+import { isNavItemVisible, type AppMode } from "@/lib/auth/app-mode";
 
 type NavItem = {
   label: string;
@@ -149,9 +150,20 @@ const USER_NAV: NavItem[] = [
   { label: "Reporting", href: "/reports/doc-to-pdf", icon: FileDown },
 ];
 
-function NavLink({ item, role, accentColor }: { item: NavItem; role: UserRole; accentColor?: string }) {
+function NavLink({
+  item,
+  role,
+  appMode,
+  accentColor,
+}: {
+  item: NavItem;
+  role: UserRole;
+  appMode: AppMode;
+  accentColor?: string;
+}) {
   const pathname = usePathname();
   if (item.adminOnly && role !== "admin") return null;
+  if (!isNavItemVisible(item.href, appMode)) return null;
   const active =
     item.href === "/dashboard"
       ? pathname === "/dashboard"
@@ -180,17 +192,21 @@ function SectionGroup({
   label,
   items,
   role,
+  appMode,
   defaultOpen = true,
   accentColor,
 }: {
   label: string;
   items: NavItem[];
   role: UserRole;
+  appMode: AppMode;
   defaultOpen?: boolean;
   accentColor?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const visible = items.filter((i) => !i.adminOnly || role === "admin");
+  const visible = items.filter(
+    (i) => (!i.adminOnly || role === "admin") && isNavItemVisible(i.href, appMode),
+  );
   if (visible.length === 0) return null;
   return (
     <div>
@@ -208,7 +224,7 @@ function SectionGroup({
       {open && (
         <div className="mt-0.5 flex flex-col gap-0.5">
           {items.map((item) => (
-            <NavLink key={item.href} item={item} role={role} accentColor={accentColor} />
+            <NavLink key={item.href} item={item} role={role} appMode={appMode} accentColor={accentColor} />
           ))}
         </div>
       )}
@@ -248,10 +264,12 @@ export default function Sidebar({
   role,
   actualRole,
   userName,
+  appMode,
 }: {
   role: UserRole;
   actualRole: UserRole;
   userName: string;
+  appMode: AppMode;
 }) {
   const isUserView = role !== "admin";
   const previewing = actualRole === "admin" && role !== "admin";
@@ -271,7 +289,7 @@ export default function Sidebar({
         {isUserView ? (
           <div className="flex flex-col gap-0.5">
             {USER_NAV.map((item) => (
-              <NavLink key={item.href} item={item} role={role} />
+              <NavLink key={item.href} item={item} role={role} appMode={appMode} />
             ))}
           </div>
         ) : (
@@ -279,43 +297,43 @@ export default function Sidebar({
             {/* Primary */}
             <div className="flex flex-col gap-0.5">
               {PRIMARY.map((item) => (
-                <NavLink key={item.href} item={item} role={role} />
+                <NavLink key={item.href} item={item} role={role} appMode={appMode} />
               ))}
             </div>
 
             <div className="border-t border-[var(--bip-border)]" />
 
-            <SectionGroup label="Inbox" items={INBOX} role={role} />
+            <SectionGroup label="Inbox" items={INBOX} role={role} appMode={appMode} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
-            <SectionGroup label="Illuminare" items={ILLUMINARE} role={role} accentColor={ILLUMINARE_ACCENT} />
+            <SectionGroup label="Illuminare" items={ILLUMINARE} role={role} appMode={appMode} accentColor={ILLUMINARE_ACCENT} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
-            <SectionGroup label="Onboarding" items={ONBOARDING} role={role} />
+            <SectionGroup label="Onboarding" items={ONBOARDING} role={role} appMode={appMode} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
-            <SectionGroup label="Services" items={SERVICES} role={role} accentColor={SERVICES_ACCENT} />
+            <SectionGroup label="Services" items={SERVICES} role={role} appMode={appMode} accentColor={SERVICES_ACCENT} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
-            <SectionGroup label="Ads" items={ADS} role={role} accentColor={ADS_ACCENT} />
+            <SectionGroup label="Ads" items={ADS} role={role} appMode={appMode} accentColor={ADS_ACCENT} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
-            <SectionGroup label="Tools" items={TOOLS} role={role} />
+            <SectionGroup label="Tools" items={TOOLS} role={role} appMode={appMode} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
-            <SectionGroup label="SEO" items={SEO_TOOLS} role={role} defaultOpen={false} />
+            <SectionGroup label="SEO" items={SEO_TOOLS} role={role} appMode={appMode} defaultOpen={false} />
 
-            <SectionGroup label="Utilities" items={UTILITIES} role={role} defaultOpen={false} />
+            <SectionGroup label="Utilities" items={UTILITIES} role={role} appMode={appMode} defaultOpen={false} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
-            <SectionGroup label="Sales" items={SALES} role={role} defaultOpen={false} />
+            <SectionGroup label="Sales" items={SALES} role={role} appMode={appMode} defaultOpen={false} />
           </>
         )}
       </nav>

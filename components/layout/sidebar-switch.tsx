@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Sidebar from "@/components/layout/sidebar";
 import SidebarRedesign from "@/components/layout/sidebar-redesign";
 import type { UserRole } from "@/lib/auth/profile";
+import type { AppMode } from "@/lib/auth/app-mode";
 
 /**
  * Both sidebars ship side by side while the redesign is evaluated.
@@ -22,13 +23,20 @@ export default function SidebarSwitch(props: {
   role: UserRole;
   actualRole: UserRole;
   userName: string;
+  appMode: AppMode;
 }) {
   const pathname = usePathname();
   const useRedesign =
     REDESIGNED_ROUTES.includes(pathname) || CLIENT_DETAIL_PATTERN.test(pathname);
 
   if (useRedesign) {
-    return <SidebarRedesign role={props.role} userName={props.userName} />;
+    return (
+      <SidebarRedesign
+        role={props.role}
+        userName={props.userName}
+        appMode={props.appMode}
+      />
+    );
   }
   return <Sidebar {...props} />;
 }
