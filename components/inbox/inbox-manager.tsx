@@ -349,7 +349,10 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
           </p>
         )}
 
-        <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,22rem)_1fr]">
+        {/* The list track is a fixed width rather than minmax(0,22rem): the
+            latter is allowed to collapse to nothing, which leaves a sliver of
+            border where the message list should be. */}
+        <div className="grid flex-1 gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
           {/* List */}
           <div
             className={`max-h-[70vh] overflow-auto rounded-xl border border-bip-border bg-bip-card ${
@@ -409,10 +412,18 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
               <p className="text-sm text-bip-muted">Select a message.</p>
             ) : (
               <>
+                {/* Always rendered, at every width. Hiding this behind a
+                    breakpoint left no way out of a message whenever the panes
+                    did not lay out as expected. Clearing the selection as well
+                    means it visibly does something even when the list is
+                    already on screen. */}
                 <button
                   type="button"
-                  onClick={() => setDetailOpen(false)}
-                  className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-bip-border bg-bip-page px-3 py-1.5 text-xs text-bip-text transition hover:bg-bip-fill lg:hidden"
+                  onClick={() => {
+                    setDetailOpen(false);
+                    setSelectedId(null);
+                  }}
+                  className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-bip-border bg-bip-page px-3 py-1.5 text-xs text-bip-text transition hover:bg-bip-fill"
                 >
                   <ArrowLeft className="h-3 w-3" aria-hidden />
                   Back to inbox
