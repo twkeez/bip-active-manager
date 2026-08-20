@@ -70,6 +70,11 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ total: number; assessed: number } | null>(null);
   const [scoring, setScoring] = useState(false);
+  // Below `lg` the two panes stack into one column, so the list would sit off
+  // screen above an open message with no way back. There, the pane the user is
+  // looking at takes the whole column and this drives which one that is. On
+  // wide screens both panes are visible and this is ignored.
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const loadMessages = useCallback(
     async (nextView: View = view) => {
@@ -181,6 +186,11 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error ?? "Action failed.");
+        // These remove the message from whatever view you are in, so on a
+        // stacked layout there is nothing left to read — go back to the list.
+        if (["archive", "trash", "blacklist_sender"].includes(action)) {
+          setDetailOpen(false);
+        }
         await loadMessages(view);
       } catch (actionError) {
         setError(actionError instanceof Error ? actionError.message : "Action failed.");
@@ -190,6 +200,16 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
     },
     [selectedId, acting, view, loadMessages],
   );
+
+  // Escape backs out of an open message, matching every mail client.
+  useEffect(() => {
+    if (!detailOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDetailOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [detailOpen]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -308,7 +328,10 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
             <button
               key={entry.value}
               type="button"
-              onClick={() => setView(entry.value)}
+              onClick={() => {
+                setView(entry.value);
+                setDetailOpen(false);
+              }}
               className={`rounded-lg border px-3 py-1.5 text-xs transition ${
                 view === entry.value
                   ? "border-bip-border bg-bip-fill text-bip-text"
@@ -328,7 +351,11 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
 
         <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,22rem)_1fr]">
           {/* List */}
-          <div className="max-h-[70vh] overflow-auto rounded-xl border border-bip-border bg-bip-card">
+          <div
+            className={`max-h-[70vh] overflow-auto rounded-xl border border-bip-border bg-bip-card ${
+              detailOpen ? "hidden lg:block" : "block"
+            }`}
+          >
             {loading ? (
               <p className="flex items-center gap-2 px-4 py-6 text-sm text-bip-muted">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading…
@@ -342,7 +369,10 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
                 <button
                   key={row.id}
                   type="button"
-                  onClick={() => setSelectedId(row.id)}
+                  onClick={() => {
+                    setSelectedId(row.id);
+                    setDetailOpen(true);
+                  }}
                   className={`block w-full border-b border-bip-border px-3 py-2.5 text-left transition last:border-0 hover:bg-bip-page ${
                     row.id === selectedId ? "bg-bip-fill" : ""
                   }`}
@@ -370,11 +400,23 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
           </div>
 
           {/* Reading pane */}
-          <div className="rounded-xl border border-bip-border bg-bip-card p-5">
+          <div
+            className={`rounded-xl border border-bip-border bg-bip-card p-5 ${
+              detailOpen ? "block" : "hidden lg:block"
+            }`}
+          >
             {!selected ? (
               <p className="text-sm text-bip-muted">Select a message.</p>
             ) : (
               <>
+                <button
+                  type="button"
+                  onClick={() => setDetailOpen(false)}
+                  className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-bip-border bg-bip-page px-3 py-1.5 text-xs text-bip-text transition hover:bg-bip-fill lg:hidden"
+                >
+                  <ArrowLeft className="h-3 w-3" aria-hidden />
+                  Back to inbox
+                </button>
                 <div className="mb-3 flex items-start justify-between gap-3 border-b border-bip-border pb-3">
                   <div className="min-w-0">
                     <h2 className="text-base font-semibold text-bip-text">
