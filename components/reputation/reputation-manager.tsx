@@ -159,10 +159,13 @@ export default function ReputationManager({
   userEmail,
   clients,
   initialClientId,
+  lockedToClient = false,
 }: {
   userEmail?: string;
   clients: ClientOption[];
   initialClientId: number | null;
+  /** Pinned to the client the user arrived from — the picker is read-only. */
+  lockedToClient?: boolean;
 }) {
   const [clientId, setClientId] = useState<number | null>(initialClientId);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -298,7 +301,9 @@ export default function ReputationManager({
             <select
               value={clientId ?? ""}
               onChange={(event) => setClientId(Number(event.target.value))}
-              className="w-full rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text focus:outline-none focus:ring-1 focus:ring-bip-accent"
+              disabled={lockedToClient}
+              aria-describedby={lockedToClient ? "client-locked" : undefined}
+              className="w-full rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-sm text-bip-text focus:outline-none focus:ring-1 focus:ring-bip-accent disabled:cursor-not-allowed disabled:opacity-70"
             >
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
@@ -306,6 +311,14 @@ export default function ReputationManager({
                 </option>
               ))}
             </select>
+            {lockedToClient && (
+              <span
+                id="client-locked"
+                className="mt-1 block text-xs text-bip-muted"
+              >
+                Opened from this client&apos;s workspace.
+              </span>
+            )}
           </label>
           <button
             type="button"

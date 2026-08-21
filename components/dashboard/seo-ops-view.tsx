@@ -274,7 +274,7 @@ export default function SeoOpsView({
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
-            href="/site-audit"
+            href={`/site-audit?clientId=${client.id}`}
             className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-text hover:bg-bip-fill"
           >
             Site Audit

@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import FocusClientBanner from "@/components/dashboard/focus-client-banner";
+import type { FocusClient } from "@/lib/dashboard/focus-client";
 import {
   ArrowRight,
   CheckCircle2,
@@ -31,6 +33,8 @@ type Props = {
   lastAdsSyncAt: string | null;
   userEmail?: string;
   loadError?: string | null;
+  /** Set when opened from a client workspace — narrows the list to that client. */
+  focusClient?: FocusClient | null;
 };
 function formatSyncTime(value: string | null) {
   if (!value) return "No ads snapshots synced yet";
@@ -44,6 +48,7 @@ export default function ConversionIntegrityRadar({
   lastAdsSyncAt,
   userEmail,
   loadError,
+  focusClient = null,
 }: Props) {
   const [mutedIds, setMutedIds] = useState<Set<string>>(() => new Set());
   const [auditedIds, setAuditedIds] = useState<Set<string>>(() => new Set());
@@ -54,8 +59,11 @@ export default function ConversionIntegrityRadar({
     null,
   );
   const visibleAnomalies = useMemo(
-    () => anomalies.filter((row) => !mutedIds.has(row.id)),
-    [anomalies, mutedIds],
+    () =>
+      anomalies
+        .filter((row) => !mutedIds.has(row.id))
+        .filter((row) => !focusClient || row.clientId === focusClient.id),
+    [anomalies, mutedIds, focusClient],
   );
   async function handleRunValidation(anomaly: ConversionIntegrityAnomaly) {
     setRunningValidationId(anomaly.id);
@@ -152,6 +160,14 @@ export default function ConversionIntegrityRadar({
         </div>
       </header>
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-6 py-8">
+        {focusClient && (
+          <FocusClientBanner
+            focusClient={focusClient}
+            toolPath="/conversion-integrity"
+            shownCount={visibleAnomalies.length}
+            totalCount={anomalies.length}
+          />
+        )}
         
         {loadError ? (
           <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">

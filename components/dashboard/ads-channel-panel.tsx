@@ -119,13 +119,29 @@ export default function AdsChannelPanel({
               <div className="flex shrink-0 flex-col gap-2">
                 
                 {adsClientId ? (
-                  <a
-                    href={`/ads-audit/${adsClientId}`}
-                    className="rounded-lg border border-bip-border px-3 py-2 text-center text-xs font-medium text-bip-text transition hover:bg-bip-card/60"
-                  >
-                    
-                    Performance audit
-                  </a>
+                  <>
+                    <a
+                      href={`/ads-audit/${adsClientId}`}
+                      className="rounded-lg border border-bip-border px-3 py-2 text-center text-xs font-medium text-bip-text transition hover:bg-bip-card/60"
+                    >
+
+                      Performance audit
+                    </a>
+                    {/* Both radars scan every account; the clientId narrows the
+                        findings to this one so nobody has to hunt for the row. */}
+                    <a
+                      href={`/conversion-integrity?clientId=${adsClientId}`}
+                      className="rounded-lg border border-bip-border px-3 py-2 text-center text-xs font-medium text-bip-text transition hover:bg-bip-card/60"
+                    >
+                      Conversion integrity
+                    </a>
+                    <a
+                      href={`/ppc-defense?clientId=${adsClientId}`}
+                      className="rounded-lg border border-bip-border px-3 py-2 text-center text-xs font-medium text-bip-text transition hover:bg-bip-card/60"
+                    >
+                      PPC defense
+                    </a>
+                  </>
                 ) : null}
                 <button
                   type="button"

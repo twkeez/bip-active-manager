@@ -10,6 +10,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import AppHeaderActions from "@/components/layout/app-header-actions";
+import FocusClientBanner from "@/components/dashboard/focus-client-banner";
+import type { FocusClient } from "@/lib/dashboard/focus-client";
 import PlaybookGuidancePanel, {
   PlaybookInlineTrigger,
 } from "@/components/dashboard/playbook-guidance-panel";
@@ -28,6 +30,8 @@ type Props = {
   lastAdsSyncAt: string | null;
   userEmail?: string;
   loadError?: string | null;
+  /** Set when opened from a client workspace — narrows both lists to that client. */
+  focusClient?: FocusClient | null;
 };
 function formatSyncTime(value: string | null) {
   if (!value) return "No ads snapshots synced yet";
@@ -42,17 +46,28 @@ export default function PpcDefenseRadar({
   lastAdsSyncAt,
   userEmail,
   loadError,
+  focusClient = null,
 }: Props) {
   const [resolvedHogIds, setResolvedHogIds] = useState<Set<string>>(
     () => new Set(),
   );
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const visibleHogs = useMemo(
-    () => budgetHogs.filter((item) => !resolvedHogIds.has(item.id)),
-    [budgetHogs, resolvedHogIds],
+    () =>
+      budgetHogs
+        .filter((item) => !resolvedHogIds.has(item.id))
+        .filter((item) => !focusClient || item.clientId === focusClient.id),
+    [budgetHogs, resolvedHogIds, focusClient],
+  );
+  const visibleDeficits = useMemo(
+    () =>
+      lpDeficits.filter(
+        (item) => !focusClient || item.clientId === focusClient.id,
+      ),
+    [lpDeficits, focusClient],
   );
   async function handleExportWebDev() {
-    const payload = buildWebDevExportPayload(lpDeficits);
+    const payload = buildWebDevExportPayload(visibleDeficits);
     try {
       await navigator.clipboard.writeText(payload);
       setExportMessage("Web dev assignment copied to clipboard.");
@@ -122,7 +137,14 @@ export default function PpcDefenseRadar({
         </div>
       </header>
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-8 p-6">
-        
+        {focusClient && (
+          <FocusClientBanner
+            focusClient={focusClient}
+            toolPath="/ppc-defense"
+            shownCount={visibleDeficits.length + visibleHogs.length}
+            totalCount={lpDeficits.length + budgetHogs.length}
+          />
+        )}
         {loadError ? (
           <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
             
@@ -205,7 +227,7 @@ export default function PpcDefenseRadar({
               </p>
               <div className="space-y-3">
                 
-                {lpDeficits.length === 0 ? (
+                {visibleDeficits.length === 0 ? (
                   <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-bip-border bg-bip-card/30 p-6 text-center text-xs text-bip-muted">
                     
                     <ShieldCheck size={14} className="text-emerald-500/60" /> No
@@ -213,7 +235,7 @@ export default function PpcDefenseRadar({
                     accounts.
                   </div>
                 ) : (
-                  lpDeficits.map((item) => (
+                  visibleDeficits.map((item) => (
                     <div
                       key={item.id}
                       className="flex items-start justify-between rounded-lg border border-bip-border bg-bip-card/50 p-4"
@@ -261,7 +283,7 @@ export default function PpcDefenseRadar({
               <button
                 type="button"
                 onClick={() => void handleExportWebDev()}
-                disabled={lpDeficits.length === 0}
+                disabled={visibleDeficits.length === 0}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border bg-bip-card/40 px-4 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-card/70 disabled:opacity-50"
               >
                 

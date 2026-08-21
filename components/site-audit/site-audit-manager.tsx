@@ -5,13 +5,23 @@ import AuditExportDialog from "@/components/site-audit/audit-export-dialog";
 import AuditReport from "@/components/site-audit/audit-report";
 import { AUDIT_STAGES } from "@/lib/site-audit/types";
 import type { WebsiteAuditRun } from "@/lib/site-audit/types";
-type Props = { initialRuns: WebsiteAuditRun[]; userEmail: string | undefined };
+type ForClient = { id: number; name: string; website: string | null };
+type Props = {
+  initialRuns: WebsiteAuditRun[];
+  userEmail: string | undefined;
+  /** Set when opened from a client workspace — pre-fills that client's site. */
+  forClient?: ForClient | null;
+};
 function formatWhen(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleString();
 }
-export default function SiteAuditManager({ initialRuns, userEmail }: Props) {
+export default function SiteAuditManager({
+  initialRuns,
+  userEmail,
+  forClient = null,
+}: Props) {
   const [runs, setRuns] = useState(initialRuns);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(
     initialRuns[0]?.id ?? null,
@@ -19,7 +29,7 @@ export default function SiteAuditManager({ initialRuns, userEmail }: Props) {
   const [selectedRun, setSelectedRun] = useState<WebsiteAuditRun | null>(
     initialRuns[0] ?? null,
   );
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(forClient?.website ?? "");
   const [loading, setLoading] = useState(false);
   const [runningStage, setRunningStage] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -167,6 +177,13 @@ export default function SiteAuditManager({ initialRuns, userEmail }: Props) {
             <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">
               New audit
             </p>
+            {forClient && (
+              <p className="mt-1 text-xs text-bip-muted">
+                {forClient.website
+                  ? `Pre-filled with ${forClient.name}'s website.`
+                  : `${forClient.name} has no website on file — enter one below.`}
+              </p>
+            )}
             <div className="mt-3 flex gap-2">
               
               <label className="relative flex-1">
