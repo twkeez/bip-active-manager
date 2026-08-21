@@ -22,7 +22,8 @@
     "reporting:bq:sync": "node --env-file=.env.local scripts/run-bigquery-sync.mjs",
     "ga4:audit-access": "node --env-file=.env.local scripts/ga4-access-audit.mjs",
     "clients:sync-strategists": "node --env-file=.env.local scripts/sync-client-strategists.mjs",
-    "clients:backfill-city": "node --env-file=.env.local scripts/backfill-client-city.mjs"
+    "clients:backfill-city": "node --env-file=.env.local scripts/backfill-client-city.mjs",
+    "clients:audit-place-ids": "node --env-file=.env.local scripts/audit-client-place-ids.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
