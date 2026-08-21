@@ -26,6 +26,8 @@ describe("team mode route gate", () => {
       "/global-ads-optimization",
       "/reports-print/248",
       "/onboarding-report-print/248",
+      "/services",
+      "/client-expectations-print/248",
     ]) {
       expect(isAllowedInTeamMode(path), path).toBe(true);
     }
@@ -60,13 +62,24 @@ describe("team mode route gate", () => {
       "/onboarding",
       "/onboarding-sops",
       "/my-tasks",
-      "/services",
       "/playbook",
       "/best-practices",
       "/client-expectations",
     ]) {
       expect(isAllowedInTeamMode(path), path).toBe(false);
     }
+  });
+
+  it("serves /services itself but not its children", () => {
+    expect(isAllowedInTeamMode("/services")).toBe(true);
+    // The Reference Library is a file store; Partnership is admin-authored.
+    expect(isAllowedInTeamMode("/services/library")).toBe(false);
+    expect(isAllowedInTeamMode("/services/partnership")).toBe(false);
+  });
+
+  it("serves the expectations document but not the editor", () => {
+    expect(isAllowedInTeamMode("/client-expectations-print/248")).toBe(true);
+    expect(isAllowedInTeamMode("/client-expectations")).toBe(false);
   });
 
   it("always allows sign-in and the root redirect", () => {

@@ -7,7 +7,9 @@ import {
   ArrowLeft,
   ArrowUpRight,
   BarChart3,
+  FileText,
   Grid2x2,
+  Layers,
   Loader2,
   MessageSquareQuote,
   RefreshCw,
@@ -21,7 +23,11 @@ import {
   CLIENT_LIST_PATH,
   readStoredClientListHref,
 } from "@/lib/clients/client-list-view-state";
-import { norm } from "@/lib/clients/service-active";
+import {
+  activeServiceLabels,
+  getClientActiveServices,
+  norm,
+} from "@/lib/clients/service-active";
 import type { ClientWorkspaceInitialData } from "@/lib/dashboard/client-workspace-types";
 import type { ClientOverviewExtras } from "@/lib/dashboard/load-client-overview-extras";
 
@@ -546,6 +552,12 @@ export default function ClientOverview({
       ? `${extras.reviewRating} ★ · ${extras.reviewVotes ?? 0} reviews · no analysis yet`
       : "Read the reviews";
 
+  // Names the services on the tile so a strategist can see the shape of the
+  // account without opening it.
+  const planLabels = activeServiceLabels(getClientActiveServices(client));
+  const planSub =
+    planLabels.length > 0 ? planLabels.join(" · ") : "No services recorded";
+
   async function toggleLaunch() {
     const next = !awaitingLaunch;
     setLaunchSaving(true);
@@ -826,6 +838,22 @@ export default function ClientOverview({
               sub={reputationSub}
             />
           )}
+          <ModuleTile
+            href={`/services?clientId=${client.id}`}
+            icon={Layers}
+            tint={T.blueTint}
+            stroke={T.blue}
+            title="Plan & tiers"
+            sub={planSub}
+          />
+          <ModuleTile
+            href={`/client-expectations-print/${client.id}`}
+            icon={FileText}
+            tint={T.amberTint}
+            stroke={T.amber}
+            title="Client expectations"
+            sub="What we promised at kickoff"
+          />
         </div>
       </div>
 

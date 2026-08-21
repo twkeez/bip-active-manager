@@ -58,10 +58,24 @@ export const TEAM_PAGES = [
   "/ppc-defense",
   "/global-ads-optimization",
 
+  // What we promised a client at kickoff. Read-only rendering; the editor that
+  // authors these blocks stays on the admin build.
+  "/client-expectations-print",
+
   // Print/export views those tools open in a new tab
   "/reports-print",
   "/onboarding-report-print",
 ];
+
+/**
+ * Pages the team app serves at exactly this path and no deeper.
+ *
+ * /services shows the tier catalogue, and /services?clientId= a single client's
+ * plan — both wanted. Its children are not: /services/library is a file store of
+ * internal reference material and /services/partnership is admin-authored, so a
+ * prefix match would hand over more than intended.
+ */
+export const TEAM_EXACT_PAGES = ["/services"];
 
 /**
  * First path segment under /api that the team app serves. Anything not listed
@@ -115,6 +129,8 @@ export function isAllowedInTeamMode(pathname: string): boolean {
     const namespace = pathname.split("/")[2] ?? "";
     return TEAM_API_NAMESPACES.includes(namespace);
   }
+
+  if (TEAM_EXACT_PAGES.includes(pathname)) return true;
 
   return TEAM_PAGES.some((prefix) => matchesPrefix(pathname, prefix));
 }

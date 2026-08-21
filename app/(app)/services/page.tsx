@@ -5,8 +5,18 @@ import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth/profile";
 import ServiceTiersManager from "@/components/services/service-tiers-manager";
 import { SERVICE_TIER_TABLES, type ServiceTierTable } from "@/lib/services/tier-content";
+import ClientPlanView from "@/components/services/client-plan-view";
+import { buildClientPlan } from "@/lib/services/client-plan";
+import type { ClientRow } from "@/lib/types/client";
+import type { ClientServiceKey } from "@/lib/clients/types";
 
-export default async function ServicesPage() {
+type ClientPlanSource = Pick<ClientRow, ClientServiceKey>;
+
+export default async function ServicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ clientId?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -22,6 +32,27 @@ export default async function ServicesPage() {
     .eq("content_key", "tiers")
     .maybeSingle<{ data: ServiceTierTable[] }>();
   const tables = row?.data ?? SERVICE_TIER_TABLES;
+
+  // Opened from a client workspace: show that client's plan instead of the
+  // catalogue — their services, their tier, and what that tier includes.
+  const requested = Number((await searchParams).clientId);
+  if (Number.isInteger(requested) && requested > 0) {
+    const { data: clientRow } = await supabase
+      .from("clients")
+      .select("id, account_name, blog, smm, seo, ppc, orm")
+      .eq("id", requested)
+      .maybeSingle();
+
+    if (clientRow) {
+      return (
+        <ClientPlanView
+          clientId={clientRow.id as number}
+          clientName={clientRow.account_name as string}
+          plan={buildClientPlan(clientRow as ClientPlanSource, tables)}
+        />
+      );
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl p-6">
