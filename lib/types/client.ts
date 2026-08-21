@@ -32,6 +32,11 @@ export type ClientRow = {
    * with them — see lib/clients/service-active.ts.
    */
   is_low_contact?: boolean | null;
+  /**
+   * Website-build-only account. Hidden from the client lists behind a toggle —
+   * see lib/clients/service-active.ts. Also moved off `tier`.
+   */
+  is_website_only?: boolean | null;
   city?: string | null;
   last_communication_at: string | null;
   last_event_is_internal: boolean | null;

@@ -35,6 +35,23 @@ export function isLowContactTier(tier: string | null | undefined) {
   return norm(tier).toLowerCase() === "low contact";
 }
 
+/**
+ * True for website-build-only accounts, which are hidden from the client lists
+ * behind a "show website-only clients" toggle. 154 of 248 clients today, so this
+ * decides what the list looks like more than any other single field.
+ *
+ * Same column-with-text-fallback shape as isLowContact, for the same reason: the
+ * migration and the deploy can land in either order. The legacy comparison is
+ * exact and case-sensitive, matching the behaviour it replaces — a client whose
+ * tier reads "website only" was never hidden, and still isn't.
+ */
+export function isWebsiteOnly(
+  client: Pick<ClientRow, "tier"> & { is_website_only?: boolean | null },
+) {
+  if (typeof client.is_website_only === "boolean") return client.is_website_only;
+  return client.tier === "Website Only";
+}
+
 export function getClientActiveServices(client: Pick<ClientRow, ClientServiceKey>): ClientActiveServices {
   return {
     blog: isServiceActive(client.blog),

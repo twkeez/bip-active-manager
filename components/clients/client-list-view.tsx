@@ -13,7 +13,7 @@ import {
   Search,
 } from "lucide-react";
 import type { ClientListInitialData } from "@/lib/dashboard/load-client-list-data";
-import { norm, getClientActiveServices } from "@/lib/clients/service-active";
+import { norm, getClientActiveServices, isWebsiteOnly } from "@/lib/clients/service-active";
 import { shouldShowReplyAlert } from "@/lib/clients/acknowledge-no-reply";
 import type { ClientRow } from "@/lib/types/client";
 import type { SignalSummary } from "@/lib/dashboard/snapshot-queries";
@@ -21,7 +21,6 @@ import type { SignalSummary } from "@/lib/dashboard/snapshot-queries";
 type Filter = "all" | "needs_reply" | "alerts" | "onboarding";
 type SortKey = "default" | "activity_high" | "activity_low";
 
-const WEBSITE_ONLY_TIER = "Website Only";
 
 const SERVICE_LABELS: Record<string, string> = {
   seo: "SEO",
@@ -181,8 +180,8 @@ export default function ClientListView({
     const q = query.toLowerCase().trim();
     return enriched
       .filter(({ client, status }) => {
-        const isWebsiteOnly = client.tier === WEBSITE_ONLY_TIER;
-        if (!showWebsiteOnly && isWebsiteOnly) return false;
+        const websiteOnly = isWebsiteOnly(client);
+        if (!showWebsiteOnly && websiteOnly) return false;
         if (q && !client.account_name?.toLowerCase().includes(q)) return false;
         if (strategist !== "all" && (client.marketing_strategist ?? "") !== strategist) return false;
         if (filter === "needs_reply") return status === "needs_reply";
@@ -200,7 +199,7 @@ export default function ClientListView({
   }, [enriched, query, filter, strategist, showWebsiteOnly]);
 
   const activeClients = useMemo(
-    () => enriched.filter((r) => r.client.tier !== WEBSITE_ONLY_TIER),
+    () => enriched.filter((r) => !isWebsiteOnly(r.client)),
     [enriched],
   );
 
@@ -208,7 +207,7 @@ export default function ClientListView({
     needs_reply: activeClients.filter((r) => r.status === "needs_reply").length,
     alerts: activeClients.filter((r) => r.status === "alert").length,
     onboarding: activeClients.filter((r) => r.status === "onboarding").length,
-    website_only: enriched.filter((r) => r.client.tier === WEBSITE_ONLY_TIER).length,
+    website_only: enriched.filter((r) => isWebsiteOnly(r.client)).length,
   }), [enriched, activeClients]);
 
   const FILTERS: Array<{ id: Filter; label: string; count?: number }> = [

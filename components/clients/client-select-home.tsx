@@ -15,7 +15,7 @@ import {
   Search,
 } from "lucide-react";
 import type { ClientListInitialData } from "@/lib/dashboard/load-client-list-data";
-import { getClientActiveServices } from "@/lib/clients/service-active";
+import { getClientActiveServices, isWebsiteOnly } from "@/lib/clients/service-active";
 import { shouldShowReplyAlert } from "@/lib/clients/acknowledge-no-reply";
 import {
   CLIENT_LIST_PATH,
@@ -27,7 +27,6 @@ import type { SignalSummary } from "@/lib/dashboard/snapshot-queries";
 type Filter = "all" | "attention" | "active" | "onboarding";
 type ViewMode = "grid" | "table";
 
-const WEBSITE_ONLY_TIER = "Website Only";
 const TABLE_DEFAULT_THRESHOLD = 20;
 
 const SERVICE_LABELS: Record<string, string> = {
@@ -225,7 +224,7 @@ export default function ClientSelectHome({
   );
 
   const activeClients = useMemo(
-    () => enriched.filter((r) => r.client.tier !== WEBSITE_ONLY_TIER),
+    () => enriched.filter((r) => !isWebsiteOnly(r.client)),
     [enriched],
   );
 
@@ -243,8 +242,8 @@ export default function ClientSelectHome({
     const q = query.toLowerCase().trim();
     return enriched
       .filter(({ client, status, services }) => {
-        const isWebsiteOnly = client.tier === WEBSITE_ONLY_TIER;
-        if (!showWebsiteOnly && isWebsiteOnly) return false;
+        const websiteOnly = isWebsiteOnly(client);
+        if (!showWebsiteOnly && websiteOnly) return false;
         if (q) {
           const haystack = [
             client.account_name ?? "",
@@ -272,7 +271,7 @@ export default function ClientSelectHome({
       attention: activeClients.filter((r) => r.status === "needs_reply" || r.status === "alert").length,
       active: activeClients.filter((r) => r.status === "ok").length,
       onboarding: activeClients.filter((r) => r.status === "onboarding").length,
-      website_only: enriched.filter((r) => r.client.tier === WEBSITE_ONLY_TIER).length,
+      website_only: enriched.filter((r) => isWebsiteOnly(r.client)).length,
     }),
     [enriched, activeClients],
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isServiceActive, isLowContact, isLowContactTier } from "@/lib/clients/service-active";
+import { isServiceActive, isLowContact, isLowContactTier, isWebsiteOnly } from "@/lib/clients/service-active";
 
 describe("isServiceActive", () => {
   it("treats N and 0 as inactive", () => {
@@ -19,6 +19,27 @@ describe("isLowContactTier", () => {
   it("detects low contact tier", () => {
     expect(isLowContactTier("Low Contact")).toBe(true);
     expect(isLowContactTier("Growth")).toBe(false);
+  });
+});
+
+describe("isWebsiteOnly", () => {
+  it("uses the dedicated column when it is set", () => {
+    expect(isWebsiteOnly({ tier: null, is_website_only: true })).toBe(true);
+    expect(isWebsiteOnly({ tier: "Website Only", is_website_only: false })).toBe(false);
+  });
+
+  it("falls back to the exact legacy tier value", () => {
+    expect(isWebsiteOnly({ tier: "Website Only" })).toBe(true);
+    expect(isWebsiteOnly({ tier: null })).toBe(false);
+    expect(isWebsiteOnly({ tier: "Growth" })).toBe(false);
+  });
+
+  // The comparison it replaces was exact and case-sensitive, so these were
+  // never hidden and must not start being hidden now.
+  it("does not newly hide near-miss tier values", () => {
+    for (const tier of ["website only", "WEBSITE ONLY", " Website Only", "Website-Only"]) {
+      expect(isWebsiteOnly({ tier }), tier).toBe(false);
+    }
   });
 });
 
