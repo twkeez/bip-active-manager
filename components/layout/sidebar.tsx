@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Activity,
   BookOpen,
@@ -46,8 +46,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { UserRole } from "@/lib/auth/profile";
-import { VIEW_AS_COOKIE } from "@/lib/auth/effective-role";
 import { isNavItemVisible, type AppMode } from "@/lib/auth/app-mode";
+import { useViewAs } from "@/components/layout/use-view-as";
 
 type NavItem = {
   label: string;
@@ -234,16 +234,7 @@ function SectionGroup({
 
 
 function ViewAsToggle({ previewing }: { previewing: boolean }) {
-  const router = useRouter();
-
-  function toggle() {
-    if (previewing) {
-      document.cookie = `${VIEW_AS_COOKIE}=; path=/; max-age=0`;
-    } else {
-      document.cookie = `${VIEW_AS_COOKIE}=strategist; path=/; max-age=86400`;
-    }
-    router.refresh();
-  }
+  const toggle = useViewAs(previewing);
 
   return (
     <button

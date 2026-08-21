@@ -10,6 +10,8 @@ import {
   CheckSquare,
   Compass,
   Cpu,
+  Eye,
+  EyeOff,
   GraduationCap,
   LayoutDashboard,
   Layers,
@@ -19,6 +21,7 @@ import {
 } from "lucide-react";
 import type { UserRole } from "@/lib/auth/profile";
 import { isNavItemVisible, type AppMode } from "@/lib/auth/app-mode";
+import { useViewAs } from "@/components/layout/use-view-as";
 
 // Sidebar from the Clients redesign handoff. Runs alongside the original
 // sidebar rather than replacing it — see components/layout/sidebar-switch.tsx.
@@ -126,15 +129,37 @@ function Section({
   );
 }
 
+function ViewAsToggle({ previewing }: { previewing: boolean }) {
+  const toggle = useViewAs(previewing);
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      style={{
+        color: previewing ? "#FFFFFF" : C.text,
+        background: previewing ? C.brand : "rgba(255,255,255,0.06)",
+      }}
+      className="flex w-full items-center gap-2 rounded-[9px] px-2.5 py-[6.5px] text-[12px] font-semibold transition-colors duration-150 hover:opacity-90"
+    >
+      {previewing ? <EyeOff size={14} strokeWidth={1.8} /> : <Eye size={14} strokeWidth={1.8} />}
+      {previewing ? "Exit team view" : "View as team"}
+    </button>
+  );
+}
+
 export default function SidebarRedesign({
   role,
+  actualRole,
   userName,
   appMode,
 }: {
   role: UserRole;
+  actualRole: UserRole;
   userName: string;
   appMode: AppMode;
 }) {
+  const previewing = actualRole === "admin" && role !== "admin";
   const initials =
     userName
       .split(/\s+/)
@@ -177,6 +202,11 @@ export default function SidebarRedesign({
       </nav>
 
       {/* Footer */}
+      {actualRole === "admin" && (
+        <div className="px-3 pb-1">
+          <ViewAsToggle previewing={previewing} />
+        </div>
+      )}
       <div
         style={{ borderColor: "rgba(255,255,255,0.08)" }}
         className="flex items-center gap-2.5 border-t px-4 py-3"
@@ -191,8 +221,15 @@ export default function SidebarRedesign({
           <p style={{ color: C.avatarText }} className="truncate text-[12.5px] font-semibold">
             {userName || "Signed in"}
           </p>
-          <p style={{ color: C.muted }} className="text-[10.5px]">
-            {role === "admin" ? "Admin" : "Strategist"}
+          <p
+            style={{ color: previewing ? C.brand : C.muted }}
+            className="text-[10.5px]"
+          >
+            {previewing
+              ? "Team view"
+              : role === "admin"
+                ? "Admin"
+                : "Strategist"}
           </p>
         </div>
         <Bell size={15} strokeWidth={1.8} style={{ color: C.muted }} className="shrink-0" />

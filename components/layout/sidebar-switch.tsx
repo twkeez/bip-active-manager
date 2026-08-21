@@ -33,6 +33,7 @@ export default function SidebarSwitch(props: {
     return (
       <SidebarRedesign
         role={props.role}
+        actualRole={props.actualRole}
         userName={props.userName}
         appMode={props.appMode}
       />
