@@ -64,6 +64,32 @@ function findTierKey(table: ServiceTierTable, value: string): string | null {
   return match?.key ?? null;
 }
 
+/**
+ * One-line-per-service summary of what a client is on: ["SEO Premium",
+ * "PPC Foundation", "Blog 2/mo"].
+ *
+ * Deliberately independent of the scope tables, so it can render anywhere the
+ * client row is in hand — including client components that never load them.
+ */
+export function clientPlanSummary(
+  client: Pick<ClientRow, ClientServiceKey>,
+): string[] {
+  const summary: string[] = [];
+
+  for (const service of SERVICE_ORDER) {
+    const rawValue = norm(client[service]);
+    if (!isServiceActive(rawValue)) continue;
+
+    if (service === "blog") {
+      summary.push(`Blog ${rawValue}/mo`);
+      continue;
+    }
+    summary.push(`${SERVICE_LABEL[service]} ${rawValue}`);
+  }
+
+  return summary;
+}
+
 export type ScopeRow = {
   label: string;
   note?: string;

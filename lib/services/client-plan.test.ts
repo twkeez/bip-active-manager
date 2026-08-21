@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildClientPlan, resolveScopeRows } from "@/lib/services/client-plan";
+import { buildClientPlan, clientPlanSummary, resolveScopeRows } from "@/lib/services/client-plan";
 import { SERVICE_TIER_TABLES } from "@/lib/services/tier-content";
 import type { ClientServiceKey } from "@/lib/clients/types";
 
@@ -71,6 +71,28 @@ describe("buildClientPlan", () => {
 
   it("returns nothing for a client on no services", () => {
     expect(buildClientPlan(client({}), SERVICE_TIER_TABLES)).toEqual([]);
+  });
+
+  describe("clientPlanSummary", () => {
+    it("names each service with its tier", () => {
+      expect(
+        clientPlanSummary(client({ seo: "Premium Plus", ppc: "Foundation" })),
+      ).toEqual(["SEO Premium Plus", "PPC Foundation"]);
+    });
+
+    it("renders blog as a monthly count", () => {
+      expect(clientPlanSummary(client({ blog: "2" }))).toEqual(["Blog 2/mo"]);
+    });
+
+    it("includes ORM even though it has no scope table", () => {
+      expect(clientPlanSummary(client({ orm: "Premium" }))).toEqual([
+        "Reputation (ORM) Premium",
+      ]);
+    });
+
+    it("leaves out inactive services", () => {
+      expect(clientPlanSummary(client({ seo: "N", ppc: "0", smm: "" }))).toEqual([]);
+    });
   });
 
   // Tier cells are written as additions to the tier below, so a client's real

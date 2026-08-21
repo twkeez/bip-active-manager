@@ -7,9 +7,7 @@ import {
   ArrowLeft,
   ArrowUpRight,
   BarChart3,
-  FileText,
   Grid2x2,
-  Layers,
   Loader2,
   MessageSquareQuote,
   RefreshCw,
@@ -23,11 +21,8 @@ import {
   CLIENT_LIST_PATH,
   readStoredClientListHref,
 } from "@/lib/clients/client-list-view-state";
-import {
-  activeServiceLabels,
-  getClientActiveServices,
-  norm,
-} from "@/lib/clients/service-active";
+import { norm } from "@/lib/clients/service-active";
+import { clientPlanSummary } from "@/lib/services/client-plan";
 import type { ClientWorkspaceInitialData } from "@/lib/dashboard/client-workspace-types";
 import type { ClientOverviewExtras } from "@/lib/dashboard/load-client-overview-extras";
 
@@ -56,6 +51,9 @@ const T = {
   amber: "#B7791F",
   amberTint: "#FFF3DC",
   track: "#EFEDE6",
+  // Brand magenta, matching the Services section elsewhere in the app.
+  pink: "#CE2084",
+  pinkTint: "#FCEBF4",
 };
 
 const MONO = 'ui-monospace, "SF Mono", Menlo, monospace';
@@ -552,11 +550,9 @@ export default function ClientOverview({
       ? `${extras.reviewRating} ★ · ${extras.reviewVotes ?? 0} reviews · no analysis yet`
       : "Read the reviews";
 
-  // Names the services on the tile so a strategist can see the shape of the
-  // account without opening it.
-  const planLabels = activeServiceLabels(getClientActiveServices(client));
-  const planSub =
-    planLabels.length > 0 ? planLabels.join(" · ") : "No services recorded";
+  // Service + tier per line, e.g. ["SEO Premium", "Blog 2/mo"] — shown inline
+  // so the shape of the account reads without a click.
+  const planSummary = clientPlanSummary(client);
 
   async function toggleLaunch() {
     const next = !awaitingLaunch;
@@ -797,6 +793,52 @@ export default function ClientOverview({
           </div>
         </div>
 
+        {/* ── Plan ─────────────────────────────────────────────── */}
+        {/* Reference, not a tool — so it reads as information rather than
+            another module button. The scope itself will land here in place of
+            the links once there's a compact way to show it. */}
+        <div className="mt-7">
+          <SectionLabel>Plan</SectionLabel>
+        </div>
+        <div
+          style={{ borderColor: T.pink, background: T.pinkTint }}
+          className="mt-2.5 rounded-2xl border-[1.5px] px-[18px] py-4"
+        >
+          {planSummary.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              {planSummary.map((item) => (
+                <span
+                  key={item}
+                  style={{ color: T.pink, borderColor: T.pink }}
+                  className="rounded-full border bg-white/70 px-2.5 py-1 text-[11.5px] font-semibold"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: T.pink }} className="text-[12.5px] font-semibold">
+              No services recorded
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <Link
+              href={`/services?clientId=${client.id}`}
+              style={{ color: T.pink }}
+              className="text-[11.5px] font-semibold hover:underline"
+            >
+              What this tier includes
+            </Link>
+            <Link
+              href={`/client-expectations-print/${client.id}`}
+              style={{ color: T.pink }}
+              className="text-[11.5px] font-semibold hover:underline"
+            >
+              Client expectations
+            </Link>
+          </div>
+        </div>
+
         {/* ── Modules ──────────────────────────────────────────── */}
         <div className="mt-7">
           <SectionLabel>Modules</SectionLabel>
@@ -838,22 +880,6 @@ export default function ClientOverview({
               sub={reputationSub}
             />
           )}
-          <ModuleTile
-            href={`/services?clientId=${client.id}`}
-            icon={Layers}
-            tint={T.blueTint}
-            stroke={T.blue}
-            title="Plan & tiers"
-            sub={planSub}
-          />
-          <ModuleTile
-            href={`/client-expectations-print/${client.id}`}
-            icon={FileText}
-            tint={T.amberTint}
-            stroke={T.amber}
-            title="Client expectations"
-            sub="What we promised at kickoff"
-          />
         </div>
       </div>
 
