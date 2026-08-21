@@ -1,4 +1,4 @@
-import { isLowContactTier, norm } from "@/lib/clients/service-active";
+import { isLowContact, norm } from "@/lib/clients/service-active";
 import type { ClientSetupItem } from "@/lib/clients/types";
 import type { ClientRow } from "@/lib/types/client";
 import type { ClientActiveServices } from "@/lib/clients/types";
@@ -31,7 +31,7 @@ export function evaluateSetupRequirements(params: {
     });
   }
 
-  if (!isLowContactTier(client.tier) && !hasText(client.basecamp_project_id)) {
+  if (!isLowContact(client) && !hasText(client.basecamp_project_id)) {
     push({
       id: "basecamp",
       label: "Basecamp project",
@@ -93,7 +93,7 @@ export function evaluateSetupRequirements(params: {
 
   if (
     hasText(client.marketing_strategist) &&
-    !isLowContactTier(client.tier) &&
+    !isLowContact(client) &&
     (!hasText(client.harvest_project_id) || !hasText(client.harvest_client_id))
   ) {
     push({

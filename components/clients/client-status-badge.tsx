@@ -1,5 +1,5 @@
 import type { ClientRow } from "@/lib/types/client";
-import { isLowContactTier } from "@/lib/clients/service-active";
+import { isLowContact } from "@/lib/clients/service-active";
 export type ClientDisplayStatus = "Active" | "Awaiting" | "Pending" | "Paused";
 const STATUS_BADGE_CLASS: Record<ClientDisplayStatus, string> = {
   Active: "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
@@ -8,9 +8,9 @@ const STATUS_BADGE_CLASS: Record<ClientDisplayStatus, string> = {
   Paused: "border border-bip-border bg-bip-fill text-bip-muted",
 };
 export function resolveClientStatus(
-  client: Pick<ClientRow, "needs_reply" | "reply_acknowledged_at" | "tier">,
+  client: Pick<ClientRow, "needs_reply" | "reply_acknowledged_at" | "tier" | "is_low_contact">,
 ): ClientDisplayStatus {
-  if (isLowContactTier(client.tier)) return "Paused";
+  if (isLowContact(client)) return "Paused";
   if (client.needs_reply) return "Awaiting";
   if (client.reply_acknowledged_at) return "Pending";
   return "Active";

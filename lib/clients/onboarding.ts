@@ -57,11 +57,12 @@ function daysSince(value: string | null | undefined) {
 
 function hasIntakeProfile(client: ClientRow) {
   // Hours are derived from services + tiers, not entered — so the profile just
-  // needs the strategist assigned (name + tier come from the pipeline intake).
+  // needs a name and the strategist assigned. `tier` used to be required here,
+  // but plan tiers are being retired, and once that column is cleared every
+  // client would have failed this check.
   return (
     Boolean(norm(client.account_name)) &&
-    Boolean(norm(client.marketing_strategist)) &&
-    Boolean(norm(client.tier))
+    Boolean(norm(client.marketing_strategist))
   );
 }
 
@@ -143,7 +144,7 @@ function evaluateAutoItem(
   if (verification === "manual:intake_profile") {
     return hasIntakeProfile(client)
       ? { done: true, hint: null }
-      : { done: false, hint: "Fill strategist, tier, and package hours." };
+      : { done: false, hint: "Assign a marketing strategist." };
   }
 
   if (verification === "manual:intake_services") {

@@ -1,4 +1,4 @@
-import { getClientActiveServices, isLowContactTier } from "@/lib/clients/service-active";
+import { getClientActiveServices, isLowContact } from "@/lib/clients/service-active";
 import type { ClientRow } from "@/lib/types/client";
 
 export function isClientMarketingTracked(
@@ -17,7 +17,7 @@ export function isClientMarketingTracked(
     return true;
   }
 
-  if (isLowContactTier(client.tier)) {
+  if (isLowContact(client)) {
     return false;
   }
 

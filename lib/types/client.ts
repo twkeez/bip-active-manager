@@ -26,6 +26,12 @@ export type ClientRow = {
   harvest_project_id: string | null;
   harvest_client_id: string | null;
   tier: string | null;
+  /**
+   * Quiet accounts: no Basecamp or Harvest expected, shown as Paused. Moved off
+   * the free-text `tier` column so plan tiers can be retired without taking this
+   * with them — see lib/clients/service-active.ts.
+   */
+  is_low_contact?: boolean | null;
   city?: string | null;
   last_communication_at: string | null;
   last_event_is_internal: boolean | null;

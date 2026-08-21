@@ -24,7 +24,7 @@ import {
 import type { ClientRow } from "@/lib/types/client";
 import type { SignalSummary } from "@/lib/dashboard/snapshot-queries";
 
-type Filter = "all" | "attention" | "active" | "onboarding" | "enterprise";
+type Filter = "all" | "attention" | "active" | "onboarding";
 type ViewMode = "grid" | "table";
 
 const WEBSITE_ONLY_TIER = "Website Only";
@@ -147,7 +147,7 @@ function HoursBar({ client }: { client: ClientRow }) {
   );
 }
 
-const FILTER_PARAM_VALUES = new Set<Filter>(["all", "attention", "active", "onboarding", "enterprise"]);
+const FILTER_PARAM_VALUES = new Set<Filter>(["all", "attention", "active", "onboarding"]);
 
 export default function ClientSelectHome({
   clients,
@@ -260,7 +260,6 @@ export default function ClientSelectHome({
         if (filter === "attention") return status === "needs_reply" || status === "alert";
         if (filter === "active") return status === "ok";
         if (filter === "onboarding") return status === "onboarding";
-        if (filter === "enterprise") return (client.tier ?? "").toLowerCase().includes("enterprise");
         return true;
       })
       .sort((a, b) =>
@@ -273,7 +272,6 @@ export default function ClientSelectHome({
       attention: activeClients.filter((r) => r.status === "needs_reply" || r.status === "alert").length,
       active: activeClients.filter((r) => r.status === "ok").length,
       onboarding: activeClients.filter((r) => r.status === "onboarding").length,
-      enterprise: activeClients.filter((r) => (r.client.tier ?? "").toLowerCase().includes("enterprise")).length,
       website_only: enriched.filter((r) => r.client.tier === WEBSITE_ONLY_TIER).length,
     }),
     [enriched, activeClients],
@@ -284,7 +282,6 @@ export default function ClientSelectHome({
     { id: "attention", label: "Needs Attention", count: counts.attention },
     { id: "active", label: "Active", count: counts.active },
     { id: "onboarding", label: "Onboarding", count: counts.onboarding },
-    { id: "enterprise", label: "Enterprise", count: counts.enterprise },
   ];
 
   const effectiveView: ViewMode =

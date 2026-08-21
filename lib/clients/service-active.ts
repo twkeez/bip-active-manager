@@ -13,6 +13,24 @@ export function isServiceActive(value: string | null | undefined) {
   return !INACTIVE_VALUES.has(normalized);
 }
 
+/**
+ * True for quiet accounts: no Basecamp project or Harvest IDs are expected, and
+ * they list as Paused rather than looking like a live client gone silent.
+ *
+ * Reads the dedicated `is_low_contact` column, falling back to the legacy
+ * `tier === "Low Contact"` text while both exist. The fallback means the column
+ * can be added, backfilled, and the `tier` values retired in any order without a
+ * window where these clients start throwing setup warnings. Once `tier` is
+ * cleared the fallback simply never matches, and it can be deleted.
+ */
+export function isLowContact(
+  client: Pick<ClientRow, "tier"> & { is_low_contact?: boolean | null },
+) {
+  if (typeof client.is_low_contact === "boolean") return client.is_low_contact;
+  return isLowContactTier(client.tier);
+}
+
+/** @deprecated Prefer isLowContact(client) — the tier column is being retired. */
 export function isLowContactTier(tier: string | null | undefined) {
   return norm(tier).toLowerCase() === "low contact";
 }
