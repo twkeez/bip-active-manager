@@ -160,22 +160,122 @@ function Widget({
  * nothing here refreshes, and a strategist should be able to tell at a glance
  * that they're reading a snapshot rather than today's picture.
  */
-function BackgroundPanel({ background }: { background: ClientBackground }) {
-  const { competitors, marketSnapshot, searchLandscape, competitorAds } = background;
+
+/**
+ * Admin-only. Each press is a Claude call with web search, so it names what it
+ * will cost you and refuses to run without a city — location is what makes the
+ * research local rather than generic, and there is no point spending a call that
+ * is guaranteed to come back useless.
+ */
+function RunResearchButton({
+  clientId,
+  city,
+  hasExisting,
+}: {
+  clientId: number;
+  city: string;
+  hasExisting: boolean;
+}) {
+  const router = useRouter();
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run() {
+    if (hasExisting && !window.confirm(`Replace the existing research for this client?`)) {
+      return;
+    }
+    setRunning(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/clients/${clientId}/onboarding/discovery`, {
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Research failed");
+      router.refresh();
+    } catch (runError) {
+      setError(runError instanceof Error ? runError.message : "Research failed");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  if (!city) {
+    return (
+      <span style={{ color: T.faint }} className="text-[10.5px]">
+        No city on file — can&apos;t research
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      {error && (
+        <span style={{ color: "#B42318" }} className="text-[10.5px]">
+          {error}
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={() => void run()}
+        disabled={running}
+        style={{ color: T.primary }}
+        className="inline-flex items-center gap-1 text-[10.5px] font-semibold hover:underline disabled:opacity-50"
+        title={`Runs an AI market search for ${city}`}
+      >
+        {running && <Loader2 size={10} className="animate-spin" />}
+        {running ? "Researching…" : hasExisting ? "Re-run research" : "Run research"}
+      </button>
+    </span>
+  );
+}
+
+function BackgroundPanel({
+  background,
+  clientId,
+  city,
+  canRun,
+}: {
+  background: ClientBackground | null;
+  clientId: number;
+  city: string;
+  canRun: boolean;
+}) {
+  const competitors = background?.competitors ?? [];
+  const competitorAds = background?.competitorAds ?? [];
+  const marketSnapshot = background?.marketSnapshot ?? null;
+  const searchLandscape = background?.searchLandscape ?? null;
 
   return (
     <>
       <div className="mt-7 flex flex-wrap items-baseline gap-x-2.5">
         <SectionLabel>Background</SectionLabel>
-        <span style={{ color: T.faint }} className="text-[10.5px]">
-          from onboarding
-          {background.discoveryAt ? ` · ${shortDate(background.discoveryAt)}` : ""}
-        </span>
+        {background && (
+          <span style={{ color: T.faint }} className="text-[10.5px]">
+            from onboarding
+            {background.discoveryAt ? ` · ${shortDate(background.discoveryAt)}` : ""}
+          </span>
+        )}
+        {canRun && (
+          <span className="ml-auto">
+            <RunResearchButton
+              clientId={clientId}
+              city={city}
+              hasExisting={Boolean(background)}
+            />
+          </span>
+        )}
       </div>
       <div
         style={{ background: T.card, borderColor: T.border }}
         className="mt-2.5 rounded-2xl border px-[18px] py-4"
       >
+        {!background && (
+          <p style={{ color: T.secondary }} className="text-[12.5px]">
+            No market research on file for this client yet.
+            {!city && " Add a Google Place ID on the Profile tab first — research without a location comes back generic."}
+          </p>
+        )}
         {marketSnapshot && (
           <BackgroundBlock label="Market">{marketSnapshot}</BackgroundBlock>
         )}
@@ -204,7 +304,7 @@ function BackgroundPanel({ background }: { background: ClientBackground }) {
           <BackgroundBlock
             label="Competitor advertising"
             meta={
-              background.competitorAdsAt
+              background?.competitorAdsAt
                 ? `as of ${shortDate(background.competitorAdsAt)}`
                 : null
             }
@@ -969,7 +1069,14 @@ export default function ClientOverview({
           </div>
         </div>
 
-        {background && <BackgroundPanel background={background} />}
+        {(background || isAdminUser) && (
+          <BackgroundPanel
+            background={background}
+            clientId={client.id}
+            city={norm(client.city) ?? ""}
+            canRun={isAdminUser}
+          />
+        )}
 
         {/* ── Modules ──────────────────────────────────────────── */}
         <div className="mt-7">

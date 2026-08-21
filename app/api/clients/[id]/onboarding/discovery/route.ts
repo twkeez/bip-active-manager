@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/auth/require-admin";
 import { buildResearchPrompt } from "@/lib/prompt";
 import { VET_ONBOARDING_MODEL } from "@/lib/vet-onboarding/anthropic-model";
 import { localResearchOutputFormat } from "@/lib/vet-onboarding/research-json-schema";
@@ -30,6 +31,12 @@ export async function POST(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Each run is a Claude call with web search enabled, so it costs real money
+  // per press. Strategists read the research; they don't commission it.
+  if (!(await isAdmin(supabase))) {
+    return NextResponse.json({ error: "Admins only" }, { status: 403 });
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
