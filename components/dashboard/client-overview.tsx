@@ -25,6 +25,7 @@ import { norm } from "@/lib/clients/service-active";
 import { clientPlanSummary } from "@/lib/services/client-plan";
 import type { ClientWorkspaceInitialData } from "@/lib/dashboard/client-workspace-types";
 import type { ClientOverviewExtras } from "@/lib/dashboard/load-client-overview-extras";
+import type { ClientBackground } from "@/lib/dashboard/load-client-background";
 
 // Literal tokens from the Client Overview handoff — same system as the Clients
 // list redesign, written as hex rather than theme variables so the two
@@ -150,6 +151,133 @@ function Widget({
       <SectionLabel>{label}</SectionLabel>
       <div className="mt-2">{children}</div>
     </div>
+  );
+}
+
+
+/**
+ * Market and competitor research captured at onboarding. Read-only and dated —
+ * nothing here refreshes, and a strategist should be able to tell at a glance
+ * that they're reading a snapshot rather than today's picture.
+ */
+function BackgroundPanel({ background }: { background: ClientBackground }) {
+  const { competitors, marketSnapshot, searchLandscape, competitorAds } = background;
+
+  return (
+    <>
+      <div className="mt-7 flex flex-wrap items-baseline gap-x-2.5">
+        <SectionLabel>Background</SectionLabel>
+        <span style={{ color: T.faint }} className="text-[10.5px]">
+          from onboarding
+          {background.discoveryAt ? ` · ${shortDate(background.discoveryAt)}` : ""}
+        </span>
+      </div>
+      <div
+        style={{ background: T.card, borderColor: T.border }}
+        className="mt-2.5 rounded-2xl border px-[18px] py-4"
+      >
+        {marketSnapshot && (
+          <BackgroundBlock label="Market">{marketSnapshot}</BackgroundBlock>
+        )}
+        {searchLandscape && (
+          <BackgroundBlock label="Search landscape">{searchLandscape}</BackgroundBlock>
+        )}
+
+        {competitors.length > 0 && (
+          <BackgroundBlock label="Competitors">
+            <ul className="space-y-1.5">
+              {competitors.map((competitor) => (
+                <li key={competitor.name || competitor.note}>
+                  <span style={{ color: T.ink }} className="font-semibold">
+                    {competitor.name}
+                  </span>
+                  {competitor.note && (
+                    <span style={{ color: T.secondary }}> — {competitor.note}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </BackgroundBlock>
+        )}
+
+        {competitorAds.length > 0 && (
+          <BackgroundBlock
+            label="Competitor advertising"
+            meta={
+              background.competitorAdsAt
+                ? `as of ${shortDate(background.competitorAdsAt)}`
+                : null
+            }
+          >
+            <div className="space-y-2.5">
+              {competitorAds.map((ad) => (
+                <div key={ad.name || ad.offers}>
+                  <p style={{ color: T.ink }} className="font-semibold">
+                    {ad.name}
+                  </p>
+                  {ad.offers && <CompetitorLine label="Offers">{ad.offers}</CompetitorLine>}
+                  {ad.positioning && (
+                    <CompetitorLine label="Positioning">{ad.positioning}</CompetitorLine>
+                  )}
+                  {ad.counter && (
+                    <CompetitorLine label="Our counter">{ad.counter}</CompetitorLine>
+                  )}
+                </div>
+              ))}
+            </div>
+          </BackgroundBlock>
+        )}
+      </div>
+    </>
+  );
+}
+
+function BackgroundBlock({
+  label,
+  meta,
+  children,
+}: {
+  label: string;
+  meta?: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{ borderColor: T.hairline }}
+      className="border-b py-3 first:pt-0 last:border-b-0 last:pb-0"
+    >
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <p
+          style={{ color: T.muted, letterSpacing: "0.09em" }}
+          className="text-[10px] font-bold uppercase"
+        >
+          {label}
+        </p>
+        {meta && (
+          <span style={{ color: T.faint }} className="text-[10px]">
+            {meta}
+          </span>
+        )}
+      </div>
+      <div style={{ color: T.secondary }} className="mt-1.5 text-[12.5px] leading-relaxed">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function CompetitorLine({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <p className="mt-0.5">
+      <span style={{ color: T.faint }}>{label}: </span>
+      <span style={{ color: T.secondary }}>{children}</span>
+    </p>
   );
 }
 
@@ -423,10 +551,12 @@ function ConnectionsDrawer({
 export default function ClientOverview({
   data,
   extras,
+  background,
   isAdminUser = false,
 }: {
   data: ClientWorkspaceInitialData;
   extras: ClientOverviewExtras;
+  background: ClientBackground | null;
   isAdminUser?: boolean;
 }) {
   const router = useRouter();
@@ -838,6 +968,8 @@ export default function ClientOverview({
             </Link>
           </div>
         </div>
+
+        {background && <BackgroundPanel background={background} />}
 
         {/* ── Modules ──────────────────────────────────────────── */}
         <div className="mt-7">

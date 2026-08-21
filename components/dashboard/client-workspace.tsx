@@ -3,6 +3,7 @@ import ClientWorkspaceTabs from "@/components/dashboard/client-workspace/client-
 import ClientSimpleTabView, { SIMPLE_TABS } from "@/components/dashboard/client-simple-tab-view";
 import ClientOverview from "@/components/dashboard/client-overview";
 import type { ClientOverviewExtras } from "@/lib/dashboard/load-client-overview-extras";
+import type { ClientBackground } from "@/lib/dashboard/load-client-background";
 import type { BasecampSyncState } from "@/lib/types/client";
 import { workspaceDataToManagerProps } from "@/lib/dashboard/load-client-workspace-data";
 import type {
@@ -19,6 +20,7 @@ type ClientWorkspaceProps = ClientWorkspaceInitialData & {
   appUrl?: string;
   isAdminUser?: boolean;
   overviewExtras: ClientOverviewExtras;
+  background: ClientBackground | null;
 };
 
 export default function ClientWorkspace({
@@ -29,6 +31,7 @@ export default function ClientWorkspace({
   appUrl,
   isAdminUser = false,
   overviewExtras,
+  background,
   ...data
 }: ClientWorkspaceProps) {
   // Simple tabs — clean shell, no client-manager
@@ -59,6 +62,11 @@ export default function ClientWorkspace({
 
   // Default landing: the redesigned widget-driven client overview.
   return (
-    <ClientOverview data={data} extras={overviewExtras} isAdminUser={isAdminUser} />
+    <ClientOverview
+        data={data}
+        extras={overviewExtras}
+        background={background}
+        isAdminUser={isAdminUser}
+      />
   );
 }
