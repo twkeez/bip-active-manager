@@ -10,7 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import OnboardingIntakeDrawer from "@/components/onboarding/onboarding-intake-drawer";
-import OnboardingWizard from "@/components/dashboard/onboarding-wizard";
+import OnboardingMap from "@/components/dashboard/onboarding/onboarding-map";
 import type {
   ClientOnboardingEvaluation,
   OnboardingQueueSummary,
@@ -78,7 +78,7 @@ export default function OnboardingSection() {
         <div>
           <h1 className="text-xl font-semibold text-bip-text">Onboarding</h1>
           <p className="text-sm text-bip-muted">
-            Everyone mid-onboarding. Pick a client to walk the steps, or add a new one.
+            Everyone mid-onboarding. Pick a client to work their checklist, or add a new one.
           </p>
         </div>
         <button
@@ -156,10 +156,10 @@ export default function OnboardingSection() {
             })}
           </div>
 
-          {/* Wizard for the selected client */}
+          {/* Checklist for the selected client */}
           <div>
             {selected ? (
-              <OnboardingWizard
+              <OnboardingMap
                 key={selected.clientId}
                 clientId={selected.clientId}
                 onGraduated={() => void load()}
@@ -173,7 +173,7 @@ export default function OnboardingSection() {
                 }
               />
             ) : (
-              <p className="p-4 text-sm text-bip-muted">Select a client to walk their steps.</p>
+              <p className="p-4 text-sm text-bip-muted">Select a client to work their checklist.</p>
             )}
           </div>
         </div>

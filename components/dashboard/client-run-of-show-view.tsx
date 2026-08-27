@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CalendarClock, ClipboardCheck, GraduationCap } from "lucide-react";
-import OnboardingWizard from "@/components/dashboard/onboarding-wizard";
+import OnboardingMap from "@/components/dashboard/onboarding/onboarding-map";
 import ClientPlaybookView from "@/components/playbook/client-playbook-view";
 import { getClientActiveServices, activeServiceLabels } from "@/lib/clients/service-active";
 import { clientStage, stageLabel } from "@/lib/clients/client-lifecycle";
@@ -90,14 +90,14 @@ export default function ClientRunOfShowView({ client, onOpenTab, onEditClient, o
         </div>
         <p className="mt-2 text-xs text-bip-muted">
           {stage === "onboarding"
-            ? "Walk through onboarding step by step. Each step explains what to do and checks itself off when it can."
+            ? "Onboarding grouped by service. Start with Next up; each step explains what to do and checks itself off when it can."
             : "This client is active. Below is their ongoing playbook for each service they receive."}
         </p>
       </div>
 
       {/* Stage body */}
       {stage === "onboarding" ? (
-        <OnboardingWizard
+        <OnboardingMap
           clientId={client.id}
           onOpenTab={onOpenTab}
           onEditClient={onEditClient}

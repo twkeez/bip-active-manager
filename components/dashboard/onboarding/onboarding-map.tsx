@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -49,6 +49,12 @@ type MapGroup = {
   items: OnboardingItemStatus[];
 };
 
+// Where a step lives, so the nudge can say which group to look in.
+function groupLabelFor(item: OnboardingItemStatus): string {
+  if (item.requiresService == null) return "Account & Foundation";
+  return SERVICE_GROUPS.find((g) => g.key === item.requiresService)?.label ?? "Account & Foundation";
+}
+
 function hintIsBlocked(hint: string | null): boolean {
   return !!hint && /block/i.test(hint);
 }
@@ -75,6 +81,23 @@ export default function OnboardingMap({
   });
   const { evaluation, loading, busy, error } = controller;
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  // Set when something asks to jump to a step; cleared once the scroll fires.
+  const [scrollKey, setScrollKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!scrollKey) return;
+    document
+      .getElementById(`onb-step-${scrollKey}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setScrollKey(null);
+  }, [scrollKey]);
+
+  // Open a card and bring it into view. The map groups by service, so the next
+  // step is often well below the fold.
+  const focusStep = useCallback((itemKey: string) => {
+    setExpandedKey(itemKey);
+    setScrollKey(itemKey);
+  }, []);
 
   // Honest overall progress across both phases (mirrors the wizard).
   const overallRequiredTotal = evaluation
@@ -88,6 +111,12 @@ export default function OnboardingMap({
   const stepsLeft = (evaluation?.items ?? []).filter(
     (i) => i.requiredForGraduation && !i.done && !i.deferred,
   );
+
+  // The one thing to do next, in catalogue order: the first required step
+  // that's still open, falling back to the first optional one so the nudge
+  // keeps pointing somewhere once the required list is clear.
+  const nextStep =
+    stepsLeft[0] ?? (evaluation?.items ?? []).find((i) => !i.done && !i.deferred) ?? null;
 
   const commsTone = useMemo(() => {
     if (!evaluation) return null;
@@ -271,6 +300,30 @@ export default function OnboardingMap({
         </div>
       </div>
 
+      {/* Next up — the guided push the linear wizard used to give. */}
+      {nextStep && (
+        <div className="rounded-xl border border-bip-accent/40 bg-bip-accent/5 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-bip-muted">
+                Next up · {groupLabelFor(nextStep)}
+                {nextStep.requiredForGraduation ? "" : " · optional"}
+              </p>
+              <p className="truncate text-sm font-semibold text-bip-text">{nextStep.label}</p>
+              {nextStep.hint && <p className="mt-0.5 truncate text-xs text-amber-300">{nextStep.hint}</p>}
+            </div>
+            <button
+              type="button"
+              onClick={() => focusStep(nextStep.itemKey)}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+            >
+              {expandedKey === nextStep.itemKey ? "Jump to it" : "Open step"}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Service groups */}
       {groups.map((group) => {
         const doneCount = group.items.filter((i) => i.done).length;
@@ -303,7 +356,11 @@ export default function OnboardingMap({
                 const clickable = !item.deferred;
                 const Action = moduleForVerification(item.verification).Action;
                 return (
-                  <div key={item.itemKey} className="rounded-lg border border-bip-border bg-bip-page/40">
+                  <div
+                    key={item.itemKey}
+                    id={`onb-step-${item.itemKey}`}
+                    className="rounded-lg border border-bip-border bg-bip-page/40"
+                  >
                     <button
                       type="button"
                       disabled={!clickable}
