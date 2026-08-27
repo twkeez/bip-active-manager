@@ -11,6 +11,7 @@ import {
   Loader2,
   MessageSquareQuote,
   RefreshCw,
+  ScanSearch,
   Share2,
   Target,
   X,
@@ -780,6 +781,12 @@ export default function ClientOverview({
       ? `${extras.reviewRating} ★ · ${extras.reviewVotes ?? 0} reviews · no analysis yet`
       : "Read the reviews";
 
+  // Research runs for any client, so the tile is unconditional. Dated from the
+  // discovery run because that is the piece people recognise as "the research".
+  const researchSub = background?.discoveryAt
+    ? `Researched ${shortDate(background.discoveryAt)} · ${agoLabel(background.discoveryAt)}`
+    : "Market, competitors, audits";
+
   // Service + tier per line, e.g. ["SEO Premium", "Blog 2/mo"] — shown inline
   // so the shape of the account reads without a click.
   const planSummary = clientPlanSummary(client);
@@ -1083,6 +1090,14 @@ export default function ClientOverview({
           <SectionLabel>Modules</SectionLabel>
         </div>
         <div className="mt-2.5 flex flex-wrap gap-3">
+          <ModuleTile
+            href={`/dashboard/clients/${client.id}?tab=research`}
+            icon={ScanSearch}
+            tint={T.amberTint}
+            stroke={T.amber}
+            title="Research"
+            sub={researchSub}
+          />
           <ModuleTile
             href={`/social-planner?client=${client.id}`}
             icon={Share2}
