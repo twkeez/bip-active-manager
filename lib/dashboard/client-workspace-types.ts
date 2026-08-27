@@ -28,6 +28,7 @@ export type ClientDetailTab =
   | "overview"
   | "profile"
   | "onboarding"
+  | "research"
   | "connections"
   | "comms"
   | "reporting"
@@ -43,6 +44,7 @@ export const CLIENT_DETAIL_TABS = new Set<string>([
   "overview",
   "profile",
   "onboarding",
+  "research",
   "connections",
   "comms",
   "reporting",

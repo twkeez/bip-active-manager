@@ -44,7 +44,9 @@ export async function GET(
 
   const { data: intake } = await supabase
     .from("client_onboarding_intake")
-    .select("discovery, discovery_at, kickoff_meeting_at, competitor_ads, campaign_plan, brand_elements")
+    .select(
+      "discovery, discovery_at, kickoff_meeting_at, competitor_ads, competitor_ads_at, campaign_plan, brand_elements, brand_elements_at",
+    )
     .eq("client_id", clientId)
     .maybeSingle();
 
@@ -64,7 +66,9 @@ export async function GET(
     discoveryAt: intake?.discovery_at ?? null,
     kickoffMeetingAt: intake?.kickoff_meeting_at ?? null,
     competitorOffers: intake?.competitor_ads ?? null,
+    competitorAdsAt: intake?.competitor_ads_at ?? null,
     campaignPlan: intake?.campaign_plan ?? null,
     brandElements: intake?.brand_elements ?? null,
+    brandElementsAt: intake?.brand_elements_at ?? null,
   });
 }

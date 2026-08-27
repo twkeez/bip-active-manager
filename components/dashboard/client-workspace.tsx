@@ -55,7 +55,9 @@ export default function ClientWorkspace({
         {...managerProps}
         userEmail={userEmail}
         syncState={syncState}
-        initialDetailTab={initialTab === "overview" ? null : initialTab}
+        initialDetailTab={
+          initialTab === "overview" || initialTab === "research" ? null : initialTab
+        }
       />
     );
   }

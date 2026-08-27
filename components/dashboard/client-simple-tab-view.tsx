@@ -21,6 +21,7 @@ import ClientPlaybookView from "@/components/playbook/client-playbook-view";
 import ClientRunOfShowView from "@/components/dashboard/client-run-of-show-view";
 import OnboardingMap from "@/components/dashboard/onboarding/onboarding-map";
 import ClientProfileView from "@/components/dashboard/client-profile-view";
+import ClientResearchView from "@/components/dashboard/client-research-view";
 import type { StrategistContact } from "@/lib/team/strategist-roster";
 import { openableBasecampUrl, previewText } from "@/lib/basecamp/display";
 
@@ -29,6 +30,7 @@ const SIMPLE_TABS = new Set<ClientDetailTab>([
   "overview",
   "profile",
   "onboarding",
+  "research",
   "connections",
   "comms",
   "playbook",
@@ -38,6 +40,7 @@ const ALL_TABS: Array<{ id: ClientDetailTab; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "comms", label: "Comms" },
   { id: "onboarding", label: "Onboarding" },
+  { id: "research", label: "Research" },
   { id: "playbook", label: "Playbook" },
   { id: "connections", label: "Connections" },
 ];
@@ -634,6 +637,8 @@ export default function ClientSimpleTabView({
             onGraduated={() => router.refresh()}
           />
         );
+      case "research":
+        return <ClientResearchView client={client} />;
       case "connections":
         return <ConnectionsTab data={data} onSaved={() => router.refresh()} />;
       case "comms":
