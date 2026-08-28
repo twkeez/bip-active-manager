@@ -113,6 +113,20 @@ export const TEAM_API_NAMESPACES = [
   "tasks",
 ];
 
+/**
+ * Nav items the team app shows in its sidebar.
+ *
+ * Deliberately narrower than TEAM_PAGES, and separate from it on purpose: the
+ * team still has to *reach* the tools a client workspace links out to — the
+ * Modules row on the client overview goes to /reports, /social-planner,
+ * /reputation and /ads-diagnostic — they just shouldn't clutter the sidebar
+ * while the client view is where the work happens. Route access stays governed
+ * by TEAM_PAGES; this only decides what gets a link.
+ *
+ * Narrowed to Clients alone on 2026-08-28. Widen by adding routes here.
+ */
+export const TEAM_NAV = ["/dashboard/clients"];
+
 /** Prefix match that respects path segments, so /reports doesn't match /reportsfoo. */
 function matchesPrefix(pathname: string, prefix: string): boolean {
   if (prefix === "/") return pathname === "/";
@@ -136,9 +150,11 @@ export function isAllowedInTeamMode(pathname: string): boolean {
 }
 
 /**
- * True if a nav item should be shown. Sidebars call this so team mode hides the
- * links it would otherwise bounce.
+ * True if a nav item should be shown. Sidebars call this so the team app's
+ * sidebar stays to the point — note a hidden link is not a blocked route, so
+ * anything the client view links out to still works when followed.
  */
 export function isNavItemVisible(href: string, mode: AppMode): boolean {
-  return mode === "full" || isAllowedInTeamMode(href);
+  if (mode === "full") return true;
+  return TEAM_NAV.some((prefix) => matchesPrefix(href, prefix));
 }

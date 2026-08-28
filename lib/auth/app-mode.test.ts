@@ -130,9 +130,22 @@ describe("team mode route gate", () => {
 });
 
 describe("nav visibility", () => {
-  it("hides links team mode would bounce", () => {
+  it("shows only Clients in team mode", () => {
+    expect(isNavItemVisible("/dashboard/clients", "team")).toBe(true);
+    expect(isNavItemVisible("/onboarding", "team")).toBe(false);
+    expect(isNavItemVisible("/my-tasks", "team")).toBe(false);
+    expect(isNavItemVisible("/services", "team")).toBe(false);
+    expect(isNavItemVisible("/playbook", "team")).toBe(false);
     expect(isNavItemVisible("/inbox", "team")).toBe(false);
-    expect(isNavItemVisible("/reputation", "team")).toBe(true);
+  });
+
+  it("hides a link without blocking the route behind it", () => {
+    // The client overview's Modules row links straight out to these, so the
+    // team must still be able to follow them even with no sidebar entry.
+    for (const href of ["/reports", "/social-planner", "/reputation", "/ads-diagnostic"]) {
+      expect(isNavItemVisible(href, "team")).toBe(false);
+      expect(isAllowedInTeamMode(href)).toBe(true);
+    }
   });
 
   it("shows everything in full mode", () => {
