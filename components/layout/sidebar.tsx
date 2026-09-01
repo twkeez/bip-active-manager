@@ -28,6 +28,7 @@ import {
   LayoutDashboard,
   Link2,
   Map,
+  MessageSquare,
   MessageSquareQuote,
   MapPinned,
   Phone,
@@ -60,8 +61,9 @@ const PRIMARY: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Control Center", href: "/control-center", icon: Cpu, adminOnly: true },
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
+  { label: "Response Report", href: "/response-report", icon: MessageSquare },
   { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
-  { label: "My Tasks", href: "/my-tasks", icon: CheckSquare },
+  { label: "My Tasks", href: "/my-tasks", icon: CheckSquare, adminOnly: true },
   { label: "Team", href: "/team", icon: ShieldCheck, adminOnly: true },
   { label: "Cockpit", href: "/dashboard/cockpit", icon: Zap, adminOnly: true },
 ];
@@ -144,8 +146,8 @@ const SALES: NavItem[] = [
 // The trimmed navigation non-admin users (strategists) see.
 const USER_NAV: NavItem[] = [
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
+  { label: "Response Report", href: "/response-report", icon: MessageSquare },
   { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
-  { label: "My Tasks", href: "/my-tasks", icon: CheckSquare },
   { label: "Social Planner", href: "/social-planner", icon: CalendarDays },
   { label: "Reporting", href: "/reports/doc-to-pdf", icon: FileDown },
 ];

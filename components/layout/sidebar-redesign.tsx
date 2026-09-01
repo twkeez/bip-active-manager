@@ -45,7 +45,7 @@ const WORKSPACE: NavItem[] = [
   { label: "Control Center", href: "/control-center", icon: Cpu, adminOnly: true },
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
-  { label: "My Tasks", href: "/my-tasks", icon: CheckSquare },
+  { label: "My Tasks", href: "/my-tasks", icon: CheckSquare, adminOnly: true },
   { label: "Team", href: "/team", icon: ShieldCheck, adminOnly: true },
 ];
 
