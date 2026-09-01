@@ -36,44 +36,51 @@ describe("extractSchemaTypes", () => {
 });
 
 describe("findSchemaGaps", () => {
-  it("reports nothing when every expectation is met", () => {
-    const gaps = findSchemaGaps(["VeterinaryCare", "Organization", "WebSite", "BreadcrumbList"]);
-    expect(gaps).toEqual([]);
+  const COMPLETE = ["VeterinaryCare", "LocalBusiness", "Organization", "WebSite", "BreadcrumbList"];
+
+  it("reports nothing when the practice has both types and the rest", () => {
+    expect(findSchemaGaps(COMPLETE)).toEqual([]);
   });
 
-  it("flags a site with no markup at all, practice as critical", () => {
+  it("flags a site with no markup at all, local business as critical", () => {
     const gaps = findSchemaGaps([]);
-    expect(gaps).toHaveLength(4);
-    const practice = gaps.find((g) => g.key === "practice");
-    expect(practice?.severity).toBe("critical");
-    expect(practice?.status).toBe("missing");
+    expect(gaps).toHaveLength(5);
+    const local = gaps.find((g) => g.key === "local_business");
+    expect(local?.severity).toBe("critical");
+    expect(local?.status).toBe("missing");
   });
 
-  it("accepts LocalBusiness but suggests the more specific type", () => {
-    const gaps = findSchemaGaps(["LocalBusiness", "Organization", "WebSite", "BreadcrumbList"]);
+  // The correction that prompted this: VeterinaryCare descends from
+  // MedicalOrganization, not LocalBusiness, so on its own it publishes no
+  // opening hours or location. It must not read as "the practice is marked up".
+  it("treats VeterinaryCare alone as an unpaired critical gap", () => {
+    const gaps = findSchemaGaps(["VeterinaryCare", "Organization", "WebSite", "BreadcrumbList"]);
     expect(gaps).toHaveLength(1);
     expect(gaps[0]).toMatchObject({
-      key: "practice",
-      status: "imprecise",
-      found: "LocalBusiness",
-      severity: "watch",
+      key: "local_business",
+      severity: "critical",
+      status: "unpaired",
+      found: "VeterinaryCare",
     });
-    expect(gaps[0].suggestion).toContain("VeterinaryCare");
+    expect(gaps[0].suggestion).toContain("LocalBusiness");
   });
 
-  it("does not nag when both the generic and specific types are present", () => {
-    const gaps = findSchemaGaps([
-      "LocalBusiness",
-      "VeterinaryCare",
-      "Organization",
-      "WebSite",
-      "BreadcrumbList",
-    ]);
-    expect(gaps).toEqual([]);
+  it("never suggests replacing LocalBusiness with VeterinaryCare", () => {
+    const gaps = findSchemaGaps(["LocalBusiness", "Organization", "WebSite", "BreadcrumbList"]);
+    // The only gap is the missing vet type, and it is advisory, not critical.
+    expect(gaps.map((g) => g.key)).toEqual(["veterinary_care"]);
+    expect(gaps[0].severity).toBe("watch");
+    expect(gaps.some((g) => g.key === "local_business")).toBe(false);
+  });
+
+  it("accepts any LocalBusiness descendant for the local business slot", () => {
+    for (const type of ["MedicalBusiness", "MedicalClinic", "EmergencyService"]) {
+      const gaps = findSchemaGaps([type, "VeterinaryCare", "Organization", "WebSite", "BreadcrumbList"]);
+      expect(gaps, `${type} should satisfy the local business expectation`).toEqual([]);
+    }
   });
 
   it("matches type names case-insensitively", () => {
-    const gaps = findSchemaGaps(["veterinarycare", "organization", "website", "breadcrumblist"]);
-    expect(gaps).toEqual([]);
+    expect(findSchemaGaps(COMPLETE.map((t) => t.toLowerCase()))).toEqual([]);
   });
 });

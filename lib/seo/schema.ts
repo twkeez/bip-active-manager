@@ -59,10 +59,19 @@ export function extractSchemaTypes(html: string): string[] {
 /**
  * What a veterinary practice site should be publishing, and why.
  *
- * `accepts` lists the types that satisfy the expectation — schema.org offers
- * several valid ways to say the same thing, and a site using `LocalBusiness`
- * instead of `VeterinaryCare` is less specific but not missing the markup. The
- * check is site-wide: these are expected *somewhere*, not on every page.
+ * The important subtlety, verified against schema.org 2026-08-28: `VeterinaryCare`
+ * is NOT a `LocalBusiness`. Its chain is
+ * `Thing > Organization > MedicalOrganization > VeterinaryCare`, so it carries no
+ * `openingHours`, `geo`, `priceRange` or `openingHoursSpecification` — those live
+ * on `LocalBusiness`. `MedicalClinic` was given both parents; VeterinaryCare was
+ * not (schemaorg/schemaorg#1800, still open).
+ *
+ * A practice therefore needs BOTH: a LocalBusiness type for hours, location and
+ * Google's local rich results, plus VeterinaryCare to say what kind of practice
+ * it is. Usually expressed as `"@type": ["VeterinaryCare", "LocalBusiness"]`.
+ *
+ * `accepts` lists the types that satisfy an expectation. Checks are site-wide:
+ * these are expected *somewhere*, not on every page.
  */
 export type SchemaExpectation = {
   key: string;
@@ -74,11 +83,19 @@ export type SchemaExpectation = {
 
 export const VET_SCHEMA_EXPECTATIONS: SchemaExpectation[] = [
   {
-    key: "practice",
-    label: "Practice / local business",
-    accepts: ["VeterinaryCare", "LocalBusiness", "MedicalBusiness", "MedicalClinic"],
+    key: "local_business",
+    label: "Local business",
+    // Any LocalBusiness descendant carries the local properties.
+    accepts: ["LocalBusiness", "MedicalBusiness", "MedicalClinic", "EmergencyService"],
     severity: "critical",
-    why: "Tells Google this is a real practice with a location — the basis for local pack and map results.",
+    why: "Where opening hours, geo and price range live, and what Google's local business rich results require. VeterinaryCare does not provide these.",
+  },
+  {
+    key: "veterinary_care",
+    label: "VeterinaryCare",
+    accepts: ["VeterinaryCare"],
+    severity: "watch",
+    why: "Says the practice is specifically a vet. Pair it with a LocalBusiness type rather than using it on its own.",
   },
   {
     key: "organization",
@@ -103,19 +120,12 @@ export const VET_SCHEMA_EXPECTATIONS: SchemaExpectation[] = [
   },
 ];
 
-/** More specific alternatives worth suggesting when the generic type is used. */
-const PREFERRED_OVER: Record<string, string> = {
-  LocalBusiness: "VeterinaryCare",
-  MedicalBusiness: "VeterinaryCare",
-  MedicalClinic: "VeterinaryCare",
-};
-
 export type SchemaGap = {
   key: string;
   label: string;
   severity: "critical" | "watch";
-  /** Present but a more specific type exists, vs. absent entirely. */
-  status: "missing" | "imprecise";
+  /** `unpaired` = the specific type is there but the one carrying hours/geo is not. */
+  status: "missing" | "unpaired";
   found: string | null;
   suggestion: string;
   why: string;
@@ -127,36 +137,27 @@ export type SchemaGap = {
  */
 export function findSchemaGaps(typesFoundAcrossSite: string[]): SchemaGap[] {
   const found = new Set(typesFoundAcrossSite.map((t) => t.toLowerCase()));
+  const has = (type: string) => found.has(type.toLowerCase());
   const gaps: SchemaGap[] = [];
 
   for (const expectation of VET_SCHEMA_EXPECTATIONS) {
-    const match = expectation.accepts.find((t) => found.has(t.toLowerCase()));
+    if (expectation.accepts.some(has)) continue;
 
-    if (!match) {
-      gaps.push({
-        key: expectation.key,
-        label: expectation.label,
-        severity: expectation.severity,
-        status: "missing",
-        found: null,
-        suggestion: `Add ${expectation.accepts[0]} markup.`,
-        why: expectation.why,
-      });
-      continue;
-    }
+    // VeterinaryCare on its own is the trap worth naming: it looks like the
+    // practice is marked up, but the hours and location are not published.
+    const unpairedVet = expectation.key === "local_business" && has("VeterinaryCare");
 
-    const preferred = PREFERRED_OVER[match];
-    if (preferred && !found.has(preferred.toLowerCase())) {
-      gaps.push({
-        key: expectation.key,
-        label: expectation.label,
-        severity: "watch",
-        status: "imprecise",
-        found: match,
-        suggestion: `Using ${match}; ${preferred} is more specific for a veterinary practice.`,
-        why: expectation.why,
-      });
-    }
+    gaps.push({
+      key: expectation.key,
+      label: expectation.label,
+      severity: expectation.severity,
+      status: unpairedVet ? "unpaired" : "missing",
+      found: unpairedVet ? "VeterinaryCare" : null,
+      suggestion: unpairedVet
+        ? 'Using VeterinaryCare alone, which carries no opening hours or location. Add LocalBusiness alongside it — "@type": ["VeterinaryCare", "LocalBusiness"].'
+        : `Add ${expectation.accepts[0]} markup.`,
+      why: expectation.why,
+    });
   }
 
   return gaps;

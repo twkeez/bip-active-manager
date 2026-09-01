@@ -191,7 +191,7 @@ export type SeoSchemaGap = {
   key: string;
   label: string;
   severity: "critical" | "watch";
-  status: "missing" | "imprecise";
+  status: "missing" | "unpaired";
   found: string | null;
   suggestion: string;
   why: string;
