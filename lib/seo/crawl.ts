@@ -39,6 +39,13 @@ export type CrawlResult = {
   pages: CrawlPageFact[];
   /** Site-wide schema expectations this site does not meet. */
   schemaGaps: ReturnType<typeof findSchemaGaps>;
+  /**
+   * Why the crawl stopped. "complete" means the site ran out of pages; the
+   * other two mean there is more site than we looked at, which changes how the
+   * result should be read — absent schema on 200 of 600 pages is not a finding
+   * about the site.
+   */
+  stoppedBecause: "complete" | "page-limit" | "time-limit";
 };
 
 type CrawlPageResult = {
@@ -132,7 +139,17 @@ function pushIssue(
   });
 }
 
-export async function runQuickSeoCrawl(rawWebsite: string, maxUrls = 50): Promise<CrawlResult> {
+/**
+ * @param maxUrls    hard ceiling on pages fetched.
+ * @param budgetMs   wall-clock budget. Pages are fetched serially with a 10s
+ *   timeout each, so a big or slow site can outlast the function that called
+ *   us. Stopping ourselves keeps a partial crawl; being killed loses all of it.
+ */
+export async function runQuickSeoCrawl(
+  rawWebsite: string,
+  maxUrls = 50,
+  budgetMs = Number.POSITIVE_INFINITY,
+): Promise<CrawlResult> {
   const start = normalizeStartUrl(rawWebsite);
   if (!start) throw new Error("Website is required for crawl.");
   const startUrl = new URL(start);
@@ -141,9 +158,17 @@ export async function runQuickSeoCrawl(rawWebsite: string, maxUrls = 50): Promis
   const visited = new Set<string>();
   const issues = new Map<string, CrawlIssue>();
   const pages: CrawlPageFact[] = [];
+  const deadline = Date.now() + budgetMs;
   let crawledUrls = 0;
+  let stoppedBecause: CrawlResult["stoppedBecause"] = "complete";
 
   while (queue.length > 0 && crawledUrls < maxUrls) {
+    // Checked before each fetch, not after: one more page could take the full
+    // 10s timeout, which is what would blow the caller's ceiling.
+    if (Date.now() >= deadline) {
+      stoppedBecause = "time-limit";
+      break;
+    }
     const nextUrl = queue.shift();
     if (!nextUrl || visited.has(nextUrl)) continue;
     visited.add(nextUrl);
@@ -365,11 +390,17 @@ export async function runQuickSeoCrawl(rawWebsite: string, maxUrls = 50): Promis
   // VeterinaryCare markup *somewhere*, not on every URL.
   const schemaTypesAcrossSite = [...new Set(pages.flatMap((p) => p.schemaTypes))];
 
+  // Queue still full at the ceiling means the site is bigger than the cap.
+  if (stoppedBecause === "complete" && crawledUrls >= maxUrls && queue.length > 0) {
+    stoppedBecause = "page-limit";
+  }
+
   return {
     baseUrl: startUrl.toString(),
     crawledUrls,
     issues: [...issues.values()],
     pages,
     schemaGaps: findSchemaGaps(schemaTypesAcrossSite),
+    stoppedBecause,
   };
 }

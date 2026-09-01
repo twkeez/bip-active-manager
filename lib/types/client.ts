@@ -210,6 +210,8 @@ export type SeoCrawlSnapshot = {
   /** What each page says. Empty for crawls run before this was stored. */
   pages: SeoCrawlPageFact[];
   schema_gaps: SeoSchemaGap[];
+  /** Why the crawl ended. Null for crawls run before this was recorded. */
+  stopped_because: "complete" | "page-limit" | "time-limit" | null;
   created_at: string;
   updated_at: string;
 };

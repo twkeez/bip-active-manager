@@ -8,9 +8,17 @@ type CrawlRequestBody = {
   clientId?: number;
 };
 
-// Up to 50 pages fetched serially at a 10s per-page timeout. The route had no
-// ceiling declared, which left a real crawl at the mercy of the default.
 export const maxDuration = 300;
+
+/** Pages we will fetch at most. Sites larger than this report as truncated. */
+const MAX_PAGES = 250;
+
+/**
+ * Wall-clock budget for the crawl itself, well inside maxDuration so there is
+ * room to write the results. The crawler stops itself at this point and returns
+ * what it has — a partial crawl is useful, a killed function is not.
+ */
+const CRAWL_BUDGET_MS = 240_000;
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -72,7 +80,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const crawl = await runQuickSeoCrawl(clientRow.website.trim(), 50);
+    const crawl = await runQuickSeoCrawl(clientRow.website.trim(), MAX_PAGES, CRAWL_BUDGET_MS);
     const issuesPayload = crawl.issues.map((issue) => ({
       client_id: clientId,
       snapshot_id: createdSnapshot.id,
@@ -103,6 +111,8 @@ export async function POST(request: Request) {
         crawled_urls: crawl.crawledUrls,
         pages: crawl.pages,
         schema_gaps: crawl.schemaGaps,
+        max_urls: MAX_PAGES,
+        stopped_because: crawl.stoppedBecause,
         run_status: "completed",
         error_message: null,
         finished_at: new Date().toISOString(),

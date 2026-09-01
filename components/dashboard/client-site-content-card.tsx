@@ -8,9 +8,9 @@ import type { SeoCrawlPageFact, SeoCrawlSnapshot, SeoSchemaGap } from "@/lib/typ
  * Titles, meta descriptions and schema.org markup across a client's whole site.
  *
  * Reads what the crawler already stores rather than re-crawling to display —
- * a crawl is up to 50 page fetches, so it happens on demand and the result is
+ * a crawl is up to 250 page fetches, so it happens on demand and the result is
  * kept. Defaults to what's wrong or missing; the page-by-page detail is behind
- * the expander because 50 rows of correct titles is not a report.
+ * the expander because a screen of correct titles is not a report.
  */
 
 type Props = { clientId: number; website: string | null };
@@ -164,11 +164,22 @@ export default function ClientSiteContentCard({ clientId, website }: Props) {
           </span>
         ) : !snapshot ? (
           <p>
-            Not crawled yet. Fetches up to 50 pages and records what each one says — this takes a
-            minute or two.
+            Not crawled yet. Fetches up to 250 pages and records what each one says. Large sites
+            can take a few minutes.
           </p>
         ) : (
           <div className="space-y-3">
+            {snapshot.stopped_because && snapshot.stopped_because !== "complete" && (
+              <p className="rounded-md bg-amber-500/10 px-2 py-1 text-amber-300">
+                Stopped at {pages.length} pages
+                {snapshot.stopped_because === "time-limit"
+                  ? " on the time budget"
+                  : " on the page limit"}
+                — this site is bigger than the crawl. Findings cover what was reached, not
+                the whole site.
+              </p>
+            )}
+
             <p className="text-bip-text">
               {pages.length} page{pages.length === 1 ? "" : "s"} ·{" "}
               {flagged.length === 0 ? (
