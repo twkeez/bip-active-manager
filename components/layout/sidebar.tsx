@@ -47,7 +47,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { UserRole } from "@/lib/auth/profile";
-import { isNavItemVisible, type AppMode } from "@/lib/auth/app-mode";
+import { isNavItemVisibleForRole, type AppMode } from "@/lib/auth/app-mode";
 import { useViewAs } from "@/components/layout/use-view-as";
 
 type NavItem = {
@@ -143,7 +143,10 @@ const SALES: NavItem[] = [
   { label: "Sales Lab", href: "/sales-lab", icon: Sparkles, adminOnly: true },
 ];
 
-// The trimmed navigation non-admin users (strategists) see.
+// The candidate navigation non-admin users (strategists) see. What actually
+// renders is this list filtered through TEAM_NAV by isNavItemVisibleForRole, so
+// today only Clients survives — widen TEAM_NAV to hand strategists more, rather
+// than editing here and wondering why nothing changed.
 const USER_NAV: NavItem[] = [
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "Response Report", href: "/response-report", icon: MessageSquare },
@@ -165,7 +168,7 @@ function NavLink({
 }) {
   const pathname = usePathname();
   if (item.adminOnly && role !== "admin") return null;
-  if (!isNavItemVisible(item.href, appMode)) return null;
+  if (!isNavItemVisibleForRole(item.href, appMode, role === "admin")) return null;
   const active =
     item.href === "/dashboard"
       ? pathname === "/dashboard"
@@ -207,7 +210,7 @@ function SectionGroup({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const visible = items.filter(
-    (i) => (!i.adminOnly || role === "admin") && isNavItemVisible(i.href, appMode),
+    (i) => (!i.adminOnly || role === "admin") && isNavItemVisibleForRole(i.href, appMode, role === "admin"),
   );
   if (visible.length === 0) return null;
   return (

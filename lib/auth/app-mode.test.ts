@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isAllowedInTeamMode, isNavItemVisible } from "@/lib/auth/app-mode";
+import {
+  isAllowedInTeamMode,
+  isNavItemVisible,
+  isNavItemVisibleForRole,
+} from "@/lib/auth/app-mode";
 
 describe("team mode route gate", () => {
   it("serves the clients section and its sub-routes", () => {
@@ -151,5 +155,34 @@ describe("nav visibility", () => {
   it("shows everything in full mode", () => {
     expect(isNavItemVisible("/inbox", "full")).toBe(true);
     expect(isNavItemVisible("/sales-lab", "full")).toBe(true);
+  });
+});
+
+describe("nav visibility by role", () => {
+  // The point of the helper: a strategist gets the same sidebar wherever they
+  // are, so the experimental build and the team app cannot drift apart.
+  it("gives strategists the trimmed nav even on the full build", () => {
+    expect(isNavItemVisibleForRole("/dashboard/clients", "full", false)).toBe(true);
+    expect(isNavItemVisibleForRole("/onboarding", "full", false)).toBe(false);
+    expect(isNavItemVisibleForRole("/social-planner", "full", false)).toBe(false);
+    expect(isNavItemVisibleForRole("/my-tasks", "full", false)).toBe(false);
+  });
+
+  it("gives admins everything their own deployment serves", () => {
+    expect(isNavItemVisibleForRole("/inbox", "full", true)).toBe(true);
+    expect(isNavItemVisibleForRole("/sales-lab", "full", true)).toBe(true);
+  });
+
+  it("still trims an admin on the team deployment", () => {
+    expect(isNavItemVisibleForRole("/inbox", "team", true)).toBe(false);
+    expect(isNavItemVisibleForRole("/dashboard/clients", "team", true)).toBe(true);
+  });
+
+  it("agrees with the team app for a strategist, whatever the mode", () => {
+    for (const href of ["/dashboard/clients", "/onboarding", "/reports", "/inbox"]) {
+      expect(isNavItemVisibleForRole(href, "full", false)).toBe(
+        isNavItemVisibleForRole(href, "team", false),
+      );
+    }
   });
 });

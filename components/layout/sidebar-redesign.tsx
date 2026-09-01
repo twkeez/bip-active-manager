@@ -20,7 +20,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import type { UserRole } from "@/lib/auth/profile";
-import { isNavItemVisible, type AppMode } from "@/lib/auth/app-mode";
+import { isNavItemVisibleForRole, type AppMode } from "@/lib/auth/app-mode";
 import { useViewAs } from "@/components/layout/use-view-as";
 
 // Sidebar from the Clients redesign handoff. Runs alongside the original
@@ -73,7 +73,7 @@ function NavLink({
 }) {
   const pathname = usePathname();
   if (item.adminOnly && role !== "admin") return null;
-  if (!isNavItemVisible(item.href, appMode)) return null;
+  if (!isNavItemVisibleForRole(item.href, appMode, role === "admin")) return null;
   const active =
     item.href === "/dashboard"
       ? pathname === "/dashboard"
@@ -109,7 +109,7 @@ function Section({
   appMode: AppMode;
 }) {
   const visible = items.filter(
-    (i) => (!i.adminOnly || role === "admin") && isNavItemVisible(i.href, appMode),
+    (i) => (!i.adminOnly || role === "admin") && isNavItemVisibleForRole(i.href, appMode, role === "admin"),
   );
   if (visible.length === 0) return null;
   return (

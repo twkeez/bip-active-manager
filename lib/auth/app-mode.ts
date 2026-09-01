@@ -158,3 +158,22 @@ export function isNavItemVisible(href: string, mode: AppMode): boolean {
   if (mode === "full") return true;
   return TEAM_NAV.some((prefix) => matchesPrefix(href, prefix));
 }
+
+/**
+ * Nav visibility given both layers at once — what the sidebars actually call.
+ *
+ * Mode decides what a deployment serves and role decides who sees what within
+ * it, but for the sidebar the two collapse: a strategist gets the trimmed nav
+ * whichever deployment they are on. Otherwise the same person sees a different
+ * sidebar on the experimental build than on the team app, and the two lists
+ * drift apart every time one is edited.
+ *
+ * Admins still see everything their own deployment serves.
+ */
+export function isNavItemVisibleForRole(
+  href: string,
+  mode: AppMode,
+  isAdmin: boolean,
+): boolean {
+  return isNavItemVisible(href, isAdmin ? mode : "team");
+}
