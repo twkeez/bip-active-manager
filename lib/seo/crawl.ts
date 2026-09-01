@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { extractSchemaTypes, findSchemaGaps } from "@/lib/seo/schema";
 
 export type CrawlSeverity = "critical" | "watch";
 export type CrawlCategory = "crawl" | "onpage" | "performance" | "indexability";
@@ -16,10 +17,28 @@ export type CrawlIssue = {
   occurrence_key: string;
 };
 
+/**
+ * What each crawled page actually says. The crawler already read all of this to
+ * decide which issues to raise; keeping it means the UI can show the current
+ * title and description rather than only "this one is too long".
+ */
+export type CrawlPageFact = {
+  url: string;
+  status: number;
+  title: string | null;
+  metaDescription: string | null;
+  canonical: string | null;
+  noindex: boolean;
+  schemaTypes: string[];
+};
+
 export type CrawlResult = {
   baseUrl: string;
   crawledUrls: number;
   issues: CrawlIssue[];
+  pages: CrawlPageFact[];
+  /** Site-wide schema expectations this site does not meet. */
+  schemaGaps: ReturnType<typeof findSchemaGaps>;
 };
 
 type CrawlPageResult = {
@@ -121,6 +140,7 @@ export async function runQuickSeoCrawl(rawWebsite: string, maxUrls = 50): Promis
   const queue: string[] = [stripHash(startUrl.toString())];
   const visited = new Set<string>();
   const issues = new Map<string, CrawlIssue>();
+  const pages: CrawlPageFact[] = [];
   let crawledUrls = 0;
 
   while (queue.length > 0 && crawledUrls < maxUrls) {
@@ -320,6 +340,18 @@ export async function runQuickSeoCrawl(rawWebsite: string, maxUrls = 50): Promis
       });
     }
 
+    // Everything above has already been parsed to raise issues; keep the values
+    // themselves so the UI can show what the page actually says.
+    pages.push({
+      url: page.url,
+      status: page.status,
+      title: title || null,
+      metaDescription: metaDescription || null,
+      canonical: canonical || null,
+      noindex: robotsContent.includes("noindex"),
+      schemaTypes: extractSchemaTypes(page.html),
+    });
+
     const links = collectInternalLinks($, currentUrl, rootHost);
     for (const link of links) {
       if (visited.has(link)) continue;
@@ -329,9 +361,15 @@ export async function runQuickSeoCrawl(rawWebsite: string, maxUrls = 50): Promis
     }
   }
 
+  // Schema expectations are site-wide, not per page: a practice needs
+  // VeterinaryCare markup *somewhere*, not on every URL.
+  const schemaTypesAcrossSite = [...new Set(pages.flatMap((p) => p.schemaTypes))];
+
   return {
     baseUrl: startUrl.toString(),
     crawledUrls,
     issues: [...issues.values()],
+    pages,
+    schemaGaps: findSchemaGaps(schemaTypesAcrossSite),
   };
 }

@@ -8,6 +8,10 @@ type CrawlRequestBody = {
   clientId?: number;
 };
 
+// Up to 50 pages fetched serially at a 10s per-page timeout. The route had no
+// ceiling declared, which left a real crawl at the mercy of the default.
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -97,6 +101,8 @@ export async function POST(request: Request) {
       .update({
         base_url: crawl.baseUrl,
         crawled_urls: crawl.crawledUrls,
+        pages: crawl.pages,
+        schema_gaps: crawl.schemaGaps,
         run_status: "completed",
         error_message: null,
         finished_at: new Date().toISOString(),
@@ -136,4 +142,42 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+/**
+ * The most recent completed crawl for a client, so the Research tab can show
+ * what the site says without re-crawling. Returns nulls rather than a 404 when
+ * a client has never been crawled — "not run yet" is a normal state here.
+ */
+export async function GET(request: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const clientId = Number(new URL(request.url).searchParams.get("clientId"));
+  if (!Number.isInteger(clientId) || clientId <= 0) {
+    return NextResponse.json({ error: "Invalid client id" }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+  const { data: snapshot } = await admin
+    .from("client_seo_crawl_snapshots")
+    .select("*")
+    .eq("client_id", clientId)
+    .eq("run_status", "completed")
+    .order("finished_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<SeoCrawlSnapshot>();
+
+  if (!snapshot) return NextResponse.json({ snapshot: null, issues: [] });
+
+  const { data: issues } = await admin
+    .from("client_seo_crawl_issues")
+    .select("*")
+    .eq("snapshot_id", snapshot.id)
+    .returns<SeoCrawlIssue[]>();
+
+  return NextResponse.json({ snapshot, issues: issues ?? [] });
 }

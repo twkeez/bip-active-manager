@@ -18,6 +18,7 @@ import type {
   Discovery,
 } from "@/components/dashboard/onboarding/types";
 import type { ClientRow } from "@/lib/types/client";
+import ClientSiteContentCard from "@/components/dashboard/client-site-content-card";
 
 /**
  * Research & audits for ANY client — not just ones mid-onboarding.
@@ -368,6 +369,8 @@ export default function ClientResearchView({ client }: Props) {
         }
         summary={<Empty>Captures a fresh snapshot each run. Results live on the SEO tab.</Empty>}
       />
+
+      <ClientSiteContentCard clientId={clientId} website={website || null} />
 
       <ToolCard
         icon={TrendingUp}

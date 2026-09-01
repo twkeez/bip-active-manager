@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { runQuickSeoCrawl } from "@/lib/seo/crawl";
+import { extractSchemaTypes } from "@/lib/seo/schema";
 import type { CrawlPageRecord, CrawlStageResult } from "@/lib/site-audit/types";
 import { fetchTextWithTimeout, normalizeAuditUrl } from "@/lib/site-audit/shared";
 
@@ -11,56 +12,6 @@ function text(value: string | null | undefined) {
 
 function stripHash(url: string) {
   return url.replace(/#.*$/, "");
-}
-
-// Real-world JSON-LD is often technically-invalid JSON that lenient validators
-// (schema.org, Google) still accept: leading `//` banner comments, `/* */`
-// blocks, or trailing commas. Strip those before parsing so we don't report a
-// false "no schema" on pages that clearly have it. Operates on the original,
-// newline-preserved script text — a collapsed one-liner would let a `//`
-// comment swallow the whole object.
-function sanitizeJsonLd(raw: string) {
-  return raw
-    .replace(/^\s*\/\/.*$/gm, "") // full-line // comments (leaves // inside URLs alone)
-    .replace(/\/\*[\s\S]*?\*\//g, "") // /* ... */ block comments
-    .replace(/,\s*([}\]])/g, "$1") // trailing commas before } or ]
-    .trim();
-}
-
-function extractSchemaTypes(html: string) {
-  const $ = cheerio.load(html);
-  const types = new Set<string>();
-  const addType = (type: unknown) => {
-    if (typeof type === "string" && type.trim()) types.add(type.trim());
-    else if (Array.isArray(type)) type.forEach(addType);
-  };
-  $('script[type="application/ld+json"]').each((_, node) => {
-    const raw = $(node).html();
-    if (!raw || !raw.trim()) return;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(sanitizeJsonLd(raw));
-    } catch {
-      // still unparseable after sanitizing — genuinely broken markup
-      return;
-    }
-    const items = Array.isArray(parsed) ? parsed : [parsed];
-    for (const item of items) {
-      if (!item || typeof item !== "object") continue;
-      const record = item as Record<string, unknown>;
-      addType(record["@type"]);
-      // Yoast/RankMath and many CMSs wrap entities in an @graph array.
-      const graph = record["@graph"];
-      if (Array.isArray(graph)) {
-        for (const entry of graph) {
-          if (entry && typeof entry === "object") {
-            addType((entry as Record<string, unknown>)["@type"]);
-          }
-        }
-      }
-    }
-  });
-  return [...types];
 }
 
 function wordCountFromHtml(html: string) {

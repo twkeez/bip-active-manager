@@ -177,6 +177,26 @@ export type LighthouseOccurrenceOverride = {
   created_at: string;
 };
 
+export type SeoCrawlPageFact = {
+  url: string;
+  status: number;
+  title: string | null;
+  metaDescription: string | null;
+  canonical: string | null;
+  noindex: boolean;
+  schemaTypes: string[];
+};
+
+export type SeoSchemaGap = {
+  key: string;
+  label: string;
+  severity: "critical" | "watch";
+  status: "missing" | "imprecise";
+  found: string | null;
+  suggestion: string;
+  why: string;
+};
+
 export type SeoCrawlSnapshot = {
   id: number;
   client_id: number;
@@ -187,6 +207,9 @@ export type SeoCrawlSnapshot = {
   crawled_urls: number;
   run_status: "running" | "completed" | "failed";
   error_message: string | null;
+  /** What each page says. Empty for crawls run before this was stored. */
+  pages: SeoCrawlPageFact[];
+  schema_gaps: SeoSchemaGap[];
   created_at: string;
   updated_at: string;
 };
