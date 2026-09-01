@@ -65,7 +65,11 @@ function GapRow({ gap }: { gap: SeoSchemaGap }) {
       <span className="min-w-0">
         <span className="text-bip-text">{gap.label}</span>
         <span className="text-bip-muted">
-          {gap.status === "missing" ? " — missing. " : " — incomplete. "}
+          {gap.status === "missing"
+            ? " — missing. "
+            : gap.status === "mismatched"
+              ? " — wrong type. "
+              : " — incomplete. "}
           {gap.suggestion}
         </span>
         <span className="block text-[11px] text-bip-muted/80">{gap.why}</span>

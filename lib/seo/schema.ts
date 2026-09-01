@@ -124,8 +124,11 @@ export type SchemaGap = {
   key: string;
   label: string;
   severity: "critical" | "watch";
-  /** `unpaired` = the specific type is there but the one carrying hours/geo is not. */
-  status: "missing" | "unpaired";
+  /**
+   * `unpaired`   = the specific type is there but the one carrying hours/geo is not.
+   * `mismatched` = the markup describes a human clinic on a veterinary site.
+   */
+  status: "missing" | "unpaired" | "mismatched";
   found: string | null;
   suggestion: string;
   why: string;
@@ -135,6 +138,16 @@ export type SchemaGap = {
  * Compare the types found across a whole site against what a vet practice
  * should have. Returns only the gaps — an empty array means the site is clean.
  */
+/**
+ * LocalBusiness descendants that describe human healthcare. They satisfy the
+ * structural requirement — they are real LocalBusinesses and do publish hours
+ * and geo — but they say the wrong thing on a veterinary site. Schema.org does
+ * not mark them human-only, yet their medicalSpecialty vocabulary is human
+ * medicine, and VeterinaryCare exists precisely because a vet is not one of
+ * these.
+ */
+const HUMAN_MEDICINE_TYPES = ["MedicalClinic", "MedicalBusiness", "Physician", "Hospital", "Dentist"];
+
 export function findSchemaGaps(typesFoundAcrossSite: string[]): SchemaGap[] {
   const found = new Set(typesFoundAcrossSite.map((t) => t.toLowerCase()));
   const has = (type: string) => found.has(type.toLowerCase());
@@ -157,6 +170,22 @@ export function findSchemaGaps(typesFoundAcrossSite: string[]): SchemaGap[] {
         ? 'Using VeterinaryCare alone, which carries no opening hours or location. Add LocalBusiness alongside it — "@type": ["VeterinaryCare", "LocalBusiness"].'
         : `Add ${expectation.accepts[0]} markup.`,
       why: expectation.why,
+    });
+  }
+
+  // Only worth raising when nothing else says "vet": with VeterinaryCare present
+  // the species is stated and a human-medicine type alongside it is merely
+  // redundant, not misleading.
+  const humanType = HUMAN_MEDICINE_TYPES.find(has);
+  if (humanType && !has("VeterinaryCare")) {
+    gaps.push({
+      key: "human_medicine_type",
+      label: "Practice type",
+      severity: "watch",
+      status: "mismatched",
+      found: humanType,
+      suggestion: `Marked up as ${humanType}, which describes human healthcare. Use LocalBusiness with VeterinaryCare instead.`,
+      why: "Its medicalSpecialty vocabulary is human medicine, and VeterinaryCare exists because a veterinary practice is not a human clinic.",
     });
   }
 

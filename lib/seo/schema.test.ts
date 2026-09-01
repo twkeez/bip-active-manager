@@ -76,8 +76,30 @@ describe("findSchemaGaps", () => {
   it("accepts any LocalBusiness descendant for the local business slot", () => {
     for (const type of ["MedicalBusiness", "MedicalClinic", "EmergencyService"]) {
       const gaps = findSchemaGaps([type, "VeterinaryCare", "Organization", "WebSite", "BreadcrumbList"]);
-      expect(gaps, `${type} should satisfy the local business expectation`).toEqual([]);
+      expect(
+        gaps.some((g) => g.key === "local_business"),
+        `${type} should satisfy the local business expectation`,
+      ).toBe(false);
     }
+  });
+
+  it("flags human-medicine markup on a site that never says vet", () => {
+    const gaps = findSchemaGaps(["MedicalClinic", "Organization", "WebSite", "BreadcrumbList"]);
+    const mismatch = gaps.find((g) => g.key === "human_medicine_type");
+    expect(mismatch).toMatchObject({ status: "mismatched", found: "MedicalClinic", severity: "watch" });
+    // Hours and geo genuinely are published, so this is not a critical gap.
+    expect(gaps.some((g) => g.key === "local_business")).toBe(false);
+  });
+
+  it("stays quiet about a human-medicine type once VeterinaryCare is present", () => {
+    const gaps = findSchemaGaps([
+      "MedicalClinic",
+      "VeterinaryCare",
+      "Organization",
+      "WebSite",
+      "BreadcrumbList",
+    ]);
+    expect(gaps).toEqual([]);
   });
 
   it("matches type names case-insensitively", () => {
