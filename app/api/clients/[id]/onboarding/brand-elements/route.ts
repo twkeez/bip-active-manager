@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { extractBrandElements } from "@/lib/brand/extract-brand";
 import type { ClientRow } from "@/lib/types/client";
+import { archiveResearchVersion } from "@/lib/onboarding/research-history";
 
 function parseClientId(value: string) {
   const id = Number(value);
@@ -38,6 +39,7 @@ export async function POST(
   try {
     const brandElements = await extractBrandElements(client.website.trim());
     const at = new Date().toISOString();
+    await archiveResearchVersion(supabase, clientId, "brand_elements", user.id);
     await supabase.from("client_onboarding_intake").upsert(
       { client_id: clientId, brand_elements: brandElements, brand_elements_at: at, updated_at: at },
       { onConflict: "client_id" },

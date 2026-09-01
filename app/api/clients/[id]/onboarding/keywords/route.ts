@@ -38,7 +38,6 @@ export async function GET(
   const { data: existingRows } = await supabase
     .from("client_keyword_targets")
     .select("keyword")
-    .eq("owner_user_id", user.id)
     .eq("client_id", clientId)
     .eq("is_active", true);
   const existing = (existingRows ?? []).map((r) => r.keyword as string);
@@ -90,16 +89,16 @@ export async function POST(
     Math.max(0, seoKeywordAllowance(client)),
   );
 
-  // Replace the active set for this client.
+  // Replace the active set for this client. Keyword targets are shared team
+  // data, so this replaces everyone's view of them, not just the caller's.
   await supabase
     .from("client_keyword_targets")
     .delete()
-    .eq("owner_user_id", user.id)
     .eq("client_id", clientId);
 
   if (cleaned.length > 0) {
     const rows = cleaned.map((keyword, index) => ({
-      owner_user_id: user.id,
+      created_by: user.id,
       client_id: clientId,
       keyword,
       tag: null,

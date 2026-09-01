@@ -55,7 +55,6 @@ export async function POST(request: Request) {
   const { data: keywordRows } = await supabase
     .from("client_keyword_targets")
     .select("keyword")
-    .eq("owner_user_id", user.id)
     .eq("client_id", clientId)
     .eq("is_active", true);
   const keywords = [...new Set((keywordRows ?? []).map((r) => r.keyword.trim()).filter(Boolean))];

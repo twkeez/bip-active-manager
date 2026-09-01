@@ -52,7 +52,6 @@ export async function POST(request: Request) {
   const { data: keywordRows } = await supabase
     .from("client_keyword_targets")
     .select("keyword")
-    .eq("owner_user_id", user.id)
     .eq("client_id", clientId)
     .eq("is_active", true);
   const keywords = [...new Set((keywordRows ?? []).map((r) => r.keyword.trim()).filter(Boolean))];
@@ -72,7 +71,6 @@ export async function POST(request: Request) {
   const { data: savedLocations } = await supabase
     .from("client_organic_locations")
     .select("zip, label")
-    .eq("owner_user_id", user.id)
     .eq("client_id", clientId);
   for (const loc of savedLocations ?? []) {
     const coord = await geocodeZip(loc.zip);
@@ -95,7 +93,7 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
   const rows = results.map((r) => ({
-    owner_user_id: user.id,
+    created_by: user.id,
     client_id: clientId,
     keyword: r.keyword,
     position: r.position,

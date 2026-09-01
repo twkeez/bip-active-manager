@@ -70,11 +70,22 @@ function hasAnyActiveService(client: ClientRow) {
   return Object.values(getClientActiveServices(client)).some(Boolean);
 }
 
+/**
+ * Days since anyone spoke on this client's Basecamp project, in either
+ * direction.
+ *
+ * `last_event_is_internal` is deliberately not consulted. It records who posted
+ * last — us (true) or the client (false) — and both are contact, so both reset
+ * the clock. The branch that used to be here tested the flag and then returned
+ * the same value either way, which read as an unfinished distinction.
+ *
+ * If a caller ever wants "how long since the client heard from us" or "how long
+ * since they said anything", those are different questions and want their own
+ * functions; `needs_reply` in computeClientCommsAggregate already covers the
+ * "they spoke last and nobody answered" case.
+ */
 function lastClientTouchpointDays(client: ClientRow) {
   if (!client.last_communication_at) return null;
-  if (client.last_event_is_internal) {
-    return daysSince(client.last_communication_at);
-  }
   return daysSince(client.last_communication_at);
 }
 
@@ -745,7 +756,6 @@ export async function buildOnboardingContextForClients(
     supabase
       .from("client_keyword_targets")
       .select("client_id")
-      .eq("owner_user_id", userId)
       .in("client_id", uniqueIds),
     supabase
       .from("client_reporting_metric_preferences")

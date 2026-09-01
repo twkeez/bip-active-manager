@@ -58,7 +58,6 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from("client_keyword_targets")
     .select("*")
-    .eq("owner_user_id", user.id)
     .eq("client_id", clientId)
     .order("priority", { ascending: false })
     .order("created_at", { ascending: false });
@@ -94,7 +93,6 @@ export async function PUT(request: Request) {
       const { error } = await supabase
         .from("client_keyword_targets")
         .delete()
-        .eq("owner_user_id", user.id)
         .eq("client_id", clientId)
         .in("id", deleteIds);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -103,7 +101,7 @@ export async function PUT(request: Request) {
 
   if (Array.isArray(body.upserts) && body.upserts.length > 0) {
     const newRows: Array<{
-      owner_user_id: string;
+      created_by: string | null;
       client_id: number;
       keyword: string;
       tag: string | null;
@@ -111,13 +109,13 @@ export async function PUT(request: Request) {
       is_active: boolean;
       updated_at: string;
     }> = [];
-    const existingRows: Array<{ id: number; owner_user_id: string; client_id: number; keyword: string; tag: string | null; priority: number; is_active: boolean; updated_at: string }> = [];
+    const existingRows: Array<{ id: number; client_id: number; keyword: string; tag: string | null; priority: number; is_active: boolean; updated_at: string }> = [];
 
     for (const item of body.upserts) {
       const keyword = normalizeKeyword(item.keyword);
       if (!keyword) continue;
       const base = {
-        owner_user_id: user.id,
+        created_by: user.id,
         client_id: clientId,
         keyword,
         tag: item.tag == null ? null : String(item.tag).trim() || null,
@@ -143,7 +141,6 @@ export async function PUT(request: Request) {
       const { count } = await supabase
         .from("client_keyword_targets")
         .select("id", { count: "exact", head: true })
-        .eq("owner_user_id", user.id)
         .eq("client_id", clientId);
       const current = count ?? 0;
       if (current + newRows.length > allowance) {
@@ -167,7 +164,6 @@ export async function PUT(request: Request) {
   const { data, error } = await supabase
     .from("client_keyword_targets")
     .select("*")
-    .eq("owner_user_id", user.id)
     .eq("client_id", clientId)
     .order("priority", { ascending: false })
     .order("created_at", { ascending: false });
@@ -211,7 +207,6 @@ export async function POST(request: Request) {
   const { count } = await supabase
     .from("client_keyword_targets")
     .select("id", { count: "exact", head: true })
-    .eq("owner_user_id", user.id)
     .eq("client_id", clientId);
 
   // Only seed from a clean slate and when the tier permits keywords.
@@ -220,7 +215,7 @@ export async function POST(request: Request) {
     if (defaults.length > 0) {
       const now = new Date().toISOString();
       const rows = defaults.map((keyword) => ({
-        owner_user_id: user.id,
+        created_by: user.id,
         client_id: clientId,
         keyword,
         tag: null,
@@ -238,7 +233,6 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("client_keyword_targets")
     .select("*")
-    .eq("owner_user_id", user.id)
     .eq("client_id", clientId)
     .order("priority", { ascending: false })
     .order("created_at", { ascending: false });

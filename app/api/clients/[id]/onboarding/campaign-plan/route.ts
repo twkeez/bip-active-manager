@@ -8,6 +8,7 @@ import {
   type CampaignPlan,
 } from "@/lib/onboarding/campaign-plan";
 import type { ClientRow } from "@/lib/types/client";
+import { archiveResearchVersion } from "@/lib/onboarding/research-history";
 
 function parseClientId(value: string) {
   const id = Number(value);
@@ -49,7 +50,6 @@ export async function POST(
   const { data: trackedRows } = await supabase
     .from("client_keyword_targets")
     .select("keyword")
-    .eq("owner_user_id", user.id)
     .eq("client_id", clientId)
     .eq("is_active", true);
   const keywords = (trackedRows ?? []).map((r) => r.keyword as string).filter(Boolean);
@@ -107,6 +107,7 @@ export async function POST(
     };
 
     const at = new Date().toISOString();
+    await archiveResearchVersion(supabase, clientId, "campaign_plan", user.id);
     await supabase.from("client_onboarding_intake").upsert(
       { client_id: clientId, campaign_plan: plan, campaign_plan_at: at, updated_at: at },
       { onConflict: "client_id" },

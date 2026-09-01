@@ -7,6 +7,7 @@ import { VET_ONBOARDING_MODEL } from "@/lib/vet-onboarding/anthropic-model";
 import { localResearchOutputFormat } from "@/lib/vet-onboarding/research-json-schema";
 import { activeServiceLabels, getClientActiveServices } from "@/lib/clients/service-active";
 import type { ClientRow } from "@/lib/types/client";
+import { archiveResearchVersion } from "@/lib/onboarding/research-history";
 import type { ClientFormData, LocalResearch } from "@/types/onboarding";
 
 function parseClientId(value: string) {
@@ -99,6 +100,7 @@ export async function POST(
     if (!research) throw new Error("Discovery returned no structured output");
 
     const discoveryAt = new Date().toISOString();
+    await archiveResearchVersion(supabase, clientId, "discovery", user.id);
     await supabase.from("client_onboarding_intake").upsert(
       {
         client_id: clientId,

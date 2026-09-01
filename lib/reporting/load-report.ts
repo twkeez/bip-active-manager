@@ -56,7 +56,6 @@ export async function loadReportForClient(
   const { data: keywordsRaw } = await supabase
     .from("client_keyword_targets")
     .select("*")
-    .eq("owner_user_id", userId)
     .eq("client_id", clientId)
     .order("priority", { ascending: false })
     .order("created_at", { ascending: false });
@@ -126,7 +125,6 @@ export async function loadReportForClient(
   const { data: organicSnaps } = await supabase
     .from("client_organic_rank_snapshots")
     .select("keyword, position, url, top_domain, location_label, created_at")
-    .eq("owner_user_id", userId)
     .eq("client_id", clientId)
     .order("created_at", { ascending: false })
     .limit(1000);

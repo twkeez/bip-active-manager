@@ -306,9 +306,9 @@ export default function ClientResearchView({ client }: Props) {
         blocked="Open the SEO tab to pick keywords"
         summary={
           <Empty>
-            Keyword targets are stored per user (<code>owner_user_id</code>), so what you pick here
-            isn&apos;t visible to other strategists on the same client. Worth fixing before this tab
-            becomes the main way people run keyword work.
+            Shared across the team — everyone working this client sees and edits the same list.
+            Picked on the SEO tab, where the volume figures live; baseline rankings then measure
+            whatever is tracked here.
           </Empty>
         }
       />

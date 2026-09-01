@@ -14,7 +14,6 @@ async function listLocations(
   return supabase
     .from("client_organic_locations")
     .select("*")
-    .eq("owner_user_id", userId)
     .eq("client_id", clientId)
     .order("created_at", { ascending: true });
 }
@@ -54,7 +53,6 @@ export async function PUT(request: Request) {
     const { error } = await supabase
       .from("client_organic_locations")
       .delete()
-      .eq("owner_user_id", user.id)
       .eq("client_id", clientId)
       .eq("id", body.deleteId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -64,7 +62,7 @@ export async function PUT(request: Request) {
     const zip = (body.add.zip ?? "").trim();
     if (!zip) return NextResponse.json({ error: "A ZIP code is required." }, { status: 400 });
     const { error } = await supabase.from("client_organic_locations").insert({
-      owner_user_id: user.id,
+      created_by: user.id,
       client_id: clientId,
       zip,
       label: zip,

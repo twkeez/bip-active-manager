@@ -8,6 +8,7 @@ import {
   type CompetitorOffer,
 } from "@/lib/onboarding/competitor-offers";
 import type { ClientRow } from "@/lib/types/client";
+import { archiveResearchVersion } from "@/lib/onboarding/research-history";
 
 function parseClientId(value: string) {
   const id = Number(value);
@@ -68,6 +69,7 @@ export async function POST(
     const competitors = parsed?.competitors ?? [];
 
     const at = new Date().toISOString();
+    await archiveResearchVersion(supabase, clientId, "competitor_ads", user.id);
     await supabase.from("client_onboarding_intake").upsert(
       { client_id: clientId, competitor_ads: competitors, competitor_ads_at: at, updated_at: at },
       { onConflict: "client_id" },

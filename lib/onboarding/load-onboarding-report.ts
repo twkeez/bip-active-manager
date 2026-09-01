@@ -64,7 +64,6 @@ export async function loadOnboardingReport(
   const { data: kwRows } = await supabase
     .from("client_keyword_targets")
     .select("keyword")
-    .eq("owner_user_id", userId)
     .eq("client_id", clientId)
     .eq("is_active", true)
     .order("priority", { ascending: false });
