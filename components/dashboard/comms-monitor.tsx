@@ -4,13 +4,15 @@ import { useState } from "react";
 import { ExternalLink, MessageSquare, Clock, CheckCircle } from "lucide-react";
 import type { ClientRow } from "@/lib/types/client";
 import { acknowledgeNoReply } from "@/lib/clients/acknowledge-no-reply";
+import { bucketCommsClients, GONE_SILENT_DAYS } from "@/lib/clients/comms-buckets";
 
 type Props = {
   clients: ClientRow[];
 };
 
 function daysAgoLabel(dateStr: string | null): string {
-  if (!dateStr) return "—";
+  // No stored event at all — distinct from "we have not looked".
+  if (!dateStr) return "no record";
   const days = Math.floor(
     (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24),
   );
@@ -146,17 +148,9 @@ export default function CommsMonitor({ clients }: Props) {
     );
   }
 
-  const awaitingReply = localClients
-    .filter((c) => c.needs_reply)
-    .sort(
-      (a, b) =>
-        new Date(a.last_communication_at ?? 0).getTime() -
-        new Date(b.last_communication_at ?? 0).getTime(),
-    );
+  const { awaitingReply, goneSilent } = bucketCommsClients(localClients);
 
-  const goneSilent = localClients
-    .filter((c) => !c.needs_reply && (c.days_stale ?? 0) >= 15)
-    .sort((a, b) => (b.days_stale ?? 0) - (a.days_stale ?? 0));
+
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -169,7 +163,7 @@ export default function CommsMonitor({ clients }: Props) {
         emptyText="No threads waiting on a reply."
       />
       <Panel
-        title="Gone Silent (15+ days)"
+        title={`Gone Silent (${GONE_SILENT_DAYS}+ days)`}
         icon={Clock}
         color="#ef4444"
         clients={goneSilent}

@@ -516,17 +516,26 @@ function splitChunks<T>(items: T[], size: number) {
   return chunks;
 }
 
+/**
+ * Recompute a client's comms aggregate from the genuinely latest event.
+ *
+ * Deliberately unbounded. This used to take a 30-day cutoff, which meant a
+ * client whose last message was 31 days old looked identical to one that had
+ * never been contacted: latest came back null, so needs_reply went false,
+ * last_communication_at went null, and days_stale went null. The monitor then
+ * dropped them from Awaiting Reply *and* from Gone Silent, because its
+ * `(days_stale ?? 0) >= 15` test reads null as zero. The longer a client was
+ * ignored, the less likely they were to appear — exactly backwards.
+ */
 async function updateClientCommsAggregate(
   admin: AdminClient,
   clientId: number,
   acknowledgedForOccurredAt: string | null,
-  cutoffIso: string,
 ) {
   const { data: latest, error } = await admin
     .from("basecamp_communication_events")
     .select("occurred_at,is_internal")
     .eq("client_id", clientId)
-    .gte("occurred_at", cutoffIso)
     .order("occurred_at", { ascending: false })
     .limit(1)
     .maybeSingle<{ occurred_at: string; is_internal: boolean }>();
@@ -554,8 +563,9 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
     fallbackInternalEmails,
   );
   const nowIso = new Date().toISOString();
+  // Bounds how far back we ask Basecamp on a first or long-delayed sync. It no
+  // longer bounds what we keep or what the aggregate considers.
   const thirtyDaysMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const cutoffIso = new Date(thirtyDaysMs).toISOString(); // prune/aggregate window always 30 days
 
   // Fetch window: use last sync time so we only pull new messages, not the full 30 days.
   // Subtract 5 minutes as a safety buffer for clock skew or in-flight events.
@@ -660,7 +670,6 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
             admin,
             project.id,
             project.reply_acknowledged_for_occurred_at,
-            cutoffIso,
           );
           continue;
         }
@@ -850,7 +859,6 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
         admin,
         project.id,
         project.reply_acknowledged_for_occurred_at,
-        cutoffIso,
       );
 
       syncedProjects += 1;
@@ -863,13 +871,12 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
     }
   }
 
-  const { error: pruneError } = await admin
-    .from("basecamp_communication_events")
-    .delete()
-    .lt("occurred_at", cutoffIso);
-  if (pruneError) {
-    throw new Error(`Failed pruning old communication events: ${pruneError.message}`);
-  }
+  // Events are no longer pruned. The 30-day delete that used to live here was
+  // not a retention decision anyone made, and it cost more than it saved: it
+  // destroyed the evidence needed to answer "when did we last hear from this
+  // client", "how responsive were we last quarter" and "is this account going
+  // quiet". Volume is around a hundred rows a month across the whole book, so
+  // keeping them is free.
 
   const partialErrorSummary =
     projectErrors.length > 0
