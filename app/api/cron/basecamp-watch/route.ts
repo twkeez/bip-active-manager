@@ -49,7 +49,14 @@ function resolveMode(): "oauth" | "classic" {
 
 export async function POST(request: Request) {
   if (!authorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // `configured` says whether the server has a secret at all, without saying
+    // what it is. Without it, a 401 cannot distinguish "the variable never
+    // reached this deployment" from "the caller sent the wrong value", and
+    // those have completely different fixes.
+    return NextResponse.json(
+      { error: "Unauthorized", configured: Boolean(process.env.CRON_SECRET?.trim()) },
+      { status: 401 },
+    );
   }
 
   const startedAt = Date.now();
