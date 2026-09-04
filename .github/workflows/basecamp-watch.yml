@@ -1,0 +1,48 @@
+name: Basecamp watch
+
+on:
+  schedule:
+    # Every 30 minutes, 11:00-23:00 UTC — roughly 6am to 6pm US Eastern.
+    - cron: "*/30 11-23 * * 1-5"
+    # Once each weekend day, so a Friday-evening message isn't missed.
+    - cron: "0 15 * * 0,6"
+  workflow_dispatch:
+
+concurrency:
+  group: basecamp-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync Basecamp and read new threads
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::APP_URL and CRON_SECRET repository secrets must both be set."
+            exit 1
+          fi
+
+          http_status=$(curl -sS -o response.json -w '%{http_code}' \
+            --max-time 330 \
+            -X POST "${APP_URL%/}/api/cron/basecamp-watch" \
+            -H "Authorization: Bearer ${CRON_SECRET}")
+
+          echo "HTTP ${http_status}"
+          cat response.json
+          echo
+
+          if [ "$http_status" = "207" ]; then
+            echo "::warning::Sync succeeded but classification failed — see the body above."
+            exit 0
+          fi
+
+          if [ "$http_status" != "200" ]; then
+            echo "::error::basecamp-watch failed with HTTP ${http_status}"
+            exit 1
+          fi
