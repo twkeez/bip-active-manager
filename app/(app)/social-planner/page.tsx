@@ -31,6 +31,7 @@ export default async function SocialPlannerPage({
     { data: awarenessDays },
     { data: series },
     { data: seriesParts },
+    { data: allAwarenessDays },
   ] = await Promise.all([
     admin
       .from("social_idea_repository")
@@ -63,6 +64,13 @@ export default async function SocialPlannerPage({
       .order("series_id")
       .order("part_number")
       .returns<SocialSeriesWithParts["parts"]>(),
+    // Every day, including the unverified backlog the planner cannot use — the
+    // Celebration Days tab exists to make that backlog visible.
+    admin
+      .from("social_awareness_days")
+      .select("*")
+      .order("month")
+      .returns<SocialAwarenessDay[]>(),
   ]);
 
   // Attach parts to their series so arc cards can show a part count.
@@ -85,6 +93,7 @@ export default async function SocialPlannerPage({
       initialIdeas={ideas ?? []}
       clients={clients ?? []}
       awarenessDays={awarenessDays ?? []}
+      allAwarenessDays={allAwarenessDays ?? []}
       series={seriesWithParts}
       isAdminUser={isAdmin(profile)}
       initialClientId={initialClientId}

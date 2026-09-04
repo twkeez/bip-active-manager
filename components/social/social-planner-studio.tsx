@@ -4,20 +4,23 @@ import { useState } from "react";
 import { PlannerBoard, type PlannerClient } from "./planner/planner-board";
 import { IdeaRepositoryTab } from "./idea-repository-tab";
 import { SeriesTab } from "./series-tab";
+import { CelebrationDaysTab } from "./celebration-days-tab";
 import type { SocialAwarenessDay, SocialIdea, SocialSeriesWithParts } from "@/lib/social/types";
 
-type Tab = "builder" | "ideas" | "series";
+type Tab = "builder" | "ideas" | "series" | "celebrations";
 
 const TAB_LABELS: Record<Tab, string> = {
   builder: "Builder",
   ideas: "Idea Bank",
   series: "Series",
+  celebrations: "Celebration Days",
 };
 
 export function SocialPlannerStudio({
   initialIdeas,
   clients,
   awarenessDays,
+  allAwarenessDays,
   series,
   isAdminUser,
   initialClientId,
@@ -25,6 +28,8 @@ export function SocialPlannerStudio({
   initialIdeas: SocialIdea[];
   clients: PlannerClient[];
   awarenessDays: SocialAwarenessDay[];
+  /** Every day including unverified/inactive — the review needs the backlog. */
+  allAwarenessDays: SocialAwarenessDay[];
   series: SocialSeriesWithParts[];
   isAdminUser: boolean;
   initialClientId?: number;
@@ -79,6 +84,11 @@ export function SocialPlannerStudio({
             selectedClientId={initialClientId ?? null}
             isAdminUser={isAdminUser}
           />
+        </div>
+      )}
+      {activeTab === "celebrations" && (
+        <div className="p-6">
+          <CelebrationDaysTab days={allAwarenessDays} />
         </div>
       )}
     </div>

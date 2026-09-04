@@ -86,35 +86,43 @@ export default function CoalMinesBoard({ canaries, checkedAt }: Props) {
         </p>
       </header>
 
-      <div className="rounded-xl border border-bip-border bg-bip-card px-4 py-3">
-        <p className="text-xs text-bip-muted">
-          {noisy.length === 0 ? (
-            <span className="text-emerald-400">
-              All {canaries.length} canaries quiet.
-            </span>
-          ) : (
-            <>
-              <span className="text-bip-text">
-                {noisy.length} of {canaries.length}
-              </span>{" "}
-              wants attention.
-            </>
-          )}{" "}
-          Checked {new Date(checkedAt).toLocaleString()} — on page load, not on a schedule yet.
-        </p>
-      </div>
+      {canaries.length > 0 && (
+        <div className="rounded-xl border border-bip-border bg-bip-card px-4 py-3">
+          <p className="text-xs text-bip-muted">
+            {noisy.length === 0 ? (
+              <span className="text-emerald-400">All {canaries.length} canaries quiet.</span>
+            ) : (
+              <>
+                <span className="text-bip-text">
+                  {noisy.length} of {canaries.length}
+                </span>{" "}
+                wants attention.
+              </>
+            )}{" "}
+            Checked {new Date(checkedAt).toLocaleString()} — on page load, not on a schedule yet.
+          </p>
+        </div>
+      )}
 
       {canaries.map((canary) => (
         <CanaryCard key={canary.key} canary={canary} />
       ))}
 
-      <div className="rounded-xl border border-dashed border-bip-border p-4">
-        <p className="text-xs text-bip-muted">
-          More canaries go here. The obvious next one: a client with a service tier sold but no
-          account ID against it — the pattern that let Harmony Animal Hospital sit six months
-          without the ads they were promised.
-        </p>
-      </div>
+      {canaries.length === 0 && (
+        <div className="rounded-xl border border-dashed border-bip-border p-6">
+          <p className="text-sm text-bip-text">No canaries down here yet.</p>
+          <p className="mt-1.5 text-xs text-bip-muted">
+            This is for cross-cutting checks that have no natural home in a feature. Work that
+            belongs to a feature lives with that feature — the celebration-calendar review sits in
+            the Social Planner, not here.
+          </p>
+          <p className="mt-2 text-xs text-bip-muted">
+            The obvious first one: a client with a service tier sold but no account ID against it —
+            the pattern that let Harmony Animal Hospital sit six months without the ads they were
+            promised.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

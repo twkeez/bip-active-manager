@@ -125,6 +125,15 @@ export type SocialAwarenessDay = {
   verified: boolean;
   source_url: string | null;
   is_active: boolean;
+  /**
+   * Reusable message asking the client for what we need before we can post —
+   * photos, names, credentials. Null for the days that need nothing, which is
+   * most of them. Carries {{date_range}}, {{respond_by}} and {{year}} rather
+   * than literal dates; render with lib/social/client-request-message.ts.
+   */
+  client_request_template: string | null;
+  /** Days before the event start that the client's reply is due. */
+  request_respond_by_days: number | null;
   created_at: string;
   updated_at: string;
 };
