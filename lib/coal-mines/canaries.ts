@@ -75,7 +75,9 @@ export async function checkBasecampThreads(
   const [{ data: rows, error }, { data: clients }] = await Promise.all([
     supabase
       .from("basecamp_communication_events")
-      .select("client_id, thread_title, thread_url, occurred_at, is_internal")
+      .select(
+        "client_id, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
+      )
       .order("occurred_at", { ascending: false })
       .returns<ThreadRow[]>(),
     supabase.from("clients").select("id, account_name"),
@@ -126,8 +128,11 @@ export async function checkBasecampThreads(
     detail,
     items: [
       ...awaitingUs.map((f) => ({
-        label: f.title,
-        meta: `${f.clientName} · waiting ${f.days} days`,
+        label: `${f.escalated ? "⚑ " : ""}${f.title}`,
+        meta: [
+          `${f.clientName} · waiting ${f.days} days`,
+          f.reason ? `— ${f.reason}` : "— not yet read",
+        ].join(" "),
         href: f.url,
       })),
       ...stalled.map((f) => ({

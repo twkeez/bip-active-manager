@@ -29,6 +29,13 @@ export type ThreadRow = {
   occurred_at: string;
   /** True when we spoke last; false when the client did. */
   is_internal: boolean | null;
+  /** Verdict on the last message; null until the thread has been read. */
+  reply_need?: "needs_reply" | "fyi" | "closed" | "unclear" | null;
+  reply_need_reason?: string | null;
+  reply_need_escalated?: boolean | null;
+  /** The excerpt the verdict was based on, and the current one. */
+  classified_excerpt?: string | null;
+  thread_excerpt?: string | null;
 };
 
 export type ThreadFinding = {
@@ -37,7 +44,34 @@ export type ThreadFinding = {
   title: string;
   url: string | null;
   days: number;
+  /** Why it is here, from the classifier. Null when unread. */
+  reason?: string | null;
+  escalated?: boolean;
 };
+
+/**
+ * True when the stored verdict still describes the current last message. A
+ * thread that has moved on since it was read is treated as unclassified rather
+ * than trusted, which is what stops a stale "closed" hiding a new question.
+ */
+export function verdictIsCurrent(row: ThreadRow): boolean {
+  return (
+    row.reply_need != null &&
+    (row.classified_excerpt ?? null) === (row.thread_excerpt ?? null)
+  );
+}
+
+/**
+ * Whether a thread should be treated as work.
+ *
+ * Fails open: an unread thread, or one whose verdict is stale, still counts.
+ * Hiding a real request because nothing has classified it yet would be the
+ * worst failure this canary could have.
+ */
+export function stillNeedsReply(row: ThreadRow): boolean {
+  if (!verdictIsCurrent(row)) return true;
+  return row.reply_need === "needs_reply" || row.reply_need === "unclear";
+}
 
 export type ThreadIssues = {
   /** Client spoke last and has been waiting. */
@@ -77,14 +111,20 @@ export function findThreadIssues(
     title: row.thread_title?.trim() || "(untitled thread)",
     url: row.thread_url,
     days: daysSince(row.occurred_at, now),
+    reason: verdictIsCurrent(row) ? row.reply_need_reason : null,
+    escalated: verdictIsCurrent(row) ? row.reply_need_escalated === true : false,
   });
 
   const awaitingUs = clientFacing
     // is_internal === false means the client spoke last. Null is unknown, and
     // guessing "they are waiting" on unknown authorship would invent work.
     .filter((r) => r.is_internal === false && daysSince(r.occurred_at, now) >= awaitingDays)
+    // ...and the last message actually left something outstanding. An
+    // announcement or a thank-you is not work.
+    .filter(stillNeedsReply)
     .map(toFinding)
-    .sort((a, b) => b.days - a.days);
+    // Someone chasing us outranks someone who has merely waited longer.
+    .sort((a, b) => Number(b.escalated) - Number(a.escalated) || b.days - a.days);
 
   // A thread waiting on us for 30 days is both awaiting and stalled. It is one
   // problem, so it gets named once, under the heading that says what to do.

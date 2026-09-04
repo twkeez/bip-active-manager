@@ -1,5 +1,6 @@
 import { AlertTriangle, Bird, CheckCircle2, CircleAlert, ExternalLink } from "lucide-react";
 import type { Canary, CanaryStatus } from "@/lib/coal-mines/canaries";
+import ClassifyThreadsButton from "./classify-threads-button";
 
 /**
  * The Coal Mines board. Quiet by design — a canary that has nothing to say
@@ -129,6 +130,9 @@ export default function CoalMinesBoard({ canaries, checkedAt }: Props) {
             )}{" "}
             Checked {new Date(checkedAt).toLocaleString()} — on page load, not on a schedule yet.
           </p>
+          <div className="mt-2.5 border-t border-bip-border pt-2.5">
+            <ClassifyThreadsButton />
+          </div>
         </div>
       )}
 
