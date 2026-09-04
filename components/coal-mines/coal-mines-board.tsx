@@ -67,6 +67,55 @@ function CanaryCard({ canary }: { canary: Canary }) {
           </ul>
         )}
 
+        {canary.sections?.map((section) => (
+          <div key={section.heading} className="mt-4 border-t border-bip-border pt-3">
+            <p
+              className={`text-xs font-semibold ${
+                section.tone === "overdue" ? "text-red-300" : "text-amber-300"
+              }`}
+            >
+              {section.heading}
+            </p>
+            <p className="mt-0.5 text-[11px] text-bip-muted">{section.blurb}</p>
+
+            <div className="mt-2.5 space-y-2.5">
+              {section.groups.map((group) => (
+                <div key={group.title}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="truncate text-xs font-medium text-bip-text">
+                      {group.flagged && <span className="text-red-300">⚑ </span>}
+                      {group.title}
+                    </span>
+                    <span className="shrink-0 text-[11px] text-bip-muted">{group.meta}</span>
+                  </div>
+                  <ul className="mt-1 space-y-1 border-l border-bip-border pl-2.5">
+                    {group.items.map((item, i) => (
+                      <li key={`${item.label}-${i}`} className="text-[11px] leading-relaxed">
+                        <span className="text-bip-text">
+                          {item.href ? (
+                            <a
+                              href={item.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 hover:underline"
+                            >
+                              {item.label}
+                              <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-60" />
+                            </a>
+                          ) : (
+                            item.label
+                          )}
+                        </span>{" "}
+                        <span className="text-bip-muted">{item.meta}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
         {canary.items && canary.items.length > 0 && (
           <ul className="mt-3 space-y-1.5 border-t border-bip-border pt-3">
             {canary.items.map((item, i) => (

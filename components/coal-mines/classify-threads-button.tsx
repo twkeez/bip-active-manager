@@ -15,7 +15,10 @@ import { Loader2, ScanText } from "lucide-react";
 type Result = {
   considered?: number;
   classified?: number;
-  needsReply?: number;
+  /** Client spoke last and is owed something. */
+  waitingOnUs?: number;
+  /** We spoke last and are owed something. */
+  waitingOnThem?: number;
   escalated?: number;
   message?: string;
   error?: string;
@@ -66,7 +69,8 @@ export default function ClassifyThreadsButton() {
           ) : (
             <>
               Read {result.classified} of {result.considered} —{" "}
-              <span className="text-bip-text">{result.needsReply} need a reply</span>
+              <span className="text-bip-text">{result.waitingOnUs} waiting on us</span>,{" "}
+              {result.waitingOnThem} waiting on them
               {result.escalated ? `, ${result.escalated} chasing us` : ""}.
             </>
           )}

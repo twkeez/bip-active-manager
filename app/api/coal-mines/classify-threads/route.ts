@@ -105,11 +105,17 @@ export async function POST() {
       if (!updateError) written += 1;
     }
 
+    // "needs_reply" means different things depending on who spoke last, so the
+    // total is reported split rather than as one misleading number.
+    const spokeLastById = new Map(candidates.map((c) => [c.recordingId, c.weSpokeLast]));
+    const needsReply = verdicts.filter((v) => v.replyNeed === "needs_reply");
+
     return NextResponse.json({
       ok: true,
       considered: candidates.length,
       classified: written,
-      needsReply: verdicts.filter((v) => v.replyNeed === "needs_reply").length,
+      waitingOnUs: needsReply.filter((v) => spokeLastById.get(v.recordingId) === false).length,
+      waitingOnThem: needsReply.filter((v) => spokeLastById.get(v.recordingId) === true).length,
       escalated: verdicts.filter((v) => v.escalated).length,
     });
   } catch (e) {

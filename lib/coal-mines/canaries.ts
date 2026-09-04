@@ -1,8 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AWAITING_REPLY_DAYS,
+  CHASE_THEM_DAYS,
   STALLED_DAYS,
   findThreadIssues,
+  groupByClient,
+  type ThreadFinding,
   type ThreadRow,
 } from "./basecamp-threads";
 
@@ -38,6 +41,8 @@ export type Canary = {
   detail: string[];
   /** Findings you can act on directly. Rendered as links where a url exists. */
   items?: CanaryItem[];
+  /** Findings grouped under headings — preferred when there are many. */
+  sections?: CanarySection[];
 };
 
 export type CanaryItem = {
@@ -45,6 +50,23 @@ export type CanaryItem = {
   /** Secondary line — who it belongs to, how long it has been waiting. */
   meta: string;
   href?: string | null;
+  flagged?: boolean;
+};
+
+export type CanaryGroupView = {
+  title: string;
+  /** "3 threads · longest 23 days" */
+  meta: string;
+  flagged?: boolean;
+  items: CanaryItem[];
+};
+
+export type CanarySection = {
+  heading: string;
+  /** What this bucket means and what to do about it. */
+  blurb: string;
+  tone: CanaryStatus;
+  groups: CanaryGroupView[];
 };
 
 /** Every canary, run together. Order is display order. */
@@ -95,9 +117,13 @@ export async function checkBasecampThreads(
   const names = new Map<number, string>(
     (clients ?? []).map((c) => [c.id as number, c.account_name as string]),
   );
-  const { awaitingUs, stalled, considered } = findThreadIssues(rows ?? [], names, now);
+  const { awaitingUs, awaitingThem, stalled, considered } = findThreadIssues(
+    rows ?? [],
+    names,
+    now,
+  );
 
-  if (awaitingUs.length === 0 && stalled.length === 0) {
+  if (awaitingUs.length === 0 && awaitingThem.length === 0 && stalled.length === 0) {
     return {
       ...base,
       status: "ok",
@@ -112,34 +138,78 @@ export async function checkBasecampThreads(
       `${awaitingUs.length} waiting on a reply for ${AWAITING_REPLY_DAYS}+ days — longest ${awaitingUs[0].days} days.`,
     );
   }
+  if (awaitingThem.length > 0) {
+    detail.push(`${awaitingThem.length} where we are waiting on the client for ${CHASE_THEM_DAYS}+ days.`);
+  }
   if (stalled.length > 0) {
     detail.push(`${stalled.length} with no activity for ${STALLED_DAYS}+ days.`);
   }
 
+  const toSection = (
+    heading: string,
+    blurb: string,
+    tone: CanaryStatus,
+    findings: ThreadFinding[],
+    verb: string,
+  ): CanarySection | null => {
+    if (findings.length === 0) return null;
+    return {
+      heading: `${heading} (${findings.length})`,
+      blurb,
+      tone,
+      groups: groupByClient(findings).map((g) => ({
+        title: g.clientName,
+        meta:
+          g.items.length === 1
+            ? `${verb} ${g.worstDays} days`
+            : `${g.items.length} threads · longest ${g.worstDays} days`,
+        flagged: g.escalated,
+        items: g.items.map((f) => ({
+          label: f.title,
+          meta: [`${f.days}d`, f.reason ? `— ${f.reason}` : "— not yet read"].join(" "),
+          href: f.url,
+          flagged: f.escalated,
+        })),
+      })),
+    };
+  };
+
+  const sections = [
+    toSection(
+      "Waiting on us",
+      "The client asked something and has not had an answer.",
+      "overdue",
+      awaitingUs,
+      "waiting",
+    ),
+    toSection(
+      "Waiting on them",
+      "We asked for something and have not had it back. Worth a chase.",
+      "attention",
+      awaitingThem,
+      "asked",
+    ),
+    toSection(
+      "Gone quiet",
+      `No activity either way for ${STALLED_DAYS}+ days.`,
+      "attention",
+      stalled,
+      "quiet",
+    ),
+  ].filter((x): x is CanarySection => x !== null);
+
   return {
     ...base,
-    // Someone waiting on us is a promise we are failing; a quiet thread is a
-    // question. Only the first is overdue.
+    // Someone waiting on us is a promise we are failing; the other two are
+    // questions. Only the first is overdue.
     status: awaitingUs.length > 0 ? "overdue" : "attention",
     headline:
       awaitingUs.length > 0
         ? `${awaitingUs.length} of ${considered} threads are waiting on us.`
-        : `${stalled.length} of ${considered} threads have gone quiet.`,
+        : awaitingThem.length > 0
+          ? `${awaitingThem.length} threads are waiting on the client.`
+          : `${stalled.length} of ${considered} threads have gone quiet.`,
     detail,
-    items: [
-      ...awaitingUs.map((f) => ({
-        label: `${f.escalated ? "⚑ " : ""}${f.title}`,
-        meta: [
-          `${f.clientName} · waiting ${f.days} days`,
-          f.reason ? `— ${f.reason}` : "— not yet read",
-        ].join(" "),
-        href: f.url,
-      })),
-      ...stalled.map((f) => ({
-        label: f.title,
-        meta: `${f.clientName} · quiet ${f.days} days`,
-        href: f.url,
-      })),
-    ],
+    sections,
   };
 }

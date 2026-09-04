@@ -4,6 +4,8 @@ import {
   isInternalThread,
   stillNeedsReply,
   verdictIsCurrent,
+  groupByClient,
+  type ThreadFinding,
   type ThreadRow,
 } from "@/lib/coal-mines/basecamp-threads";
 
@@ -238,5 +240,134 @@ describe("findThreadIssues with verdicts", () => {
       NOW,
     );
     expect(awaitingUs.map((f) => f.title)).toEqual(["Chasing us", "Old but calm"]);
+  });
+});
+
+describe("awaitingThem — chasing the client", () => {
+  const asked = (over: Partial<ThreadRow> = {}): ThreadRow =>
+    thread({
+      daysAgo: 10,
+      is_internal: true,
+      thread_excerpt: "can you send the photos?",
+      classified_excerpt: "can you send the photos?",
+      reply_need: "needs_reply",
+      ...over,
+    });
+
+  it("flags a thread where we asked and got nothing back", () => {
+    const { awaitingThem, awaitingUs } = findThreadIssues([asked()], NAMES, NOW);
+    expect(awaitingThem).toHaveLength(1);
+    expect(awaitingUs).toEqual([]);
+  });
+
+  it("gives the client longer than it gives us", () => {
+    // 5 days is past our 3-day reply window but inside the 7-day chase window.
+    expect(findThreadIssues([asked({ daysAgo: 5 })], NAMES, NOW).awaitingThem).toEqual([]);
+    expect(findThreadIssues([asked({ daysAgo: 8 })], NAMES, NOW).awaitingThem).toHaveLength(1);
+  });
+
+  // The asymmetry that matters: awaitingUs fails open, awaitingThem fails
+  // closed. Nothing is protected by guessing a client owes us something, and
+  // before classification every routine update would land here.
+  it("fails closed on an unread thread, unlike awaitingUs", () => {
+    const unread = asked({ reply_need: null, classified_excerpt: null });
+    expect(findThreadIssues([unread], NAMES, NOW).awaitingThem).toEqual([]);
+
+    const unreadFromClient = thread({ daysAgo: 10, is_internal: false, reply_need: null });
+    expect(findThreadIssues([unreadFromClient], NAMES, NOW).awaitingUs).toHaveLength(1);
+  });
+
+  it("ignores a thread we closed out ourselves", () => {
+    const done = asked({
+      reply_need: "fyi",
+      thread_excerpt: "here is your report",
+      classified_excerpt: "here is your report",
+    });
+    expect(findThreadIssues([done], NAMES, NOW).awaitingThem).toEqual([]);
+  });
+
+  it("does not also list it as gone quiet", () => {
+    const { awaitingThem, stalled } = findThreadIssues([asked({ daysAgo: 40 })], NAMES, NOW);
+    expect(awaitingThem).toHaveLength(1);
+    expect(stalled).toEqual([]);
+  });
+});
+
+describe("groupByClient", () => {
+  const finding = (over: Partial<ThreadFinding>): ThreadFinding => ({
+    clientId: 1,
+    clientName: "Valley Pet Surgery",
+    title: "A thread",
+    url: null,
+    days: 5,
+    escalated: false,
+    ...over,
+  });
+
+  it("collapses one client's threads into a single group", () => {
+    const groups = groupByClient([
+      finding({ title: "One", days: 23 }),
+      finding({ title: "Two", days: 11 }),
+      finding({ title: "Three", days: 18 }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].items.map((i) => i.title)).toEqual(["One", "Three", "Two"]);
+    expect(groups[0].worstDays).toBe(23);
+  });
+
+  it("ranks the client in most trouble first", () => {
+    const groups = groupByClient([
+      finding({ clientId: 1, clientName: "Quiet Vet", days: 5 }),
+      finding({ clientId: 2, clientName: "Loud Vet", days: 30 }),
+    ]);
+    expect(groups.map((g) => g.clientName)).toEqual(["Loud Vet", "Quiet Vet"]);
+  });
+
+  it("floats a client who is chasing us above one who has waited longer", () => {
+    const groups = groupByClient([
+      finding({ clientId: 1, clientName: "Patient Vet", days: 30 }),
+      finding({ clientId: 2, clientName: "Chasing Vet", days: 4, escalated: true }),
+    ]);
+    expect(groups.map((g) => g.clientName)).toEqual(["Chasing Vet", "Patient Vet"]);
+    expect(groups[0].escalated).toBe(true);
+  });
+});
+
+describe("gone quiet excludes finished conversations", () => {
+  // A thread that ended with a thank-you and then went silent is not a finding.
+  // Silence is the correct outcome; listing it is the noise this canary exists
+  // to avoid.
+  it("ignores a long-silent thread that ended cleanly", () => {
+    const { stalled } = findThreadIssues(
+      [
+        thread({
+          daysAgo: 40,
+          is_internal: false,
+          thread_excerpt: "thanks much",
+          classified_excerpt: "thanks much",
+          reply_need: "closed",
+        }),
+        thread({
+          daysAgo: 40,
+          is_internal: false,
+          thread_title: "An announcement",
+          thread_excerpt: "we are closed Monday",
+          classified_excerpt: "we are closed Monday",
+          reply_need: "fyi",
+        }),
+      ],
+      NAMES,
+      NOW,
+    );
+    expect(stalled).toEqual([]);
+  });
+
+  it("still reports a long-silent thread nothing has read", () => {
+    const { stalled } = findThreadIssues(
+      [thread({ daysAgo: 40, is_internal: true, reply_need: null })],
+      NAMES,
+      NOW,
+    );
+    expect(stalled).toHaveLength(1);
   });
 });

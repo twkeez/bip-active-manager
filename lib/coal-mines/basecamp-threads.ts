@@ -19,6 +19,13 @@
 /** Days a client can be left waiting before it is worth flagging. */
 export const AWAITING_REPLY_DAYS = 3;
 
+/**
+ * Days before we chase a client who owes us something. Longer than the reply
+ * window: being slow to answer a client is our failure, while a client taking a
+ * week to send photos is just how it goes.
+ */
+export const CHASE_THEM_DAYS = 7;
+
 /** Days of silence before a thread counts as stalled. */
 export const STALLED_DAYS = 30;
 
@@ -76,11 +83,58 @@ export function stillNeedsReply(row: ThreadRow): boolean {
 export type ThreadIssues = {
   /** Client spoke last and has been waiting. */
   awaitingUs: ThreadFinding[];
+  /** We spoke last, asked for something, and have not had it back. */
+  awaitingThem: ThreadFinding[];
   /** Nobody has said anything for a long time, whoever spoke last. */
   stalled: ThreadFinding[];
   /** Client-facing threads considered, for context on the numbers. */
   considered: number;
 };
+
+/** One client's findings within a bucket, worst first. */
+export type ClientGroup = {
+  clientId: number;
+  clientName: string;
+  items: ThreadFinding[];
+  /** Longest wait in the group — what the group is ranked and labelled by. */
+  worstDays: number;
+  escalated: boolean;
+};
+
+/**
+ * Four separate rows for one client reads as four small problems. Grouped, it
+ * reads as one account in trouble — which is what it is.
+ */
+export function groupByClient(findings: ThreadFinding[]): ClientGroup[] {
+  const groups = new Map<number, ClientGroup>();
+  for (const f of findings) {
+    const existing = groups.get(f.clientId);
+    if (existing) {
+      existing.items.push(f);
+      existing.worstDays = Math.max(existing.worstDays, f.days);
+      existing.escalated = existing.escalated || f.escalated === true;
+    } else {
+      groups.set(f.clientId, {
+        clientId: f.clientId,
+        clientName: f.clientName,
+        items: [f],
+        worstDays: f.days,
+        escalated: f.escalated === true,
+      });
+    }
+  }
+  return [...groups.values()]
+    .map((g) => ({
+      ...g,
+      items: [...g.items].sort(
+        (a, b) => Number(b.escalated) - Number(a.escalated) || b.days - a.days,
+      ),
+    }))
+    .sort(
+      (a, b) =>
+        Number(b.escalated) - Number(a.escalated) || b.worstDays - a.worstDays,
+    );
+}
 
 /**
  * Threads the team titles `INTERNAL: ...` are notes to each other. No client is
@@ -98,9 +152,10 @@ export function findThreadIssues(
   rows: ThreadRow[],
   clientNames: Map<number, string>,
   now: Date = new Date(),
-  opts: { awaitingDays?: number; stalledDays?: number } = {},
+  opts: { awaitingDays?: number; chaseDays?: number; stalledDays?: number } = {},
 ): ThreadIssues {
   const awaitingDays = opts.awaitingDays ?? AWAITING_REPLY_DAYS;
+  const chaseDays = opts.chaseDays ?? CHASE_THEM_DAYS;
   const stalledDays = opts.stalledDays ?? STALLED_DAYS;
 
   const clientFacing = rows.filter((r) => !isInternalThread(r.thread_title));
@@ -126,15 +181,50 @@ export function findThreadIssues(
     // Someone chasing us outranks someone who has merely waited longer.
     .sort((a, b) => Number(b.escalated) - Number(a.escalated) || b.days - a.days);
 
+  /**
+   * Threads where we asked and have not had an answer.
+   *
+   * Deliberately fails CLOSED, the opposite of awaitingUs: it requires a
+   * current verdict of needs_reply. Failing open protects a client waiting on
+   * us, which is worth the noise; nothing is protected by guessing that a
+   * client owes us something, and before classification runs it would list
+   * every routine update we have ever sent.
+   */
+  const awaitingThem = clientFacing
+    .filter(
+      (r) =>
+        r.is_internal === true &&
+        daysSince(r.occurred_at, now) >= chaseDays &&
+        verdictIsCurrent(r) &&
+        r.reply_need === "needs_reply",
+    )
+    .map(toFinding)
+    .sort((a, b) => b.days - a.days);
+
   // A thread waiting on us for 30 days is both awaiting and stalled. It is one
   // problem, so it gets named once, under the heading that says what to do.
-  const awaitingKeys = new Set(awaitingUs.map((f) => `${f.clientId}::${f.title}`));
+  const awaitingKeys = new Set(
+    [...awaitingUs, ...awaitingThem].map((f) => `${f.clientId}::${f.title}`),
+  );
 
+  /**
+   * Long silence on a thread that did not end cleanly.
+   *
+   * A conversation that finished with a thank-you and then went quiet is not a
+   * finding — silence is the correct outcome, and listing it is the noise this
+   * canary exists to avoid. So a thread read as closed or fyi is excluded, and
+   * anything still outstanding is already in one of the buckets above. What is
+   * left is genuine limbo: no verdict, or one that says something is open.
+   */
   const stalled = clientFacing
-    .filter((r) => daysSince(r.occurred_at, now) >= stalledDays)
+    .filter(
+      (r) =>
+        daysSince(r.occurred_at, now) >= stalledDays &&
+        !(verdictIsCurrent(r) && (r.reply_need === "closed" || r.reply_need === "fyi")),
+    )
     .map(toFinding)
     .filter((f) => !awaitingKeys.has(`${f.clientId}::${f.title}`))
     .sort((a, b) => b.days - a.days);
 
-  return { awaitingUs, stalled, considered: clientFacing.length };
+  return { awaitingUs, awaitingThem, stalled, considered: clientFacing.length };
 }
