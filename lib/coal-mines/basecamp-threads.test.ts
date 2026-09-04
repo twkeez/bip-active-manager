@@ -371,3 +371,77 @@ describe("gone quiet excludes finished conversations", () => {
     expect(stalled).toHaveLength(1);
   });
 });
+
+// The lifecycle a thread goes through. These are the cases that decide whether
+// this keeps working, rather than working once.
+describe("thread lifecycle — it must not be a one-time thing", () => {
+  const t = (over: Partial<ThreadRow> & { daysAgo: number }) => thread(over);
+
+  it("re-surfaces when the client asks something new after we replied", () => {
+    // We answered, it was read as closed, and the thread left the list.
+    const answered = t({
+      daysAgo: 4,
+      is_internal: true,
+      thread_excerpt: "here is your report",
+      classified_excerpt: "here is your report",
+      reply_need: "closed",
+    });
+    expect(findThreadIssues([answered], NAMES, NOW).awaitingUs).toEqual([]);
+
+    // The client then asks something. The excerpt moves on, so the stale
+    // verdict is no longer trusted and it comes straight back.
+    const reopened = { ...answered, is_internal: false, thread_excerpt: "one more question —" };
+    const { awaitingUs } = findThreadIssues([reopened], NAMES, NOW);
+    expect(awaitingUs).toHaveLength(1);
+    expect(awaitingUs[0].reason).toBeNull(); // shown as "not yet read"
+  });
+
+  it("drops out the moment we answer, before anything re-reads it", () => {
+    const waiting = t({
+      daysAgo: 9,
+      is_internal: false,
+      thread_excerpt: "can you look at this?",
+      classified_excerpt: "can you look at this?",
+      reply_need: "needs_reply",
+    });
+    expect(findThreadIssues([waiting], NAMES, NOW).awaitingUs).toHaveLength(1);
+
+    // We reply. The sync flips who spoke last and moves the excerpt on.
+    const replied = { ...waiting, is_internal: true, thread_excerpt: "looking now" };
+    const after = findThreadIssues([replied], NAMES, NOW);
+    expect(after.awaitingUs).toEqual([]);
+    // And it does not immediately become a chase either — that needs a verdict.
+    expect(after.awaitingThem).toEqual([]);
+  });
+
+  it("becomes a chase once we have asked and the wait is long enough", () => {
+    const asked = t({
+      daysAgo: 8,
+      is_internal: true,
+      thread_excerpt: "can you send the photos?",
+      classified_excerpt: "can you send the photos?",
+      reply_need: "needs_reply",
+    });
+    expect(findThreadIssues([asked], NAMES, NOW).awaitingThem).toHaveLength(1);
+
+    // The client sends them. Direction flips back and the chase ends.
+    const sent = { ...asked, is_internal: false, thread_excerpt: "here they are!" };
+    const after = findThreadIssues([sent], NAMES, NOW);
+    expect(after.awaitingThem).toEqual([]);
+    expect(after.awaitingUs).toHaveLength(1); // unread, so it fails open
+  });
+
+  it("never trusts a verdict older than the message it describes", () => {
+    // The specific failure this guards: a thread read as closed months ago that
+    // has since had ten new messages must not stay hidden.
+    const moved = t({
+      daysAgo: 2,
+      is_internal: false,
+      reply_need: "closed",
+      classified_excerpt: "old text",
+      thread_excerpt: "brand new question",
+    });
+    expect(verdictIsCurrent(moved)).toBe(false);
+    expect(stillNeedsReply(moved)).toBe(true);
+  });
+});

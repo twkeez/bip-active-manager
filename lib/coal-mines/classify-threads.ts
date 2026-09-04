@@ -26,8 +26,13 @@ export type ThreadToClassify = {
   title: string;
   /** The most recent message in the thread. */
   excerpt: string;
-  /** True when we spoke last, which changes what "outstanding" means. */
+  /**
+   * Who we believe spoke last, from the last sync. May be stale — the content
+   * is the more reliable signal, which the prompt says explicitly.
+   */
   weSpokeLast: boolean;
+  /** Name on the message actually fetched, when we could read it. */
+  lastAuthor?: string | null;
   daysSince: number;
 };
 
@@ -72,7 +77,9 @@ export function buildClassifyPrompt(threads: ThreadToClassify[]): string {
         `--- recordingId: ${t.recordingId}`,
         `client: ${t.clientName}`,
         `thread: ${t.title}`,
-        `last message was from: ${t.weSpokeLast ? "us (the agency)" : "the client"}`,
+        `last message was from: ${t.weSpokeLast ? "us (the agency)" : "the client"}${
+          t.lastAuthor ? ` — signed "${t.lastAuthor}"` : ""
+        }`,
         `days since: ${t.daysSince}`,
         `last message: ${t.excerpt}`,
       ].join("\n"),
@@ -92,6 +99,7 @@ Categories:
 Also set "escalated": true when the client is chasing us, complaining, reporting something broken or not delivered, or expressing frustration. Those matter regardless of how long they have waited. Example of an escalation: "Stephanie previously sent me monthly updates, but I have not received anything for the past few months."
 
 Guidance:
+- "last message was from" comes from an earlier sync and can be out of date. The message text and its author name are authoritative; if they disagree with that flag, trust the text. Beyond Indigo staff are the agency; anyone at the practice is the client.
 - Judge the LAST message, not the thread topic. A thread called "Marketing Updates Q3" whose last message is "thanks much" is closed.
 - When we spoke last, "needs_reply" means we asked the client something and are waiting on them — say so in the reason. It does not mean we owe a reply.
 - A message that sends us something we asked for (photos, a bio, copy) is "needs_reply", because someone has to use it and confirm receipt.

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProfile } from "@/lib/auth/profile";
 import { classifyThreads, type ThreadToClassify } from "@/lib/coal-mines/classify-threads";
+import { fetchLatestThreadMessages } from "@/lib/basecamp/thread-latest";
 import {
   AWAITING_REPLY_DAYS,
   isInternalThread,
@@ -23,6 +24,7 @@ export const maxDuration = 300;
 
 type Row = ThreadRow & {
   basecamp_recording_id: number;
+  basecamp_project_id: string | null;
   thread_excerpt: string | null;
 };
 
@@ -43,7 +45,7 @@ export async function POST() {
   const { data: rows, error } = await admin
     .from("basecamp_communication_events")
     .select(
-      "basecamp_recording_id, client_id, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
+      "basecamp_recording_id, basecamp_project_id, client_id, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
     )
     .order("occurred_at", { ascending: false })
     .returns<Row[]>();
@@ -62,22 +64,37 @@ export async function POST() {
 
   // Only threads the canary would surface, and only those whose last message
   // has changed since it was read.
-  const candidates: ThreadToClassify[] = (rows ?? [])
-    .filter(
-      (r) =>
-        !isInternalThread(r.thread_title) &&
-        daysSince(r.occurred_at) >= AWAITING_REPLY_DAYS &&
-        (r.thread_excerpt ?? "").trim().length > 0 &&
-        !verdictIsCurrent(r),
-    )
-    .map((r) => ({
-      recordingId: r.basecamp_recording_id,
-      clientName: names.get(r.client_id) ?? `Client ${r.client_id}`,
-      title: r.thread_title?.trim() || "(untitled thread)",
-      excerpt: (r.thread_excerpt ?? "").slice(0, 1500),
-      weSpokeLast: r.is_internal === true,
-      daysSince: daysSince(r.occurred_at),
-    }));
+  const pending = (rows ?? []).filter(
+    (r) =>
+      !isInternalThread(r.thread_title) &&
+      daysSince(r.occurred_at) >= AWAITING_REPLY_DAYS &&
+      (r.thread_excerpt ?? "").trim().length > 0 &&
+      !verdictIsCurrent(r),
+  );
+
+  // The stored excerpt is capped at 100 characters by Basecamp's topics feed,
+  // which truncates most messages mid-sentence. Pull the real last message for
+  // the handful about to be judged; fall back to the excerpt if it cannot be
+  // read, since a fragment beats refusing to classify.
+  const latest = await fetchLatestThreadMessages(
+    pending
+      .filter((r) => r.basecamp_project_id)
+      .map((r) => ({
+        key: r.basecamp_recording_id,
+        projectId: r.basecamp_project_id as string,
+        messageId: r.basecamp_recording_id,
+      })),
+  );
+
+  const candidates: ThreadToClassify[] = pending.map((r) => ({
+    recordingId: r.basecamp_recording_id,
+    clientName: names.get(r.client_id) ?? `Client ${r.client_id}`,
+    title: r.thread_title?.trim() || "(untitled thread)",
+    excerpt: (latest.get(r.basecamp_recording_id)?.content ?? r.thread_excerpt ?? "").slice(0, 4000),
+    weSpokeLast: r.is_internal === true,
+    lastAuthor: latest.get(r.basecamp_recording_id)?.authorName ?? null,
+    daysSince: daysSince(r.occurred_at),
+  }));
 
   if (candidates.length === 0) {
     return NextResponse.json({ ok: true, classified: 0, message: "Everything already read." });
@@ -85,7 +102,12 @@ export async function POST() {
 
   try {
     const verdicts = await classifyThreads(candidates);
-    const excerptById = new Map(candidates.map((c) => [c.recordingId, c.excerpt]));
+    // Keyed on thread_excerpt — the column the sync updates when a thread moves
+    // on. Storing the (possibly longer, possibly truncated) text we judged on
+    // would never compare equal, and every thread would look permanently stale.
+    const staleKeyById = new Map(
+      pending.map((r) => [r.basecamp_recording_id, r.thread_excerpt ?? null]),
+    );
     const classifiedAt = new Date().toISOString();
 
     // Written one at a time: an upsert here would need every not-null column of
@@ -98,7 +120,7 @@ export async function POST() {
           reply_need: v.replyNeed,
           reply_need_reason: v.reason,
           reply_need_escalated: v.escalated,
-          classified_excerpt: excerptById.get(v.recordingId) ?? null,
+          classified_excerpt: staleKeyById.get(v.recordingId) ?? null,
           classified_at: classifiedAt,
         })
         .eq("basecamp_recording_id", v.recordingId);
@@ -114,6 +136,7 @@ export async function POST() {
       ok: true,
       considered: candidates.length,
       classified: written,
+      fullMessagesFetched: latest.size,
       waitingOnUs: needsReply.filter((v) => spokeLastById.get(v.recordingId) === false).length,
       waitingOnThem: needsReply.filter((v) => spokeLastById.get(v.recordingId) === true).length,
       escalated: verdicts.filter((v) => v.escalated).length,
