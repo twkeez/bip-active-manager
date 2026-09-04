@@ -1,4 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  AWAITING_REPLY_DAYS,
+  STALLED_DAYS,
+  findThreadIssues,
+  type ThreadRow,
+} from "./basecamp-threads";
 
 /**
  * Coal Mines — the checks that stay quiet until something is wrong.
@@ -30,12 +36,105 @@ export type Canary = {
   headline: string;
   /** Specifics worth naming — rendered as a list under the headline. */
   detail: string[];
+  /** Findings you can act on directly. Rendered as links where a url exists. */
+  items?: CanaryItem[];
+};
+
+export type CanaryItem = {
+  label: string;
+  /** Secondary line — who it belongs to, how long it has been waiting. */
+  meta: string;
+  href?: string | null;
 };
 
 /** Every canary, run together. Order is display order. */
 export async function runCanaries(
-  _supabase: SupabaseClient,
-  _now: Date = new Date(),
+  supabase: SupabaseClient,
+  now: Date = new Date(),
 ): Promise<Canary[]> {
-  return [];
+  return Promise.all([checkBasecampThreads(supabase, now)]);
+}
+
+/**
+ * Basecamp threads that are waiting on us, or that have gone quiet.
+ *
+ * Thread-level, where the Comms Monitor is client-level — see
+ * ./basecamp-threads for why that distinction matters.
+ */
+export async function checkBasecampThreads(
+  supabase: SupabaseClient,
+  now: Date = new Date(),
+): Promise<Canary> {
+  const base = {
+    key: "basecamp-threads",
+    name: "Basecamp threads",
+    watches:
+      "Individual threads where a client is waiting on a reply, or that nobody has touched in a while.",
+  } as const;
+
+  const [{ data: rows, error }, { data: clients }] = await Promise.all([
+    supabase
+      .from("basecamp_communication_events")
+      .select("client_id, thread_title, thread_url, occurred_at, is_internal")
+      .order("occurred_at", { ascending: false })
+      .returns<ThreadRow[]>(),
+    supabase.from("clients").select("id, account_name"),
+  ]);
+
+  if (error) {
+    return {
+      ...base,
+      status: "attention",
+      headline: "Could not read Basecamp threads.",
+      detail: [error.message],
+    };
+  }
+
+  const names = new Map<number, string>(
+    (clients ?? []).map((c) => [c.id as number, c.account_name as string]),
+  );
+  const { awaitingUs, stalled, considered } = findThreadIssues(rows ?? [], names, now);
+
+  if (awaitingUs.length === 0 && stalled.length === 0) {
+    return {
+      ...base,
+      status: "ok",
+      headline: `All ${considered} client-facing threads answered and active.`,
+      detail: [],
+    };
+  }
+
+  const detail: string[] = [];
+  if (awaitingUs.length > 0) {
+    detail.push(
+      `${awaitingUs.length} waiting on a reply for ${AWAITING_REPLY_DAYS}+ days — longest ${awaitingUs[0].days} days.`,
+    );
+  }
+  if (stalled.length > 0) {
+    detail.push(`${stalled.length} with no activity for ${STALLED_DAYS}+ days.`);
+  }
+
+  return {
+    ...base,
+    // Someone waiting on us is a promise we are failing; a quiet thread is a
+    // question. Only the first is overdue.
+    status: awaitingUs.length > 0 ? "overdue" : "attention",
+    headline:
+      awaitingUs.length > 0
+        ? `${awaitingUs.length} of ${considered} threads are waiting on us.`
+        : `${stalled.length} of ${considered} threads have gone quiet.`,
+    detail,
+    items: [
+      ...awaitingUs.map((f) => ({
+        label: f.title,
+        meta: `${f.clientName} · waiting ${f.days} days`,
+        href: f.url,
+      })),
+      ...stalled.map((f) => ({
+        label: f.title,
+        meta: `${f.clientName} · quiet ${f.days} days`,
+        href: f.url,
+      })),
+    ],
+  };
 }

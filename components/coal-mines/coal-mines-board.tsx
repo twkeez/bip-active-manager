@@ -1,4 +1,4 @@
-import { AlertTriangle, Bird, CheckCircle2, CircleAlert } from "lucide-react";
+import { AlertTriangle, Bird, CheckCircle2, CircleAlert, ExternalLink } from "lucide-react";
 import type { Canary, CanaryStatus } from "@/lib/coal-mines/canaries";
 
 /**
@@ -61,6 +61,34 @@ function CanaryCard({ canary }: { canary: Canary }) {
             {canary.detail.map((line) => (
               <li key={line} className="text-[11px] text-bip-muted">
                 {line}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {canary.items && canary.items.length > 0 && (
+          <ul className="mt-3 space-y-1.5 border-t border-bip-border pt-3">
+            {canary.items.map((item, i) => (
+              <li
+                key={`${item.label}-${item.meta}-${i}`}
+                className="flex items-baseline justify-between gap-3"
+              >
+                <span className="min-w-0 truncate text-xs text-bip-text">
+                  {item.href ? (
+                    <a
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 hover:underline"
+                    >
+                      {item.label}
+                      <ExternalLink className="h-3 w-3 shrink-0 opacity-60" />
+                    </a>
+                  ) : (
+                    item.label
+                  )}
+                </span>
+                <span className="shrink-0 text-[11px] text-bip-muted">{item.meta}</span>
               </li>
             ))}
           </ul>
