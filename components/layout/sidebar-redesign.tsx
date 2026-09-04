@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bird,
   Bell,
   BookOpen,
   Building2,
@@ -47,6 +48,12 @@ const WORKSPACE: NavItem[] = [
   { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
   { label: "My Tasks", href: "/my-tasks", icon: CheckSquare, adminOnly: true },
   { label: "Team", href: "/team", icon: ShieldCheck, adminOnly: true },
+];
+
+// Canaries that watch for drift nobody goes looking for. Directly under
+// Workspace because it is a "check this first" surface, not a tool.
+const COAL_MINES: NavItem[] = [
+  { label: "Coal Mines", href: "/coal-mines", icon: Bird, adminOnly: true },
 ];
 
 const GROWTH: NavItem[] = [
@@ -197,6 +204,7 @@ export default function SidebarRedesign({
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
         <Section label="Workspace" items={WORKSPACE} role={role} appMode={appMode} />
+        <Section label="Coal Mines" items={COAL_MINES} role={role} appMode={appMode} />
         <Section label="Growth" items={GROWTH} role={role} appMode={appMode} />
         <Section label="Support" items={SUPPORT} role={role} appMode={appMode} />
       </nav>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  Bird,
   BookOpen,
   Building2,
   CalendarClock,
@@ -108,6 +109,12 @@ const ONBOARDING: NavItem[] = [
   { label: "Strategy Mapper", href: "/onboarding-strategy-mapper", icon: Compass, adminOnly: true },
   { label: "Vet Onboarding", href: "/vet-onboarding", icon: Stethoscope, adminOnly: true },
   { label: "Onboarding Settings", href: "/onboarding-settings", icon: ClipboardList, adminOnly: true },
+];
+
+// Canaries that watch for drift nobody goes looking for. Sits directly under
+// Primary because it is a "check this first" surface, not a tool you go to.
+const COAL_MINES: NavItem[] = [
+  { label: "Coal Mines", href: "/coal-mines", icon: Bird, adminOnly: true },
 ];
 
 // Gmail triage, lifted out of My Tasks so it has room to grow into a real
@@ -296,6 +303,10 @@ export default function Sidebar({
                 <NavLink key={item.href} item={item} role={role} appMode={appMode} />
               ))}
             </div>
+
+            <div className="border-t border-[var(--bip-border)]" />
+
+            <SectionGroup label="Coal Mines" items={COAL_MINES} role={role} appMode={appMode} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
