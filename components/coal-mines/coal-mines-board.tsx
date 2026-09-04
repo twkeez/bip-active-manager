@@ -174,10 +174,11 @@ export default function CoalMinesBoard({ canaries, checkedAt }: Props) {
                 <span className="text-bip-text">
                   {noisy.length} of {canaries.length}
                 </span>{" "}
-                wants attention.
+                {noisy.length === 1 ? "wants" : "want"} attention.
               </>
             )}{" "}
-            Checked {new Date(checkedAt).toLocaleString()} — on page load, not on a schedule yet.
+            Evaluated {new Date(checkedAt).toLocaleString()}. The Basecamp data behind them
+            refreshes on a schedule — see the sync canary for how current it is.
           </p>
           <div className="mt-2.5 border-t border-bip-border pt-2.5">
             <ClassifyThreadsButton />
