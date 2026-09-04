@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AlertTriangle, Bird, CheckCircle2, CircleAlert, ExternalLink } from "lucide-react";
 import type { Canary, CanaryStatus } from "@/lib/coal-mines/canaries";
 import ClassifyThreadsButton from "./classify-threads-button";
@@ -50,7 +51,17 @@ function CanaryCard({ canary }: { canary: Canary }) {
             <p className="mt-0.5 text-xs text-bip-muted">{canary.watches}</p>
           </div>
         </div>
-        <span className={`shrink-0 text-[11px] font-medium ${tone.text}`}>{tone.label}</span>
+        <div className="flex shrink-0 items-center gap-2.5">
+          {canary.action && (
+            <Link
+              href={canary.action.href}
+              className="text-[11px] font-medium text-bip-text hover:underline"
+            >
+              {canary.action.label} →
+            </Link>
+          )}
+          <span className={`text-[11px] font-medium ${tone.text}`}>{tone.label}</span>
+        </div>
       </div>
 
       <div className="mt-3 border-t border-bip-border pt-3">

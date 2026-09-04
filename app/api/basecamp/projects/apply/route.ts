@@ -4,7 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import type { ClientRow } from "@/lib/types/client";
 
 type ApplyBody = {
-  updates?: Array<{ clientId: number; basecampProjectId: string }>;
+  /**
+   * A null basecampProjectId unlinks the client. That is the fix when two
+   * client records claim one project and one of them is simply wrong — the
+   * sync silently skips every client after the first, so until one is cleared
+   * neither is being watched.
+   */
+  updates?: Array<{ clientId: number; basecampProjectId: string | null }>;
 };
 
 function trimProjectId(value: string | null | undefined) {
@@ -49,14 +55,19 @@ export async function POST(request: Request) {
     clients as ClientRow[],
   );
 
-  const applied: Array<{ clientId: number; accountName: string; basecampProjectId: string }> =
-    [];
+  const applied: Array<{
+    clientId: number;
+    accountName: string;
+    basecampProjectId: string | null;
+  }> = [];
   const skipped: Array<{ clientId: number; reason: string }> = [];
 
   for (const update of updates) {
     const clientId = Number(update.clientId);
     const projectId = trimProjectId(update.basecampProjectId);
-    if (!Number.isInteger(clientId) || clientId <= 0 || !projectId) {
+    const isUnlink = update.basecampProjectId === null;
+
+    if (!Number.isInteger(clientId) || clientId <= 0 || (!projectId && !isUnlink)) {
       skipped.push({
         clientId: Number.isFinite(clientId) ? clientId : -1,
         reason: "Invalid client ID or project ID.",
@@ -72,18 +83,27 @@ export async function POST(request: Request) {
 
     const currentId = trimProjectId(client.basecamp_project_id);
     if (currentId === projectId) {
-      skipped.push({ clientId, reason: "Client already has this project ID." });
+      skipped.push({
+        clientId,
+        reason: isUnlink
+          ? "Client has no project ID to clear."
+          : "Client already has this project ID.",
+      });
       continue;
     }
 
-    const assignedClientIds = assignments.get(projectId) ?? [];
-    const otherAssignees = assignedClientIds.filter((id) => id !== clientId);
-    if (otherAssignees.length > 0) {
-      skipped.push({
-        clientId,
-        reason: `Project ID ${projectId} is already assigned to another client.`,
-      });
-      continue;
+    // Never let one apply create the exact problem this screen exists to fix.
+    // Unlinking is always safe, so it skips the check.
+    if (!isUnlink && projectId) {
+      const assignedClientIds = assignments.get(projectId) ?? [];
+      const otherAssignees = assignedClientIds.filter((id) => id !== clientId);
+      if (otherAssignees.length > 0) {
+        skipped.push({
+          clientId,
+          reason: `Project ID ${projectId} is already assigned to another client.`,
+        });
+        continue;
+      }
     }
 
     const { error: updateError } = await supabase
@@ -108,7 +128,9 @@ export async function POST(request: Request) {
         oldBucket.filter((id) => id !== clientId),
       );
     }
-    assignments.set(projectId, [clientId]);
+    if (projectId) {
+      assignments.set(projectId, [clientId]);
+    }
     clientById.set(clientId, { ...client, basecamp_project_id: projectId });
   }
 

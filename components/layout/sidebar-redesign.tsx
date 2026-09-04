@@ -16,6 +16,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   Layers,
+  Link2,
   ShieldCheck,
   SlidersHorizontal,
   Stethoscope,
@@ -54,6 +55,7 @@ const WORKSPACE: NavItem[] = [
 // Workspace because it is a "check this first" surface, not a tool.
 const COAL_MINES: NavItem[] = [
   { label: "Coal Mines", href: "/coal-mines", icon: Bird, adminOnly: true },
+  { label: "Project Wiring", href: "/basecamp-projects", icon: Link2, adminOnly: true },
 ];
 
 const GROWTH: NavItem[] = [

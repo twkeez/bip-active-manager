@@ -48,6 +48,11 @@ export type Canary = {
   items?: CanaryItem[];
   /** Findings grouped under headings — preferred when there are many. */
   sections?: CanarySection[];
+  /**
+   * Where to go and fix it. A canary that names a problem but leaves you
+   * hunting for the screen that fixes it is only half a canary.
+   */
+  action?: { label: string; href: string };
 };
 
 export type CanaryItem = {
@@ -160,6 +165,7 @@ export async function checkProjectWiring(supabase: SupabaseClient): Promise<Cana
       "The sync gives a project to one client per run, so the others are passed over entirely and can never appear in any finding.",
       "Fix by giving each client its own Basecamp project ID, or clearing it on the records that should not have one.",
     ],
+    action: { label: "Open Project Wiring", href: "/basecamp-projects" },
     sections: [
       {
         heading: `Shared projects (${duplicates.length})`,
