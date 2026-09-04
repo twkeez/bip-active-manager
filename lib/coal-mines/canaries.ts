@@ -8,6 +8,11 @@ import {
   type ThreadFinding,
   type ThreadRow,
 } from "./basecamp-threads";
+import { assessSyncHealth, type SyncStateRow } from "./sync-health";
+import {
+  findProjectWiringProblems,
+  type ClientProjectRow,
+} from "./project-wiring";
 
 /**
  * Coal Mines — the checks that stay quiet until something is wrong.
@@ -74,7 +79,105 @@ export async function runCanaries(
   supabase: SupabaseClient,
   now: Date = new Date(),
 ): Promise<Canary[]> {
-  return Promise.all([checkBasecampThreads(supabase, now)]);
+  // Sync health leads: when it is unhappy every canary under it is reporting on
+  // stale data, and that context changes how you read the rest of the page.
+  return Promise.all([
+    checkSyncHealth(supabase, now),
+    checkProjectWiring(supabase),
+    checkBasecampThreads(supabase, now),
+  ]);
+}
+
+/** Whether the data everything else depends on is actually being refreshed. */
+export async function checkSyncHealth(
+  supabase: SupabaseClient,
+  now: Date = new Date(),
+): Promise<Canary> {
+  const base = {
+    key: "sync-health",
+    name: "Basecamp sync",
+    watches:
+      "Whether the scheduled job is still running. Everything below is only as current as this.",
+  } as const;
+
+  const { data } = await supabase
+    .from("basecamp_sync_state")
+    .select("last_synced_at, last_error")
+    .eq("id", 1)
+    .maybeSingle<SyncStateRow>();
+
+  const health = assessSyncHealth(data ?? null, now);
+
+  return {
+    ...base,
+    status:
+      health.status === "ok" ? "ok" : health.status === "stale" ? "attention" : "overdue",
+    headline: health.headline,
+    detail:
+      health.errors.length > 0
+        ? [`Last run reported ${health.errors.length} project error(s) — see Client wiring.`]
+        : [],
+  };
+}
+
+/**
+ * Client records fighting over the same Basecamp project. The loser of each
+ * fight is skipped by the sync and therefore invisible everywhere else.
+ */
+export async function checkProjectWiring(supabase: SupabaseClient): Promise<Canary> {
+  const base = {
+    key: "project-wiring",
+    name: "Client wiring",
+    watches: "Client records pointing at the same Basecamp project as another client.",
+  } as const;
+
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id, account_name, basecamp_project_id")
+    .not("basecamp_project_id", "is", null)
+    .returns<ClientProjectRow[]>();
+
+  if (error) {
+    return { ...base, status: "attention", headline: "Could not read clients.", detail: [error.message] };
+  }
+
+  const { duplicates, skippedClients, linked } = findProjectWiringProblems(data ?? []);
+
+  if (duplicates.length === 0) {
+    return {
+      ...base,
+      status: "ok",
+      headline: `All ${linked} linked clients point at their own Basecamp project.`,
+      detail: [],
+    };
+  }
+
+  return {
+    ...base,
+    status: "overdue",
+    headline: `${skippedClients} client${skippedClients === 1 ? " is" : "s are"} skipped by every sync — they share a Basecamp project with another client.`,
+    detail: [
+      "The sync gives a project to one client per run, so the others are passed over entirely and can never appear in any finding.",
+      "Fix by giving each client its own Basecamp project ID, or clearing it on the records that should not have one.",
+    ],
+    sections: [
+      {
+        heading: `Shared projects (${duplicates.length})`,
+        blurb: "First listed keeps the project; the rest are skipped.",
+        tone: "overdue",
+        groups: duplicates.map((g) => ({
+          title: `Basecamp project ${g.projectId}`,
+          meta: `${g.clients.length} clients`,
+          items: g.clients.map((c, i) => ({
+            label: c.name,
+            meta: i === 0 ? `client ${c.id} · keeps it` : `client ${c.id} · SKIPPED`,
+            href: `/dashboard/clients/${c.id}?tab=profile`,
+            flagged: i > 0,
+          })),
+        })),
+      },
+    ],
+  };
 }
 
 /**
