@@ -5,11 +5,14 @@ import {
   getInternalEmailDomains,
 } from "@/lib/env";
 import {
+  fetchAllBasecampProjects,
+  fetchAllClassicBasecampProjects,
   fetchPaginated,
   fetchPaginatedRecent,
   getActiveBasecampToken,
   requestBasecampJson,
 } from "@/lib/basecamp/client";
+import { buildSyncRoster, type RosterProject } from "@/lib/basecamp/sync-roster";
 import {
   computeClientCommsAggregate,
   storedAuthorIsInternal,
@@ -63,8 +66,10 @@ type ClientProject = {
 };
 
 type CommunicationEvent = {
-  client_id: number;
+  /** Null for a Basecamp project no client record claims. */
+  client_id: number | null;
   basecamp_project_id: string;
+  basecamp_project_name: string | null;
   basecamp_recording_id: number;
   parent_recording_id: number | null;
   kind: "message" | "comment";
@@ -585,15 +590,14 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
   const oauth = mode === "oauth" ? await getActiveBasecampToken(admin) : null;
   const classic = mode === "classic" ? buildClassicAuthHeaders() : null;
 
-  let projects: ClientProject[] | null = null;
-  let projectsError: { message: string; code?: string | null } | null = null;
+  let clientRows: ClientProject[] | null = null;
+  let clientsError: { message: string; code?: string | null } | null = null;
   {
     const primaryQuery = await admin
       .from("clients")
       .select(
         "id,basecamp_project_id,reply_acknowledged_at,reply_acknowledged_for_occurred_at",
       )
-      .not("basecamp_project_id", "is", null)
       .returns<ClientProject[]>();
     if (
       primaryQuery.error &&
@@ -604,55 +608,87 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
       const fallbackQuery = await admin
         .from("clients")
         .select("id,basecamp_project_id")
-        .not("basecamp_project_id", "is", null)
         .returns<Array<{ id: number; basecamp_project_id: string | null }>>();
       if (fallbackQuery.error) {
-        projectsError = fallbackQuery.error;
+        clientsError = fallbackQuery.error;
       } else {
-        projects = (fallbackQuery.data ?? []).map((row) => ({
+        clientRows = (fallbackQuery.data ?? []).map((row) => ({
           ...row,
           reply_acknowledged_at: null,
           reply_acknowledged_for_occurred_at: null,
         }));
       }
     } else {
-      projects = primaryQuery.data ?? null;
-      projectsError = primaryQuery.error;
+      clientRows = primaryQuery.data ?? null;
+      clientsError = primaryQuery.error;
     }
   }
-  if (projectsError) {
-    throw new Error(`Failed to load clients for sync: ${projectsError.message}`);
+  if (clientsError) {
+    throw new Error(`Failed to load clients for sync: ${clientsError.message}`);
+  }
+
+  /**
+   * The roster is Basecamp's own project list, not ours. A failure here is not
+   * fatal: we fall back to the projects our client records name, which is
+   * exactly the coverage the sync had before. Losing the wider list is worth
+   * reporting, but it must never stop the run.
+   */
+  let basecampProjects: Array<{ id: string; name: string }> = [];
+  let rosterError: string | null = null;
+  try {
+    basecampProjects =
+      mode === "oauth"
+        ? await fetchAllBasecampProjects(oauth!.access_token, oauth!.account_id, (v) => v)
+        : await fetchAllClassicBasecampProjects((v) => v);
+  } catch (error) {
+    rosterError = error instanceof Error ? error.message : "Failed to list Basecamp projects";
+  }
+
+  const roster = buildSyncRoster(basecampProjects, clientRows ?? []);
+
+  // Keep a local copy of Basecamp's project roster so the rest of the app can
+  // answer "what exists in Basecamp" without an API call. Best-effort: this is
+  // a convenience, and failing it must never cost us a sync.
+  if (basecampProjects.length > 0) {
+    const rosterRows = roster
+      .filter((project) => project.listedByBasecamp)
+      .map((project) => ({
+        basecamp_project_id: project.projectId,
+        name: project.projectName ?? `Basecamp project ${project.projectId}`,
+        client_id: project.clientId,
+        last_seen_at: nowIso,
+        updated_at: nowIso,
+      }));
+    for (const chunk of splitChunks(rosterRows, 250)) {
+      await admin
+        .from("basecamp_projects")
+        .upsert(chunk, { onConflict: "basecamp_project_id" });
+    }
   }
 
   let syncedProjects = 0;
   let skippedProjects = 0;
   let failedProjects = 0;
-  const projectErrors: Array<{ projectId: string; clientId: number; error: string }> = [];
+  const projectErrors: Array<{ projectId: string; clientId: number | null; error: string }> = [];
+  let clientlessProjects = 0;
   let eventsUpserted = 0;
   let internalCount = 0;
   let externalCount = 0;
   let unknownCount = 0;
 
-  // Track which Basecamp project IDs have already been synced this run.
-  // If two clients share the same project ID only the first (lowest id) is synced;
-  // the others are skipped with a logged warning so they don't corrupt each other's state.
-  const seenProjectIds = new Set<string>();
-  const sortedProjects = [...(projects ?? [])].sort((a, b) => a.id - b.id);
-
-  for (const project of sortedProjects) {
-    const projectId = trimToNull(project.basecamp_project_id);
-    if (!projectId) continue;
-
-    if (seenProjectIds.has(projectId)) {
+  // The roster already holds each project exactly once, so nothing is skipped
+  // for being contested any more — a project shared by two client records is
+  // synced, and the duplicate is reported as the wiring problem it is.
+  for (const project of roster as RosterProject[]) {
+    const projectId = project.projectId;
+    if (project.clientId == null) clientlessProjects += 1;
+    for (const duplicateId of project.duplicateClientIds) {
       projectErrors.push({
         projectId,
-        clientId: project.id,
-        error: `Duplicate basecamp_project_id — another client already owns this project this sync run. Fix by assigning a unique project ID to this client.`,
+        clientId: duplicateId,
+        error: `Duplicate basecamp_project_id — client ${project.clientId} also points at this project. Threads are synced once; fix the wiring at /basecamp-projects.`,
       });
-      skippedProjects += 1;
-      continue;
     }
-    seenProjectIds.add(projectId);
 
     try {
       const events: CommunicationEvent[] = [];
@@ -666,11 +702,13 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
           // No message board on this project — update aggregate from existing DB events
           // without overwriting if we simply couldn't find the board.
           skippedProjects += 1;
-          await updateClientCommsAggregate(
-            admin,
-            project.id,
-            project.reply_acknowledged_for_occurred_at,
-          );
+          if (project.clientId != null) {
+            await updateClientCommsAggregate(
+              admin,
+              project.clientId,
+              project.replyAckForOccurredAt,
+            );
+          }
           continue;
         }
         const oauthMessages = await fetchPaginatedRecent<BasecampMessage>(
@@ -705,8 +743,9 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
           else unknownCount += 1;
 
           events.push({
-            client_id: project.id,
+            client_id: project.clientId,
             basecamp_project_id: projectId,
+            basecamp_project_name: project.projectName,
             basecamp_recording_id: message.id,
             parent_recording_id: null,
             kind: "message",
@@ -768,8 +807,9 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
             else unknownCount += 1;
 
             events.push({
-              client_id: project.id,
+              client_id: project.clientId,
               basecamp_project_id: projectId,
+              basecamp_project_name: project.projectName,
               basecamp_recording_id: comment.id,
               parent_recording_id: message.id,
               kind: "comment",
@@ -822,8 +862,9 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
           else if (classification.isInternal === false) externalCount += 1;
           else unknownCount += 1;
           events.push({
-            client_id: project.id,
+            client_id: project.clientId,
             basecamp_project_id: projectId,
+            basecamp_project_name: project.projectName,
             basecamp_recording_id: topic.basecamp_recording_id,
             parent_recording_id: null,
             kind: "message",
@@ -855,18 +896,19 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
         eventsUpserted += events.length;
       }
 
-      await updateClientCommsAggregate(
-        admin,
-        project.id,
-        project.reply_acknowledged_for_occurred_at,
-      );
+      // Client-level aggregate only — clients.last_communication_at and the
+      // comms monitor still belong to clients. A project with no client record
+      // has nowhere to write, and still gets its threads stored and watched.
+      if (project.clientId != null) {
+        await updateClientCommsAggregate(admin, project.clientId, project.replyAckForOccurredAt);
+      }
 
       syncedProjects += 1;
     } catch (projectError) {
       // Isolate per-project failures — log and continue so one bad project
       // doesn't abort the entire sync for all remaining clients.
       const message = projectError instanceof Error ? projectError.message : "Unknown error";
-      projectErrors.push({ projectId, clientId: project.id, error: message });
+      projectErrors.push({ projectId, clientId: project.clientId, error: message });
       failedProjects += 1;
     }
   }
@@ -878,13 +920,24 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
   // quiet". Volume is around a hundred rows a month across the whole book, so
   // keeping them is free.
 
+  const rosterWarning = rosterError
+    ? `Could not list Basecamp projects (${rosterError}) — this run covered only the ${roster.length} project(s) our client records name, so any project without a client record was not checked.`
+    : null;
+
   const partialErrorSummary =
-    projectErrors.length > 0
-      ? `${projectErrors.length} project(s) failed: ` +
-        projectErrors
-          .slice(0, 5)
-          .map((e) => `project ${e.projectId} (client ${e.clientId}): ${e.error}`)
-          .join("; ")
+    rosterWarning || projectErrors.length > 0
+      ? [
+          rosterWarning,
+          projectErrors.length > 0
+            ? `${projectErrors.length} project(s) failed: ` +
+              projectErrors
+                .slice(0, 5)
+                .map((e) => `project ${e.projectId} (client ${e.clientId ?? "none"}): ${e.error}`)
+                .join("; ")
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" | ")
       : null;
 
   const { error: stateError } = await admin.from("basecamp_sync_state").upsert({
@@ -901,6 +954,9 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
     mode,
     isIncremental,
     fetchSince: fetchCutoffIso,
+    rosterProjects: roster.length,
+    clientlessProjects,
+    rosterError,
     syncedProjects,
     skippedProjects,
     failedProjects,

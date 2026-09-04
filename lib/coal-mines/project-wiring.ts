@@ -1,13 +1,16 @@
 /**
  * Client records that point at the wrong Basecamp project, or at one another's.
  *
- * The sync claims a project for exactly one client per run, so when two client
- * records carry the same basecamp_project_id the second is skipped outright.
- * Those clients get no thread monitoring at all, and nothing says so — they
- * simply never appear in any finding, which reads exactly like having nothing
- * wrong.
+ * This used to be a monitoring hole: the sync walked the clients table and gave
+ * each project to one client per run, so the other records were passed over and
+ * their threads were never read. The sync now walks Basecamp's own project list
+ * (see lib/basecamp/sync-roster.ts), so the threads are safe either way.
  *
- * Found on live data: three of 89 clients were being skipped this way.
+ * What is left is still worth reporting. A project's activity lands on exactly
+ * one client record, so the others show no recent communication and read as
+ * quiet on the comms monitor when they are not.
+ *
+ * Found on live data: three of 89 clients, across two shared projects.
  */
 
 export type ClientProjectRow = {
@@ -24,7 +27,7 @@ export type DuplicateProjectGroup = {
 export type ProjectWiring = {
   /** Clients sharing a project id with at least one other client. */
   duplicates: DuplicateProjectGroup[];
-  /** How many client records are skipped as a result. */
+  /** How many client records do not own the project they point at. */
   skippedClients: number;
   /** Clients with a Basecamp project, for context. */
   linked: number;

@@ -40,7 +40,7 @@ export async function runThreadClassification(
   const { data: rows, error } = await admin
     .from("basecamp_communication_events")
     .select(
-      "basecamp_recording_id, basecamp_project_id, client_id, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
+      "basecamp_recording_id, basecamp_project_id, basecamp_project_name, client_id, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
     )
     .order("occurred_at", { ascending: false })
     .returns<Row[]>();
@@ -90,7 +90,12 @@ export async function runThreadClassification(
 
   const candidates: ThreadToClassify[] = pending.map((r) => ({
     recordingId: r.basecamp_recording_id,
-    clientName: names.get(r.client_id) ?? `Client ${r.client_id}`,
+    // Same fallback the canary uses. The classifier reads this as context, so
+    // a project with no client record must still arrive with a real name.
+    clientName:
+      (r.client_id != null ? names.get(r.client_id) : null) ??
+      r.basecamp_project_name?.trim() ??
+      `Basecamp project ${r.basecamp_project_id}`,
     title: r.thread_title?.trim() || "(untitled thread)",
     excerpt: (latest.get(r.basecamp_recording_id)?.content ?? r.thread_excerpt ?? "").slice(0, 4000),
     weSpokeLast: r.is_internal === true,

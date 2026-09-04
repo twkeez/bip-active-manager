@@ -263,10 +263,10 @@ export default function BasecampProjectMatcher(props: Props) {
       {props.duplicates.length > 0 && (
         <Section
           title="Clients sharing a project"
-          blurb={`The sync claims each project for one client, so ${props.skippedCount} client record${
-            props.skippedCount === 1 ? " is" : "s are"
-          } skipped entirely. Unlink the ones that are wrong; where a project genuinely serves two practices, keep the record you want the threads filed under.`}
-          tone="bad"
+          blurb={`${props.skippedCount} client record${
+            props.skippedCount === 1 ? "" : "s"
+          } share a project with another. The threads are still monitored — the sync reads Basecamp directly — but only one record gets the activity, so the others read as quiet on the comms monitor. Unlink the ones that are wrong; where a project genuinely serves two practices, keep the record you want it filed under.`}
+          tone="warn"
           count={props.duplicates.length}
         >
           <ul className="space-y-3">
@@ -286,7 +286,7 @@ export default function BasecampProjectMatcher(props: Props) {
                           {client.name}
                         </Link>
                         <span className="ml-1.5">
-                          {index === 0 ? "keeps the threads" : "is being skipped"}
+                          {index === 0 ? "gets the activity" : "reads as quiet"}
                         </span>
                       </span>
                       <button

@@ -30,7 +30,15 @@ export const CHASE_THEM_DAYS = 7;
 export const STALLED_DAYS = 30;
 
 export type ThreadRow = {
-  client_id: number;
+  /**
+   * The project is the identity here, not the client. A Basecamp project we
+   * have no client record for still has threads, and people still waiting on
+   * them — keying on the client made those projects invisible rather than
+   * quiet, which is the failure this canary exists to prevent.
+   */
+  basecamp_project_id: string;
+  basecamp_project_name?: string | null;
+  client_id: number | null;
   thread_title: string | null;
   thread_url: string | null;
   occurred_at: string;
@@ -46,8 +54,13 @@ export type ThreadRow = {
 };
 
 export type ThreadFinding = {
-  clientId: number;
+  projectId: string;
+  /** Null when no client record claims this project. */
+  clientId: number | null;
+  /** Client name where we have one, otherwise the Basecamp project name. */
   clientName: string;
+  /** False when this is a project nothing in the app knows about. */
+  hasClient: boolean;
   title: string;
   url: string | null;
   days: number;
@@ -93,8 +106,10 @@ export type ThreadIssues = {
 
 /** One client's findings within a bucket, worst first. */
 export type ClientGroup = {
-  clientId: number;
+  clientId: number | null;
+  projectId: string;
   clientName: string;
+  hasClient: boolean;
   items: ThreadFinding[];
   /** Longest wait in the group — what the group is ranked and labelled by. */
   worstDays: number;
@@ -106,17 +121,21 @@ export type ClientGroup = {
  * reads as one account in trouble — which is what it is.
  */
 export function groupByClient(findings: ThreadFinding[]): ClientGroup[] {
-  const groups = new Map<number, ClientGroup>();
+  // Grouped by project, because that is what a thread belongs to. Two client
+  // records pointing at one project used to split its threads in two.
+  const groups = new Map<string, ClientGroup>();
   for (const f of findings) {
-    const existing = groups.get(f.clientId);
+    const existing = groups.get(f.projectId);
     if (existing) {
       existing.items.push(f);
       existing.worstDays = Math.max(existing.worstDays, f.days);
       existing.escalated = existing.escalated || f.escalated === true;
     } else {
-      groups.set(f.clientId, {
+      groups.set(f.projectId, {
+        projectId: f.projectId,
         clientId: f.clientId,
         clientName: f.clientName,
+        hasClient: f.hasClient,
         items: [f],
         worstDays: f.days,
         escalated: f.escalated === true,
@@ -161,8 +180,15 @@ export function findThreadIssues(
   const clientFacing = rows.filter((r) => !isInternalThread(r.thread_title));
 
   const toFinding = (row: ThreadRow): ThreadFinding => ({
+    projectId: row.basecamp_project_id,
     clientId: row.client_id,
-    clientName: clientNames.get(row.client_id) ?? `Client ${row.client_id}`,
+    // A project with no client record is still worth naming. Falling back to
+    // the Basecamp project name keeps it readable instead of "Client null".
+    clientName:
+      (row.client_id != null ? clientNames.get(row.client_id) : null) ??
+      row.basecamp_project_name?.trim() ??
+      `Basecamp project ${row.basecamp_project_id}`,
+    hasClient: row.client_id != null,
     title: row.thread_title?.trim() || "(untitled thread)",
     url: row.thread_url,
     days: daysSince(row.occurred_at, now),
@@ -204,7 +230,7 @@ export function findThreadIssues(
   // A thread waiting on us for 30 days is both awaiting and stalled. It is one
   // problem, so it gets named once, under the heading that says what to do.
   const awaitingKeys = new Set(
-    [...awaitingUs, ...awaitingThem].map((f) => `${f.clientId}::${f.title}`),
+    [...awaitingUs, ...awaitingThem].map((f) => `${f.projectId}::${f.title}`),
   );
 
   /**
@@ -223,7 +249,7 @@ export function findThreadIssues(
         !(verdictIsCurrent(r) && (r.reply_need === "closed" || r.reply_need === "fyi")),
     )
     .map(toFinding)
-    .filter((f) => !awaitingKeys.has(`${f.clientId}::${f.title}`))
+    .filter((f) => !awaitingKeys.has(`${f.projectId}::${f.title}`))
     .sort((a, b) => b.days - a.days);
 
   return { awaitingUs, awaitingThem, stalled, considered: clientFacing.length };

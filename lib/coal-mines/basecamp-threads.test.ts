@@ -18,6 +18,7 @@ const NAMES = new Map([
 function thread(overrides: Partial<ThreadRow> & { daysAgo: number }): ThreadRow {
   const { daysAgo, ...rest } = overrides;
   return {
+    basecamp_project_id: "p1",
     client_id: 1,
     thread_title: "Website Communication",
     thread_url: "https://basecamp.com/2175055/projects/1/messages/1",
@@ -120,13 +121,35 @@ describe("findThreadIssues", () => {
     expect(awaitingUs.map((f) => f.title)).toEqual(["Older", "Middle", "Newer"]);
   });
 
-  it("falls back to the client id when a name is missing", () => {
+  // Labelling falls back client name -> Basecamp project name -> project id.
+  // Nothing is ever dropped for want of a name; the point is that a project we
+  // have no record for still gets reported, legibly.
+  it("names a thread by its project when no client record claims it", () => {
     const { awaitingUs } = findThreadIssues(
-      [thread({ daysAgo: 9, is_internal: false, client_id: 99 })],
+      [
+        thread({
+          daysAgo: 9,
+          is_internal: false,
+          client_id: null,
+          basecamp_project_id: "19768829",
+          basecamp_project_name: "Volunteer Vet",
+        }),
+      ],
       NAMES,
       NOW,
     );
-    expect(awaitingUs[0].clientName).toBe("Client 99");
+    expect(awaitingUs[0].clientName).toBe("Volunteer Vet");
+    expect(awaitingUs[0].hasClient).toBe(false);
+    expect(awaitingUs[0].projectId).toBe("19768829");
+  });
+
+  it("falls back to the project id when even the project name is missing", () => {
+    const { awaitingUs } = findThreadIssues(
+      [thread({ daysAgo: 9, is_internal: false, client_id: 99, basecamp_project_id: "555" })],
+      NAMES,
+      NOW,
+    );
+    expect(awaitingUs[0].clientName).toBe("Basecamp project 555");
   });
 
   // One problem, named once — a long wait is both awaiting and stalled.
@@ -295,8 +318,10 @@ describe("awaitingThem — chasing the client", () => {
 
 describe("groupByClient", () => {
   const finding = (over: Partial<ThreadFinding>): ThreadFinding => ({
+    projectId: `p${over.clientId ?? 1}`,
     clientId: 1,
     clientName: "Valley Pet Surgery",
+    hasClient: true,
     title: "A thread",
     url: null,
     days: 5,
@@ -330,6 +355,34 @@ describe("groupByClient", () => {
     ]);
     expect(groups.map((g) => g.clientName)).toEqual(["Chasing Vet", "Patient Vet"]);
     expect(groups[0].escalated).toBe(true);
+  });
+
+  // The whole point of watching Basecamp rather than the client list: a
+  // project nobody has a record for still groups, and still gets named.
+  it("groups a project that has no client record", () => {
+    const groups = groupByClient([
+      finding({
+        projectId: "19895756",
+        clientId: null,
+        clientName: "Volunteer Vet",
+        hasClient: false,
+        days: 9,
+      }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].clientName).toBe("Volunteer Vet");
+    expect(groups[0].hasClient).toBe(false);
+  });
+
+  // Two client records pointing at one project used to split its threads into
+  // two groups that each looked smaller than the problem actually was.
+  it("keeps one project together even when the client label differs", () => {
+    const groups = groupByClient([
+      finding({ projectId: "6660074", clientId: 43, clientName: "Travelers Rest", days: 4 }),
+      finding({ projectId: "6660074", clientId: 75, clientName: "Volunteer Vet", days: 12 }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].worstDays).toBe(12);
   });
 });
 

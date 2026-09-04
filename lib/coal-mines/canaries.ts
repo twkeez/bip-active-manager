@@ -133,7 +133,8 @@ export async function checkProjectWiring(supabase: SupabaseClient): Promise<Cana
   const base = {
     key: "project-wiring",
     name: "Client wiring",
-    watches: "Client records pointing at the same Basecamp project as another client.",
+    watches:
+      "Client records pointing at the same Basecamp project as another client. Threads are still monitored; the labelling and per-client aggregates are what suffer.",
   } as const;
 
   const { data, error } = await supabase
@@ -159,24 +160,27 @@ export async function checkProjectWiring(supabase: SupabaseClient): Promise<Cana
 
   return {
     ...base,
-    status: "overdue",
-    headline: `${skippedClients} client${skippedClients === 1 ? " is" : "s are"} skipped by every sync — they share a Basecamp project with another client.`,
+    status: "attention",
+    headline: `${skippedClients} client record${skippedClients === 1 ? "" : "s"} share a Basecamp project with another client.`,
     detail: [
-      "The sync gives a project to one client per run, so the others are passed over entirely and can never appear in any finding.",
+      // The sync walks Basecamp's project list now, so the threads themselves
+      // are safe. What is wrong is that one project's history lands on one
+      // client's record, and the other clients look silent when they are not.
+      "The threads are monitored either way — the sync walks Basecamp directly. But only one of these records gets the project's activity, so the others read as quiet on the comms monitor.",
       "Fix by giving each client its own Basecamp project ID, or clearing it on the records that should not have one.",
     ],
     action: { label: "Open Project Wiring", href: "/basecamp-projects" },
     sections: [
       {
         heading: `Shared projects (${duplicates.length})`,
-        blurb: "First listed keeps the project; the rest are skipped.",
+        blurb: "First listed gets the project's activity on its record; the rest show as quiet.",
         tone: "overdue",
         groups: duplicates.map((g) => ({
           title: `Basecamp project ${g.projectId}`,
           meta: `${g.clients.length} clients`,
           items: g.clients.map((c, i) => ({
             label: c.name,
-            meta: i === 0 ? `client ${c.id} · keeps it` : `client ${c.id} · SKIPPED`,
+            meta: i === 0 ? `client ${c.id} · gets the activity` : `client ${c.id} · reads as quiet`,
             href: `/dashboard/clients/${c.id}?tab=profile`,
             flagged: i > 0,
           })),
@@ -207,7 +211,7 @@ export async function checkBasecampThreads(
     supabase
       .from("basecamp_communication_events")
       .select(
-        "client_id, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
+        "client_id, basecamp_project_id, basecamp_project_name, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
       )
       .order("occurred_at", { ascending: false })
       .returns<ThreadRow[]>(),
@@ -267,7 +271,8 @@ export async function checkBasecampThreads(
       blurb,
       tone,
       groups: groupByClient(findings).map((g) => ({
-        title: g.clientName,
+        // A project with no client record is named and marked, not hidden.
+        title: g.hasClient ? g.clientName : `${g.clientName} · no client record`,
         meta:
           g.items.length === 1
             ? `${verb} ${g.worstDays} days`
