@@ -171,13 +171,28 @@ export function findThreadIssues(
   rows: ThreadRow[],
   clientNames: Map<number, string>,
   now: Date = new Date(),
-  opts: { awaitingDays?: number; chaseDays?: number; stalledDays?: number } = {},
+  opts: {
+    awaitingDays?: number;
+    chaseDays?: number;
+    stalledDays?: number;
+    /**
+     * Projects marked "not a client" on the wiring screen — our own Blog
+     * Communication project, templates, internal spaces. Now that the sync
+     * walks Basecamp rather than the clients table, these arrive with
+     * everything else, and "Beyond Indigo Blog Communication is waiting on a
+     * reply" is exactly the noise this canary exists to avoid.
+     */
+    ignoredProjectIds?: ReadonlySet<string>;
+  } = {},
 ): ThreadIssues {
   const awaitingDays = opts.awaitingDays ?? AWAITING_REPLY_DAYS;
   const chaseDays = opts.chaseDays ?? CHASE_THEM_DAYS;
   const stalledDays = opts.stalledDays ?? STALLED_DAYS;
 
-  const clientFacing = rows.filter((r) => !isInternalThread(r.thread_title));
+  const ignored = opts.ignoredProjectIds ?? new Set<string>();
+  const clientFacing = rows.filter(
+    (r) => !isInternalThread(r.thread_title) && !ignored.has(r.basecamp_project_id),
+  );
 
   const toFinding = (row: ThreadRow): ThreadFinding => ({
     projectId: row.basecamp_project_id,

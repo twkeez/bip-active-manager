@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { classifyThreads, type ThreadToClassify } from "@/lib/coal-mines/classify-threads";
 import { fetchLatestThreadMessages } from "@/lib/basecamp/thread-latest";
+import { listBasecampProjectIgnores } from "@/lib/clients/basecamp-project-ignores";
 import {
   AWAITING_REPLY_DAYS,
   isInternalThread,
@@ -47,6 +48,13 @@ export async function runThreadClassification(
   if (error) throw new Error(error.message);
 
   const { data: clients } = await admin.from("clients").select("id, account_name");
+  // Projects marked "not a client" on the wiring screen are never work, so
+  // there is nothing to spend a classification call on.
+  const ignoredProjectIds = new Set(
+    (await listBasecampProjectIgnores(admin).catch(() => [])).map(
+      (row) => row.basecamp_project_id,
+    ),
+  );
   const names = new Map<number, string>(
     (clients ?? []).map((c) => [c.id as number, c.account_name as string]),
   );
@@ -59,6 +67,7 @@ export async function runThreadClassification(
   const pending = (rows ?? []).filter(
     (r) =>
       !isInternalThread(r.thread_title) &&
+      !ignoredProjectIds.has(r.basecamp_project_id ?? "") &&
       daysSince(r.occurred_at) >= AWAITING_REPLY_DAYS &&
       (r.thread_excerpt ?? "").trim().length > 0 &&
       !verdictIsCurrent(r),

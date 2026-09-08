@@ -9,6 +9,7 @@ import {
   type ThreadRow,
 } from "./basecamp-threads";
 import { assessSyncHealth, type SyncStateRow } from "./sync-health";
+import { listBasecampProjectIgnores } from "@/lib/clients/basecamp-project-ignores";
 import {
   findProjectWiringProblems,
   type ClientProjectRow,
@@ -207,7 +208,7 @@ export async function checkBasecampThreads(
       "Individual threads where a client is waiting on a reply, or that nobody has touched in a while.",
   } as const;
 
-  const [{ data: rows, error }, { data: clients }] = await Promise.all([
+  const [{ data: rows, error }, { data: clients }, ignores] = await Promise.all([
     supabase
       .from("basecamp_communication_events")
       .select(
@@ -216,6 +217,7 @@ export async function checkBasecampThreads(
       .order("occurred_at", { ascending: false })
       .returns<ThreadRow[]>(),
     supabase.from("clients").select("id, account_name"),
+    listBasecampProjectIgnores(supabase).catch(() => []),
   ]);
 
   if (error) {
@@ -234,6 +236,7 @@ export async function checkBasecampThreads(
     rows ?? [],
     names,
     now,
+    { ignoredProjectIds: new Set(ignores.map((row) => row.basecamp_project_id)) },
   );
 
   if (awaitingUs.length === 0 && awaitingThem.length === 0 && stalled.length === 0) {

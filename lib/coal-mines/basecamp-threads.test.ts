@@ -316,6 +316,33 @@ describe("awaitingThem — chasing the client", () => {
   });
 });
 
+describe("ignored projects", () => {
+  // Our own Basecamp projects arrive with everything else now that the sync
+  // walks Basecamp rather than the clients table. "Beyond Indigo Blog
+  // Communication is waiting on a reply for 29 days" is not work.
+  it("drops threads on a project marked not-a-client", () => {
+    const rows = [
+      thread({ daysAgo: 9, is_internal: false, basecamp_project_id: "ours" }),
+      thread({ daysAgo: 9, is_internal: false, basecamp_project_id: "theirs" }),
+    ];
+    const { awaitingUs, considered } = findThreadIssues(rows, NAMES, NOW, {
+      ignoredProjectIds: new Set(["ours"]),
+    });
+    expect(awaitingUs).toHaveLength(1);
+    expect(awaitingUs[0].projectId).toBe("theirs");
+    // The ignored thread is not "considered" either — it never counts as a
+    // client-facing thread we are on top of.
+    expect(considered).toBe(1);
+  });
+
+  it("keeps everything when nothing is ignored", () => {
+    const rows = [thread({ daysAgo: 9, is_internal: false })];
+    expect(findThreadIssues(rows, NAMES, NOW).awaitingUs).toHaveLength(1);
+    expect(findThreadIssues(rows, NAMES, NOW, { ignoredProjectIds: new Set() }).awaitingUs)
+      .toHaveLength(1);
+  });
+});
+
 describe("groupByClient", () => {
   const finding = (over: Partial<ThreadFinding>): ThreadFinding => ({
     projectId: `p${over.clientId ?? 1}`,
