@@ -13,6 +13,15 @@ import {
   requestBasecampJson,
 } from "@/lib/basecamp/client";
 import { buildSyncRoster, type RosterProject } from "@/lib/basecamp/sync-roster";
+import { runWithConcurrency } from "@/lib/basecamp/concurrency";
+
+/**
+ * How many Basecamp projects to sync at once. Sequential took 203s for 164
+ * projects against a 300s function ceiling, with essentially no data to fetch —
+ * so the ceiling was going to be hit by growth alone. Six keeps well inside
+ * Basecamp's rate limit while removing the timeout risk.
+ */
+const SYNC_CONCURRENCY = 6;
 import {
   computeClientCommsAggregate,
   storedAuthorIsInternal,
@@ -679,7 +688,7 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
   // The roster already holds each project exactly once, so nothing is skipped
   // for being contested any more — a project shared by two client records is
   // synced, and the duplicate is reported as the wiring problem it is.
-  for (const project of roster as RosterProject[]) {
+  const syncProject = async (project: RosterProject) => {
     const projectId = project.projectId;
     if (project.clientId == null) clientlessProjects += 1;
     for (const duplicateId of project.duplicateClientIds) {
@@ -709,7 +718,7 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
               project.replyAckForOccurredAt,
             );
           }
-          continue;
+          return;
         }
         const oauthMessages = await fetchPaginatedRecent<BasecampMessage>(
           oauth!.access_token,
@@ -911,7 +920,12 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
       projectErrors.push({ projectId, clientId: project.clientId, error: message });
       failedProjects += 1;
     }
-  }
+  };
+
+  // Every per-project failure is already caught above and recorded, so the
+  // helper has nothing left to aggregate — but if that ever changes, one bad
+  // project must not strand the rest of the roster.
+  await runWithConcurrency(roster, SYNC_CONCURRENCY, syncProject);
 
   // Events are no longer pruned. The 30-day delete that used to live here was
   // not a retention decision anyone made, and it cost more than it saved: it
