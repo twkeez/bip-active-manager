@@ -74,10 +74,26 @@ export default function ClientExpectationsDocument({
       {content.services.map((service) => (
         <Section key={service.key} title={service.label}>
           <Field label={EXPECTATION_FIELD_LABEL.expect} body={service.expect} />
+          <Field label={EXPECTATION_FIELD_LABEL.limits} body={service.limits} />
           <Field label={EXPECTATION_FIELD_LABEL.need} body={service.need} />
           <Field label={EXPECTATION_FIELD_LABEL.recommend} body={service.recommend} />
         </Section>
       ))}
+
+      {content.glossary.length > 0 && (
+        // Last, deliberately: it is a reference to come back to, not something
+        // to read before the plan it explains.
+        <Section title="Terms you'll see us use">
+          <dl>
+            {content.glossary.map((entry) => (
+              <div key={entry.term} className="mb-2.5 last:mb-0" style={{ breakInside: "avoid" }}>
+                <dt className="text-sm font-semibold text-gray-800">{entry.term}</dt>
+                <dd className="mt-0.5 text-sm leading-relaxed text-gray-700">{entry.definition}</dd>
+              </div>
+            ))}
+          </dl>
+        </Section>
+      )}
 
       {content.closing && (
         <p

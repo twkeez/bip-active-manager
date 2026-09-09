@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClientRow } from "@/lib/types/client";
 import { getClientActiveServices } from "@/lib/clients/service-active";
+import type { GlossaryTerm } from "@/lib/onboarding/expectation-glossary";
+import type { ClientServiceKey } from "@/lib/clients/types";
 import {
   assembleServiceExpectations,
   type ExpectationBlock,
@@ -24,10 +26,27 @@ export async function loadClientExpectations(
   if (!clientRaw) return null;
   const client = clientRaw as ClientRow;
 
-  const { data: blockRows } = await supabase
-    .from("service_expectation_blocks")
-    .select("block_key, body, sort_order")
-    .order("sort_order", { ascending: true });
+  const [{ data: blockRows }, { data: glossaryRows }] = await Promise.all([
+    supabase
+      .from("service_expectation_blocks")
+      .select("block_key, body, sort_order")
+      .order("sort_order", { ascending: true }),
+    // A missing glossary table just means no definitions yet — the document is
+    // still worth generating without them.
+    supabase
+      .from("expectation_glossary")
+      .select("id, term, definition, services, sort_order")
+      .order("sort_order", { ascending: true })
+      .then((result) => (result.error ? { data: [] } : result)),
+  ]);
+
+  const glossary: GlossaryTerm[] = (glossaryRows ?? []).map((row) => ({
+    id: row.id as number,
+    term: (row.term as string) ?? "",
+    definition: (row.definition as string) ?? "",
+    services: ((row.services as string[]) ?? []) as ClientServiceKey[],
+    sortOrder: (row.sort_order as number) ?? 0,
+  }));
 
   const blocks = (blockRows ?? []) as ExpectationBlock[];
   const clientName = client.account_name;
@@ -37,6 +56,7 @@ export async function loadClientExpectations(
     clientName,
     strategist,
     activeServices: getClientActiveServices(client),
+    glossary,
   });
 
   return { clientName, strategist, content };

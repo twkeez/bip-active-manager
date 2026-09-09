@@ -43,6 +43,7 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
       (service) =>
         `<h2 style="color:${INDIGO_DEEP};font-size:15px;margin:22px 0 6px;">${esc(service.label)}</h2>` +
         field(EXPECTATION_FIELD_LABEL.expect, service.expect) +
+        field(EXPECTATION_FIELD_LABEL.limits, service.limits) +
         field(EXPECTATION_FIELD_LABEL.need, service.need) +
         field(EXPECTATION_FIELD_LABEL.recommend, service.recommend),
     )
@@ -60,6 +61,16 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
         `<div style="background:${SOFT_BG};padding:10px 12px;"><p style="font-size:12px;color:${INK};line-height:1.5;margin:0;">${multiline(content.timetable)}</p></div>`
       : "") +
     serviceSections +
+    (content.glossary.length > 0
+      ? `<h2 style="color:${INDIGO_DEEP};font-size:15px;margin:22px 0 6px;">Terms you&rsquo;ll see us use</h2>` +
+        content.glossary
+          .map(
+            (entry) =>
+              `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 6px;">` +
+              `<strong>${esc(entry.term)}</strong> — ${esc(entry.definition)}</p>`,
+          )
+          .join("")
+      : "") +
     (content.closing
       ? `<p style="font-size:12px;color:${INK};line-height:1.5;margin:18px 0 0;">${multiline(content.closing)}</p>`
       : "");

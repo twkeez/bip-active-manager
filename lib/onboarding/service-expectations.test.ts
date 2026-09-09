@@ -68,3 +68,34 @@ describe("assembleServiceExpectations", () => {
     expect(model.services).toHaveLength(0);
   });
 });
+
+describe("glossary in the assembled document", () => {
+  const blocks = [
+    { block_key: "seo_expect", body: "SEO takes time.", sort_order: 0 },
+    { block_key: "ppc_expect", body: "Ads are quicker.", sort_order: 1 },
+  ];
+  const terms = [
+    { term: "Map Pack", definition: "The three local results.", services: ["seo" as const], sortOrder: 10 },
+    { term: "Quality Score", definition: "Google's ad rating.", services: ["ppc" as const], sortOrder: 20 },
+    { term: "Impressions", definition: "Times you were shown.", services: [], sortOrder: 30 },
+  ];
+
+  it("includes only the terms that match the services bought", () => {
+    const model = assembleServiceExpectations(blocks, {
+      clientName: "Happy Paws",
+      strategist: "Tom",
+      activeServices: { seo: true, ppc: false, smm: false, blog: false, orm: false },
+      glossary: terms,
+    });
+    expect(model.glossary.map((t) => t.term)).toEqual(["Map Pack", "Impressions"]);
+  });
+
+  it("is empty rather than absent when no glossary has been authored", () => {
+    const model = assembleServiceExpectations(blocks, {
+      clientName: "Happy Paws",
+      strategist: "Tom",
+      activeServices: { seo: true, ppc: false, smm: false, blog: false, orm: false },
+    });
+    expect(model.glossary).toEqual([]);
+  });
+});

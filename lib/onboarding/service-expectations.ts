@@ -1,4 +1,8 @@
 import type { ClientActiveServices, ClientServiceKey } from "@/lib/clients/types";
+import {
+  selectGlossaryTerms,
+  type GlossaryTerm,
+} from "@/lib/onboarding/expectation-glossary";
 
 // Client-expectations content generator. Pure + side-effect free: assembles the
 // per-service expectation blurbs (what to expect, what we need, our
@@ -12,8 +16,15 @@ export type ExpectationBlock = {
   sort_order: number;
 };
 
-/** The three structured fields authored per service. */
-export const EXPECTATION_FIELDS = ["expect", "need", "recommend"] as const;
+/**
+ * The structured fields authored per service.
+ *
+ * "limits" exists because the expectations this document is meant to set are as
+ * much about what will not happen as what will — no guaranteed rankings, no
+ * results next week, not the same thing as running ads. Saying so in writing at
+ * kickoff is what prevents the month-two phone call.
+ */
+export const EXPECTATION_FIELDS = ["expect", "limits", "need", "recommend"] as const;
 export type ExpectationField = (typeof EXPECTATION_FIELDS)[number];
 
 /** Fixed order services appear in the document (matches the rest of onboarding). */
@@ -31,6 +42,7 @@ export const SERVICE_EXPECTATION_LABEL: Record<ClientServiceKey, string> = {
 /** Friendly labels for each structured field, shown in the editor and document. */
 export const EXPECTATION_FIELD_LABEL: Record<ExpectationField, string> = {
   expect: "What to expect",
+  limits: "What this isn't",
   need: "What we need from you",
   recommend: "Our recommendations",
 };
@@ -69,6 +81,7 @@ export type ExpectationServiceSection = {
   key: ClientServiceKey;
   label: string;
   expect: string;
+  limits: string;
   need: string;
   recommend: string;
 };
@@ -77,11 +90,15 @@ export type ServiceExpectationsModel = {
   intro: string;
   timetable: string;
   services: ExpectationServiceSection[];
+  /** Definitions for the services this client bought. May be empty. */
+  glossary: GlossaryTerm[];
   closing: string;
 };
 
 export type AssembleExpectationsContext = ExpectationMergeContext & {
   activeServices: ClientActiveServices;
+  /** Omitted when no glossary has been authored yet. */
+  glossary?: GlossaryTerm[];
 };
 
 /**
@@ -102,16 +119,25 @@ export function assembleServiceExpectations(
   for (const service of SERVICE_EXPECTATION_ORDER) {
     if (!ctx.activeServices[service]) continue;
     const expect = merge(serviceBlockKey(service, "expect"));
+    const limits = merge(serviceBlockKey(service, "limits"));
     const need = merge(serviceBlockKey(service, "need"));
     const recommend = merge(serviceBlockKey(service, "recommend"));
-    if (!expect && !need && !recommend) continue;
-    services.push({ key: service, label: SERVICE_EXPECTATION_LABEL[service], expect, need, recommend });
+    if (!expect && !limits && !need && !recommend) continue;
+    services.push({
+      key: service,
+      label: SERVICE_EXPECTATION_LABEL[service],
+      expect,
+      limits,
+      need,
+      recommend,
+    });
   }
 
   return {
     intro: merge("intro"),
     timetable: merge("timetable"),
     services,
+    glossary: selectGlossaryTerms(ctx.glossary ?? [], ctx.activeServices),
     closing: merge("closing"),
   };
 }

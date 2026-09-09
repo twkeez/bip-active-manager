@@ -12,6 +12,9 @@ import {
   type ExpectationBlock,
 } from "@/lib/onboarding/service-expectations";
 
+import type { GlossaryTerm } from "@/lib/onboarding/expectation-glossary";
+import type { ClientServiceKey } from "@/lib/clients/types";
+
 type ClientOption = { id: number; account_name: string };
 
 const GENERAL_LABELS: Record<string, string> = {
@@ -52,10 +55,17 @@ export default function ClientExpectationsEditor({ clients }: { clients: ClientO
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(clients[0]?.id ?? null);
+  const [glossary, setGlossary] = useState<GlossaryTerm[]>([]);
 
   useEffect(() => {
     void (async () => {
       try {
+        const glossaryResponse = await fetch("/api/service-expectations/glossary", {
+          cache: "no-store",
+        });
+        const glossaryPayload = (await glossaryResponse.json()) as { terms?: GlossaryTerm[] };
+        if (glossaryPayload.terms) setGlossary(glossaryPayload.terms);
+
         const response = await fetch("/api/service-expectations/blocks", { cache: "no-store" });
         const payload = (await response.json()) as { error?: string; blocks?: ExpectationBlock[] };
         if (!response.ok || !payload.blocks) throw new Error(payload.error ?? "Failed to load template");
@@ -77,6 +87,12 @@ export default function ClientExpectationsEditor({ clients }: { clients: ClientO
     setSavedAt(null);
   }
 
+  /** Any glossary edit clears "Saved" too — the label covers the whole page. */
+  function updateGlossary(next: (current: GlossaryTerm[]) => GlossaryTerm[]) {
+    setGlossary(next);
+    setSavedAt(null);
+  }
+
   async function save() {
     setSaving(true);
     setError(null);
@@ -87,6 +103,18 @@ export default function ClientExpectationsEditor({ clients }: { clients: ClientO
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blocks }),
       });
+      const glossaryResponse = await fetch("/api/service-expectations/glossary", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ terms: glossary }),
+      });
+      const glossaryPayload = (await glossaryResponse.json()) as {
+        error?: string;
+        terms?: GlossaryTerm[];
+      };
+      if (!glossaryResponse.ok) throw new Error(glossaryPayload.error ?? "Could not save the glossary");
+      if (glossaryPayload.terms) setGlossary(glossaryPayload.terms);
+
       const payload = (await response.json()) as { error?: string; blocks?: ExpectationBlock[] };
       if (!response.ok || !payload.blocks) throw new Error(payload.error ?? "Failed to save");
       const next = emptyBodies();
@@ -193,6 +221,98 @@ export default function ClientExpectationsEditor({ clients }: { clients: ClientO
           })}
         </div>
       ))}
+
+      {/* Glossary */}
+      <div className="space-y-3 rounded-lg border border-bip-border bg-bip-card p-3">
+        <div>
+          <p className="text-sm font-semibold text-bip-text">Terms you&rsquo;ll see us use</p>
+          <p className="mt-0.5 text-[11px] text-bip-muted">
+            Printed at the end of the document. Tag a term with the services it belongs to — untagged
+            terms appear for everyone, and a term shared by two services is still printed once.
+          </p>
+        </div>
+
+        {glossary.map((entry, index) => (
+          <div key={index} className="rounded border border-bip-border p-2.5">
+            <div className="flex items-start gap-2">
+              <input
+                value={entry.term}
+                placeholder="Term"
+                onChange={(event) =>
+                  updateGlossary((current) =>
+                    current.map((row, i) =>
+                      i === index ? { ...row, term: event.target.value } : row,
+                    ),
+                  )
+                }
+                className="w-56 rounded border border-bip-border bg-bip-card/85 px-2 py-1 text-sm font-medium text-bip-text focus:border-bip-accent focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => updateGlossary((current) => current.filter((_, i) => i !== index))}
+                className="ml-auto rounded border border-bip-border px-2 py-1 text-[11px] text-bip-muted hover:text-bip-text"
+              >
+                Remove
+              </button>
+            </div>
+            <textarea
+              value={entry.definition}
+              placeholder="One or two plain sentences — no jargon explaining jargon."
+              rows={2}
+              onChange={(event) =>
+                updateGlossary((current) =>
+                  current.map((row, i) =>
+                    i === index ? { ...row, definition: event.target.value } : row,
+                  ),
+                )
+              }
+              className="mt-1.5 w-full rounded border border-bip-border bg-bip-card/85 px-2 py-1.5 text-sm text-bip-text focus:border-bip-accent focus:outline-none"
+            />
+            <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+              {SERVICE_EXPECTATION_ORDER.map((service) => (
+                <label key={service} className="flex items-center gap-1 text-[11px] text-bip-muted">
+                  <input
+                    type="checkbox"
+                    checked={entry.services.includes(service)}
+                    onChange={() =>
+                      updateGlossary((current) =>
+                        current.map((row, i) =>
+                          i === index
+                            ? {
+                                ...row,
+                                services: row.services.includes(service)
+                                  ? row.services.filter((s) => s !== service)
+                                  : ([...row.services, service] as ClientServiceKey[]),
+                              }
+                            : row,
+                        ),
+                      )
+                    }
+                    className="h-3 w-3 accent-bip-accent"
+                  />
+                  {SERVICE_EXPECTATION_LABEL[service]}
+                </label>
+              ))}
+              {entry.services.length === 0 && (
+                <span className="text-[11px] text-bip-muted">— appears for every client</span>
+              )}
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={() =>
+            updateGlossary((current) => [
+              ...current,
+              { term: "", definition: "", services: [], sortOrder: current.length * 10 },
+            ])
+          }
+          className="rounded border border-bip-border px-2.5 py-1 text-xs text-bip-text hover:bg-bip-fill"
+        >
+          Add a term
+        </button>
+      </div>
 
       {/* Closing */}
       <div className="rounded-lg border border-bip-border bg-bip-card p-3">

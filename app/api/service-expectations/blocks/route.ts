@@ -50,13 +50,19 @@ export async function PUT(request: Request) {
 
   const admin = createAdminClient();
   const now = new Date().toISOString();
-  for (const block of updates) {
-    const { error } = await admin
-      .from("service_expectation_blocks")
-      .update({ body: block.body, updated_at: now })
-      .eq("block_key", block.block_key);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  // Upsert rather than update: a newly added field has no row yet, and an
+  // update would report success while writing nothing. That is how the first
+  // draft of "What this isn't" would have vanished on save.
+  const { error: writeError } = await admin.from("service_expectation_blocks").upsert(
+    updates.map((block) => ({
+      block_key: block.block_key,
+      body: block.body,
+      sort_order: SERVICE_EXPECTATION_BLOCK_KEYS.indexOf(block.block_key),
+      updated_at: now,
+    })),
+    { onConflict: "block_key" },
+  );
+  if (writeError) return NextResponse.json({ error: writeError.message }, { status: 500 });
 
   const { data, error } = await admin
     .from("service_expectation_blocks")
