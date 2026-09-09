@@ -680,6 +680,15 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
   let failedProjects = 0;
   const projectErrors: Array<{ projectId: string; clientId: number | null; error: string }> = [];
   let clientlessProjects = 0;
+  /**
+   * The newest message in each project, captured as we go.
+   *
+   * Basecamp's `last_event_at` on the project list is not this — a bulk account
+   * operation bumps it for every project at once, which makes a long-dead
+   * project look active. The topic list is the honest answer and we already
+   * fetch it.
+   */
+  const lastMessageAt = new Map<string, string>();
   let eventsUpserted = 0;
   let internalCount = 0;
   let externalCount = 0;
@@ -850,6 +859,16 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
           projectId,
           classic!.headers,
         );
+        // Taken before the cutoff filter below, so it reflects the newest
+        // message even when that message is older than the fetch window —
+        // which is exactly the case worth knowing about.
+        for (const topic of snapshots) {
+          const existing = lastMessageAt.get(projectId);
+          if (!existing || topic.occurred_at > existing) {
+            lastMessageAt.set(projectId, topic.occurred_at);
+          }
+        }
+
         for (const topic of snapshots) {
           if (new Date(topic.occurred_at).getTime() < fetchCutoffMs) {
             break;
@@ -891,6 +910,13 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
         }
       }
 
+      for (const event of events) {
+        const existing = lastMessageAt.get(projectId);
+        if (!existing || event.occurred_at > existing) {
+          lastMessageAt.set(projectId, event.occurred_at);
+        }
+      }
+
       if (events.length > 0) {
         for (const chunk of splitChunks(events, 250)) {
           const { error: upsertError } = await admin
@@ -926,6 +952,24 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
   // helper has nothing left to aggregate — but if that ever changes, one bad
   // project must not strand the rest of the roster.
   await runWithConcurrency(roster, SYNC_CONCURRENCY, syncProject);
+
+  // Second pass over the roster table, now that we know when each project last
+  // actually had a message. Best-effort, like the first.
+  if (lastMessageAt.size > 0) {
+    const messageRows = [...lastMessageAt.entries()].map(([projectId, occurredAt]) => ({
+      basecamp_project_id: projectId,
+      name:
+        roster.find((project) => project.projectId === projectId)?.projectName ??
+        `Basecamp project ${projectId}`,
+      last_message_at: occurredAt,
+      updated_at: nowIso,
+    }));
+    for (const chunk of splitChunks(messageRows, 250)) {
+      await admin
+        .from("basecamp_projects")
+        .upsert(chunk, { onConflict: "basecamp_project_id" });
+    }
+  }
 
   // Events are no longer pruned. The 30-day delete that used to live here was
   // not a retention decision anyone made, and it cost more than it saved: it

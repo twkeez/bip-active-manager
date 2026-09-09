@@ -56,6 +56,7 @@ function project(id: string, name: string): BasecampProjectSummary {
     name,
     status: "active",
     normalizedName: normalizeClientName(name),
+    lastEventAt: null,
   };
 }
 
@@ -110,7 +111,7 @@ describe("matchClientsToBasecampProjects", () => {
     );
     expect(result.matched).toHaveLength(1);
     expect(result.unmatchedProjects).toEqual([
-      { projectId: "200", projectName: "Orphan Project", status: "active" },
+      { projectId: "200", projectName: "Orphan Project", status: "active", lastEventAt: null },
     ]);
   });
 
@@ -131,7 +132,7 @@ describe("matchClientsToBasecampProjects", () => {
     );
     expect(result.unmatchedProjects).toEqual([]);
     expect(result.ignoredProjects).toEqual([
-      { projectId: "200", projectName: "Orphan Project", status: "active" },
+      { projectId: "200", projectName: "Orphan Project", status: "active", lastEventAt: null },
     ]);
     expect(result.stats.actionableUnmatchedCount).toBe(0);
     expect(result.stats.ignoredUnmatchedCount).toBe(1);

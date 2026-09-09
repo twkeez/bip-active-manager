@@ -13,7 +13,10 @@ import {
   Loader2,
   Undo2,
 } from "lucide-react";
-import type { ProjectDisposition } from "@/lib/clients/basecamp-project-triage";
+import type {
+  ProjectActivity,
+  ProjectDisposition,
+} from "@/lib/clients/basecamp-project-triage";
 
 /**
  * The screen for connecting client records to Basecamp projects.
@@ -51,6 +54,7 @@ type UnmatchedRow = {
   projectName: string;
   disposition: ProjectDisposition;
   reason: string;
+  activity: ProjectActivity;
 };
 
 type IgnoredRow = { projectId: string; projectName: string; reason: string | null };
@@ -433,7 +437,7 @@ export default function BasecampProjectMatcher(props: Props) {
       {props.unmatched.length > 0 && (
         <Section
           title="Basecamp projects with no client"
-          blurb="Active projects nothing in the app points at. Nobody is watching these threads."
+          blurb="Active projects nothing in the app points at. Nobody is watching these threads. Most recent message first — read from the threads themselves, not Basecamp's project timestamp, which a bulk account change moved for 30 projects at once."
           tone="warn"
           count={props.unmatched.length}
         >
@@ -465,6 +469,16 @@ export default function BasecampProjectMatcher(props: Props) {
                   </span>
                 </p>
                 <p className="mt-0.5 text-[11px] text-bip-muted">{DISPOSITION_COPY[key].blurb}</p>
+                {(() => {
+                  const rows = byDisposition.get(key)!;
+                  const dormant = rows.filter((r) => r.activity.dormant).length;
+                  return dormant > 0 ? (
+                    <p className="mt-0.5 text-[11px] text-bip-muted">
+                      {dormant} of these {dormant === 1 ? "has" : "have"} had no activity in
+                      over a year.
+                    </p>
+                  ) : null;
+                })()}
                 <ul className="mt-1.5 divide-y divide-bip-border">
                   {byDisposition.get(key)!.map((row) => (
                     <li
@@ -473,7 +487,17 @@ export default function BasecampProjectMatcher(props: Props) {
                     >
                       <span className="min-w-0 text-[11px]">
                         <ProjectLink id={row.projectId} name={row.projectName} accountId={props.accountId} />
-                        <span className="ml-1.5 text-bip-muted">{row.reason}</span>
+                        <span
+                          className={`ml-1.5 ${
+                            row.activity.dormant ? "text-bip-muted" : "text-bip-text"
+                          }`}
+                          title={row.reason}
+                        >
+                          {row.activity.days === null
+                            ? "no message recorded yet"
+                            : `last message ${row.activity.label}`}
+                          {row.activity.dormant && " · dormant"}
+                        </span>
                       </span>
                       <span className="flex shrink-0 items-center gap-1.5">
                         {key !== "internal" && (

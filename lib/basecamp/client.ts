@@ -19,6 +19,8 @@ export type BasecampApiProject = {
   id: number;
   name: string;
   status?: string;
+  last_event_at?: string | null;
+  updated_at?: string | null;
 };
 
 export type BasecampProjectSummary = {
@@ -26,7 +28,25 @@ export type BasecampProjectSummary = {
   name: string;
   status: string | null;
   normalizedName: string;
+  /**
+   * Basecamp's own "last event" timestamp. **Do not read this as activity.**
+   *
+   * Measured against real message dates it is badly wrong: it reported 0 of 55
+   * unclaimed projects as dormant when 19 of them had not had a message in over
+   * a year. Gerbil Town Veterinary shows 5 months here and 5 years by message;
+   * 30 projects share a value within two seconds of each other because a bulk
+   * account operation touched them all in April 2026.
+   *
+   * For "when did anyone last say anything", use basecamp_projects.last_message_at,
+   * which the sync records from the project's own topic list.
+   */
+  lastEventAt: string | null;
 };
+
+function trimToNull(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
 
 function parseNextLink(linkHeader: string | null) {
   if (!linkHeader) return null;
@@ -179,6 +199,7 @@ export async function fetchAllBasecampProjects(
       name,
       status: typeof row.status === "string" ? row.status : null,
       normalizedName: normalizeName(name),
+      lastEventAt: trimToNull(row.last_event_at) ?? trimToNull(row.updated_at),
     });
   }
   return projects;
@@ -207,6 +228,8 @@ type ClassicApiProject = {
   name?: string;
   status?: string;
   archived?: boolean;
+  last_event_at?: string | null;
+  updated_at?: string | null;
 };
 
 const CLASSIC_PROJECTS_MAX_PAGES = 50;
@@ -265,6 +288,7 @@ export async function fetchAllClassicBasecampProjects(
               ? "archived"
               : "active",
         normalizedName: normalizeName(name),
+        lastEventAt: trimToNull(row.last_event_at) ?? trimToNull(row.updated_at),
       });
     }
 

@@ -4,7 +4,13 @@ import type { BasecampProjectSummary } from "@/lib/basecamp/client";
 import { normalizeClientName } from "@/lib/clients/normalize-name";
 
 function project(id: string, name: string): BasecampProjectSummary {
-  return { id, name, status: "active", normalizedName: normalizeClientName(name) };
+  return {
+    id,
+    name,
+    status: "active",
+    normalizedName: normalizeClientName(name),
+    lastEventAt: null,
+  };
 }
 
 function client(

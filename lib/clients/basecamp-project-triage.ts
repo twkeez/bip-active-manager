@@ -70,3 +70,48 @@ export function triageProjectName(name: string): ProjectTriage {
 
   return { disposition: "unclear", reason: "Name gives nothing away — needs a look" };
 }
+
+/**
+ * How long a project has been silent, said in a way that decides something.
+ *
+ * A name only gets you so far: "Parker Pet Clinic" reads like a live practice
+ * whether the last message was yesterday or in 2023. The age is what separates
+ * a project we are neglecting from a space that was finished with years ago.
+ */
+export type ProjectActivity = {
+  /** "3 days ago", "14 months ago", "never" — short enough to sit beside a name. */
+  label: string;
+  days: number | null;
+  /** Nothing for a year. Almost always safe to ignore, whatever the name says. */
+  dormant: boolean;
+};
+
+/** A year of silence. Past this, a veterinary practice is not being served. */
+export const DORMANT_DAYS = 365;
+
+export function describeProjectActivity(
+  lastEventAt: string | null | undefined,
+  now: Date = new Date(),
+): ProjectActivity {
+  const parsed = lastEventAt ? new Date(lastEventAt) : null;
+  if (!parsed || Number.isNaN(parsed.getTime())) {
+    // Unknown is not the same as old, and must not be presented as either.
+    return { label: "no activity date", days: null, dormant: false };
+  }
+
+  const days = Math.floor((now.getTime() - parsed.getTime()) / 86_400_000);
+  if (days < 0) return { label: "just now", days: 0, dormant: false };
+
+  const label =
+    days === 0
+      ? "today"
+      : days === 1
+        ? "yesterday"
+        : days < 30
+          ? `${days} days ago`
+          : days < 365
+            ? `${Math.floor(days / 30)} months ago`
+            : `${(days / 365).toFixed(days < 730 ? 1 : 0)} years ago`;
+
+  return { label, days, dormant: days >= DORMANT_DAYS };
+}

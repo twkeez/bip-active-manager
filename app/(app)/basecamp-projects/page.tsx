@@ -4,7 +4,10 @@ import { getProfile } from "@/lib/auth/profile";
 import { loadBasecampProjectsForMatch } from "@/lib/basecamp/client";
 import { matchClientsToBasecampProjects } from "@/lib/clients/basecamp-match";
 import { listBasecampProjectIgnores } from "@/lib/clients/basecamp-project-ignores";
-import { triageProjectName } from "@/lib/clients/basecamp-project-triage";
+import {
+  describeProjectActivity,
+  triageProjectName,
+} from "@/lib/clients/basecamp-project-triage";
 import { isClientMarketingTracked } from "@/lib/clients/marketing-tracked";
 import { normalizeClientName } from "@/lib/clients/normalize-name";
 import { findProjectWiringProblems } from "@/lib/coal-mines/project-wiring";
@@ -52,6 +55,19 @@ export default async function BasecampProjectsPage() {
   }
 
   const ignores = await listBasecampProjectIgnores(supabase);
+
+  // The sync records when each project last actually had a message. Basecamp's
+  // own last_event_at is a poor substitute — a bulk account operation moved it
+  // for 30 projects at once — so it is only a fallback for projects the sync
+  // has not reached yet.
+  const { data: syncedProjects } = await supabase
+    .from("basecamp_projects")
+    .select("basecamp_project_id, last_message_at");
+  const lastMessageById = new Map(
+    (syncedProjects ?? [])
+      .filter((row) => row.last_message_at)
+      .map((row) => [row.basecamp_project_id as string, row.last_message_at as string]),
+  );
   const match = matchClientsToBasecampProjects(clients, projects, {
     ignoredProjectIds: new Set(ignores.map((row) => row.basecamp_project_id)),
     marketingTrackedClientsOnly: true,
@@ -100,11 +116,18 @@ export default async function BasecampProjectsPage() {
         projectId: row.suggestedProjectId,
         projectName: row.suggestedProjectName,
       }))}
-      unmatched={match.unmatchedProjects.map((project) => ({
-        projectId: project.projectId,
-        projectName: project.projectName,
-        ...triageProjectName(project.projectName),
-      }))}
+      unmatched={match.unmatchedProjects
+        .map((project) => ({
+          projectId: project.projectId,
+          projectName: project.projectName,
+          ...triageProjectName(project.projectName),
+          activity: describeProjectActivity(
+            lastMessageById.get(project.projectId) ?? null,
+          ),
+        }))
+        // Most recently active first: a project someone posted in last week is
+        // a decision worth making now, one silent for three years is not.
+        .sort((a, b) => (a.activity.days ?? 99_999) - (b.activity.days ?? 99_999))}
       ignored={ignores.map((row) => ({
         projectId: row.basecamp_project_id,
         projectName: row.project_name,

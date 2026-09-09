@@ -23,6 +23,7 @@ export type BasecampUnmatchedProject = {
   projectId: string;
   projectName: string;
   status: string | null;
+  lastEventAt: string | null;
 };
 
 export type BasecampMatchStats = {
@@ -189,6 +190,7 @@ export function matchClientsToBasecampProjects(
       projectId: project.id,
       projectName: project.name,
       status: project.status,
+      lastEventAt: project.lastEventAt,
     };
 
     if (ignoredProjectIds.has(project.id)) {

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { triageProjectName } from "@/lib/clients/basecamp-project-triage";
+import {
+  describeProjectActivity,
+  triageProjectName,
+} from "@/lib/clients/basecamp-project-triage";
 
 describe("triageProjectName", () => {
   it("recognises our own projects", () => {
@@ -44,5 +47,37 @@ describe("triageProjectName", () => {
   it("admits when a name says nothing", () => {
     expect(triageProjectName("Q3 Push").disposition).toBe("unclear");
     expect(triageProjectName("   ").disposition).toBe("unclear");
+  });
+});
+
+describe("describeProjectActivity", () => {
+  const NOW = new Date("2026-09-09T12:00:00Z");
+  const ago = (days: number) => new Date(NOW.getTime() - days * 86_400_000).toISOString();
+
+  it("reads recent activity in days and older in months", () => {
+    expect(describeProjectActivity(ago(0), NOW).label).toBe("today");
+    expect(describeProjectActivity(ago(1), NOW).label).toBe("yesterday");
+    expect(describeProjectActivity(ago(12), NOW).label).toBe("12 days ago");
+    expect(describeProjectActivity(ago(90), NOW).label).toBe("3 months ago");
+  });
+
+  it("marks a year of silence as dormant", () => {
+    expect(describeProjectActivity(ago(364), NOW).dormant).toBe(false);
+    expect(describeProjectActivity(ago(365), NOW).dormant).toBe(true);
+    expect(describeProjectActivity(ago(900), NOW).label).toBe("2 years ago");
+  });
+
+  // Unknown must never read as old — that would argue for ignoring a project
+  // on the strength of missing data.
+  it("does not treat a missing or unparseable date as dormant", () => {
+    for (const value of [null, undefined, "", "not a date"]) {
+      const activity = describeProjectActivity(value, NOW);
+      expect(activity.dormant, String(value)).toBe(false);
+      expect(activity.days).toBeNull();
+    }
+  });
+
+  it("does not go negative on a clock skew", () => {
+    expect(describeProjectActivity(ago(-2), NOW).days).toBe(0);
   });
 });
