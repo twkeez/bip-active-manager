@@ -11,6 +11,7 @@ import {
   Link2,
   Link2Off,
   Loader2,
+  RefreshCw,
   Undo2,
 } from "lucide-react";
 import type {
@@ -293,14 +294,33 @@ export default function BasecampProjectMatcher(props: Props) {
           >
             ← Coal Mines
           </Link>
-          <label className="cursor-pointer text-[11px] text-bip-muted hover:text-bip-text hover:underline">
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() =>
+              void send(
+                "sheet",
+                "/api/master-sheet",
+                "POST",
+                {},
+                "Master sheet refreshed from Drive.",
+              )
+            }
+            className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text hover:underline disabled:opacity-40"
+          >
+            <RefreshCw className="h-3 w-3" />
             {props.sheetSize > 0
-              ? `Master sheet: ${props.sheetSize} practices${
+              ? `Refresh master sheet (${props.sheetSize} practices${
                   props.sheetImportedAt
-                    ? ` · ${new Date(props.sheetImportedAt).toLocaleDateString()}`
+                    ? `, ${new Date(props.sheetImportedAt).toLocaleDateString()}`
                     : ""
-                } · replace`
-              : "Upload the master sheet (CSV)"}
+                })`
+              : "Pull the master sheet from Drive"}
+          </button>
+          {/* Kept for when Drive access breaks or the sheet moves — the button
+              above is the normal path. */}
+          <label className="cursor-pointer text-[11px] text-bip-muted hover:text-bip-text hover:underline">
+            or upload a CSV
             <input
               type="file"
               accept=".csv,text/csv"
@@ -311,13 +331,7 @@ export default function BasecampProjectMatcher(props: Props) {
                 event.target.value = "";
                 if (!file) return;
                 const csv = await file.text();
-                await send(
-                  "sheet",
-                  "/api/master-sheet",
-                  "POST",
-                  { csv },
-                  "Master sheet updated.",
-                );
+                await send("sheet", "/api/master-sheet", "POST", { csv }, "Master sheet updated.");
               }}
             />
           </label>
@@ -327,9 +341,9 @@ export default function BasecampProjectMatcher(props: Props) {
 
       {props.sheetSize === 0 && (
         <div className="rounded-xl border border-bip-border bg-bip-card p-3 text-xs text-bip-muted">
-          No master sheet loaded, so the projects below are grouped by name alone. Uploading it
-          (export the Master tab as CSV) sorts them by whether we actually serve the practice,
-          which is the question that decides whether to import or ignore.
+          No master sheet loaded, so the projects below are grouped by name alone. Pulling it
+          from Drive sorts them by whether we actually serve the practice, which is the question
+          that decides whether to import or ignore.
         </div>
       )}
 
@@ -594,6 +608,15 @@ export default function BasecampProjectMatcher(props: Props) {
                           // how a wrong pair gets caught.
                           <span className="ml-1.5 text-bip-muted">
                             ≈ sheet: {row.sheet.row.practiceName}
+                          </span>
+                        )}
+                        {row.sheet?.confidence === "none" && row.sheet.nearest && (
+                          // Shown only where it matters — this is the group
+                          // that gets ignored in bulk, so a near miss needs to
+                          // be seen before it is buried.
+                          <span className="ml-1.5 text-amber-300">
+                            close to sheet entry &ldquo;{row.sheet.nearest.row.practiceName}
+                            &rdquo; — check
                           </span>
                         )}
                         {row.sheet?.confidence === "exact" && row.sheet.row?.city && (

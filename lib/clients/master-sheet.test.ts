@@ -83,27 +83,71 @@ describe("matchToMasterSheet", () => {
       .toBe("Ten West Bird & Animal Hospital");
   });
 
-  // The false pairs a min-size similarity produced. These are separate
-  // practices and pairing them would argue for the wrong action.
+  // Real pairs from the live sheet that earlier rules got wrong. Each is two
+  // different businesses whose names overlap, and pairing them would have put a
+  // dead project in front of Tom as a live client — or hidden a live one.
   it("does not pair practices that merely share common words", () => {
-    const sheet = [row("Paws and Claws Veterinary Hospital")];
-    expect(matchToMasterSheet("Happy Paws & Claws Veterinary Clinic", sheet).confidence).toBe(
-      "none",
-    );
+    const sheet = [row("Paws Veterinary Clinic"), row("Paws and Claws Veterinary Hospital")];
+    expect(matchToMasterSheet("Happy Paws & Claws Veterinary Clinic", sheet).confidence).toBe("none");
+    expect(matchToMasterSheet("Paws to Claws Veterinary Clinic", sheet).confidence).toBe("none");
   });
 
   it("does not treat a location suffix as the same practice", () => {
     const sheet = [row("PetSmart Veterinary Services - Smyrna")];
     expect(matchToMasterSheet("PetSmart Veterinary Services - Alpharetta", sheet).confidence)
       .toBe("none");
+    // The bare name is a clean prefix of the Smyrna one, which is exactly the
+    // shape a containment test waves through.
+    expect(matchToMasterSheet("PetSmart Veterinary Services", sheet).confidence).toBe("none");
+  });
+
+  it("ignores a state tag, which is a note rather than a different practice", () => {
+    const sheet = [row("RPVH - Bayside Animal Hospital"), row("Trilogy Veterinary Medical Center (UT)")];
+    expect(matchToMasterSheet("RPVH - Bayside Animal Hospital (CA)", sheet).row?.practiceName)
+      .toBe("RPVH - Bayside Animal Hospital");
+    expect(matchToMasterSheet("Trilogy Veterinary Medical Center", sheet).row?.practiceName)
+      .toBe("Trilogy Veterinary Medical Center (UT)");
+  });
+
+  it("matches when only generic words differ", () => {
+    const sheet = [row("Capital Home Veterinary Care"), row("Northside Paws Veterinary Care")];
+    expect(matchToMasterSheet("Capital Home Vet Care", sheet).confidence).toBe("likely");
+    expect(
+      matchToMasterSheet("Northside Paws Veterinary Care (Frank Veterinary Services)", sheet)
+        .confidence,
+    ).toBe("likely");
+  });
+
+  // Every word is generic once trimmed, so there is no distinctive core to
+  // compare and whole-name similarity has to carry it.
+  it("still matches names made entirely of generic words", () => {
+    const sheet = [row("Animal Medical Hospital & Urgent Care (NC)")];
+    expect(matchToMasterSheet("Animal Medical Hospital & Urgent Care", sheet).confidence)
+      .toBe("likely");
   });
 
   it("reports nothing when the practice is genuinely absent", () => {
     const sheet = [row("Paws and Claws Veterinary Hospital")];
-    expect(matchToMasterSheet("Gerbil Town Veterinary", sheet)).toEqual({
+    expect(matchToMasterSheet("Gerbil Town Veterinary", sheet)).toMatchObject({
       confidence: "none",
       row: null,
     });
+  });
+
+  // A missed match is the dangerous one: it drops a live client into the group
+  // that gets ignored in bulk. Live data had "Robert Santos" on a project and
+  // "Rob Santos" on the sheet, which no token rule will pair.
+  it("names the closest sheet entry when nothing matched", () => {
+    const result = matchToMasterSheet("PetSmart Veterinary Services", [
+      row("PetSmart Veterinary Services - Smyrna"),
+    ]);
+    expect(result.confidence).toBe("none");
+    expect(result.nearest?.row.practiceName).toBe("PetSmart Veterinary Services - Smyrna");
+  });
+
+  it("offers no near miss when nothing is remotely close", () => {
+    expect(matchToMasterSheet("Gerbil Town Veterinary", [row("Adobe Animal Hospital")]).nearest)
+      .toBeNull();
   });
 
   it("never claims better than 'likely' for a fuzzy hit", () => {

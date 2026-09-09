@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { parseMasterSheet } from "@/lib/clients/master-sheet";
+import { parseMasterSheet, parseMasterSheetRows } from "@/lib/clients/master-sheet";
+import { fetchMasterSheetRows } from "@/lib/google/master-sheet-source";
 import { getProfile } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -7,7 +8,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const maxDuration = 60;
 
 /**
- * Upload the master sheet as CSV.
+ * Refresh the master sheet.
+ *
+ * With no body it pulls the sheet straight from Drive, which is the normal
+ * path — Tom edits the sheet, presses the button. A `csv` body still works as a
+ * fallback for when Drive access is broken or the sheet has moved.
  *
  * Replaces every row rather than merging: the sheet is the source of truth, and
  * a practice dropping off it is information — merging would keep a stale row
@@ -21,18 +26,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let csv: string;
-  try {
-    const body = (await request.json()) as { csv?: string };
-    csv = body.csv ?? "";
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-  if (!csv.trim()) {
-    return NextResponse.json({ error: "No CSV content provided." }, { status: 400 });
-  }
+  const body = (await request.json().catch(() => ({}))) as { csv?: string };
+  const csv = (body.csv ?? "").trim();
 
-  const rows = parseMasterSheet(csv);
+  let rows;
+  let source: "drive" | "upload";
+  if (csv) {
+    source = "upload";
+    rows = parseMasterSheet(csv);
+  } else {
+    source = "drive";
+    try {
+      rows = parseMasterSheetRows(await fetchMasterSheetRows());
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Could not read the master sheet." },
+        { status: 502 },
+      );
+    }
+  }
   if (rows.length === 0) {
     return NextResponse.json(
       {
@@ -83,5 +95,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, imported: payload.length });
+  return NextResponse.json({ ok: true, imported: payload.length, source });
 }

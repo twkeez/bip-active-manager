@@ -68,7 +68,15 @@ const clean = (value: string | undefined) => {
  * a living Google Doc with grouped headers, and columns move.
  */
 export function parseMasterSheet(csv: string): MasterSheetRow[] {
-  const rows = parseCsv(csv);
+  return parseMasterSheetRows(parseCsv(csv));
+}
+
+/**
+ * The same reading, from rows rather than CSV text — the Sheets API hands back
+ * a grid directly, and round-tripping it through CSV only adds a way to get
+ * quoting wrong.
+ */
+export function parseMasterSheetRows(rows: string[][]): MasterSheetRow[] {
   const headerIndex = rows.findIndex((row) =>
     row.some((cell) => cell.trim().toLowerCase() === "practice name"),
   );
@@ -140,20 +148,56 @@ export type MasterSheetMatch = {
   /** "exact" and "likely" both found something; "none" did not. */
   confidence: "exact" | "likely" | "none";
   row: MasterSheetRow | null;
+  /**
+   * The closest thing on the sheet when nothing matched.
+   *
+   * A wrong match is visible and gets rejected; a *missed* one is silent, and
+   * it puts a live client in the group that gets ignored in bulk. Live data
+   * had two: "Robert Santos" against the sheet's "Rob Santos", and a bare
+   * "PetSmart Veterinary Services" against its Smyrna entry.
+   */
+  nearest: { row: MasterSheetRow; score: number } | null;
 };
 
 /**
- * A location suffix is the difference between two real, separate practices —
- * "PetSmart Veterinary Services" and "PetSmart Veterinary Services - Smyrna"
- * are not the same clinic. A name that is a clean prefix of a longer one is
- * therefore not enough on its own.
+ * Words every practice shares. What is left after removing them is the part
+ * that identifies a specific business — "volunteer", "petsmart", "dominion".
  */
-function overlap(a: Set<string>, b: Set<string>) {
-  let shared = 0;
-  for (const token of a) if (b.has(token)) shared++;
-  const containment = shared / Math.min(a.size, b.size);
-  const jaccard = shared / (a.size + b.size - shared);
-  return { containment, jaccard };
+const GENERIC = new Set([
+  "vet", "animal", "pet", "hospital", "clinic", "center", "care", "services",
+  "service", "medical", "urgent", "emergency", "surgery", "surgical", "practice",
+  "group", "specialists", "specialist", "veterinarians", "health", "wellness",
+  "referral", "companion", "family", "home", "mobile",
+]);
+
+/** "(CA)", "(NC)" — a state tag is a note, not a different practice. */
+const STATE_CODE = /^[a-z]{2}$/;
+const STATES = new Set([
+  "al","ak","az","ar","ca","co","ct","de","fl","ga","hi","id","il","in","ia","ks",
+  "ky","la","me","md","ma","mi","mn","ms","mo","mt","ne","nv","nh","nj","nm","ny",
+  "nc","nd","oh","ok","or","pa","ri","sc","sd","tn","tx","ut","vt","va","wa","wv",
+  "wi","wy","dc",
+]);
+
+/** Parentheticals are notes — "(OLD)", "(previously Bitterroot)", "(NC)". */
+function stripParentheticals(value: string) {
+  return value.replace(/\([^)]*\)/g, " ");
+}
+
+function distinctiveTokens(value: string) {
+  const out = new Set<string>();
+  for (const token of nameTokens(stripParentheticals(value))) {
+    if (GENERIC.has(token)) continue;
+    if (STATE_CODE.test(token) && STATES.has(token)) continue;
+    out.add(token);
+  }
+  return out;
+}
+
+function setsEqual(a: Set<string>, b: Set<string>) {
+  if (a.size !== b.size) return false;
+  for (const value of a) if (!b.has(value)) return false;
+  return true;
 }
 
 export function matchToMasterSheet(
@@ -162,20 +206,41 @@ export function matchToMasterSheet(
 ): MasterSheetMatch {
   const normalized = normalizeClientName(projectName);
   const exact = sheet.find((row) => row.normalizedName === normalized);
-  if (exact) return { confidence: "exact", row: exact };
+  if (exact) return { confidence: "exact", row: exact, nearest: null };
 
-  const projectTokens = nameTokens(projectName);
-  if (projectTokens.size === 0) return { confidence: "none", row: null };
+  const projectCore = distinctiveTokens(projectName);
+  const projectAll = nameTokens(stripParentheticals(projectName));
+  if (projectAll.size === 0) return { confidence: "none", row: null, nearest: null };
 
-  let best: { row: MasterSheetRow; jaccard: number } | null = null;
+  let nearest: { row: MasterSheetRow; score: number } | null = null;
+
   for (const row of sheet) {
-    const { containment, jaccard } = overlap(projectTokens, nameTokens(row.practiceName));
-    // Both measures must agree. Containment alone promotes prefixes, and
-    // Jaccard alone punishes the "Volunteer Vet" / "Volunteer Veterinary
-    // Hospital" case that we do want to catch.
-    if (containment >= 0.9 && jaccard >= 0.5 && (!best || jaccard > best.jaccard)) {
-      best = { row, jaccard };
+    const sheetCore = distinctiveTokens(row.practiceName);
+
+    // The identifying part has to be the same on both sides. A strict subset is
+    // not enough, and that is the whole point: "PetSmart Veterinary Services"
+    // sits inside "PetSmart Veterinary Services - Smyrna", and "Paws" sits
+    // inside "Happy Paws & Claws", but each pair is two different businesses.
+    if (projectCore.size > 0 && setsEqual(projectCore, sheetCore)) {
+      return { confidence: "likely", row, nearest: null };
     }
+
+    // Some names are entirely generic once trimmed — "Animal Medical Hospital &
+    // Urgent Care" keeps nothing. There, fall back to whole-name similarity.
+    if (projectCore.size === 0 && sheetCore.size === 0) {
+      const sheetAll = nameTokens(stripParentheticals(row.practiceName));
+      let shared = 0;
+      for (const token of projectAll) if (sheetAll.has(token)) shared++;
+      const jaccard = shared / (projectAll.size + sheetAll.size - shared);
+      if (jaccard >= 0.8) return { confidence: "likely", row, nearest: null };
+    }
+
+    const sheetAll = nameTokens(stripParentheticals(row.practiceName));
+    let shared = 0;
+    for (const token of projectAll) if (sheetAll.has(token)) shared++;
+    const score = shared / (projectAll.size + sheetAll.size - shared);
+    if (score > 0.3 && (!nearest || score > nearest.score)) nearest = { row, score };
   }
-  return best ? { confidence: "likely", row: best.row } : { confidence: "none", row: null };
+
+  return { confidence: "none", row: null, nearest };
 }
