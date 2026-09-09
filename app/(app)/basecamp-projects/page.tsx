@@ -9,6 +9,7 @@ import {
   triageProjectName,
 } from "@/lib/clients/basecamp-project-triage";
 import { isClientMarketingTracked } from "@/lib/clients/marketing-tracked";
+import { matchToMasterSheet, type MasterSheetRow } from "@/lib/clients/master-sheet";
 import { normalizeClientName } from "@/lib/clients/normalize-name";
 import { findProjectWiringProblems } from "@/lib/coal-mines/project-wiring";
 import type { BasecampProjectSummary } from "@/lib/basecamp/client";
@@ -60,6 +61,19 @@ export default async function BasecampProjectsPage() {
   // own last_event_at is a poor substitute — a bulk account operation moved it
   // for 30 projects at once — so it is only a fallback for projects the sync
   // has not reached yet.
+  const { data: sheetRaw } = await supabase
+    .from("master_sheet_practices")
+    .select("practice_name, normalized_name, url, city, state, package_value, strategist, imported_at");
+  const sheet: MasterSheetRow[] = (sheetRaw ?? []).map((row) => ({
+    practiceName: row.practice_name as string,
+    normalizedName: row.normalized_name as string,
+    url: row.url as string | null,
+    city: row.city as string | null,
+    state: row.state as string | null,
+    packageValue: row.package_value as string | null,
+    strategist: row.strategist as string | null,
+  }));
+
   const { data: syncedProjects } = await supabase
     .from("basecamp_projects")
     .select("basecamp_project_id, last_message_at");
@@ -124,6 +138,7 @@ export default async function BasecampProjectsPage() {
           activity: describeProjectActivity(
             lastMessageById.get(project.projectId) ?? null,
           ),
+          sheet: sheet.length ? matchToMasterSheet(project.projectName, sheet) : null,
         }))
         // Most recently active first: a project someone posted in last week is
         // a decision worth making now, one silent for three years is not.
@@ -134,6 +149,8 @@ export default async function BasecampProjectsPage() {
         reason: row.reason,
       }))}
       accountId={process.env.BASECAMP_ACCOUNT_ID?.trim() || null}
+      sheetSize={sheet.length}
+      sheetImportedAt={(sheetRaw?.[0]?.imported_at as string | undefined) ?? null}
       strategists={[
         ...new Set(
           clients

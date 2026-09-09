@@ -17,6 +17,7 @@ import type {
   ProjectActivity,
   ProjectDisposition,
 } from "@/lib/clients/basecamp-project-triage";
+import type { MasterSheetMatch } from "@/lib/clients/master-sheet";
 
 /**
  * The screen for connecting client records to Basecamp projects.
@@ -55,6 +56,8 @@ type UnmatchedRow = {
   disposition: ProjectDisposition;
   reason: string;
   activity: ProjectActivity;
+  /** Null when no master sheet has been uploaded. */
+  sheet: MasterSheetMatch | null;
 };
 
 type IgnoredRow = { projectId: string; projectName: string; reason: string | null };
@@ -75,6 +78,8 @@ type Props = {
   ignored: IgnoredRow[];
   strategists: string[];
   accountId: string | null;
+  sheetSize: number;
+  sheetImportedAt: string | null;
 };
 
 
@@ -140,8 +145,36 @@ function ProjectLink({
   );
 }
 
-const DISPOSITION_ORDER: ProjectDisposition[] = ["practice", "unclear", "internal"];
-const DISPOSITION_COPY: Record<ProjectDisposition, { title: string; blurb: string }> = {
+/**
+ * How the unclaimed projects are grouped.
+ *
+ * Without the master sheet, all we have is the project's name and how long it
+ * has been silent — a weak basis for 50-odd decisions. With the sheet, the
+ * question becomes "do we serve this practice?", which is the one that actually
+ * decides, so the grouping changes to match.
+ */
+type GroupKey = "ours" | "on-sheet" | "absent-active" | "absent-silent" | ProjectDisposition;
+
+const GROUP_COPY: Record<GroupKey, { title: string; blurb: string }> = {
+  ours: {
+    title: "Ours",
+    blurb: "Our own projects, by name. Ignoring one keeps it off this list — it stays reversible.",
+  },
+  "on-sheet": {
+    title: "On the master sheet",
+    blurb:
+      "A practice we serve. Link it to its client record, or import it if we have none. Fuzzy name matches are shown so you can check them — the sheet and Basecamp rarely word a name the same way.",
+  },
+  "absent-active": {
+    title: "Not on the sheet, but still active",
+    blurb:
+      "No match on the master sheet, yet someone posted recently. Worth opening before you decide — it may be a practice missing from the sheet.",
+  },
+  "absent-silent": {
+    title: "Not on the sheet, and silent over a year",
+    blurb:
+      "Absent from the master sheet with no message in more than a year. This is the group that is safe to ignore in bulk.",
+  },
   practice: {
     title: "Look like practices",
     blurb:
@@ -156,6 +189,19 @@ const DISPOSITION_COPY: Record<ProjectDisposition, { title: string; blurb: strin
     blurb: "Our own projects. Ignoring one keeps it out of this list for good — it stays reversible.",
   },
 };
+
+const WITH_SHEET: GroupKey[] = ["on-sheet", "absent-active", "absent-silent", "ours"];
+const WITHOUT_SHEET: GroupKey[] = ["practice", "unclear", "internal"];
+
+function groupFor(row: UnmatchedRow, hasSheet: boolean): GroupKey {
+  if (!hasSheet) return row.disposition;
+  // Name wins over the sheet here: we are a row on our own master sheet, so
+  // "Beyond Indigo Blog Communication" matches it and would otherwise be
+  // presented as a client practice.
+  if (row.disposition === "internal") return "ours";
+  if (row.sheet && row.sheet.confidence !== "none") return "on-sheet";
+  return row.activity.dormant ? "absent-silent" : "absent-active";
+}
 
 export default function BasecampProjectMatcher(props: Props) {
   const router = useRouter();
@@ -172,13 +218,16 @@ export default function BasecampProjectMatcher(props: Props) {
   // the client. Importing those would create a second record for one practice.
   const [linkTo, setLinkTo] = useState<Record<string, string>>({});
 
+  const hasSheet = props.sheetSize > 0;
   const byDisposition = useMemo(() => {
-    const groups = new Map<ProjectDisposition, UnmatchedRow[]>();
+    const groups = new Map<GroupKey, UnmatchedRow[]>();
     for (const row of props.unmatched) {
-      groups.set(row.disposition, [...(groups.get(row.disposition) ?? []), row]);
+      const key = groupFor(row, hasSheet);
+      groups.set(key, [...(groups.get(key) ?? []), row]);
     }
     return groups;
-  }, [props.unmatched]);
+  }, [props.unmatched, hasSheet]);
+  const groupOrder = hasSheet ? WITH_SHEET : WITHOUT_SHEET;
 
   async function send(key: string, url: string, method: string, body: unknown, done: string) {
     setBusy(key);
@@ -237,13 +286,52 @@ export default function BasecampProjectMatcher(props: Props) {
           Anything tracked but unlinked is invisible to the thread monitor: not quiet,
           unwatched.
         </p>
-        <Link
-          href="/coal-mines"
-          className="mt-1 inline-block text-[11px] text-bip-muted hover:text-bip-text hover:underline"
-        >
-          ← Coal Mines
-        </Link>
+        <div className="mt-1 flex flex-wrap items-center gap-3">
+          <Link
+            href="/coal-mines"
+            className="text-[11px] text-bip-muted hover:text-bip-text hover:underline"
+          >
+            ← Coal Mines
+          </Link>
+          <label className="cursor-pointer text-[11px] text-bip-muted hover:text-bip-text hover:underline">
+            {props.sheetSize > 0
+              ? `Master sheet: ${props.sheetSize} practices${
+                  props.sheetImportedAt
+                    ? ` · ${new Date(props.sheetImportedAt).toLocaleDateString()}`
+                    : ""
+                } · replace`
+              : "Upload the master sheet (CSV)"}
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              disabled={busy !== null}
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                const csv = await file.text();
+                await send(
+                  "sheet",
+                  "/api/master-sheet",
+                  "POST",
+                  { csv },
+                  "Master sheet updated.",
+                );
+              }}
+            />
+          </label>
+          {busy === "sheet" && <Loader2 className="h-3 w-3 animate-spin text-bip-muted" />}
+        </div>
       </header>
+
+      {props.sheetSize === 0 && (
+        <div className="rounded-xl border border-bip-border bg-bip-card p-3 text-xs text-bip-muted">
+          No master sheet loaded, so the projects below are grouped by name alone. Uploading it
+          (export the Master tab as CSV) sorts them by whether we actually serve the practice,
+          which is the question that decides whether to import or ignore.
+        </div>
+      )}
 
       {props.loadError && (
         <div className="rounded-xl border border-red-500/40 bg-bip-card p-4 text-xs text-red-300">
@@ -460,19 +548,21 @@ export default function BasecampProjectMatcher(props: Props) {
           )}
 
           <div className="space-y-4">
-            {DISPOSITION_ORDER.filter((key) => byDisposition.get(key)?.length).map((key) => (
+            {groupOrder.filter((key) => byDisposition.get(key)?.length).map((key) => (
               <div key={key}>
                 <p className="text-[11px] font-semibold text-bip-text">
-                  {DISPOSITION_COPY[key].title}{" "}
+                  {GROUP_COPY[key].title}{" "}
                   <span className="font-normal text-bip-muted">
                     ({byDisposition.get(key)!.length})
                   </span>
                 </p>
-                <p className="mt-0.5 text-[11px] text-bip-muted">{DISPOSITION_COPY[key].blurb}</p>
+                <p className="mt-0.5 text-[11px] text-bip-muted">{GROUP_COPY[key].blurb}</p>
                 {(() => {
                   const rows = byDisposition.get(key)!;
                   const dormant = rows.filter((r) => r.activity.dormant).length;
-                  return dormant > 0 ? (
+                  // Pointless under a heading that already says "silent over a
+                  // year" — every row in that group qualifies by definition.
+                  return dormant > 0 && key !== "absent-silent" ? (
                     <p className="mt-0.5 text-[11px] text-bip-muted">
                       {dormant} of these {dormant === 1 ? "has" : "have"} had no activity in
                       over a year.
@@ -498,9 +588,23 @@ export default function BasecampProjectMatcher(props: Props) {
                             : `last message ${row.activity.label}`}
                           {row.activity.dormant && " · dormant"}
                         </span>
+                        {row.sheet?.confidence === "likely" && row.sheet.row && (
+                          // Named in full because the match is a guess. Seeing
+                          // "Paws and Claws" against "Happy Paws & Claws" is
+                          // how a wrong pair gets caught.
+                          <span className="ml-1.5 text-bip-muted">
+                            ≈ sheet: {row.sheet.row.practiceName}
+                          </span>
+                        )}
+                        {row.sheet?.confidence === "exact" && row.sheet.row?.city && (
+                          <span className="ml-1.5 text-bip-muted">
+                            {row.sheet.row.city}
+                            {row.sheet.row.state ? `, ${row.sheet.row.state}` : ""}
+                          </span>
+                        )}
                       </span>
                       <span className="flex shrink-0 items-center gap-1.5">
-                        {key !== "internal" && (
+                        {key !== "internal" && key !== "ours" && (
                           <>
                             <select
                               value={linkTo[row.projectId] ?? ""}
@@ -554,7 +658,7 @@ export default function BasecampProjectMatcher(props: Props) {
                         {/* No Import on our own projects — creating a client
                             record for Beyond Indigo Newsstand is never right,
                             and the button being there invites the mistake. */}
-                        {key !== "internal" && (
+                        {key !== "internal" && key !== "ours" && (
                         <button
                           type="button"
                           disabled={busy !== null}
