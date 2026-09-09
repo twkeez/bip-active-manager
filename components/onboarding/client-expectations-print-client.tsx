@@ -30,7 +30,15 @@ export default function ClientExpectationsPrintClient({
           .report-print-target h1, .report-print-target h2 { break-after: avoid; }
         }
       `}</style>
-      <div className="no-print mx-auto flex max-w-3xl justify-end px-8 pt-4">
+      <div className="no-print mx-auto flex max-w-3xl items-center justify-between gap-4 px-8 pt-4">
+        {/* The browser stamps the date, page title and URL onto every printed
+            page, which reads as a screenshot rather than a document. No CSS can
+            turn that off — only the checkbox — so the reminder lives here. */}
+        <p className="text-xs text-gray-500">
+          In the print dialog, open <strong>More settings</strong> and untick{" "}
+          <strong>Headers and footers</strong> — otherwise the date and this page&rsquo;s URL
+          print on every page.
+        </p>
         <button
           type="button"
           onClick={() => window.print()}
