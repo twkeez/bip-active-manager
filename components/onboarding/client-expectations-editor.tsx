@@ -15,7 +15,7 @@ import {
   type ExpectationBlock,
   type ServiceTier,
 } from "@/lib/onboarding/service-expectations";
-import { getServiceTierTable } from "@/lib/services/tier-content";
+import type { ServiceTierTable } from "@/lib/services/tier-content";
 import { resolveScopeRows } from "@/lib/services/client-plan";
 
 import type { GlossaryTerm } from "@/lib/onboarding/expectation-glossary";
@@ -37,9 +37,17 @@ const SCOPE_TABLE_KEY: Record<ClientServiceKey, string | null> = {
  * table "What this tier includes" shows. It is there so drift is visible while
  * writing: a tier's text should never promise anything missing from this list.
  */
-function ScopeReference({ service, tier }: { service: ClientServiceKey; tier: ServiceTier }) {
+function ScopeReference({
+  service,
+  tier,
+  tables,
+}: {
+  service: ClientServiceKey;
+  tier: ServiceTier;
+  tables: ServiceTierTable[];
+}) {
   const tableKey = SCOPE_TABLE_KEY[service];
-  const table = tableKey ? getServiceTierTable(tableKey) : undefined;
+  const table = tableKey ? tables.find((candidate) => candidate.key === tableKey) : undefined;
   const rows = table ? resolveScopeRows(table, tier) : [];
   if (rows.length === 0) {
     return (
@@ -88,7 +96,14 @@ function Textarea({
   );
 }
 
-export default function ClientExpectationsEditor({ clients }: { clients: ClientOption[] }) {
+export default function ClientExpectationsEditor({
+  clients,
+  tierTables,
+}: {
+  clients: ClientOption[];
+  /** The published tiers — the same source as /services. */
+  tierTables: ServiceTierTable[];
+}) {
   const [bodies, setBodies] = useState<Record<string, string>>(emptyBodies);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -287,7 +302,7 @@ export default function ClientExpectationsEditor({ clients }: { clients: ClientO
                       value={bodies[key] ?? ""}
                       onChange={(v) => updateBody(key, v)}
                     />
-                    <ScopeReference service={service} tier={tier} />
+                    <ScopeReference service={service} tier={tier} tables={tierTables} />
                   </div>
                 );
               })}

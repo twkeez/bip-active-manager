@@ -73,14 +73,19 @@ export default function ServiceTiersView({ tables }: { tables: ServiceTierTable[
                 </th>
                 {row.cells.map((bullets, i) => (
                   <td key={i} className="border-b border-l border-bip-border p-3">
-                    <ul className="space-y-1.5">
-                      {bullets.map((b, j) => (
-                        <li key={j} className="flex items-start gap-1.5 text-sm text-bip-text">
-                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: MAGENTA }} />
-                          <span>{b}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    {bullets.length === 0 ? (
+                      // Empty means this tier does not include it.
+                      <span className="text-sm text-bip-muted">—</span>
+                    ) : (
+                      <ul className="space-y-1.5">
+                        {bullets.map((b, j) => (
+                          <li key={j} className="flex items-start gap-1.5 text-sm text-bip-text">
+                            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: MAGENTA }} />
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </td>
                 ))}
               </tr>

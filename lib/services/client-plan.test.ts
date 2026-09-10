@@ -144,3 +144,19 @@ describe("buildClientPlan", () => {
     expect(plan[1]).toMatchObject({ service: "ppc", tierKey: "foundation", kind: "tiered" });
   });
 });
+
+describe("resolveScopeRows — empty rows", () => {
+  const seo = SERVICE_TIER_TABLES.find((t) => t.key === "seo")!;
+
+  // SEO Foundation's "Content & Reach" held only the NAP line, removed
+  // 2026-09-10. An empty row would print as a heading with nothing under it.
+  it("leaves out a row the tier gets nothing in", () => {
+    const rows = resolveScopeRows(seo, "foundation");
+    expect(rows.every((row) => row.items.length > 0)).toBe(true);
+    expect(rows.map((row) => row.label)).not.toContain("Content & Reach");
+  });
+
+  it("still shows that row from the tier where it starts", () => {
+    expect(resolveScopeRows(seo, "premium").map((row) => row.label)).toContain("Content & Reach");
+  });
+});

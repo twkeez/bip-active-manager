@@ -66,7 +66,9 @@ export const SERVICE_TIER_TABLES: ServiceTierTable[] = [
         label: "Content & Reach",
         note: "Primary Premium Plus differentiator",
         cells: [
-          ["Local foundation (NAP consistency)"],
+          // "Local foundation (NAP consistency)" removed 2026-09-10: no listing or
+          // directory work is done, and the expectations copy no longer promises it.
+          [],
           ["Local high-intent keyword targeting"],
           ["Monthly SEO blog", "Dual-radius (local + regional) strategy", "Answer-engine optimization (AEO)"],
         ],

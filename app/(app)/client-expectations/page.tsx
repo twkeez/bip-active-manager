@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth/profile";
 import ClientExpectationsEditor from "@/components/onboarding/client-expectations-editor";
+import { SERVICE_TIER_TABLES, type ServiceTierTable } from "@/lib/services/tier-content";
 
 export default async function ClientExpectationsPage() {
   const supabase = await createClient();
@@ -19,6 +20,17 @@ export default async function ClientExpectationsPage() {
     .order("account_name", { ascending: true });
   const clients = (clientRows ?? []) as Array<{ id: number; account_name: string }>;
 
+  // The tiers as published on /services: the saved copy edited there, falling
+  // back to the built-in file. The editor shows each tier's scope beside its
+  // copy, and it must be the scope actually on offer — the built-in file had
+  // drifted well away from the saved version.
+  const { data: tierRow } = await supabase
+    .from("service_content")
+    .select("data")
+    .eq("content_key", "tiers")
+    .maybeSingle();
+  const tierTables = ((tierRow?.data as ServiceTierTable[] | null) ?? SERVICE_TIER_TABLES);
+
   return (
     <div className="mx-auto w-full max-w-3xl p-6">
       <div className="mb-4">
@@ -28,7 +40,7 @@ export default async function ClientExpectationsPage() {
           PDF or Word document for any client.
         </p>
       </div>
-      <ClientExpectationsEditor clients={clients} />
+      <ClientExpectationsEditor clients={clients} tierTables={tierTables} />
     </div>
   );
 }

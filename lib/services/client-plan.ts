@@ -113,14 +113,22 @@ export function resolveScopeRows(
   const tierIndex = table.tiers.findIndex((tier) => tier.key === tierKey);
   if (tierIndex < 0) return [];
 
-  return table.rows.map((row) => ({
-    label: row.label,
-    note: row.note,
-    items: row.cells
-      .slice(0, tierIndex + 1)
-      .flat()
-      .map((item) => item.replace(/^\+\s*/, "")),
-  }));
+  return (
+    table.rows
+      .map((row) => ({
+        label: row.label,
+        note: row.note,
+        items: row.cells
+          .slice(0, tierIndex + 1)
+          .flat()
+          .map((item) => item.replace(/^\+\s*/, ""))
+          .filter(Boolean),
+      }))
+      // A row this tier gets nothing in is left out rather than shown as an
+      // empty heading — Social Foundation's saved cells are all empty, and
+      // SEO Foundation's "Content & Reach" was its NAP line alone.
+      .filter((row) => row.items.length > 0)
+  );
 }
 
 /**
