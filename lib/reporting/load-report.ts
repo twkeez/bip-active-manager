@@ -6,8 +6,6 @@ import type {
   KeywordHealthRow,
   StrategistSummaryResult,
 } from "@/lib/types/client";
-import type { PlaybookItem } from "@/lib/playbook/types";
-import { runVerifications } from "@/lib/playbook/verify";
 import {
   buildBaselineTechnicalFindings,
   buildClientReportModel,
@@ -17,6 +15,7 @@ import {
   buildReportingKpis,
   computeClientUrgencyScore,
 } from "@/lib/reporting/build-report";
+import { loadPlaybookChecklist } from "@/lib/reporting/playbook-checklist";
 import { DEFAULT_REPORT_CONFIG, mergeReportConfig, type ReportConfig } from "@/lib/reporting/report-config-types";
 import type { ClientReportModel } from "@/lib/reporting/types";
 import type { ManagedKeyword } from "@/lib/reporting/types";
@@ -68,31 +67,7 @@ export async function loadReportForClient(
     isActive: row.is_active,
   }));
 
-  const activeTierKeys = [client.seo, client.ppc, client.smm, client.orm, client.blog].filter(
-    (v): v is string => Boolean(v?.trim()),
-  );
-  const { data: playbookRaw } = activeTierKeys.length > 0
-    ? await supabase
-        .from("playbook_items")
-        .select("id,title,category,tier_key,type,auto_verify_key,sort_order,is_active")
-        .in("tier_key", activeTierKeys)
-        .eq("is_active", true)
-        .order("sort_order")
-        .order("id")
-    : { data: [] as PlaybookItem[] };
-  const playbookItems = (playbookRaw ?? []) as PlaybookItem[];
-  const playbookChecklist = playbookItems.map((item) => {
-    const verifyResult = item.auto_verify_key ? runVerifications([item.auto_verify_key], client)[0] ?? null : null;
-    return {
-      id: item.id,
-      title: item.title,
-      category: item.category,
-      tier_key: item.tier_key,
-      type: item.type,
-      status: verifyResult ? ((verifyResult.pass ? "pass" : "fail") as "pass" | "fail") : ("manual" as "manual"),
-      verify_label: verifyResult?.label ?? null,
-    };
-  });
+  const playbookChecklist = await loadPlaybookChecklist(supabase, client);
 
   const {
     adsSnapshot,
