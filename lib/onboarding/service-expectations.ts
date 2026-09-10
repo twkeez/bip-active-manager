@@ -42,7 +42,9 @@ export const SERVICE_EXPECTATION_LABEL: Record<ClientServiceKey, string> = {
 /** Friendly labels for each structured field, shown in the editor and document. */
 export const EXPECTATION_FIELD_LABEL: Record<ExpectationField, string> = {
   expect: "What to expect",
-  limits: "What this isn't",
+  // Was "What this isn't". Four negative headings in a welcome document set the
+  // wrong tone; the content underneath is unchanged.
+  limits: "Good to know",
   need: "What we need from you",
   recommend: "Our recommendations",
 };
@@ -172,10 +174,54 @@ export function serviceSectionTitle(
   return section.planLabel ? `${section.label} · ${section.planLabel}` : section.label;
 }
 
+export type ChecklistItem = { text: string; serviceLabel: string };
+
+const normaliseItem = (text: string) =>
+  text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+
+/**
+ * Everything the client has to do, in one list.
+ *
+ * "What we need from you" was split across every service section, so a
+ * practice manager had to read the whole document to build their own to-do
+ * list — and it is the only part of the document that asks them to act. Bullet
+ * lines become items; a block with no bullets becomes a single item.
+ *
+ * Duplicates across services are dropped, keeping the fuller wording: SEO asks
+ * for "access to your Google Business Profile and Google Search Console" and
+ * Reviews for "access to your Google Business Profile", which is one task.
+ */
+export function buildKickoffChecklist(services: ExpectationServiceSection[]): ChecklistItem[] {
+  const items: ChecklistItem[] = [];
+  for (const service of services) {
+    const lines = service.need.split("\n").map((line) => line.trim()).filter(Boolean);
+    const bulleted = lines.filter((line) => /^[•\-*]\s*/.test(line));
+    const texts =
+      bulleted.length > 0
+        ? bulleted.map((line) => line.replace(/^[•\-*]\s*/, "").trim())
+        : service.need.trim()
+          ? [service.need.trim()]
+          : [];
+    for (const text of texts) if (text) items.push({ text, serviceLabel: service.label });
+  }
+
+  return items.filter((item, index) => {
+    const own = normaliseItem(item.text);
+    return !items.some((other, otherIndex) => {
+      if (otherIndex === index) return false;
+      const theirs = normaliseItem(other.text);
+      if (own === theirs) return otherIndex < index; // same task twice: keep the first
+      return theirs.includes(own); // covered by a fuller item: drop this one
+    });
+  });
+}
+
 export type ServiceExpectationsModel = {
   intro: string;
   timetable: string;
   services: ExpectationServiceSection[];
+  /** "What we need from you" across all services, deduplicated — printed as one checklist. */
+  checklist: ChecklistItem[];
   /** Definitions for the services this client bought. May be empty. */
   glossary: GlossaryTerm[];
   closing: string;
@@ -239,6 +285,7 @@ export function assembleServiceExpectations(
     intro: merge("intro"),
     timetable: merge("timetable"),
     services,
+    checklist: buildKickoffChecklist(services),
     glossary: selectGlossaryTerms(ctx.glossary ?? [], ctx.activeServices).map((term) => ({
       ...term,
       definition: applyExpectationMergeFields(term.definition, ctx),

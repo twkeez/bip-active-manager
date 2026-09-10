@@ -259,7 +259,11 @@ export default function ClientExpectationsEditor({ clients }: { clients: ClientO
                 label={
                   isFallback
                     ? `${EXPECTATION_FIELD_LABEL.expect} — fallback, used only when the client's tier below has nothing written`
-                    : EXPECTATION_FIELD_LABEL[field]
+                    : field === "need"
+                      ? `${EXPECTATION_FIELD_LABEL.need} — one task per line, starting with •. Every service's tasks are combined into one "What we need from you" checklist near the top, with duplicates removed`
+                      : field === "limits"
+                        ? `${EXPECTATION_FIELD_LABEL.limits} — what this service won't do, said plainly`
+                        : EXPECTATION_FIELD_LABEL[field]
                 }
                 value={bodies[key] ?? ""}
                 onChange={(v) => updateBody(key, v)}

@@ -3,6 +3,7 @@ import {
   SERVICE_EXPECTATION_BLOCK_KEYS,
   applyExpectationMergeFields,
   assembleServiceExpectations,
+  buildKickoffChecklist,
   cityForCopy,
   resolveServiceTier,
   serviceSectionTitle,
@@ -207,5 +208,55 @@ describe("merge fields", () => {
       ],
     });
     expect(model.glossary[0].definition).toBe('Like "emergency vet in Oshawa".');
+  });
+});
+
+describe("kickoff checklist", () => {
+  const section = (label: string, need: string) => ({
+    key: "seo" as const,
+    label,
+    planLabel: null,
+    expect: "",
+    limits: "",
+    need,
+    recommend: "",
+  });
+
+  it("gathers every service's bullets into one list, in order", () => {
+    const list = buildKickoffChecklist([
+      section("SEO", "• Admin access to your website\n• A list of your services"),
+      section("Google Ads", "• Billing details"),
+    ]);
+    expect(list.map((i) => i.text)).toEqual([
+      "Admin access to your website",
+      "A list of your services",
+      "Billing details",
+    ]);
+    expect(list[2].serviceLabel).toBe("Google Ads");
+  });
+
+  // Live copy: SEO and Reviews both ask for Google Business Profile access.
+  it("drops a task already covered by a fuller one", () => {
+    const list = buildKickoffChecklist([
+      section("SEO", "• Access to your Google Business Profile and Google Search Console"),
+      section("Reviews", "• Access to your Google Business Profile\n• Your preferred tone"),
+    ]);
+    expect(list.map((i) => i.text)).toEqual([
+      "Access to your Google Business Profile and Google Search Console",
+      "Your preferred tone",
+    ]);
+  });
+
+  it("keeps the first of two identical tasks", () => {
+    const list = buildKickoffChecklist([
+      section("SEO", "• Logo files"),
+      section("Social Media", "- logo files."),
+    ]);
+    expect(list).toEqual([{ text: "Logo files", serviceLabel: "SEO" }]);
+  });
+
+  it("treats a block with no bullets as one task, and skips empty blocks", () => {
+    const list = buildKickoffChecklist([section("Blog", "Send us topic ideas."), section("SEO", "")]);
+    expect(list).toEqual([{ text: "Send us topic ideas.", serviceLabel: "Blog" }]);
   });
 });

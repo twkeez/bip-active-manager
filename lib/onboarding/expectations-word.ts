@@ -30,50 +30,104 @@ function multiline(text: string): string {
 function field(label: string, body: string): string {
   if (!body.trim()) return "";
   return (
-    `<p style="font-size:11px;font-weight:bold;color:${PINK};text-transform:uppercase;letter-spacing:.04em;margin:10px 0 2px;">${esc(label)}</p>` +
+    `<p style="font-size:12px;font-weight:bold;color:${PINK};margin:12px 0 2px;">${esc(label)}</p>` +
     `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 4px;">${multiline(body)}</p>`
   );
 }
 
+function heading(text: string, rule = "", size = 16): string {
+  const border = rule ? `border-top:2px solid ${rule};padding-top:10px;` : "";
+  return `<h2 style="color:${INDIGO_DEEP};font-size:${size}px;margin:24px 0 6px;${border}">${esc(text)}</h2>`;
+}
+
+/**
+ * The same document as the PDF, as HTML Word opens. Word cannot do flex or grid,
+ * so the plan box and the two-column glossary are tables.
+ */
 export function renderExpectationsWord(model: ClientExpectationsModel, generatedAt: string): string {
-  const { clientName, strategist, content } = model;
-  const subtitleParts = [clientName];
-  if (strategist) subtitleParts.push(`Strategist: ${strategist}`);
-  if (generatedAt) subtitleParts.push(generatedAt);
+  const { clientName, town, strategistContacts, kickoffDate, content } = model;
+  const subtitle = [clientName, town, generatedAt ? `Prepared ${generatedAt}` : ""]
+    .filter(Boolean)
+    .join(" · ");
+
+  const planRows: string[] = [];
+  if (strategistContacts.length > 0) {
+    const people = strategistContacts
+      .map((c) => `<strong>${esc(c.name)}</strong>${c.email ? ` ${esc(c.email)}` : ""}`)
+      .join(" and ");
+    planRows.push(
+      `<p style="font-size:12px;color:${INK};margin:4px 0 0;">${
+        strategistContacts.length === 1 ? "Your strategist" : "Your strategists"
+      }: ${people}</p>`,
+    );
+  }
+  if (kickoffDate) {
+    planRows.push(`<p style="font-size:12px;color:${INK};margin:4px 0 0;">Kickoff: ${esc(kickoffDate)}</p>`);
+  }
+
+  const planBox =
+    `<table width="100%" cellpadding="12" style="border-collapse:collapse;margin:0 0 16px;"><tr>` +
+    `<td style="background:${SOFT_BG};">` +
+    `<p style="font-size:11px;font-weight:bold;color:${INDIGO};text-transform:uppercase;letter-spacing:.12em;margin:0 0 6px;">Your plan</p>` +
+    `<p style="font-size:12px;font-weight:bold;color:${PINK};margin:0;">${content.services
+      .map((service) => esc(serviceSectionTitle(service)))
+      .join("&nbsp;&nbsp;|&nbsp;&nbsp;")}</p>` +
+    planRows.join("") +
+    `</td></tr></table>`;
+
+  const checklist =
+    content.checklist.length > 0
+      ? heading("What we need from you") +
+        content.checklist
+          .map(
+            (item) =>
+              `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 4px;">&#9744;&nbsp;&nbsp;${esc(item.text)}` +
+              ` <span style="color:${MUTED};font-size:10px;">${esc(item.serviceLabel)}</span></p>`,
+          )
+          .join("")
+      : "";
 
   const serviceSections = content.services
     .map(
       (service) =>
-        `<h2 style="color:${INDIGO_DEEP};font-size:15px;margin:22px 0 6px;">${esc(serviceSectionTitle(service))}</h2>` +
+        heading(serviceSectionTitle(service), PINK) +
         field(EXPECTATION_FIELD_LABEL.expect, service.expect) +
         field(EXPECTATION_FIELD_LABEL.limits, service.limits) +
-        field(EXPECTATION_FIELD_LABEL.need, service.need) +
         field(EXPECTATION_FIELD_LABEL.recommend, service.recommend),
     )
     .join("");
 
+  const glossaryRows: string[] = [];
+  for (let i = 0; i < content.glossary.length; i += 2) {
+    const cell = (entry?: (typeof content.glossary)[number]) =>
+      entry
+        ? `<td width="50%" valign="top" style="padding:0 12px 8px 0;">` +
+          `<p style="font-size:12px;font-weight:bold;color:${INK};margin:0;">${esc(entry.term)}</p>` +
+          `<p style="font-size:11.5px;color:${MUTED};line-height:1.45;margin:2px 0 0;">${esc(entry.definition)}</p></td>`
+        : `<td width="50%"></td>`;
+    glossaryRows.push(`<tr>${cell(content.glossary[i])}${cell(content.glossary[i + 1])}</tr>`);
+  }
+  const glossary =
+    content.glossary.length > 0
+      ? heading("Terms you\u2019ll see us use", SOFT_BG) +
+        `<table width="100%" style="border-collapse:collapse;">${glossaryRows.join("")}</table>`
+      : "";
+
   const body =
     `<p style="font-size:11px;font-weight:bold;color:${PINK};text-transform:uppercase;letter-spacing:.12em;margin:0;">Beyond Indigo Pets</p>` +
-    `<h1 style="color:${INDIGO};font-size:22px;margin:4px 0 2px;">Your Marketing Plan &amp; Expectations</h1>` +
-    `<p style="font-size:12px;color:${MUTED};margin:0 0 16px;">${esc(subtitleParts.join(" · "))}</p>` +
+    `<h1 style="color:${INDIGO};font-size:24px;margin:4px 0 2px;">Your Marketing Plan &amp; Expectations</h1>` +
+    `<p style="font-size:12px;color:${MUTED};margin:0 0 16px;">${esc(subtitle)}</p>` +
+    planBox +
     (content.intro
       ? `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 14px;">${multiline(content.intro)}</p>`
       : "") +
+    checklist +
     (content.timetable
-      ? `<h2 style="color:${INDIGO_DEEP};font-size:15px;margin:22px 0 6px;">Your timetable</h2>` +
+      ? heading("Your timetable") +
         `<div style="background:${SOFT_BG};padding:10px 12px;"><p style="font-size:12px;color:${INK};line-height:1.5;margin:0;">${multiline(content.timetable)}</p></div>`
       : "") +
     serviceSections +
-    (content.glossary.length > 0
-      ? `<h2 style="color:${INDIGO_DEEP};font-size:15px;margin:22px 0 6px;">Terms you&rsquo;ll see us use</h2>` +
-        content.glossary
-          .map(
-            (entry) =>
-              `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 6px;">` +
-              `<strong>${esc(entry.term)}</strong> — ${esc(entry.definition)}</p>`,
-          )
-          .join("")
-      : "") +
+    glossary +
     (content.closing
       ? `<p style="font-size:12px;color:${INK};line-height:1.5;margin:18px 0 0;">${multiline(content.closing)}</p>`
       : "");

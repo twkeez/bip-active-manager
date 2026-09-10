@@ -1,19 +1,49 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClientRow } from "@/lib/types/client";
 import { getClientActiveServices } from "@/lib/clients/service-active";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  resolveStrategistContacts,
+  strategistDisplayName,
+  type StaffProfile,
+  type StrategistContact,
+} from "@/lib/onboarding/expectation-people";
 import type { GlossaryTerm } from "@/lib/onboarding/expectation-glossary";
 import type { ClientServiceKey } from "@/lib/clients/types";
 import {
   assembleServiceExpectations,
+  cityForCopy,
   type ExpectationBlock,
   type ServiceExpectationsModel,
 } from "@/lib/onboarding/service-expectations";
 
 export type ClientExpectationsModel = {
   clientName: string;
+  /** Cleaned display name ("Melissa and Stephanie"), or "" when none is a person. */
   strategist: string;
+  strategistContacts: StrategistContact[];
+  /** The town alone — "Oshawa", not "Oshawa, Ontario, Canada". */
+  town: string;
+  /** When onboarding started, e.g. "Jul 15, 2026". Null when not recorded. */
+  kickoffDate: string | null;
   content: ServiceExpectationsModel;
 };
+
+/**
+ * A fixed zone, so the same timestamp prints the same date wherever the page is
+ * generated — a server in another zone would otherwise move a kickoff by a day.
+ */
+function formatKickoff(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 // Loads the client-expectations document model: the client's active services drive
 // which service sections appear; the shared master blocks supply the copy. Content
@@ -49,8 +79,20 @@ export async function loadClientExpectations(
   }));
 
   const blocks = (blockRows ?? []) as ExpectationBlock[];
+  // Staff names and emails are read with the service role. Profiles are
+  // readable only by their owner and by admins, so with the viewer's own client
+  // a team member would see no strategist unless it happened to be them, and
+  // the same document would read differently depending on who generated it.
+  const { data: staffRows } = await createAdminClient()
+    .from("profiles")
+    .select("full_name, email");
+  const strategistContacts = resolveStrategistContacts(
+    client.marketing_strategist,
+    (staffRows ?? []) as StaffProfile[],
+  );
+
   const clientName = client.account_name;
-  const strategist = client.marketing_strategist ?? "";
+  const strategist = strategistDisplayName(strategistContacts);
 
   const content = assembleServiceExpectations(blocks, {
     clientName,
@@ -69,5 +111,12 @@ export async function loadClientExpectations(
     glossary,
   });
 
-  return { clientName, strategist, content };
+  return {
+    clientName,
+    strategist,
+    strategistContacts,
+    town: cityForCopy(client.city),
+    kickoffDate: formatKickoff(client.onboarding_started_at),
+    content,
+  };
 }
