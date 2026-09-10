@@ -31,7 +31,8 @@ const FPP: ServiceChoice[] = [
 /**
  * SEO, PPC and Social follow the published scope tables (Foundation, Premium,
  * Premium Plus), so a changed tier still resolves on "What this tier includes".
- * Reputation has two tiers and no scope table yet. Blog is a monthly count.
+ * Reputation has the same three tiers but no scope table yet. Blog is a monthly
+ * count.
  */
 export const SERVICE_PLAN_OPTIONS: ServicePlanOption[] = [
   { service: "seo", label: "SEO", choices: FPP },
@@ -45,10 +46,7 @@ export const SERVICE_PLAN_OPTIONS: ServicePlanOption[] = [
   {
     service: "orm",
     label: "Reputation (ORM)",
-    choices: [
-      { value: "Foundation", label: "Foundation" },
-      { value: "Premium", label: "Premium" },
-    ],
+    choices: FPP,
   },
 ];
 

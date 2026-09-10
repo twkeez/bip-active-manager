@@ -168,15 +168,16 @@ describe("tier-specific What to expect", () => {
     expect(model.services.find((s) => s.key === "blog")?.planLabel).toBeNull();
   });
 
-  it("does not offer Reputation a Premium Plus it is never sold at", () => {
-    expect(resolveServiceTier("orm", "Premium Plus")).toBeNull();
-    expect(resolveServiceTier("smm", "Premium Plus")).toBe("premium_plus");
+  it("resolves every tier Reputation is sold at, and nothing else", () => {
+    expect(resolveServiceTier("orm", "Premium Plus")).toBe("premium_plus");
+    expect(resolveServiceTier("orm", "Ultra")).toBeNull();
+    expect(resolveServiceTier("blog", "Premium")).toBeNull();
   });
 
   it("gives the editor a field per tier, and none for Blog", () => {
     expect(SERVICE_EXPECTATION_BLOCK_KEYS).toContain("seo_expect_premium_plus");
     expect(SERVICE_EXPECTATION_BLOCK_KEYS).toContain("orm_expect_premium");
-    expect(SERVICE_EXPECTATION_BLOCK_KEYS).not.toContain("orm_expect_premium_plus");
+    expect(SERVICE_EXPECTATION_BLOCK_KEYS).toContain("orm_expect_premium_plus");
     expect(SERVICE_EXPECTATION_BLOCK_KEYS.some((k) => k.startsWith("blog_expect_"))).toBe(false);
   });
 });

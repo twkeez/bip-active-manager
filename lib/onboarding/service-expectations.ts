@@ -81,7 +81,8 @@ export const SERVICE_TIERS: Record<ClientServiceKey, ServiceTier[]> = {
   ppc: ["foundation", "premium", "premium_plus"],
   smm: ["foundation", "premium", "premium_plus"],
   blog: [],
-  orm: ["foundation", "premium"],
+  // Premium Plus added 2026-09-10 when Tom defined the Reviews tiers.
+  orm: ["foundation", "premium", "premium_plus"],
 };
 
 /** e.g. tierExpectKey("seo", "premium_plus") === "seo_expect_premium_plus". */
