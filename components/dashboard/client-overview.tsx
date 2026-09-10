@@ -24,6 +24,7 @@ import {
 } from "@/lib/clients/client-list-view-state";
 import { norm } from "@/lib/clients/service-active";
 import { clientPlanSummary } from "@/lib/services/client-plan";
+import ClientPlanEditor from "@/components/dashboard/client-plan-editor";
 import type { ClientWorkspaceInitialData } from "@/lib/dashboard/client-workspace-types";
 import type { ClientOverviewExtras } from "@/lib/dashboard/load-client-overview-extras";
 import type { ClientBackground } from "@/lib/dashboard/load-client-background";
@@ -666,6 +667,7 @@ export default function ClientOverview({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [launchSaving, setLaunchSaving] = useState(false);
   const [awaitingLaunch, setAwaitingLaunch] = useState(client.awaiting_website_launch);
+  const [editingPlan, setEditingPlan] = useState(false);
 
   useEffect(() => setBackHref(readStoredClientListHref()), []);
   useEffect(
@@ -1073,7 +1075,34 @@ export default function ClientOverview({
             >
               Client expectations
             </Link>
+            {/* Admin-only: a tier change is a billing change, and team members
+                can open this page. */}
+            {isAdminUser && !editingPlan && (
+              <button
+                type="button"
+                onClick={() => setEditingPlan(true)}
+                style={{ color: T.pink }}
+                className="text-[11.5px] font-semibold hover:underline"
+              >
+                Change plan
+              </button>
+            )}
           </div>
+          {editingPlan && (
+            <ClientPlanEditor
+              clientId={client.id}
+              plan={{
+                seo: client.seo ?? "",
+                ppc: client.ppc ?? "",
+                smm: client.smm ?? "",
+                blog: client.blog ?? "",
+                orm: client.orm ?? "",
+              }}
+              onboardingStatus={client.onboarding_status ?? null}
+              accent={T.pink}
+              onClose={() => setEditingPlan(false)}
+            />
+          )}
         </div>
 
         {(background || isAdminUser) && (
