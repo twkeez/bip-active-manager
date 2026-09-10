@@ -88,6 +88,10 @@ export const TEAM_API_NAMESPACES = [
   "ads-planner",
   "ai",
   "basecamp",
+  // The Word export of a client's expectations document. Read-only rendering,
+  // like the /client-expectations-print page the team already reaches; the
+  // editor that authors the content stays on the admin build.
+  "client-expectations",
   "client-seo-audits",
   "clients",
   "ga4",

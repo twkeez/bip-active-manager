@@ -1068,13 +1068,26 @@ export default function ClientOverview({
             >
               What this tier includes
             </Link>
-            <Link
+            {/* The kickoff expectations document, for anyone on the account —
+                the team included. Only authoring the content is admin-only.
+                The PDF opens in a new tab because the print view raises the
+                print dialog, and the client page should stay where it is. */}
+            <a
               href={`/client-expectations-print/${client.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{ color: T.pink }}
               className="text-[11.5px] font-semibold hover:underline"
             >
-              Client expectations
-            </Link>
+              Expectations (PDF)
+            </a>
+            <a
+              href={`/api/client-expectations/${client.id}/word`}
+              style={{ color: T.pink }}
+              className="text-[11.5px] font-semibold hover:underline"
+            >
+              Expectations (Word)
+            </a>
             {/* Admin-only: a tier change is a billing change, and team members
                 can open this page. */}
             {isAdminUser && !editingPlan && (

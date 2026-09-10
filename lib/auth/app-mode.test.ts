@@ -111,6 +111,14 @@ describe("team mode route gate", () => {
     }
   });
 
+  // The team could open a client's expectations PDF but the Word download was
+  // turned away with a 404 — its API namespace was never on this list. Both
+  // formats are the same read-only document, so both have to work.
+  it("serves both formats of the expectations document", () => {
+    expect(isAllowedInTeamMode("/client-expectations-print/248")).toBe(true);
+    expect(isAllowedInTeamMode("/api/client-expectations/248/word")).toBe(true);
+  });
+
   it("blocks the experimental APIs", () => {
     for (const path of [
       "/api/gmail/messages",
