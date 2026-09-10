@@ -1,0 +1,21 @@
+{
+  "taken": "2026-09-10, before ad budget ranges replaced the single $900 figure",
+  "blocks": [
+    {
+      "block_key": "ppc_expect_foundation",
+      "body": "We run one campaign for you on one channel, usually Google Search. First we review your existing ad account or build a new one, set up conversion tracking so we can see which clicks lead to a call, booking or form, and research the searches worth paying for. After that we manage the campaign and adjust bids as needed. You pay Google directly for the ads themselves, separately from our fee. Campaigns usually start to stabilize within the first few weeks, once Google has learned which searches bring in calls and bookings."
+    },
+    {
+      "block_key": "ppc_expect_premium",
+      "body": "We run ads for you on up to three platforms, typically Google and Facebook or Instagram, using more than one type of campaign. We set up conversion tracking so we can see which ads lead to calls, bookings or forms, research your searches and audiences in depth, and block searches that would waste your budget. Each month we adjust bids and budgets, and test new ad copy and images against what's already running. You pay the platforms directly for the ads, separately from our fee. Give it a few weeks to stabilize before judging the numbers."
+    },
+    {
+      "block_key": "ppc_expect_premium_plus",
+      "body": "We run a full program across Google (Search, Display and Performance Max) and up to three social platforms, covering up to three locations or service lines. That includes remarketing, so people who have visited your site see your ads again. Each month we adjust bids and budgets, test ad copy, images and audiences, and suggest changes to the pages your ads send people to. You pay the platforms directly for the ads, separately from our fee. Give it a few weeks to stabilize before judging results. The larger the program, the more Google has to learn."
+    },
+    {
+      "block_key": "ppc_recommend",
+      "body": "We recommend starting with a focused budget on your highest-value services and giving campaigns a few weeks to optimize before judging results. We usually suggest starting around $900 a month in ad spend, paid directly to the ad platforms. The right figure depends on your area and goals, and we'll talk it through with you at kickoff."
+    }
+  ]
+}
