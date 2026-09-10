@@ -45,7 +45,15 @@ function heading(text: string, rule = "", size = 16): string {
  * so the plan box and the two-column glossary are tables.
  */
 export function renderExpectationsWord(model: ClientExpectationsModel, generatedAt: string): string {
-  const { clientName, town, strategistContacts, kickoffDate, content } = model;
+  const { clientName, town, strategistContacts, kickoffDate, note, noteHeading, content } = model;
+
+  const noteBlock = note
+    ? `<table width="100%" cellpadding="10" style="border-collapse:collapse;margin:0 0 14px;"><tr>` +
+      `<td style="border-left:4px solid ${PINK};background:#fdf0f7;">` +
+      `<p style="font-size:12px;font-weight:bold;color:${PINK};margin:0 0 4px;">${esc(noteHeading)}</p>` +
+      `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0;">${multiline(note)}</p>` +
+      `</td></tr></table>`
+    : "";
   const subtitle = [clientName, town, generatedAt ? `Prepared ${generatedAt}` : ""]
     .filter(Boolean)
     .join(" · ");
@@ -121,6 +129,7 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
     (content.intro
       ? `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 14px;">${multiline(content.intro)}</p>`
       : "") +
+    noteBlock +
     checklist +
     (content.timetable
       ? heading("Your timetable") +

@@ -25,6 +25,7 @@ import {
 import { norm } from "@/lib/clients/service-active";
 import { clientPlanSummary } from "@/lib/services/client-plan";
 import ClientPlanEditor from "@/components/dashboard/client-plan-editor";
+import ClientExpectationsNote from "@/components/dashboard/client-expectations-note";
 import type { ClientWorkspaceInitialData } from "@/lib/dashboard/client-workspace-types";
 import type { ClientOverviewExtras } from "@/lib/dashboard/load-client-overview-extras";
 import type { ClientBackground } from "@/lib/dashboard/load-client-background";
@@ -1116,6 +1117,11 @@ export default function ClientOverview({
               onClose={() => setEditingPlan(false)}
             />
           )}
+          <ClientExpectationsNote
+            clientId={client.id}
+            note={client.expectations_note}
+            accent={T.pink}
+          />
         </div>
 
         {(background || isAdminUser) && (

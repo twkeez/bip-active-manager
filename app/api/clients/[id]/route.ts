@@ -94,6 +94,9 @@ export async function PATCH(
     "smm",
     "blog",
     "orm",
+    // The strategist's note on the expectations document. Team members write
+    // it, and this route has no role check, which is intended here.
+    "expectations_note",
   ] as const;
   const numericAllowed = ["total_package_hours", "hours_for_strategist"] as const;
   const booleanAllowed = ["awaiting_website_launch"] as const;

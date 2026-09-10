@@ -3,6 +3,7 @@ import type { ClientRow } from "@/lib/types/client";
 import { getClientActiveServices } from "@/lib/clients/service-active";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  noteHeading,
   resolveStrategistContacts,
   strategistDisplayName,
   type StaffProfile,
@@ -26,6 +27,10 @@ export type ClientExpectationsModel = {
   town: string;
   /** When onboarding started, e.g. "Jul 15, 2026". Null when not recorded. */
   kickoffDate: string | null;
+  /** The strategist's note for this client, trimmed. "" when none. */
+  note: string;
+  /** "A note from Stephanie". */
+  noteHeading: string;
   content: ServiceExpectationsModel;
 };
 
@@ -117,6 +122,8 @@ export async function loadClientExpectations(
     strategistContacts,
     town: cityForCopy(client.city),
     kickoffDate: formatKickoff(client.onboarding_started_at),
+    note: (client.expectations_note ?? "").trim(),
+    noteHeading: noteHeading(strategistContacts),
     content,
   };
 }

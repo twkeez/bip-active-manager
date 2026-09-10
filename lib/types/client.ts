@@ -45,6 +45,8 @@ export type ClientRow = {
   reply_acknowledged_for_occurred_at: string | null;
   days_stale: number | null;
   onboarding_status: "active" | "complete" | null;
+  /** Strategist's note for the expectations document. Optional until the column exists. */
+  expectations_note?: string | null;
   onboarding_started_at: string | null;
   onboarding_completed_at: string | null;
   onboarding_target_date: string | null;

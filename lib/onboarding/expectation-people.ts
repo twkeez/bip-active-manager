@@ -57,3 +57,12 @@ export function strategistDisplayName(contacts: StrategistContact[]): string {
   if (names.length <= 1) return names[0] ?? "";
   return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }
+
+/**
+ * The strategist note's heading — "A note from Stephanie". With no named
+ * strategist it still reads as a note from a person rather than from nobody.
+ */
+export function noteHeading(contacts: StrategistContact[]): string {
+  const name = strategistDisplayName(contacts);
+  return name ? `A note from ${name}` : "A note from your strategist";
+}

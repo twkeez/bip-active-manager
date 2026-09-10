@@ -3,6 +3,7 @@ import {
   EXPECTATION_FIELD_LABEL,
   serviceSectionTitle,
 } from "@/lib/onboarding/service-expectations";
+import BeyondIndigoLogo from "@/components/onboarding/beyond-indigo-logo";
 
 /**
  * The client-facing kickoff document, as rendered for print/PDF.
@@ -45,7 +46,7 @@ export default function ClientExpectationsDocument({
   model: ClientExpectationsModel;
   generatedAt: string;
 }) {
-  const { clientName, town, strategistContacts, kickoffDate, content } = model;
+  const { clientName, town, strategistContacts, kickoffDate, note, noteHeading, content } = model;
   const subtitle = [clientName, town, generatedAt ? `Prepared ${generatedAt}` : ""]
     .filter(Boolean)
     .join(" · ");
@@ -53,10 +54,12 @@ export default function ClientExpectationsDocument({
   return (
     <div className="report-print-target mx-auto max-w-3xl bg-white px-8 py-8 text-gray-800">
       <header className="mb-5" style={{ breakInside: "avoid" }}>
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: PINK }}>
-          Beyond Indigo Pets
-        </p>
-        <h1 className="mt-1 text-[26px] font-semibold leading-tight" style={{ color: INDIGO }}>
+        {/* The supplied logo is the reversed, white version, so it sits on the
+            brand indigo as it was designed to. */}
+        <div className="flex items-center rounded-xl px-5 py-3.5" style={{ background: INDIGO }}>
+          <BeyondIndigoLogo className="h-8 w-auto" />
+        </div>
+        <h1 className="mt-4 text-[26px] font-semibold leading-tight" style={{ color: INDIGO }}>
           Your Marketing Plan &amp; Expectations
         </h1>
         <p className="mt-1 text-sm text-gray-500">{subtitle}</p>
@@ -125,6 +128,20 @@ export default function ClientExpectationsDocument({
         >
           {content.intro}
         </p>
+      )}
+
+      {/* The strategist's own words for this practice — the one part of the
+          document not written as master copy. */}
+      {note && (
+        <section
+          className="mb-7 rounded-r-lg border-l-4 px-4 py-3"
+          style={{ borderColor: PINK, background: "#fdf0f7", breakInside: "avoid" }}
+        >
+          <p className="text-[12.5px] font-semibold" style={{ color: PINK }}>
+            {noteHeading}
+          </p>
+          <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-800">{note}</p>
+        </section>
       )}
 
       {/* The one part of the document that asks the client to act. Titled

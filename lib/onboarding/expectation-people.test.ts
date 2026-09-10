@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  noteHeading,
   resolveStrategistContacts,
   strategistDisplayName,
   type StaffProfile,
@@ -57,5 +58,18 @@ describe("strategistDisplayName", () => {
         { name: "C", email: null },
       ]),
     ).toBe("A, B and C");
+  });
+});
+
+describe("noteHeading", () => {
+  it("names the strategist, or falls back to a person-shaped heading", () => {
+    expect(noteHeading([{ name: "Stephanie", email: null }])).toBe("A note from Stephanie");
+    expect(
+      noteHeading([
+        { name: "Melissa", email: null },
+        { name: "Stephanie", email: null },
+      ]),
+    ).toBe("A note from Melissa and Stephanie");
+    expect(noteHeading([])).toBe("A note from your strategist");
   });
 });
