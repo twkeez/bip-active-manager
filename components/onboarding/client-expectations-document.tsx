@@ -1,5 +1,8 @@
 import type { ClientExpectationsModel } from "@/lib/onboarding/load-client-expectations";
-import { EXPECTATION_FIELD_LABEL } from "@/lib/onboarding/service-expectations";
+import {
+  EXPECTATION_FIELD_LABEL,
+  serviceSectionTitle,
+} from "@/lib/onboarding/service-expectations";
 
 const INDIGO = "#3350a2";
 const INDIGO_SOFT = "#eef1f9";
@@ -72,7 +75,7 @@ export default function ClientExpectationsDocument({
       )}
 
       {content.services.map((service) => (
-        <Section key={service.key} title={service.label}>
+        <Section key={service.key} title={serviceSectionTitle(service)}>
           <Field label={EXPECTATION_FIELD_LABEL.expect} body={service.expect} />
           <Field label={EXPECTATION_FIELD_LABEL.limits} body={service.limits} />
           <Field label={EXPECTATION_FIELD_LABEL.need} body={service.need} />

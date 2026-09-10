@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  SERVICE_EXPECTATION_BLOCK_KEYS,
   applyExpectationMergeFields,
   assembleServiceExpectations,
+  cityForCopy,
+  resolveServiceTier,
+  serviceSectionTitle,
   type ExpectationBlock,
 } from "@/lib/onboarding/service-expectations";
 import type { ClientActiveServices } from "@/lib/clients/types";
@@ -97,5 +101,111 @@ describe("glossary in the assembled document", () => {
       activeServices: { seo: true, ppc: false, smm: false, blog: false, orm: false },
     });
     expect(model.glossary).toEqual([]);
+  });
+});
+
+describe("tier-specific What to expect", () => {
+  const blocks: ExpectationBlock[] = [
+    { block_key: "seo_expect", body: "Shared SEO.", sort_order: 0 },
+    { block_key: "seo_expect_foundation", body: "Foundation SEO in {{city}}.", sort_order: 0 },
+    { block_key: "seo_expect_premium", body: "", sort_order: 0 },
+    { block_key: "orm_expect", body: "Shared reviews.", sort_order: 0 },
+    { block_key: "blog_expect", body: "Shared blog.", sort_order: 0 },
+  ];
+  const active = { ...NONE, seo: true, orm: true, blog: true };
+
+  // The failure this exists for: a Foundation client was told we would
+  // optimize their pages, which starts at Premium.
+  it("gives a client the copy for the tier they bought", () => {
+    const model = assembleServiceExpectations(blocks, {
+      ...ctx,
+      city: "Oshawa, Ontario, Canada",
+      activeServices: active,
+      serviceValues: { seo: "Foundation" },
+    });
+    expect(model.services.find((s) => s.key === "seo")?.expect).toBe("Foundation SEO in Oshawa.");
+  });
+
+  it("falls back to the shared copy while a tier has nothing written", () => {
+    const model = assembleServiceExpectations(blocks, {
+      ...ctx,
+      activeServices: active,
+      serviceValues: { seo: "Premium" },
+    });
+    expect(model.services.find((s) => s.key === "seo")?.expect).toBe("Shared SEO.");
+  });
+
+  it("falls back for a value that is not a tier we sell", () => {
+    const model = assembleServiceExpectations(blocks, {
+      ...ctx,
+      activeServices: active,
+      serviceValues: { seo: "Legacy" },
+    });
+    const seo = model.services.find((s) => s.key === "seo")!;
+    expect(seo.expect).toBe("Shared SEO.");
+    expect(seo.planLabel).toBeNull();
+  });
+
+  it("names the plan on each section, and the post count for Blog", () => {
+    const model = assembleServiceExpectations(blocks, {
+      ...ctx,
+      activeServices: active,
+      serviceValues: { seo: "Foundation", orm: "Premium", blog: "2" },
+    });
+    const titles = model.services.map(serviceSectionTitle);
+    expect(titles).toEqual(["SEO · Foundation", "Blog · 2 posts a month", "Reviews · Premium"]);
+  });
+
+  // One live client has "Foundation" in its Blog field. Printing "Blog ·
+  // Foundation" would state a plan that does not exist.
+  it("prints no plan for a Blog value that is not a post count", () => {
+    const model = assembleServiceExpectations(blocks, {
+      ...ctx,
+      activeServices: active,
+      serviceValues: { blog: "Foundation" },
+    });
+    expect(model.services.find((s) => s.key === "blog")?.planLabel).toBeNull();
+  });
+
+  it("does not offer Reputation a Premium Plus it is never sold at", () => {
+    expect(resolveServiceTier("orm", "Premium Plus")).toBeNull();
+    expect(resolveServiceTier("smm", "Premium Plus")).toBe("premium_plus");
+  });
+
+  it("gives the editor a field per tier, and none for Blog", () => {
+    expect(SERVICE_EXPECTATION_BLOCK_KEYS).toContain("seo_expect_premium_plus");
+    expect(SERVICE_EXPECTATION_BLOCK_KEYS).toContain("orm_expect_premium");
+    expect(SERVICE_EXPECTATION_BLOCK_KEYS).not.toContain("orm_expect_premium_plus");
+    expect(SERVICE_EXPECTATION_BLOCK_KEYS.some((k) => k.startsWith("blog_expect_"))).toBe(false);
+  });
+});
+
+describe("merge fields", () => {
+  // Stored geocoder-style; the whole string reads badly in a sentence.
+  it("uses just the town from a stored city", () => {
+    expect(cityForCopy("Oshawa, Ontario, Canada")).toBe("Oshawa");
+    expect(cityForCopy("Boulder")).toBe("Boulder");
+    expect(cityForCopy(null)).toBe("");
+  });
+
+  it("falls back to wording that still reads when a value is missing", () => {
+    const out = applyExpectationMergeFields("{{strategist}} will call. A vet in {{city}}.", {
+      clientName: "X",
+      strategist: "  ",
+      city: null,
+    });
+    expect(out).toBe("Your strategist will call. A vet in your area.");
+  });
+
+  it("merges the glossary definitions too", () => {
+    const model = assembleServiceExpectations([], {
+      ...ctx,
+      city: "Oshawa, Ontario, Canada",
+      activeServices: { ...NONE, seo: true },
+      glossary: [
+        { term: "Keyword", definition: "Like \"emergency vet in {{city}}\".", services: ["seo"], sortOrder: 0 },
+      ],
+    });
+    expect(model.glossary[0].definition).toBe('Like "emergency vet in Oshawa".');
   });
 });

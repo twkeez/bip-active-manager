@@ -8,14 +8,54 @@ import {
   SERVICE_EXPECTATION_BLOCK_KEYS,
   SERVICE_EXPECTATION_LABEL,
   SERVICE_EXPECTATION_ORDER,
+  SERVICE_TIERS,
+  TIER_LABEL,
   serviceBlockKey,
+  tierExpectKey,
   type ExpectationBlock,
+  type ServiceTier,
 } from "@/lib/onboarding/service-expectations";
+import { getServiceTierTable } from "@/lib/services/tier-content";
+import { resolveScopeRows } from "@/lib/services/client-plan";
 
 import type { GlossaryTerm } from "@/lib/onboarding/expectation-glossary";
 import type { ClientServiceKey } from "@/lib/clients/types";
 
 type ClientOption = { id: number; account_name: string };
+
+/** Which published scope table backs each service. Reputation has none yet. */
+const SCOPE_TABLE_KEY: Record<ClientServiceKey, string | null> = {
+  seo: "seo",
+  ppc: "ppc",
+  smm: "social",
+  blog: null,
+  orm: null,
+};
+
+/**
+ * What a tier actually includes, beside the copy promising it — the same scope
+ * table "What this tier includes" shows. It is there so drift is visible while
+ * writing: a tier's text should never promise anything missing from this list.
+ */
+function ScopeReference({ service, tier }: { service: ClientServiceKey; tier: ServiceTier }) {
+  const tableKey = SCOPE_TABLE_KEY[service];
+  const table = tableKey ? getServiceTierTable(tableKey) : undefined;
+  const rows = table ? resolveScopeRows(table, tier) : [];
+  if (rows.length === 0) {
+    return (
+      <p className="text-[11px] text-amber-600">
+        No written scope for this tier, so there is nothing to check this copy against. Write it
+        conservatively.
+      </p>
+    );
+  }
+  return (
+    <p className="rounded bg-bip-fill/60 px-2 py-1.5 text-[11px] leading-relaxed text-bip-muted">
+      <span className="font-semibold">This tier includes: </span>
+      {rows.map((row) => `${row.label}: ${row.items.join(", ")}`).join(" · ")}
+    </p>
+  );
+}
 
 const GENERAL_LABELS: Record<string, string> = {
   intro: "Intro — always shown",
@@ -188,7 +228,9 @@ export default function ClientExpectationsEditor({ clients }: { clients: ClientO
       <p className="text-xs text-bip-muted">
         Master content, shared across every client. Each service block appears only when that service is active.
         Merge fields: <code className="rounded bg-bip-fill px-1">{"{{client_name}}"}</code>{" "}
-        <code className="rounded bg-bip-fill px-1">{"{{strategist}}"}</code>.
+        <code className="rounded bg-bip-fill px-1">{"{{strategist}}"}</code>{" "}
+        <code className="rounded bg-bip-fill px-1">{"{{city}}"}</code> (town only, or
+        &ldquo;your area&rdquo; when we have none).
       </p>
 
       {/* Intro + timetable */}
@@ -210,15 +252,43 @@ export default function ClientExpectationsEditor({ clients }: { clients: ClientO
           </p>
           {EXPECTATION_FIELDS.map((field) => {
             const key = serviceBlockKey(service, field);
+            const isFallback = field === "expect" && SERVICE_TIERS[service].length > 0;
             return (
               <Textarea
                 key={key}
-                label={EXPECTATION_FIELD_LABEL[field]}
+                label={
+                  isFallback
+                    ? `${EXPECTATION_FIELD_LABEL.expect} — fallback, used only when the client's tier below has nothing written`
+                    : EXPECTATION_FIELD_LABEL[field]
+                }
                 value={bodies[key] ?? ""}
                 onChange={(v) => updateBody(key, v)}
               />
             );
           })}
+
+          {SERVICE_TIERS[service].length > 0 && (
+            <div className="space-y-3 rounded-lg border border-dashed border-bip-border p-3">
+              <p className="text-xs text-bip-muted">
+                <span className="font-semibold text-bip-text">What to expect, by tier.</span> A client
+                reads the version for the tier they bought. Each shows what that tier includes, so
+                the copy can be checked against it — promise only what is on that list.
+              </p>
+              {SERVICE_TIERS[service].map((tier) => {
+                const key = tierExpectKey(service, tier);
+                return (
+                  <div key={key} className="space-y-1.5">
+                    <Textarea
+                      label={`${EXPECTATION_FIELD_LABEL.expect} — ${TIER_LABEL[tier]}`}
+                      value={bodies[key] ?? ""}
+                      onChange={(v) => updateBody(key, v)}
+                    />
+                    <ScopeReference service={service} tier={tier} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       ))}
 

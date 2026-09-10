@@ -55,7 +55,17 @@ export async function loadClientExpectations(
   const content = assembleServiceExpectations(blocks, {
     clientName,
     strategist,
+    city: client.city,
     activeServices: getClientActiveServices(client),
+    // The raw values decide each service's tier, and so which "What to expect"
+    // the client reads.
+    serviceValues: {
+      seo: client.seo,
+      ppc: client.ppc,
+      smm: client.smm,
+      blog: client.blog,
+      orm: client.orm,
+    },
     glossary,
   });
 

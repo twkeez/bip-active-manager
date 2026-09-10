@@ -1,5 +1,8 @@
 import type { ClientExpectationsModel } from "@/lib/onboarding/load-client-expectations";
-import { EXPECTATION_FIELD_LABEL } from "@/lib/onboarding/service-expectations";
+import {
+  EXPECTATION_FIELD_LABEL,
+  serviceSectionTitle,
+} from "@/lib/onboarding/service-expectations";
 
 // Renders the client-expectations document as HTML that Word opens as an editable
 // .doc (served with Content-Type application/msword — same trick as the reporting
@@ -41,7 +44,7 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
   const serviceSections = content.services
     .map(
       (service) =>
-        `<h2 style="color:${INDIGO_DEEP};font-size:15px;margin:22px 0 6px;">${esc(service.label)}</h2>` +
+        `<h2 style="color:${INDIGO_DEEP};font-size:15px;margin:22px 0 6px;">${esc(serviceSectionTitle(service))}</h2>` +
         field(EXPECTATION_FIELD_LABEL.expect, service.expect) +
         field(EXPECTATION_FIELD_LABEL.limits, service.limits) +
         field(EXPECTATION_FIELD_LABEL.need, service.need) +

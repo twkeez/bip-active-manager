@@ -5,10 +5,10 @@ import {
 } from "@/lib/onboarding/expectation-glossary";
 
 // Client-expectations content generator. Pure + side-effect free: assembles the
-// per-service expectation blurbs (what to expect, what we need, our
-// recommendations) for the services a client actually bought, plus a shared
-// intro, overall timetable, and closing — with merge fields substituted. This is
-// the master, service-default content only; there is no per-client override.
+// per-service expectation blurbs for the services a client actually bought, plus a
+// shared intro, overall timetable, glossary and closing — with merge fields
+// substituted. Content is master copy; there is no per-client override. What does
+// vary per client is which services appear and, for "What to expect", which tier.
 
 export type ExpectationBlock = {
   block_key: string;
@@ -52,39 +52,125 @@ export function serviceBlockKey(service: ClientServiceKey, field: ExpectationFie
   return `${service}_${field}`;
 }
 
+/**
+ * Tiers, and why "What to expect" follows them.
+ *
+ * A single "What to expect" per service told every client the same thing, so
+ * an SEO Foundation client read that we would "optimize your priority pages" —
+ * monthly page work starts at Premium. For a document whose job is setting
+ * realistic expectations, promising unbought work is the one failure it cannot
+ * afford. So "What to expect" can be written per tier; the other three fields
+ * stay shared because they hold true at every tier.
+ *
+ * Keys match the published scope tables (lib/services/tier-content.ts), so the
+ * editor can show what each tier actually includes beside its text.
+ */
+export type ServiceTier = "foundation" | "premium" | "premium_plus";
+
+export const TIER_LABEL: Record<ServiceTier, string> = {
+  foundation: "Foundation",
+  premium: "Premium",
+  premium_plus: "Premium Plus",
+};
+
+/** Tiers each service is sold in. Blog is sold by post count, so it has none. */
+export const SERVICE_TIERS: Record<ClientServiceKey, ServiceTier[]> = {
+  seo: ["foundation", "premium", "premium_plus"],
+  ppc: ["foundation", "premium", "premium_plus"],
+  smm: ["foundation", "premium", "premium_plus"],
+  blog: [],
+  orm: ["foundation", "premium"],
+};
+
+/** e.g. tierExpectKey("seo", "premium_plus") === "seo_expect_premium_plus". */
+export function tierExpectKey(service: ClientServiceKey, tier: ServiceTier): string {
+  return `${service}_expect_${tier}`;
+}
+
+/** "Premium Plus" → "premium_plus". Null for anything the service is not sold at. */
+export function resolveServiceTier(
+  service: ClientServiceKey,
+  raw: string | null | undefined,
+): ServiceTier | null {
+  const slug = (raw ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return (SERVICE_TIERS[service] as string[]).includes(slug) ? (slug as ServiceTier) : null;
+}
+
+/** Blog stores a monthly post count. Anything else is not a count worth printing. */
+function blogPlanLabel(raw: string | null | undefined): string | null {
+  const n = Number((raw ?? "").trim());
+  if (!Number.isInteger(n) || n <= 0) return null;
+  return `${n} post${n === 1 ? "" : "s"} a month`;
+}
+
 /** Shared (service-agnostic) blocks that always frame the document. */
 export const GENERAL_EXPECTATION_KEYS = ["intro", "timetable", "closing"] as const;
 
-/** Every master block key, in editor/render order (intro → timetable → services → closing). */
+/**
+ * Every master block key, in editor order: intro → timetable → per service (its
+ * four fields, then a "What to expect" per tier) → closing.
+ */
 export const SERVICE_EXPECTATION_BLOCK_KEYS: string[] = [
   "intro",
   "timetable",
-  ...SERVICE_EXPECTATION_ORDER.flatMap((service) =>
-    EXPECTATION_FIELDS.map((field) => serviceBlockKey(service, field)),
-  ),
+  ...SERVICE_EXPECTATION_ORDER.flatMap((service) => [
+    ...EXPECTATION_FIELDS.map((field) => serviceBlockKey(service, field)),
+    ...SERVICE_TIERS[service].map((tier) => tierExpectKey(service, tier)),
+  ]),
   "closing",
 ];
 
 export type ExpectationMergeContext = {
   clientName: string;
   strategist: string;
+  /** As stored — often "Oshawa, Ontario, Canada". */
+  city?: string | null;
 };
 
-/** Replaces {{client_name}} and {{strategist}} throughout the text. */
+/**
+ * The part of a stored city that reads naturally in a sentence.
+ *
+ * Cities are stored geocoder-style — "Oshawa, Ontario, Canada" — and dropping
+ * that into "how competitive {{city}} is" prints all three parts.
+ */
+export function cityForCopy(city: string | null | undefined): string {
+  return (city ?? "").split(",")[0]?.trim() ?? "";
+}
+
+/**
+ * Replaces {{client_name}}, {{strategist}} and {{city}}.
+ *
+ * The fallbacks are written to read correctly where the copy puts them: a
+ * strategist name opens a sentence ("Stephanie will go through it with you"),
+ * and a city sits after a preposition ("an emergency vet in your area").
+ */
 export function applyExpectationMergeFields(text: string, ctx: ExpectationMergeContext): string {
   return text
     .replaceAll("{{client_name}}", ctx.clientName)
-    .replaceAll("{{strategist}}", ctx.strategist);
+    .replaceAll("{{strategist}}", ctx.strategist.trim() || "Your strategist")
+    .replaceAll("{{city}}", cityForCopy(ctx.city) || "your area");
 }
 
 export type ExpectationServiceSection = {
   key: ClientServiceKey;
   label: string;
+  /**
+   * What the client bought — "Foundation", "Premium Plus", "1 post a month".
+   * Null when the stored value is not something we sell, rather than a guess.
+   */
+  planLabel: string | null;
   expect: string;
   limits: string;
   need: string;
   recommend: string;
 };
+
+/** "SEO · Foundation" — the document now says which plan each section describes. */
+export function serviceSectionTitle(
+  section: Pick<ExpectationServiceSection, "label" | "planLabel">,
+): string {
+  return section.planLabel ? `${section.label} · ${section.planLabel}` : section.label;
+}
 
 export type ServiceExpectationsModel = {
   intro: string;
@@ -97,16 +183,25 @@ export type ServiceExpectationsModel = {
 
 export type AssembleExpectationsContext = ExpectationMergeContext & {
   activeServices: ClientActiveServices;
+  /**
+   * The raw stored values ("Foundation", "1"), which decide the tier. Omitted,
+   * every section falls back to its shared "What to expect".
+   */
+  serviceValues?: Partial<Record<ClientServiceKey, string | null>>;
   /** Omitted when no glossary has been authored yet. */
   glossary?: GlossaryTerm[];
 };
 
 /**
  * Builds the client-expectations document model: shared intro + timetable, then a
- * section per ACTIVE service (in fixed order) with its three fields, then closing —
- * all merge-substituted. A service is included only if it's active AND has at least
+ * section per ACTIVE service (in fixed order), then glossary and closing — all
+ * merge-substituted. A service is included only if it's active AND has at least
  * one non-empty field; individual empty fields are returned as "" so the renderer
  * can drop them.
+ *
+ * "What to expect" uses the client's tier version when one is written, and the
+ * shared version otherwise — so a tier with no copy yet degrades to exactly what
+ * the document said before tiers existed.
  */
 export function assembleServiceExpectations(
   blocks: ExpectationBlock[],
@@ -118,14 +213,21 @@ export function assembleServiceExpectations(
   const services: ExpectationServiceSection[] = [];
   for (const service of SERVICE_EXPECTATION_ORDER) {
     if (!ctx.activeServices[service]) continue;
-    const expect = merge(serviceBlockKey(service, "expect"));
+
+    const raw = ctx.serviceValues?.[service] ?? null;
+    const tier = resolveServiceTier(service, raw);
+    const tierExpect = tier ? merge(tierExpectKey(service, tier)) : "";
+
+    const expect = tierExpect || merge(serviceBlockKey(service, "expect"));
     const limits = merge(serviceBlockKey(service, "limits"));
     const need = merge(serviceBlockKey(service, "need"));
     const recommend = merge(serviceBlockKey(service, "recommend"));
     if (!expect && !limits && !need && !recommend) continue;
+
     services.push({
       key: service,
       label: SERVICE_EXPECTATION_LABEL[service],
+      planLabel: tier ? TIER_LABEL[tier] : service === "blog" ? blogPlanLabel(raw) : null,
       expect,
       limits,
       need,
@@ -137,7 +239,10 @@ export function assembleServiceExpectations(
     intro: merge("intro"),
     timetable: merge("timetable"),
     services,
-    glossary: selectGlossaryTerms(ctx.glossary ?? [], ctx.activeServices),
+    glossary: selectGlossaryTerms(ctx.glossary ?? [], ctx.activeServices).map((term) => ({
+      ...term,
+      definition: applyExpectationMergeFields(term.definition, ctx),
+    })),
     closing: merge("closing"),
   };
 }
