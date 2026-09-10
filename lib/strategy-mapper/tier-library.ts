@@ -97,10 +97,26 @@ export const DEFAULT_TIER_FALLBACKS: ServiceTierTemplate[] = [
     enabled: true,
   },
   {
+    tierKey: "ppc-foundation",
+    service: "ppc",
+    tierLabel: "Ads Foundation",
+    tierRank: 1,
+    title: "Pay-Per-Click Advertising (PPC) — Foundation",
+    objective:
+      "Establish a focused, fully tracked paid presence for [Practice Name] on a single channel, putting one tightly scoped campaign in front of local pet parents who are actively looking for care in [Practice Location].",
+    tactics: [
+      "Single-Channel Campaign Build: Audit the existing ad account or build a new one, then launch one structured campaign on the channel that fits [Practice Name] best (Google Search or a single social platform), targeted to your local market.",
+      "Conversion Tracking Foundation: Configure call, form, and appointment-request conversion tracking (or the platform pixel) so every dollar of ad spend can be tied to a real client action from day one.",
+      "Baseline Keyword & Audience Targeting: Build core keyword research or interest targeting for one market, and adjust bids as needed to keep spend pointed at high-intent local prospects.",
+    ],
+    matchAliases: ["Ads Foundation", "PPC Foundation", "Google Ads Foundation", "Foundation PPC", "Paid Ads Foundation"],
+    enabled: true,
+  },
+  {
     tierKey: "ppc-premium",
     service: "ppc",
     tierLabel: "Ads Premium",
-    tierRank: 1,
+    tierRank: 2,
     title: "Pay-Per-Click Advertising (PPC) — Premium",
     objective:
       "Capture immediate, bottom-of-funnel consumer intent within your local market, utilizing targeted paid search campaigns to fill open appointments and drive high-priority patient appointments directly to [Practice Name].",
@@ -116,7 +132,7 @@ export const DEFAULT_TIER_FALLBACKS: ServiceTierTemplate[] = [
     tierKey: "ppc-premium-plus",
     service: "ppc",
     tierLabel: "Ads Premium Plus",
-    tierRank: 2,
+    tierRank: 3,
     title: "Pay-Per-Click Advertising (PPC) — Premium Plus",
     objective:
       "Deploy an aggressive, multi-layered paid search and social advertising engine to capture high-ticket specialty procedures regionally while protecting and scaling your local wellness acquisition footprint.",

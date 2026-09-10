@@ -17,11 +17,12 @@ function seoTierKey(value: string | null): string | null {
   return "seo-foundation";
 }
 
-function ppcTierKey(value: string | null): string | null {
+export function ppcTierKey(value: string | null): string | null {
   if (!isActive(value)) return null;
   const v = normalize(value);
   if (v.includes("plus") || v.includes("+")) return "ppc-premium-plus";
-  return "ppc-premium";
+  if (v === "p" || v.includes("premium")) return "ppc-premium";
+  return "ppc-foundation";
 }
 
 function ormTierKey(value: string | null): string | null {

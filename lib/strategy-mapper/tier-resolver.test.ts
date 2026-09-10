@@ -40,6 +40,14 @@ describe("resolveTierKeyFromLabel", () => {
     expect(resolveTierKeyFromLabel("Google Ads", "ppc", tiers)).toBe("ppc-premium");
   });
 
+  it("maps PPC Foundation to ppc-foundation", () => {
+    expect(resolveTierKeyFromLabel("PPC Foundation", "ppc", tiers)).toBe("ppc-foundation");
+  });
+
+  it("infers an unlisted PPC premium label as ppc-premium, not premium plus", () => {
+    expect(resolveTierKeyFromLabel("Paid Search Premium", "ppc", tiers)).toBe("ppc-premium");
+  });
+
   it("maps Social Media to social-standard", () => {
     expect(resolveTierKeyFromLabel("Social Media", "social", tiers)).toBe(
       "social-standard",
@@ -123,7 +131,7 @@ describe("getUpsellTierCandidates", () => {
       tiers,
       [{ service: "ppc", framing: "introduction" }],
     );
-    expect(candidates.some((c) => c.tierKey === "ppc-premium")).toBe(true);
+    expect(candidates.some((c) => c.tierKey === "ppc-foundation")).toBe(true);
   });
 
   it("offers higher tier for selected service upsell", () => {
