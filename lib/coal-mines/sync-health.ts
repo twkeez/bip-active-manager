@@ -10,16 +10,26 @@
  * function timeout leaves it untouched. Staleness therefore catches a timeout,
  * a broken schedule, an expired secret and a Basecamp outage alike, without
  * needing to know which happened.
+ *
+ * The thresholds below are measured, not assumed. The workflow asks for a run
+ * every 30 minutes on weekday daytimes — about 26 a day — and GitHub delivers
+ * between one and five, because it de-prioritises scheduled workflows under
+ * load and skips runs rather than queuing them. Over the 30 intervals to
+ * 2026-09-14 the median gap was 3.2 hours, a third exceeded 6 hours, and the
+ * largest was 24.3. Thresholds set from the cron expression would therefore
+ * have cried wolf on a third of all intervals, and a canary that is wrong that
+ * often stops being read at all.
  */
-
-/** Hours before a gap is worth mentioning. The schedule runs every 30 minutes. */
-export const SYNC_STALE_HOURS = 6;
 
 /**
- * Hours before it is certainly broken. Above a day, because the weekend
- * schedule is once daily and a Sunday gap is normal.
+ * Hours before a gap is genuinely abnormal — above every gap seen in normal
+ * operation, so this fires on a fault rather than on GitHub being GitHub.
+ * The "ok" headline still reports the age, so the number is never hidden.
  */
-export const SYNC_OVERDUE_HOURS = 26;
+export const SYNC_STALE_HOURS = 26;
+
+/** Hours before it is certainly broken: a full day beyond the worst normal gap. */
+export const SYNC_OVERDUE_HOURS = 48;
 
 export type SyncStateRow = {
   last_synced_at: string | null;
@@ -75,7 +85,7 @@ export function assessSyncHealth(
       hoursSince: rounded,
       status: "stale",
       errors,
-      headline: `Last completed sync was ${Math.round(hoursSince)} hours ago; the schedule runs every 30 minutes.`,
+      headline: `Last completed sync was ${Math.round(hoursSince)} hours ago; the schedule normally lands several times a day.`,
     };
   }
 

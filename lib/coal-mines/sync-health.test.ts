@@ -12,18 +12,28 @@ describe("assessSyncHealth", () => {
     expect(h.headline).toContain("within the last hour");
   });
 
-  it("notices a gap long before it becomes a day", () => {
-    expect(assessSyncHealth({ last_synced_at: hoursAgo(7), last_error: null }, NOW).status).toBe(
-      "stale",
+  // GitHub delivers 1-5 of the ~26 runs a day the workflow asks for, and the
+  // largest gap measured in normal operation was 24.3 hours. Flagging at 6
+  // would have been wrong on a third of all intervals.
+  it("stays quiet through the gaps GitHub's scheduler actually produces", () => {
+    for (const hours of [7, 14, 22.7, 24.3]) {
+      expect(assessSyncHealth({ last_synced_at: hoursAgo(hours), last_error: null }, NOW).status).toBe(
+        "ok",
+      );
+    }
+  });
+
+  it("still reports the age while it is quiet, so a long gap is never hidden", () => {
+    expect(assessSyncHealth({ last_synced_at: hoursAgo(22), last_error: null }, NOW).headline).toBe(
+      "Last synced 22 hours ago.",
     );
   });
 
-  it("tolerates a weekend gap but not a lost schedule", () => {
-    // The weekend schedule runs once a day, so 25 hours is not yet alarming.
-    expect(assessSyncHealth({ last_synced_at: hoursAgo(25), last_error: null }, NOW).status).toBe(
+  it("flags a gap beyond anything normal, and a lost schedule above that", () => {
+    expect(assessSyncHealth({ last_synced_at: hoursAgo(27), last_error: null }, NOW).status).toBe(
       "stale",
     );
-    expect(assessSyncHealth({ last_synced_at: hoursAgo(30), last_error: null }, NOW).status).toBe(
+    expect(assessSyncHealth({ last_synced_at: hoursAgo(50), last_error: null }, NOW).status).toBe(
       "overdue",
     );
   });
