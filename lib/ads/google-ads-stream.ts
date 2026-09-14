@@ -1,3 +1,5 @@
+import { getGoogleAccessTokenForScope } from "@/lib/google/token-manager";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { OAuth2Client } from "google-auth-library";
 import { assertValidCustomerId, normalizeCustomerId } from "@/lib/ads/customer-id";
 import { getGoogleAdsConfig, getGoogleOAuthRefreshConfig } from "@/lib/env";
@@ -131,10 +133,21 @@ export async function searchStream<T>(
 }
 
 export async function getGoogleAccessToken() {
+  // Prefer a Google connection made in the app that actually carries Ads
+  // permission. The environment refresh token is a hand-made credential and was
+  // silently replaced with a narrower one, which is how ads reporting died in
+  // July: the calls were rejected for "insufficient authentication scopes".
+  try {
+    const stored = await getGoogleAccessTokenForScope(createAdminClient(), "auth/adwords");
+    if (stored) return stored;
+  } catch {
+    // Fall through to the environment token rather than failing the sync here.
+  }
+
   const oauthConfig = getGoogleOAuthRefreshConfig();
   if (!oauthConfig) {
     throw new Error(
-      "Missing Google OAuth refresh credentials. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_OAUTH_REFRESH_TOKEN.",
+      "No Google Ads credentials. Connect Google in the app (it now asks for Ads permission), or set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_OAUTH_REFRESH_TOKEN.",
     );
   }
   const oauth = new OAuth2Client(

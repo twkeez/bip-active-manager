@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/analytics.readonly",
   "https://www.googleapis.com/auth/webmasters.readonly",
+  // Google Ads reporting. Added 2026-09-14: the stored connection had no Ads
+  // permission, so every ads call was rejected with "insufficient
+  // authentication scopes" once the API version was current again.
+  "https://www.googleapis.com/auth/adwords",
 ];
 
 type TokenExchangeResponse = {

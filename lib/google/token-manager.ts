@@ -91,6 +91,57 @@ export async function getGoogleAccessTokenForUser(admin: SupabaseClient, userId:
   }
 }
 
+/**
+ * Any stored Google connection that carries a given scope, refreshed if stale.
+ *
+ * Background jobs — the ads sync, the nightly pulls — have no signed-in user to
+ * look a token up by, and not every connection has every permission. This finds
+ * one that does, so connecting Google once in the app is enough for those jobs
+ * to keep working.
+ */
+export async function getGoogleAccessTokenForScope(
+  admin: SupabaseClient,
+  scopeFragment: string,
+): Promise<string | null> {
+  const { data, error } = await admin
+    .from("integration_api_tokens")
+    .select("provider,token_type,access_token,expires_at,last_refreshed_at,metadata")
+    .eq("provider", PROVIDER)
+    .returns<TokenRow[]>();
+  if (error) throw new Error(`Failed to load Google tokens: ${error.message}`);
+
+  const match = (data ?? []).find(
+    (row) =>
+      Boolean(row.access_token) &&
+      String(row.metadata?.scope ?? "").includes(scopeFragment),
+  );
+  if (!match) return null;
+  if (!isExpiredOrNearExpiry(match.expires_at)) return match.access_token;
+
+  const refreshToken = String(match.metadata?.refresh_token ?? "").trim();
+  if (!refreshToken) return match.access_token;
+
+  try {
+    const refreshed = await refreshGoogleAccessToken(refreshToken);
+    const now = new Date().toISOString();
+    await admin
+      .from("integration_api_tokens")
+      .update({
+        access_token: refreshed.accessToken,
+        expires_at: refreshed.expiresAt,
+        last_refreshed_at: now,
+        updated_at: now,
+        metadata: { ...match.metadata, scope: refreshed.scope, source: "refresh" },
+      })
+      .eq("provider", PROVIDER)
+      .eq("token_type", match.token_type);
+    return refreshed.accessToken;
+  } catch {
+    // An expired token still beats no token: the caller reports the real error.
+    return match.access_token;
+  }
+}
+
 export async function deleteGoogleTokenForUser(admin: SupabaseClient, userId: string) {
   const { error } = await admin
     .from("integration_api_tokens")

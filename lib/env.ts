@@ -1,3 +1,4 @@
+import { resolveGoogleAdsApiVersion } from "@/lib/ads/api-version";
 export function getSupabasePublicConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key =
@@ -183,7 +184,8 @@ export function getMetaGraphConfig() {
 export function getGoogleAdsConfig() {
   const developerToken = normalizeSecret(process.env.GOOGLE_ADS_DEVELOPER_TOKEN);
   const loginCustomerId = normalizeSecret(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID);
-  const apiVersion = normalizeSecret(process.env.GOOGLE_ADS_API_VERSION) || "v21";
+  // Never trusted as-is: a retired version 404s every call. See lib/ads/api-version.ts.
+  const apiVersion = resolveGoogleAdsApiVersion(normalizeSecret(process.env.GOOGLE_ADS_API_VERSION));
   if (!developerToken) {
     throw new Error("Missing GOOGLE_ADS_DEVELOPER_TOKEN");
   }
