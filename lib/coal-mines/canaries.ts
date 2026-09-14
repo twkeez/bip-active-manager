@@ -9,6 +9,14 @@ import {
   type ThreadRow,
 } from "./basecamp-threads";
 import { assessSyncHealth, type SyncStateRow } from "./sync-health";
+import {
+  ADS_STALE_DAYS,
+  assessAdsFreshness,
+  type AdsAccountFreshness,
+  type AdsAccountRow,
+  type AdsSnapshotRow,
+} from "./ads-freshness";
+import { isSyncableAdsCustomerId } from "@/lib/ads/customer-id";
 import { listBasecampProjectIgnores } from "@/lib/clients/basecamp-project-ignores";
 import {
   findProjectWiringProblems,
@@ -89,9 +97,138 @@ export async function runCanaries(
   // stale data, and that context changes how you read the rest of the page.
   return Promise.all([
     checkSyncHealth(supabase, now),
+    checkAdsFreshness(supabase, now),
     checkProjectWiring(supabase),
     checkBasecampThreads(supabase, now),
   ]);
+}
+
+/**
+ * Whether the numbers on the client pages are actually from this week.
+ *
+ * Sits next to the Basecamp sync canary for the same reason: stale ads figures
+ * do not look stale, they look like facts. Two months of frozen spend and
+ * impression share went unnoticed in 2026 because nothing asked this question.
+ */
+export async function checkAdsFreshness(
+  supabase: SupabaseClient,
+  now: Date = new Date(),
+): Promise<Canary> {
+  const base = {
+    key: "ads-freshness",
+    name: "Ads reporting",
+    watches:
+      "When each ads account last completed a refresh. Stale spend and impression-share figures read as current on the client page.",
+  } as const;
+
+  const [{ data: clients, error: clientsError }, { data: snapshots, error: snapshotsError }] =
+    await Promise.all([
+      supabase.from("clients").select("id, account_name, ads_customer_id"),
+      supabase
+        .from("client_ads_snapshots")
+        .select("client_id, run_status, created_at, error_message")
+        .order("created_at", { ascending: false })
+        .returns<AdsSnapshotRow[]>(),
+    ]);
+
+  const error = clientsError ?? snapshotsError;
+  if (error) {
+    return { ...base, status: "attention", headline: "Could not read ads snapshots.", detail: [error.message] };
+  }
+
+  // Only accounts we can actually sync. A client with no customer ID is not
+  // stale, it is not connected — a different problem, and not this canary's.
+  const accounts: AdsAccountRow[] = (clients ?? [])
+    .filter((client) => isSyncableAdsCustomerId(client.ads_customer_id as string | null))
+    .map((client) => ({ id: client.id as number, account_name: client.account_name as string }));
+
+  const freshness = assessAdsFreshness(accounts, snapshots ?? [], now);
+
+  if (freshness.status === "ok") {
+    return {
+      ...base,
+      status: "ok",
+      headline:
+        accounts.length === 0
+          ? "No client has a Google Ads account connected."
+          : `All ${freshness.considered} ads accounts refreshed within ${ADS_STALE_DAYS} days.`,
+      detail: [],
+    };
+  }
+
+  const toItems = (entries: AdsAccountFreshness[]): CanaryItem[] =>
+    entries.map((entry) => ({
+      label: entry.accountName,
+      meta: [
+        entry.days === null ? "never refreshed" : `last refreshed ${entry.days}d ago`,
+        entry.lastError ? `— ${entry.lastError}` : null,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      href: `/dashboard/clients/${entry.clientId}?tab=ads`,
+      flagged: entry.days === null || Boolean(entry.lastError),
+    }));
+
+  const section = (
+    heading: string,
+    blurb: string,
+    tone: CanaryStatus,
+    entries: AdsAccountFreshness[],
+  ): CanarySection | null =>
+    entries.length === 0
+      ? null
+      : {
+          heading: `${heading} (${entries.length})`,
+          blurb,
+          tone,
+          groups: [{ title: heading, meta: `${entries.length} accounts`, items: toItems(entries) }],
+        };
+
+  const sections = [
+    section(
+      "Never refreshed",
+      "Connected to a customer ID but no completed sync has ever run. Usually a permissions problem on that account.",
+      "overdue",
+      freshness.never,
+    ),
+    section(
+      "Last attempt failed",
+      "An older sync succeeded, so the page still shows numbers — they just stopped updating on this date.",
+      "overdue",
+      freshness.failing,
+    ),
+    section(
+      "Behind",
+      `No completed refresh in ${ADS_STALE_DAYS}+ days.`,
+      "attention",
+      freshness.stale,
+    ),
+  ].filter((x): x is CanarySection => x !== null);
+
+  const detail: string[] = [];
+  if (freshness.status === "overdue") {
+    detail.push(
+      // Every account being equally stale is the signature of the job not
+      // running, which is a different fix from one account failing.
+      "Every account is behind by roughly the same amount, which means the nightly job is not running rather than any one account failing.",
+      "Check the Ads sync workflow on GitHub, and that CRON_SECRET matches between GitHub and Vercel.",
+    );
+  }
+  if (freshness.freshestDays !== null) {
+    detail.push(`Freshest account refreshed ${freshness.freshestDays}d ago.`);
+  }
+
+  return {
+    ...base,
+    status: freshness.status,
+    headline:
+      freshness.status === "overdue"
+        ? `No ads account has refreshed in ${freshness.freshestDays ?? "any number of"} days — the nightly sync has stopped.`
+        : `${freshness.stale.length + freshness.never.length} of ${freshness.considered} ads accounts are not up to date.`,
+    detail,
+    action: { label: "Open Ads Optimization", href: "/global-ads-optimization" },
+    sections,
+  };
 }
 
 /** Whether the data everything else depends on is actually being refreshed. */

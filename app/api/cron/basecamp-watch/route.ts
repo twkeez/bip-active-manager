@@ -1,5 +1,5 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { cronSecretConfigured, isAuthorizedCronRequest } from "@/lib/cron/authorize";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getBasecampOAuthConfig } from "@/lib/env";
 import { markBasecampSyncError, runBasecampSync } from "@/lib/basecamp/sync";
@@ -24,19 +24,6 @@ import { runThreadClassification } from "@/lib/coal-mines/run-thread-classificat
 
 export const maxDuration = 300;
 
-function authorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-  // Refuse rather than run open when the secret is unset — an unauthenticated
-  // endpoint that spends money is worse than one that does not work.
-  if (!secret) return false;
-
-  const header = request.headers.get("authorization") ?? "";
-  const presented = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  if (presented.length !== secret.length) return false;
-
-  return timingSafeEqual(Buffer.from(presented), Buffer.from(secret));
-}
-
 /** OAuth when it is configured, Basecamp 2 otherwise — same rule as the button. */
 function resolveMode(): "oauth" | "classic" {
   try {
@@ -48,13 +35,13 @@ function resolveMode(): "oauth" | "classic" {
 }
 
 export async function POST(request: Request) {
-  if (!authorized(request)) {
+  if (!isAuthorizedCronRequest(request)) {
     // `configured` says whether the server has a secret at all, without saying
     // what it is. Without it, a 401 cannot distinguish "the variable never
     // reached this deployment" from "the caller sent the wrong value", and
     // those have completely different fixes.
     return NextResponse.json(
-      { error: "Unauthorized", configured: Boolean(process.env.CRON_SECRET?.trim()) },
+      { error: "Unauthorized", configured: cronSecretConfigured() },
       { status: 401 },
     );
   }
