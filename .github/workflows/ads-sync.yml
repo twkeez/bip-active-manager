@@ -1,0 +1,52 @@
+name: Ads sync
+
+on:
+  schedule:
+    # Once nightly at 07:10 UTC — roughly 3am US Eastern, after Google has
+    # settled the previous day's figures and before anyone opens a client page.
+    # The offset minute keeps it out of the on-the-hour crush on GitHub's
+    # scheduler, which routinely delays jobs queued at :00.
+    - cron: "10 7 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ads-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh Google Ads data for every connected client
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::APP_URL and CRON_SECRET repository secrets must both be set."
+            exit 1
+          fi
+
+          http_status=$(curl -sS -o response.json -w '%{http_code}' \
+            --max-time 330 \
+            -X POST "${APP_URL%/}/api/cron/ads-sync" \
+            -H "Authorization: Bearer ${CRON_SECRET}")
+
+          echo "HTTP ${http_status}"
+          cat response.json
+          echo
+
+          # 207: some accounts failed, most succeeded. Warn, but do not fail the
+          # schedule — a single revoked customer ID is normal and must not read
+          # as "ads sync is broken".
+          if [ "$http_status" = "207" ]; then
+            echo "::warning::Some accounts failed to sync — see the body above."
+            exit 0
+          fi
+
+          if [ "$http_status" != "200" ]; then
+            echo "::error::ads-sync failed with HTTP ${http_status}"
+            exit 1
+          fi
