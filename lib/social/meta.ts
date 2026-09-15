@@ -22,11 +22,17 @@ type MetaInsightsMetric = {
   values?: MetaDailyPoint[];
 };
 
+type MetaSummary = { summary?: { total_count?: number } };
+
 type MetaPost = {
   id: string;
   message?: string;
   permalink_url?: string;
   created_time?: string;
+  reactions?: MetaSummary;
+  comments?: MetaSummary;
+  /** Absent entirely when a post has never been shared. */
+  shares?: { count?: number };
   insights?: {
     data?: Array<{
       name?: string;
@@ -271,6 +277,25 @@ export async function listMetaPages(accessToken?: string) {
   }));
 }
 
+/**
+ * Pages with their access tokens, for jobs that must read a page directly.
+ *
+ * listMetaPages deliberately drops the tokens — it feeds a UI picker and a page
+ * token has no business travelling that far. Server-side jobs need them, so
+ * they ask explicitly rather than the safer function quietly starting to leak.
+ */
+export async function listMetaPagesWithTokens(accessToken?: string) {
+  const json = await graphGet(
+    "me/accounts",
+    { fields: "id,name,access_token,instagram_business_account{id,username}", limit: "200" },
+    accessToken,
+  );
+  const pages = (json.data as MetaPage[] | undefined) ?? [];
+  return pages
+    .filter((page) => Boolean(page.access_token))
+    .map((page) => ({ id: page.id, name: page.name ?? null, accessToken: page.access_token! }));
+}
+
 export async function fetchFacebookDaily(pageId: string, pageToken: string) {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const until = new Date().toISOString().slice(0, 10);
@@ -380,44 +405,93 @@ function insightMetricValue(
   return metric?.values?.[0]?.value ?? null;
 }
 
-export async function fetchFacebookPosts(pageId: string, pageToken: string) {
+/**
+ * Facebook posts, with the metrics Meta still serves.
+ *
+ * This used to ask insights for post_impressions, post_engaged_users and
+ * post_clicks in one call. Meta retired the first two — probed metric by metric
+ * on 2026-09-15, on both v20 and v23, so it is the names and not the version —
+ * and because all three travelled together the whole request 400'd and took
+ * post_clicks down with it. The error was then swallowed and the post written
+ * with every metric null. That is why 3,147 Facebook posts carry no numbers at
+ * all while Instagram's carry engagement.
+ *
+ * So engagement no longer goes through insights. Reactions, comments and shares
+ * are plain summary fields that need no insights permission, which is what
+ * Instagram has always done here — with shares as a bonus Instagram cannot
+ * give us. Only link clicks still needs insights, and it is now asked for
+ * alone, so its failure costs only itself.
+ *
+ * Per-post reach and impressions are simply gone; page-level daily reach still
+ * works and is collected by fetchFacebookDaily.
+ */
+export async function fetchFacebookPosts(
+  pageId: string,
+  pageToken: string,
+  { limit = 25, after }: { limit?: number; after?: string } = {},
+) {
+  const fields = [
+    "id",
+    "message",
+    "permalink_url",
+    "created_time",
+    "reactions.summary(total_count).limit(0)",
+    "comments.summary(total_count).limit(0)",
+    "shares",
+  ].join(",");
+
+  const params: Record<string, string> = { fields, limit: String(limit) };
+  if (after) params.after = after;
+
+  // Clicks are asked for separately so a retirement can never again cost us
+  // the metrics that still work.
+  let withClicks = true;
   let json: Record<string, unknown>;
   try {
     json = await graphGet(
       `${pageId}/posts`,
-      {
-        fields:
-          "id,message,permalink_url,created_time,insights.metric(post_impressions,post_engaged_users,post_clicks)",
-        limit: "25",
-      },
+      { ...params, fields: `${fields},insights.metric(post_clicks)` },
       pageToken,
     );
   } catch (error) {
     if (!isUnsupportedMetricError(error)) throw error;
-    json = await graphGet(
-      `${pageId}/posts`,
-      {
-        fields: "id,message,permalink_url,created_time",
-        limit: "25",
-      },
-      pageToken,
-    );
+    withClicks = false;
+    json = await graphGet(`${pageId}/posts`, params, pageToken);
   }
+
   const rows = (json.data as MetaPost[] | undefined) ?? [];
-  return rows.map((row) => ({
-    post_id: row.id,
-    media_type: "post",
-    permalink: row.permalink_url ?? null,
-    caption: row.message ?? null,
-    published_at: row.created_time ?? null,
-    impressions: insightMetricValue(row.insights, "post_impressions"),
-    reach: null,
-    engagement: insightMetricValue(row.insights, "post_engaged_users"),
-    link_clicks: insightMetricValue(row.insights, "post_clicks"),
-    comments: null,
-    saves: null,
-    shares: null,
-  }));
+  const paging = json.paging as { cursors?: { after?: string } } | undefined;
+
+  return {
+    /** False when Meta refused the clicks metric — the caller should say so. */
+    linkClicksAvailable: withClicks,
+    nextCursor: paging?.cursors?.after ?? null,
+    posts: rows.map((row) => {
+      const reactions = row.reactions?.summary?.total_count ?? null;
+      const comments = row.comments?.summary?.total_count ?? null;
+      const shares = row.shares?.count ?? 0;
+      // Null only when Meta returned neither summary — "no engagement" and
+      // "not measured" must stay distinguishable.
+      const engagement =
+        reactions === null && comments === null
+          ? null
+          : (reactions ?? 0) + (comments ?? 0) + shares;
+      return {
+        post_id: row.id,
+        media_type: "post",
+        permalink: row.permalink_url ?? null,
+        caption: row.message ?? null,
+        published_at: row.created_time ?? null,
+        impressions: null,
+        reach: null,
+        engagement,
+        link_clicks: withClicks ? insightMetricValue(row.insights, "post_clicks") : null,
+        comments,
+        saves: null,
+        shares,
+      };
+    }),
+  };
 }
 
 export async function fetchInstagramMedia(igUserId: string, pageToken: string) {

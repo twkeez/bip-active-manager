@@ -1,0 +1,49 @@
+name: Social sync
+
+on:
+  schedule:
+    # Once nightly at 07:40 UTC — half an hour after the ads sync, so the two
+    # never contend for the same function capacity.
+    - cron: "40 7 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: social-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh Facebook and Instagram data for every connected client
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::APP_URL and CRON_SECRET repository secrets must both be set."
+            exit 1
+          fi
+
+          http_status=$(curl -sS -o response.json -w '%{http_code}' \
+            --max-time 330 \
+            -X POST "${APP_URL%/}/api/cron/social-sync" \
+            -H "Authorization: Bearer ${CRON_SECRET}")
+
+          echo "HTTP ${http_status}"
+          cat response.json
+          echo
+
+          # 207: some pages failed, most succeeded. A practice that revoked our
+          # access is normal and must not read as "social sync is broken".
+          if [ "$http_status" = "207" ]; then
+            echo "::warning::Some pages failed to sync — see the body above."
+            exit 0
+          fi
+
+          if [ "$http_status" != "200" ]; then
+            echo "::error::social-sync failed with HTTP ${http_status}"
+            exit 1
+          fi

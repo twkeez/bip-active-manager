@@ -10,12 +10,12 @@ import {
 } from "./basecamp-threads";
 import { assessSyncHealth, type SyncStateRow } from "./sync-health";
 import {
-  ADS_STALE_DAYS,
-  assessAdsFreshness,
-  type AdsAccountFreshness,
-  type AdsAccountRow,
-  type AdsSnapshotRow,
-} from "./ads-freshness";
+  SNAPSHOT_STALE_DAYS,
+  assessFreshness,
+  type AccountFreshness,
+  type FreshnessAccount,
+  type SnapshotRow,
+} from "./snapshot-freshness";
 import { isSyncableAdsCustomerId } from "@/lib/ads/customer-id";
 import { listBasecampProjectIgnores } from "@/lib/clients/basecamp-project-ignores";
 import {
@@ -151,7 +151,7 @@ export async function checkAdsFreshness(
         .from("client_ads_snapshots")
         .select("client_id, run_status, created_at, error_message")
         .order("created_at", { ascending: false })
-        .returns<AdsSnapshotRow[]>(),
+        .returns<SnapshotRow[]>(),
     ]);
 
   const error = clientsError ?? snapshotsError;
@@ -161,11 +161,11 @@ export async function checkAdsFreshness(
 
   // Only accounts we can actually sync. A client with no customer ID is not
   // stale, it is not connected — a different problem, and not this canary's.
-  const accounts: AdsAccountRow[] = (clients ?? [])
+  const accounts: FreshnessAccount[] = (clients ?? [])
     .filter((client) => isSyncableAdsCustomerId(client.ads_customer_id as string | null))
     .map((client) => ({ id: client.id as number, account_name: client.account_name as string }));
 
-  const freshness = assessAdsFreshness(accounts, snapshots ?? [], now);
+  const freshness = assessFreshness(accounts, snapshots ?? [], now);
 
   if (freshness.status === "ok") {
     return {
@@ -174,12 +174,12 @@ export async function checkAdsFreshness(
       headline:
         accounts.length === 0
           ? "No client has a Google Ads account connected."
-          : `All ${freshness.considered} ads accounts refreshed within ${ADS_STALE_DAYS} days.`,
+          : `All ${freshness.considered} ads accounts refreshed within ${SNAPSHOT_STALE_DAYS} days.`,
       detail: [],
     };
   }
 
-  const toItems = (entries: AdsAccountFreshness[]): CanaryItem[] =>
+  const toItems = (entries: AccountFreshness[]): CanaryItem[] =>
     entries.map((entry) => ({
       label: entry.accountName,
       meta: [
@@ -196,7 +196,7 @@ export async function checkAdsFreshness(
     heading: string,
     blurb: string,
     tone: CanaryStatus,
-    entries: AdsAccountFreshness[],
+    entries: AccountFreshness[],
   ): CanarySection | null =>
     entries.length === 0
       ? null
@@ -222,7 +222,7 @@ export async function checkAdsFreshness(
     ),
     section(
       "Behind",
-      `No completed refresh in ${ADS_STALE_DAYS}+ days.`,
+      `No completed refresh in ${SNAPSHOT_STALE_DAYS}+ days.`,
       "attention",
       freshness.stale,
     ),

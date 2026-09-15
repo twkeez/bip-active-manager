@@ -1,35 +1,36 @@
 /**
- * Watches the ads sync.
+ * Watches a nightly sync.
  *
- * Ads reporting is the one place in this app where stale data reads as fact: a
- * client page showing $4,577 and 55% impression share looks identical whether
- * those numbers are from last night or from July. They were from July for two
- * months, and nothing said so.
+ * Reporting data is where stale numbers read as fact: a client page showing
+ * $4,577 and 55% impression share looks identical whether those figures are
+ * from last night or from July. They were from July for two months, and
+ * nothing said so. Social had the same hole — button-only, last run 9 July.
  *
- * So this canary answers one question — when did each account last complete a
- * refresh — and treats "never" and "failed" as the same class of problem as
- * "old", because from the client page they are indistinguishable.
+ * So this answers one question — when did each account last complete a refresh
+ * — and treats "never" and "failed" as the same class of problem as "old",
+ * because from the client page they are indistinguishable. Shared by the ads
+ * and social canaries, which run on the same nightly cadence.
  */
 
-/** Days before an account's numbers are worth questioning. The job runs nightly. */
-export const ADS_STALE_DAYS = 2;
+/** Days before an account's numbers are worth questioning. These jobs run nightly. */
+export const SNAPSHOT_STALE_DAYS = 2;
 
 /** Days before the schedule itself is the likely cause rather than one account. */
-export const ADS_OVERDUE_DAYS = 5;
+export const SNAPSHOT_OVERDUE_DAYS = 5;
 
-export type AdsSnapshotRow = {
+export type SnapshotRow = {
   client_id: number;
   run_status: string;
   created_at: string;
   error_message: string | null;
 };
 
-export type AdsAccountRow = {
+export type FreshnessAccount = {
   id: number;
   account_name: string;
 };
 
-export type AdsAccountFreshness = {
+export type AccountFreshness = {
   clientId: number;
   accountName: string;
   /** Days since the last completed snapshot; null when there has never been one. */
@@ -38,13 +39,13 @@ export type AdsAccountFreshness = {
   lastError: string | null;
 };
 
-export type AdsFreshness = {
-  /** Accounts whose last completed refresh is older than ADS_STALE_DAYS. */
-  stale: AdsAccountFreshness[];
+export type Freshness = {
+  /** Accounts whose last completed refresh is older than SNAPSHOT_STALE_DAYS. */
+  stale: AccountFreshness[];
   /** Accounts that have never completed a refresh at all. */
-  never: AdsAccountFreshness[];
+  never: AccountFreshness[];
   /** Accounts whose most recent attempt failed, whatever their last good one says. */
-  failing: AdsAccountFreshness[];
+  failing: AccountFreshness[];
   /** Total accounts with a usable customer ID. */
   considered: number;
   /** Days since the freshest account in the whole roster refreshed. */
@@ -64,21 +65,21 @@ function daysBetween(from: string, now: Date): number {
  * never came back, which is exactly what a timeout looks like, so it counts as
  * a failure only when it is the newest row and is older than a day.
  */
-export function assessAdsFreshness(
-  accounts: AdsAccountRow[],
-  snapshots: AdsSnapshotRow[],
+export function assessFreshness(
+  accounts: FreshnessAccount[],
+  snapshots: SnapshotRow[],
   now: Date = new Date(),
-): AdsFreshness {
-  const byClient = new Map<number, AdsSnapshotRow[]>();
+): Freshness {
+  const byClient = new Map<number, SnapshotRow[]>();
   for (const row of snapshots) {
     const list = byClient.get(row.client_id);
     if (list) list.push(row);
     else byClient.set(row.client_id, [row]);
   }
 
-  const stale: AdsAccountFreshness[] = [];
-  const never: AdsAccountFreshness[] = [];
-  const failing: AdsAccountFreshness[] = [];
+  const stale: AccountFreshness[] = [];
+  const never: AccountFreshness[] = [];
+  const failing: AccountFreshness[] = [];
   const allDays: number[] = [];
   let anyNever = false;
 
@@ -96,7 +97,7 @@ export function assessAdsFreshness(
       (newest.run_status === "failed" ||
         (newest.run_status === "running" && daysBetween(newest.created_at, now) >= 1));
 
-    const entry: AdsAccountFreshness = {
+    const entry: AccountFreshness = {
       clientId: account.id,
       accountName: account.account_name,
       days,
@@ -108,12 +109,12 @@ export function assessAdsFreshness(
       never.push(entry);
     } else {
       allDays.push(days);
-      if (days >= ADS_STALE_DAYS) stale.push(entry);
+      if (days >= SNAPSHOT_STALE_DAYS) stale.push(entry);
     }
     if (newestFailed) failing.push(entry);
   }
 
-  const byAge = (a: AdsAccountFreshness, b: AdsAccountFreshness) => (b.days ?? 0) - (a.days ?? 0);
+  const byAge = (a: AccountFreshness, b: AccountFreshness) => (b.days ?? 0) - (a.days ?? 0);
   stale.sort(byAge);
   failing.sort(byAge);
 
@@ -124,8 +125,8 @@ export function assessAdsFreshness(
   // ran at all — the schedule is broken. When only some accounts are stale, the
   // job is running and those accounts are failing inside it.
   const scheduleStopped =
-    accounts.length > 0 && (freshestDays === null || freshestDays >= ADS_OVERDUE_DAYS);
-  const status: AdsFreshness["status"] = scheduleStopped
+    accounts.length > 0 && (freshestDays === null || freshestDays >= SNAPSHOT_OVERDUE_DAYS);
+  const status: Freshness["status"] = scheduleStopped
     ? "overdue"
     : stale.length > 0 || never.length > 0 || failing.length > 0
       ? "attention"

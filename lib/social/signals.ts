@@ -1,6 +1,6 @@
 import type { SocialDailySnapshot, SocialPostSnapshot } from "@/lib/types/client";
 
-type SocialSignalDraft = {
+export type SocialSignalDraft = {
   signal_id: string;
   severity: "critical" | "watch";
   title: string;
