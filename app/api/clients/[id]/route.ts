@@ -87,6 +87,7 @@ export async function PATCH(
     "contact_email",
     "shared_drive_url",
     "city",
+    "state",
     "marketing_strategist",
     "tier",
     "seo",

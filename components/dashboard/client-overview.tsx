@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import ClientLocationEditor from "@/components/dashboard/client-location-editor";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -206,7 +207,7 @@ function RunResearchButton({
   if (!city) {
     return (
       <span style={{ color: T.faint }} className="text-[10.5px]">
-        No city on file — can&apos;t research
+        No town on file — can&apos;t research
       </span>
     );
   }
@@ -276,7 +277,7 @@ function BackgroundPanel({
         {!background && (
           <p style={{ color: T.secondary }} className="text-[12.5px]">
             No market research on file for this client yet.
-            {!city && " Add a Google Place ID on the Profile tab first — research without a location comes back generic."}
+            {!city && " Add the town at the top of this page first — research without a location comes back generic."}
           </p>
         )}
         {marketSnapshot && (
@@ -878,6 +879,14 @@ export default function ClientOverview({
                   {websiteDomain} ↗
                 </a>
               )}
+              <span style={{ color: T.divider }}>·</span>
+              {/* The town sits with the other facts about the account, and is
+                  editable here because this is where you notice it missing. */}
+              <ClientLocationEditor
+                clientId={client.id}
+                city={norm(client.city) ?? null}
+                state={norm(client.state) ?? null}
+              />
             </p>
 
             {services.length > 0 && (

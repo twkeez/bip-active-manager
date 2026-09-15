@@ -38,6 +38,8 @@ export type ClientRow = {
    */
   is_website_only?: boolean | null;
   city?: string | null;
+  /** Two-letter state or province. Paired with city; both are optional. */
+  state?: string | null;
   last_communication_at: string | null;
   last_event_is_internal: boolean | null;
   needs_reply: boolean;
