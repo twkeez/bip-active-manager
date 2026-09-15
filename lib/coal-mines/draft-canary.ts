@@ -19,6 +19,19 @@ import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 
 export const DRAFT_MODEL = "claude-opus-5";
 
+/**
+ * Generous, because adaptive thinking spends from the same budget as the
+ * answer. The first version allowed 4000, which was ample in a test against a
+ * three-table catalogue and nowhere near enough against the real one — a
+ * hundred tables is a lot to think about, and the JSON was cut off mid-string
+ * around 3000 characters. The symptom was an unterminated-JSON parse error,
+ * which says nothing about the actual cause.
+ */
+const MAX_TOKENS = 24_000;
+
+/** The draft ran out of room. Recoverable by asking for something narrower. */
+export class DraftTruncatedError extends Error {}
+
 export type CanaryDraft = {
   name: string;
   watches: string;
@@ -113,9 +126,12 @@ export async function draftCanary(
   catalogue: string,
 ): Promise<CanaryDraft> {
   const client = new Anthropic();
-  const message = await client.messages.parse({
+  // Streamed rather than awaited whole: at this budget a single response can
+  // run long enough to bump the request timeout, and the stream keeps hold of
+  // the partial message so a failure can say why it failed.
+  const stream = client.messages.stream({
     model: DRAFT_MODEL,
-    max_tokens: 4000,
+    max_tokens: MAX_TOKENS,
     thinking: { type: "adaptive" },
     messages: [
       {
@@ -126,8 +142,27 @@ export async function draftCanary(
     output_config: { format: canaryDraftOutputFormat },
   });
 
+  let message;
+  try {
+    message = await stream.finalMessage();
+  } catch (error) {
+    // Truncated JSON fails to parse inside the helper, so the only way to tell
+    // "ran out of room" from "genuinely malformed" is the partial message.
+    if (stream.currentMessage?.stop_reason === "max_tokens") {
+      throw new DraftTruncatedError(
+        "The check ran past the length limit while being written. Try a narrower instruction — one condition rather than several.",
+      );
+    }
+    throw error;
+  }
+
   if (message.stop_reason === "refusal") {
     throw new Error("Claude declined to write this check.");
+  }
+  if (message.stop_reason === "max_tokens") {
+    throw new DraftTruncatedError(
+      "The check ran past the length limit while being written. Try a narrower instruction — one condition rather than several.",
+    );
   }
 
   const parsed = message.parsed_output as CanaryDraft | null;

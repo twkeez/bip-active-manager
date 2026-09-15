@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth/require-admin";
-import { draftCanary } from "@/lib/coal-mines/draft-canary";
+import { draftCanary, DraftTruncatedError } from "@/lib/coal-mines/draft-canary";
 import { assertReadOnlyQuery, UnsafeQueryError } from "@/lib/coal-mines/query-guard";
 import { PREVIEW_ROW_LIMIT, runCanaryQuery } from "@/lib/coal-mines/readonly-query";
 import { loadSchemaCatalogue } from "@/lib/coal-mines/schema-catalogue";
@@ -16,7 +16,8 @@ import { createClient } from "@/lib/supabase/server";
  * the SQL catches that as reliably as looking at the rows it returns.
  */
 
-export const maxDuration = 120;
+// Adaptive thinking over a hundred-table catalogue is not quick.
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -81,6 +82,10 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    // A draft that ran out of room is the user's to fix, not a server fault.
+    if (error instanceof DraftTruncatedError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Could not draft this check." },
       { status: 500 },
