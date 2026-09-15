@@ -88,19 +88,42 @@ export type CanarySection = {
   groups: CanaryGroupView[];
 };
 
-/** Every canary, run together. Order is display order. */
+/**
+ * Every canary, run together. Order is display order.
+ *
+ * The built-in checks come first and in a fixed order; canaries somebody wrote
+ * follow, oldest first. The admin client is only needed for those — their
+ * queries run through a function the service role alone may call — and it is
+ * imported lazily so this module stays importable without any environment.
+ */
 export async function runCanaries(
   supabase: SupabaseClient,
   now: Date = new Date(),
+  admin?: SupabaseClient,
 ): Promise<Canary[]> {
   // Sync health leads: when it is unhappy every canary under it is reporting on
   // stale data, and that context changes how you read the rest of the page.
-  return Promise.all([
-    checkSyncHealth(supabase, now),
-    checkAdsFreshness(supabase, now),
-    checkProjectWiring(supabase),
-    checkBasecampThreads(supabase, now),
+  const [builtIn, custom] = await Promise.all([
+    Promise.all([
+      checkSyncHealth(supabase, now),
+      checkAdsFreshness(supabase, now),
+      checkProjectWiring(supabase),
+      checkBasecampThreads(supabase, now),
+    ]),
+    runCustom(admin),
   ]);
+  return [...builtIn, ...custom];
+}
+
+async function runCustom(admin?: SupabaseClient): Promise<Canary[]> {
+  const { runCustomCanaries } = await import("./custom-canaries");
+  const client = admin ?? (await import("@/lib/supabase/admin")).createAdminClient();
+  try {
+    return await runCustomCanaries(client);
+  } catch {
+    // One broken custom canary must not cost you the built-in board.
+    return [];
+  }
 }
 
 /**

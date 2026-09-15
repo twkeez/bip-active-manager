@@ -191,8 +191,14 @@ export default function CoalMinesBoard({ canaries, checkedAt }: Props) {
             Evaluated {new Date(checkedAt).toLocaleString()}. The Basecamp data behind them
             refreshes on a schedule — see the sync canary for how current it is.
           </p>
-          <div className="mt-2.5 border-t border-bip-border pt-2.5">
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 border-t border-bip-border pt-2.5">
             <ClassifyThreadsButton />
+            <Link
+              href="/coal-mines/bots"
+              className="text-[11px] font-medium text-bip-text hover:underline"
+            >
+              Write a canary →
+            </Link>
           </div>
         </div>
       )}
