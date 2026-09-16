@@ -43,6 +43,7 @@ export default function ClientWorkspace({
         userEmail={userEmail}
         strategistRoster={strategistRoster}
         appUrl={appUrl}
+        isAdminUser={isAdminUser}
       />
     );
   }

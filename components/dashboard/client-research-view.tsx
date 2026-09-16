@@ -16,7 +16,7 @@ import type {
   BrandElements,
   CompetitorOffer,
   Discovery,
-} from "@/components/dashboard/onboarding/types";
+} from "@/lib/onboarding/research-types";
 import type { ClientRow } from "@/lib/types/client";
 import ClientSiteContentCard from "@/components/dashboard/client-site-content-card";
 

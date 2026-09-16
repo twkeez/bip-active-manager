@@ -19,7 +19,7 @@ import type {
 } from "@/lib/dashboard/client-workspace-types";
 import ClientPlaybookView from "@/components/playbook/client-playbook-view";
 import ClientRunOfShowView from "@/components/dashboard/client-run-of-show-view";
-import OnboardingMap from "@/components/dashboard/onboarding/onboarding-map";
+import ClientOnboardingPanel from "@/components/onboarding/client-onboarding-panel";
 import ClientProfileView from "@/components/dashboard/client-profile-view";
 import ClientResearchView from "@/components/dashboard/client-research-view";
 import type { StrategistContact } from "@/lib/team/strategist-roster";
@@ -582,6 +582,7 @@ type Props = {
   userEmail?: string;
   strategistRoster?: StrategistContact[];
   appUrl?: string;
+  isAdminUser?: boolean;
 };
 
 export default function ClientSimpleTabView({
@@ -590,6 +591,7 @@ export default function ClientSimpleTabView({
   userEmail,
   strategistRoster = [],
   appUrl,
+  isAdminUser = false,
 }: Props) {
   const { client } = data;
   const clientId = client.id;
@@ -606,6 +608,7 @@ export default function ClientSimpleTabView({
         return (
           <ClientRunOfShowView
             client={client}
+            isAdminUser={isAdminUser}
             onOpenTab={(tab) => {
               if (tab === "edit") {
                 router.push(`/dashboard/clients/${clientId}?tab=profile`);
@@ -625,16 +628,13 @@ export default function ClientSimpleTabView({
           />
         );
       case "onboarding":
+        // The onboarding workspace, not the old checklist (removed 2026-09-16).
         return (
-          <OnboardingMap
+          <ClientOnboardingPanel
             clientId={client.id}
-            recentThreads={data.threadEvents.filter((e) => !e.is_internal)}
-            onOpenTab={(tab) => {
-              if (tab === "edit") return;
-              router.push(`/dashboard/clients/${clientId}?tab=${tab}`);
-            }}
-            onEditClient={() => router.push(`/dashboard/clients/${clientId}?tab=profile`)}
-            onGraduated={() => router.refresh()}
+            onboardingStatus={client.onboarding_status}
+            isAdmin={isAdminUser}
+            variant="full"
           />
         );
       case "research":
