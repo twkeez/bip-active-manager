@@ -447,10 +447,16 @@ export default function OnboardingMap({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <a
+              href={`/client-document/${clientId}`}
+              className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+            >
+              <FileText className="h-3.5 w-3.5" /> Review &amp; edit
+            </a>
+            <a
               href={`/client-expectations-print/${clientId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+              className="inline-flex items-center gap-1.5 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
             >
               <FileText className="h-3.5 w-3.5" /> Client document (PDF)
             </a>

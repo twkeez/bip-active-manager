@@ -12,6 +12,7 @@ import {
 import type { GlossaryTerm } from "@/lib/onboarding/expectation-glossary";
 import { buildClientMarket, type ClientMarket, type DiscoveryResearch } from "@/lib/onboarding/client-market";
 import { buildPlanTimeline, type PlanTimeline, type ServiceStartPlan } from "@/lib/onboarding/client-timeline";
+import { applyDocumentEdits, type DocumentEdit } from "@/lib/onboarding/document-edits";
 import type { ClientServiceKey } from "@/lib/clients/types";
 import {
   assembleServiceExpectations,
@@ -39,6 +40,8 @@ export type ClientExpectationsModel = {
   /** "A note from Stephanie". */
   noteHeading: string;
   content: ServiceExpectationsModel;
+  /** What this client's saved edits changed. Empty when nothing was edited. */
+  edits: { edited: string[]; hidden: string[] };
 };
 
 // Loads the client document: the client's active services drive which service
@@ -50,12 +53,17 @@ export type ClientExpectationsModel = {
 export async function loadClientExpectations(
   supabase: SupabaseClient,
   clientId: number,
+  /**
+   * "print" removes sections left out; "editor" keeps them so they can be
+   * brought back; "standard" ignores this client's edits entirely.
+   */
+  { edits: editMode = "print" }: { edits?: "print" | "editor" | "standard" } = {},
 ): Promise<ClientExpectationsModel | null> {
   const { data: clientRaw } = await supabase.from("clients").select("*").eq("id", clientId).maybeSingle();
   if (!clientRaw) return null;
   const client = clientRaw as ClientRow;
 
-  const [{ data: blockRows }, { data: glossaryRows }, { data: intake }] = await Promise.all([
+  const [{ data: blockRows }, { data: glossaryRows }, { data: intake }, { data: editRows }] = await Promise.all([
     supabase
       .from("service_expectation_blocks")
       .select("block_key, body, sort_order")
@@ -72,6 +80,13 @@ export async function loadClientExpectations(
       .select("kickoff_meeting_at, web_status, website_launch_date, service_start_plan, discovery")
       .eq("client_id", clientId)
       .maybeSingle(),
+    // No table yet (migration not run) reads as "no edits", not a broken document.
+    supabase
+      .from("client_document_edits")
+      .select("section_key, body, hidden")
+      .eq("client_id", clientId)
+      .order("id", { ascending: true })
+      .then((result) => (result.error ? { data: [] } : result)),
   ]);
 
   const glossary: GlossaryTerm[] = (glossaryRows ?? []).map((row) => ({
@@ -125,7 +140,7 @@ export async function loadClientExpectations(
     activeServices: (Object.keys(activeServices) as ClientServiceKey[]).filter((key) => activeServices[key]),
   });
 
-  return {
+  const standard: ClientExpectationsModel = {
     clientName,
     strategist,
     strategistContacts,
@@ -135,5 +150,15 @@ export async function loadClientExpectations(
     note: (client.expectations_note ?? "").trim(),
     noteHeading: noteHeading(strategistContacts),
     content,
+    edits: { edited: [], hidden: [] },
   };
+
+  if (editMode === "standard") return standard;
+  const saved: DocumentEdit[] = (editRows ?? []).map((row) => ({
+    sectionKey: row.section_key as string,
+    body: (row.body as string | null) ?? null,
+    hidden: Boolean(row.hidden),
+  }));
+  const applied = applyDocumentEdits(standard, saved, { keepHidden: editMode === "editor" });
+  return { ...applied.model, edits: { edited: applied.edited, hidden: applied.hidden } };
 }

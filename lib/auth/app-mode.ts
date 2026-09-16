@@ -61,6 +61,10 @@ export const TEAM_PAGES = [
   // What we promised a client at kickoff. Read-only rendering; the editor that
   // authors these blocks stays on the admin build.
   "/client-expectations-print",
+  // Reviewing and editing that document for one client before printing. Open
+  // to the team like the strategist note; saves go to the client-expectations
+  // API namespace below.
+  "/client-document",
 
   // Print/export views those tools open in a new tab
   "/reports-print",

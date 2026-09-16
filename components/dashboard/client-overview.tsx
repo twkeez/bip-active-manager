@@ -1082,6 +1082,15 @@ export default function ClientOverview({
                 the team included. Only authoring the content is admin-only.
                 The PDF opens in a new tab because the print view raises the
                 print dialog, and the client page should stay where it is. */}
+            {/* Review first: the document can be edited for this client before
+                it is printed. */}
+            <Link
+              href={`/client-document/${client.id}`}
+              style={{ color: T.pink }}
+              className="text-[11.5px] font-semibold hover:underline"
+            >
+              Review &amp; edit document
+            </Link>
             <a
               href={`/client-expectations-print/${client.id}`}
               target="_blank"

@@ -4,6 +4,8 @@ import {
   serviceSectionTitle,
 } from "@/lib/onboarding/service-expectations";
 import BeyondIndigoLogo from "@/components/onboarding/beyond-indigo-logo";
+import { Editable, Removable, useDocumentEditing } from "@/components/onboarding/document-editable";
+import { checklistToLines, competitorKey, serviceKey } from "@/lib/onboarding/document-edits";
 
 /**
  * The client-facing kickoff document, as rendered for print/PDF.
@@ -18,15 +20,19 @@ const INDIGO = "#3350a2";
 const INDIGO_SOFT = "#eef1f9";
 const PINK = "#ce2084";
 
-// One field within a service section — rendered only when it has content.
-function Field({ label, body }: { label: string; body: string }) {
-  if (!body.trim()) return null;
+// One field within a service section — rendered only when it has content, or
+// in the editor, where an empty field has to stay visible to be refilled.
+function Field({ label, body, sectionKey }: { label: string; body: string; sectionKey: string }) {
+  const editing = useDocumentEditing();
+  if (!body.trim() && !editing) return null;
   return (
     <div className="mt-3" style={{ breakInside: "avoid" }}>
       <p className="text-[12.5px] font-semibold" style={{ color: PINK }}>
         {label}
       </p>
-      <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-700">{body}</p>
+      <Editable sectionKey={sectionKey} value={body}>
+        <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-700">{body}</p>
+      </Editable>
     </div>
   );
 }
@@ -47,6 +53,9 @@ export default function ClientExpectationsDocument({
   generatedAt: string;
 }) {
   const { clientName, town, strategistContacts, timeline, market, note, noteHeading, content } = model;
+  // Outside the editor this is false, and every condition below behaves exactly
+  // as it did before editing existed.
+  const editing = useDocumentEditing();
   const hasPlanDetails =
     strategistContacts.length > 0 || timeline.kickoff || timeline.website || timeline.launchDate || timeline.starts;
   const subtitle = [clientName, town, generatedAt ? `Prepared ${generatedAt}` : ""]
@@ -88,7 +97,7 @@ export default function ClientExpectationsDocument({
             ))}
           </div>
         )}
-        {hasPlanDetails && (
+        {(hasPlanDetails || editing) && (
           <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[13px]">
             {strategistContacts.length > 0 && (
               <>
@@ -119,11 +128,13 @@ export default function ClientExpectationsDocument({
                 <dd className="text-gray-800">{timeline.kickoff.date}</dd>
               </>
             )}
-            {(timeline.website || timeline.launchDate) && (
+            {(timeline.website || timeline.launchDate || editing) && (
               <>
                 <dt className="text-gray-500">Your website</dt>
                 <dd className="text-gray-800">
-                  {timeline.website}
+                  <Editable sectionKey="plan.website" value={timeline.website ?? ""}>
+                    {timeline.website}
+                  </Editable>
                   {timeline.launchDate && (
                     <>
                       {timeline.website ? " " : ""}
@@ -133,28 +144,34 @@ export default function ClientExpectationsDocument({
                 </dd>
               </>
             )}
-            {timeline.starts && (
+            {(timeline.starts || editing) && (
               <>
                 <dt className="text-gray-500">Timing</dt>
-                <dd className="text-gray-800">{timeline.starts}</dd>
+                <dd className="text-gray-800">
+                  <Editable sectionKey="plan.timing" value={timeline.starts ?? ""}>
+                    {timeline.starts}
+                  </Editable>
+                </dd>
               </>
             )}
           </dl>
         )}
       </section>
 
-      {content.intro && (
-        <p
-          className="mb-6 whitespace-pre-line text-sm leading-relaxed text-gray-700"
-          style={{ breakInside: "avoid" }}
-        >
-          {content.intro}
-        </p>
+      {(content.intro || editing) && (
+        <Editable sectionKey="intro" value={content.intro}>
+          <p
+            className="mb-6 whitespace-pre-line text-sm leading-relaxed text-gray-700"
+            style={{ breakInside: "avoid" }}
+          >
+            {content.intro}
+          </p>
+        </Editable>
       )}
 
       {/* The strategist's own words for this practice — the one part of the
           document not written as master copy. */}
-      {note && (
+      {(note || editing) && (
         <section
           className="mb-7 rounded-r-lg border-l-4 px-4 py-3"
           style={{ borderColor: PINK, background: "#fdf0f7", breakInside: "avoid" }}
@@ -162,7 +179,9 @@ export default function ClientExpectationsDocument({
           <p className="text-[12.5px] font-semibold" style={{ color: PINK }}>
             {noteHeading}
           </p>
-          <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-800">{note}</p>
+          <Editable sectionKey="note" value={note}>
+            <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-800">{note}</p>
+          </Editable>
         </section>
       )}
 
@@ -170,9 +189,15 @@ export default function ClientExpectationsDocument({
           neutrally on purpose: some items are ongoing ("a heads-up on events
           worth posting"), so "Before kickoff" would promise a timing the list
           cannot keep. */}
-      {content.checklist.length > 0 && (
+      {(content.checklist.length > 0 || editing) && (
         <section className="mb-7" style={{ breakInside: "avoid" }}>
+          <Removable sectionKey="checklist" label="this list">
           <Heading>What we need from you</Heading>
+          <Editable
+            sectionKey="checklist"
+            value={checklistToLines(content.checklist)}
+            hint="One item per line."
+          >
           <ul className="mt-2 space-y-1.5">
             {content.checklist.map((item) => (
               <li key={item.text} className="flex items-start gap-2.5 text-sm text-gray-700">
@@ -186,17 +211,23 @@ export default function ClientExpectationsDocument({
               </li>
             ))}
           </ul>
+          </Editable>
+          </Removable>
         </section>
       )}
 
-      {content.timetable && (
+      {(content.timetable || editing) && (
         <section className="mb-7" style={{ breakInside: "avoid" }}>
+          <Removable sectionKey="timetable" label="the timetable">
           <Heading>Your timetable</Heading>
           <div className="mt-2 rounded-lg px-4 py-3" style={{ background: INDIGO_SOFT }}>
+            <Editable sectionKey="timetable" value={content.timetable}>
             <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700">
               {content.timetable}
             </p>
+            </Editable>
           </div>
+          </Removable>
         </section>
       )}
 
@@ -204,18 +235,23 @@ export default function ClientExpectationsDocument({
           and campaign detail stay in the internal brief. */}
       {market && (
         <section className="mb-7">
+          <Removable sectionKey="market" label="the market section">
           <Heading>Your local market</Heading>
-          {market.snapshot && (
+          {(market.snapshot || editing) && (
+            <Editable sectionKey="market.snapshot" value={market.snapshot}>
             <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-700" style={{ breakInside: "avoid" }}>
               {market.snapshot}
             </p>
+            </Editable>
           )}
-          {market.landscape && (
+          {(market.landscape || editing) && (
             <div style={{ breakInside: "avoid" }}>
               <p className="mt-4 text-[12.5px] font-semibold" style={{ color: PINK }}>
                 How pet owners search here
               </p>
+              <Editable sectionKey="market.landscape" value={market.landscape}>
               <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-700">{market.landscape}</p>
+              </Editable>
             </div>
           )}
           {market.competitors.length > 0 && (
@@ -229,25 +265,34 @@ export default function ClientExpectationsDocument({
               <ul className="mt-2 space-y-2">
                 {market.competitors.map((competitor) => (
                   <li key={competitor.name} className="text-sm text-gray-700" style={{ breakInside: "avoid" }}>
+                    <Removable sectionKey={competitorKey(competitor.name)} label="this practice">
                     <span className="font-semibold text-gray-900">{competitor.name}</span>
                     {competitor.location && <span className="text-gray-500"> · {competitor.location}</span>}
-                    {competitor.description && (
+                    {(competitor.description || editing) && (
+                      <Editable sectionKey={competitorKey(competitor.name)} value={competitor.description ?? ""}>
                       <span className="block text-[13px] leading-relaxed text-gray-600">{competitor.description}</span>
+                      </Editable>
                     )}
+                    </Removable>
                   </li>
                 ))}
               </ul>
             </div>
           )}
+          </Removable>
         </section>
       )}
 
       {content.services.map((service) => (
         <section key={service.key} className="mb-7 border-t-2 pt-4" style={{ borderColor: PINK }}>
           <Heading>{serviceSectionTitle(service)}</Heading>
-          <Field label={EXPECTATION_FIELD_LABEL.expect} body={service.expect} />
-          <Field label={EXPECTATION_FIELD_LABEL.limits} body={service.limits} />
-          <Field label={EXPECTATION_FIELD_LABEL.recommend} body={service.recommend} />
+          <Field label={EXPECTATION_FIELD_LABEL.expect} body={service.expect} sectionKey={serviceKey(service.key, "expect")} />
+          <Field label={EXPECTATION_FIELD_LABEL.limits} body={service.limits} sectionKey={serviceKey(service.key, "limits")} />
+          <Field
+            label={EXPECTATION_FIELD_LABEL.recommend}
+            body={service.recommend}
+            sectionKey={serviceKey(service.key, "recommend")}
+          />
         </section>
       ))}
 
@@ -255,6 +300,7 @@ export default function ClientExpectationsDocument({
         // Last, deliberately: a reference to come back to, not something to read
         // before the plan it explains. Two columns so it takes less height.
         <section className="mb-6 border-t-2 pt-4" style={{ borderColor: INDIGO_SOFT }}>
+          <Removable sectionKey="glossary" label="the glossary">
           <Heading>Terms you&rsquo;ll see us use</Heading>
           <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3">
             {content.glossary.map((entry) => (
@@ -266,16 +312,19 @@ export default function ClientExpectationsDocument({
               </div>
             ))}
           </dl>
+          </Removable>
         </section>
       )}
 
-      {content.closing && (
-        <p
-          className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-700"
-          style={{ breakInside: "avoid" }}
-        >
-          {content.closing}
-        </p>
+      {(content.closing || editing) && (
+        <Editable sectionKey="closing" value={content.closing}>
+          <p
+            className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-700"
+            style={{ breakInside: "avoid" }}
+          >
+            {content.closing}
+          </p>
+        </Editable>
       )}
     </div>
   );

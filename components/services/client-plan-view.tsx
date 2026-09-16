@@ -31,11 +31,11 @@ export default function ClientPlanView({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href={`/client-expectations-print/${clientId}`}
+            href={`/client-document/${clientId}`}
             className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
             style={{ borderColor: MAGENTA, color: MAGENTA }}
           >
-            <FileText className="h-4 w-4" /> Client expectations
+            <FileText className="h-4 w-4" /> Client document
           </Link>
           <Link
             href="/services"

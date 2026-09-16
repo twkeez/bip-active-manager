@@ -117,6 +117,10 @@ describe("team mode route gate", () => {
   it("serves both formats of the expectations document", () => {
     expect(isAllowedInTeamMode("/client-expectations-print/248")).toBe(true);
     expect(isAllowedInTeamMode("/api/client-expectations/248/word")).toBe(true);
+    // Editing a client's document before printing: the page and its save API
+    // are on the two lists that must agree.
+    expect(isAllowedInTeamMode("/client-document/248")).toBe(true);
+    expect(isAllowedInTeamMode("/api/client-expectations/248/edits")).toBe(true);
   });
 
   it("blocks the experimental APIs", () => {
