@@ -31,6 +31,8 @@ const MAX_SOURCE_CHARS = 90_000;
 
 export type BackgroundParts = {
   pipelineNotes: string | null;
+  /** "Your priorities" from the client document — the client's own goals. */
+  clientPriorities?: string | null;
   kickoffSummary: string | null;
   basecampBackground: string | null;
 };
@@ -39,6 +41,9 @@ export type BackgroundParts = {
 export function combineBackground(parts: BackgroundParts): string {
   const sections = [
     parts.pipelineNotes?.trim() ? `From the pipeline form:\n${parts.pipelineNotes.trim()}` : null,
+    parts.clientPriorities?.trim()
+      ? `What the client told us they want (their priorities, as written in their onboarding document):\n${parts.clientPriorities.trim()}`
+      : null,
     parts.kickoffSummary?.trim() ? `From the website team's kickoff doc:\n${parts.kickoffSummary.trim()}` : null,
     parts.basecampBackground?.trim() ? `From the practice's Basecamp threads:\n${parts.basecampBackground.trim()}` : null,
   ].filter((section): section is string => Boolean(section));
@@ -46,6 +51,16 @@ export function combineBackground(parts: BackgroundParts): string {
 }
 
 export async function loadOnboardingBackground(supabase: SupabaseClient, clientId: number): Promise<string> {
+  // The client's stated priorities (competitors to watch, budget, areas) are
+  // written in the document editor; the ad research should work from them too.
+  const { data: prioritiesRow } = await supabase
+    .from("client_document_edits")
+    .select("body")
+    .eq("client_id", clientId)
+    .eq("section_key", "priorities")
+    .maybeSingle();
+  const clientPriorities = (prioritiesRow?.body as string | null | undefined) ?? null;
+
   const { data } = await supabase
     .from("client_onboarding_intake")
     .select("pipeline_notes, kickoff_doc_summary, basecamp_background")
@@ -61,12 +76,14 @@ export async function loadOnboardingBackground(supabase: SupabaseClient, clientI
       .maybeSingle();
     return combineBackground({
       pipelineNotes: (notesOnly?.pipeline_notes as string | null) ?? null,
+      clientPriorities,
       kickoffSummary: null,
       basecampBackground: null,
     });
   }
   return combineBackground({
     pipelineNotes: (data.pipeline_notes as string | null) ?? null,
+    clientPriorities,
     kickoffSummary: (data.kickoff_doc_summary as string | null) ?? null,
     basecampBackground: (data.basecamp_background as string | null) ?? null,
   });

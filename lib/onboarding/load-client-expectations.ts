@@ -35,6 +35,12 @@ export type ClientExpectationsModel = {
    * landscape, nearby practices. Null when no research has been run.
    */
   market: ClientMarket | null;
+  /**
+   * What the client told us they want — services to push, areas, budget,
+   * booking. Written per client in the document editor; there is no standard
+   * wording, so it is empty until someone fills it in and only prints then.
+   */
+  priorities: string[];
   /** The strategist's note for this client, trimmed. "" when none. */
   note: string;
   /** "A note from Stephanie". */
@@ -147,6 +153,7 @@ export async function loadClientExpectations(
     town: cityForCopy(client.city),
     timeline,
     market: buildClientMarket((intake?.discovery ?? null) as DiscoveryResearch),
+    priorities: [],
     note: (client.expectations_note ?? "").trim(),
     noteHeading: noteHeading(strategistContacts),
     content,

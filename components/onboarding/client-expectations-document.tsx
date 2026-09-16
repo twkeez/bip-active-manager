@@ -52,7 +52,7 @@ export default function ClientExpectationsDocument({
   model: ClientExpectationsModel;
   generatedAt: string;
 }) {
-  const { clientName, town, strategistContacts, timeline, market, note, noteHeading, content } = model;
+  const { clientName, town, strategistContacts, timeline, market, priorities, note, noteHeading, content } = model;
   // Outside the editor this is false, and every condition below behaves exactly
   // as it did before editing existed.
   const editing = useDocumentEditing();
@@ -181,6 +181,28 @@ export default function ClientExpectationsDocument({
           </p>
           <Editable sectionKey="note" value={note}>
             <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-800">{note}</p>
+          </Editable>
+        </section>
+      )}
+
+      {/* The client's own goals, as they gave them to us — so they can see we
+          heard them before reading what we will do. */}
+      {(priorities.length > 0 || editing) && (
+        <section className="mb-7" style={{ breakInside: "avoid" }}>
+          <Heading>Your priorities</Heading>
+          <Editable sectionKey="priorities" value={priorities.join("\n")} hint="One item per line.">
+            <ul className="mt-2 space-y-1.5">
+              {priorities.map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
+                  <span
+                    aria-hidden
+                    className="mt-[7px] inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ background: PINK }}
+                  />
+                  <span className="flex-1">{item}</span>
+                </li>
+              ))}
+            </ul>
           </Editable>
         </section>
       )}

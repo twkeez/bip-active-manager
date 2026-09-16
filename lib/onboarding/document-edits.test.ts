@@ -29,6 +29,7 @@ function model(): ClientExpectationsModel {
         { name: "Harbor Veterinary Services", location: "Sausalito, CA", description: "On Harbor Drive." },
       ],
     },
+    priorities: [],
     note: "",
     noteHeading: "A note from your strategist",
     edits: { edited: [], hidden: [] },
@@ -64,6 +65,15 @@ describe("section keys", () => {
 });
 
 describe("applyDocumentEdits", () => {
+  it("fills in the client's priorities, one per line, pasted bullets removed", () => {
+    const { model: edited, edited: keys } = applyDocumentEdits(model(), [
+      { sectionKey: "priorities", body: "- Wellness\n\n• Dentistry\n  Online booking through Vello  ", hidden: false },
+    ]);
+    expect(edited.priorities).toEqual(["Wellness", "Dentistry", "Online booking through Vello"]);
+    expect(keys).toEqual(["priorities"]);
+    expect(canHide("priorities")).toBe(false);
+  });
+
   it("replaces text for that client and reports what was edited", () => {
     const { model: edited, edited: keys } = applyDocumentEdits(model(), [
       { sectionKey: "plan.timing", body: "Ads start with the splash page; SEO with the full site.", hidden: false },

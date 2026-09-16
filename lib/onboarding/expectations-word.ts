@@ -45,7 +45,7 @@ function heading(text: string, rule = "", size = 16): string {
  * so the plan box and the two-column glossary are tables.
  */
 export function renderExpectationsWord(model: ClientExpectationsModel, generatedAt: string): string {
-  const { clientName, town, strategistContacts, timeline, market, note, noteHeading, content } = model;
+  const { clientName, town, strategistContacts, timeline, market, priorities, note, noteHeading, content } = model;
 
   const noteBlock = note
     ? `<table width="100%" cellpadding="10" style="border-collapse:collapse;margin:0 0 14px;"><tr>` +
@@ -93,6 +93,14 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
       .join("&nbsp;&nbsp;|&nbsp;&nbsp;")}</p>` +
     planRows.join("") +
     `</td></tr></table>`;
+
+  const prioritiesSection =
+    priorities.length > 0
+      ? heading("Your priorities") +
+        priorities
+          .map((item) => `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 4px;">&#8226;&nbsp;&nbsp;${esc(item)}</p>`)
+          .join("")
+      : "";
 
   const checklist =
     content.checklist.length > 0
@@ -169,6 +177,7 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
       ? `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 14px;">${multiline(content.intro)}</p>`
       : "") +
     noteBlock +
+    prioritiesSection +
     checklist +
     (content.timetable
       ? heading("Your timetable") +

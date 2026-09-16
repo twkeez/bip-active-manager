@@ -22,6 +22,7 @@ export type DocumentEdit = {
 /** Sections whose text can be replaced. An empty replacement prints nothing. */
 const TEXT_KEYS = new Set([
   "intro",
+  "priorities",
   "plan.website",
   "plan.timing",
   "checklist",
@@ -71,6 +72,14 @@ export function parseChecklistLines(body: string) {
     .map((text) => ({ text, serviceLabel: "" }));
 }
 
+/**
+ * "Your priorities" — what the client told us they want, one item per line.
+ * The same pasted-bullet stripping as the checklist.
+ */
+export function parsePriorityLines(body: string): string[] {
+  return parseChecklistLines(body).map((item) => item.text);
+}
+
 export function checklistToLines(items: Array<{ text: string }>): string {
   return items.map((item) => item.text).join("\n");
 }
@@ -96,6 +105,7 @@ export function applyDocumentEdits(
   const model: ClientExpectationsModel = {
     ...source,
     timeline: { ...source.timeline },
+    priorities: [...source.priorities],
     market: source.market ? { ...source.market, competitors: source.market.competitors.map((c) => ({ ...c })) } : null,
     content: {
       ...source.content,
@@ -117,6 +127,7 @@ export function applyDocumentEdits(
       const competitor = COMPETITOR.exec(key);
       const service = SERVICE_FIELD.exec(key);
       if (key === "intro") model.content.intro = body;
+      else if (key === "priorities") model.priorities = parsePriorityLines(body);
       else if (key === "timetable") model.content.timetable = body;
       else if (key === "closing") model.content.closing = body;
       else if (key === "checklist") model.content.checklist = parseChecklistLines(body);
