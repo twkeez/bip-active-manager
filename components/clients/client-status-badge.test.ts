@@ -43,6 +43,9 @@ describe("client status badges", () => {
     expect(clientStatusBadgeClass("Active")).toContain("emerald");
     expect(clientStatusBadgeClass("Awaiting")).toContain("amber");
     expect(clientStatusBadgeClass("Pending")).toContain("amber");
-    expect(clientStatusBadgeClass("Paused")).toContain("white");
+    // Paused uses theme tokens, not a hardcoded white: the light-mode fix
+    // (0d21711) replaced dark-only colours, and white text vanished on light.
+    expect(clientStatusBadgeClass("Paused")).toContain("text-bip-muted");
+    expect(clientStatusBadgeClass("Paused")).not.toMatch(/white/);
   });
 });

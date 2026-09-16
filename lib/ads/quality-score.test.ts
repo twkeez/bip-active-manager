@@ -65,23 +65,42 @@ describe("summarizeQualityFlags", () => {
 });
 
 describe("buildQualityScoreSignals", () => {
-  it("creates rollup and keyword-level signals", () => {
-    const signals = buildQualityScoreSignals([
+  // Since 38f69c1: up to four affected keywords get an alert each (more
+  // actionable); five or more get one summary instead, so an account with
+  // dozens of weak keywords is not flooded with alerts.
+  const weakLandingPage = (count: number) =>
+    Array.from({ length: count }, (_, index) =>
       keyword({
-        keyword: "emergency vet",
+        keyword: index === 0 ? "emergency vet" : `keyword ${index}`,
+        criterion_id: String(100 + index),
         landing_page_experience: "BELOW_AVERAGE",
-        cost_micros: 842_000_000,
+        cost_micros: 842_000_000 - index * 1_000_000,
       }),
-    ]);
-    expect(signals.some((signal) => signal.signal_id === "ads_qs_landing_page_rollup")).toBe(
-      true,
     );
-    expect(signals.some((signal) => signal.signal_id === "ads_qs_landing_page_weak")).toBe(
-      true,
-    );
+  const ids = (signals: Array<{ signal_id: string }>) => signals.map((signal) => signal.signal_id);
+
+  it("alerts per keyword when only a few are affected", () => {
+    const signals = buildQualityScoreSignals(weakLandingPage(1));
+    expect(ids(signals)).toContain("ads_qs_landing_page_weak");
+    expect(ids(signals)).not.toContain("ads_qs_landing_page_rollup");
     expect(
       signals.find((signal) => signal.signal_id === "ads_qs_landing_page_weak")?.metric_value,
     ).toContain("emergency vet");
+  });
+
+  it("still alerts per keyword at four, the most before a summary takes over", () => {
+    const signals = buildQualityScoreSignals(weakLandingPage(4));
+    expect(ids(signals).filter((id) => id === "ads_qs_landing_page_weak")).toHaveLength(4);
+    expect(ids(signals)).not.toContain("ads_qs_landing_page_rollup");
+  });
+
+  it("summarises once five or more are affected, instead of one alert each", () => {
+    const signals = buildQualityScoreSignals(weakLandingPage(5));
+    expect(ids(signals)).toContain("ads_qs_landing_page_rollup");
+    expect(ids(signals)).not.toContain("ads_qs_landing_page_weak");
+    expect(
+      signals.find((signal) => signal.signal_id === "ads_qs_landing_page_rollup")?.metric_value,
+    ).toContain("5 keywords");
   });
 });
 

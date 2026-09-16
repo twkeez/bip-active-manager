@@ -64,7 +64,7 @@ export async function analyzeLogoBrandProfile(input: {
     !hex.test(parsed.secondaryHex) ||
     !hex.test(parsed.accentHex)
   ) {
-    throw new Error("Gemini logo analysis response was not valid JSON.");
+    throw new Error("Logo analysis response was not valid JSON.");
   }
   return {
     primaryHex: parsed.primaryHex,
