@@ -21,7 +21,7 @@ Return ONLY a single JSON object (no prose, no markdown fences) with this exact 
   "webStatus": "has_site_keep"|"has_site_rebuild"|"splash_then_full"|"wait_for_launch"|"no_site"|null,
   "websiteLaunchDate": "YYYY-MM-DD"|null,
   "services": {
-    "seo":  { "tier": <tier>, "startTrigger": "start_now"|"at_launch"|"on_date", "startDate": "YYYY-MM-DD"|null, "notes": string|null },
+    "seo":  { "tier": <tier>, "startTrigger": "start_now"|"at_splash"|"at_launch"|"on_date", "startDate": "YYYY-MM-DD"|null, "notes": string|null },
     "ppc":  { ... }, "smm": { ... }, "blog": { ... }, "orm": { ... }
   },
   "notes": string | null,
@@ -41,7 +41,11 @@ Rules:
   - Read each service's tier from its label ("Foundation" → "foundation", "Premium" → "premium",
     "Premium Plus" → "premium_plus"). Services NOT listed on the form get tier "none".
 - startTrigger for each service, inferred from the Start Date Notes:
-  - notes like "start with website launch" / "at launch" → "at_launch".
+  - tied to the splash / temporary / coming-soon page going live → "at_splash".
+  - tied to the full or final website launch ("start with website launch", "at launch", "when the new site is live") → "at_launch".
+    When a splash page is involved, read each service's notes separately: services often start at different launches
+    (for example Ads with the splash page, SEO with the full site). Do not give two services the same trigger unless
+    their notes say the same thing.
   - a specific date tied to opening/launch ("based on his opening date", a concrete future date) → "on_date"
     and set startDate to that date.
   - immediate / contract-signing date / no delay → "start_now".

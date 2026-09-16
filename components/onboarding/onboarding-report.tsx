@@ -1,6 +1,7 @@
 "use client";
 
 import { getClientActiveServices } from "@/lib/clients/service-active";
+import { buildPlanTimeline } from "@/lib/onboarding/client-timeline";
 import type { OnboardingReportModel } from "@/lib/onboarding/load-onboarding-report";
 
 const INDIGO = "#3350a2";
@@ -80,11 +81,20 @@ export default function OnboardingReport({
   milestones.push({ label: "First report", when: "Once live" });
   const edge = 100 / (milestones.length * 2);
 
-  // Which services begin now vs. at launch, as one line.
-  const startsNow = activeKeys.filter((k) => (plan[k]?.startTrigger ?? "start_now") === "start_now");
-  const startsLater = activeKeys.filter(
-    (k) => plan[k]?.startTrigger === "at_launch" || plan[k]?.startTrigger === "on_date",
-  );
+  // Which services begin when — the same sentence the client document prints,
+  // so the brief and what the client reads cannot disagree about timing.
+  const startsLine =
+    buildPlanTimeline({
+      kickoffMeetingAt: intake?.kickoff_meeting_at,
+      onboardingStartedAt: client.onboarding_started_at,
+      webStatus: intake?.web_status,
+      websiteLaunchDate: intake?.website_launch_date,
+      servicePlan: plan,
+      activeServices: activeKeys,
+    }).starts ??
+    (activeKeys.length > 0
+      ? `${listJoin(activeKeys.map((k) => SERVICE_LABEL[k]))} ${activeKeys.length === 1 ? "starts" : "start"} now.`
+      : null);
 
   // The specific plan line per service, merged into the service list.
   function planDetail(k: ServiceKey): string {
@@ -159,22 +169,7 @@ export default function OnboardingReport({
             ))}
           </div>
         </div>
-        {(startsNow.length > 0 || startsLater.length > 0) && (
-          <p className="text-sm text-gray-700">
-            {startsNow.length > 0 && (
-              <>
-                {listJoin(startsNow.map((k) => SERVICE_LABEL[k]))} {startsNow.length === 1 ? "starts" : "start"} now.
-              </>
-            )}
-            {startsLater.length > 0 && (
-              <>
-                {" "}
-                {listJoin(startsLater.map((k) => SERVICE_LABEL[k]))} {startsLater.length === 1 ? "begins" : "begin"} at
-                launch.
-              </>
-            )}
-          </p>
-        )}
+        {startsLine && <p className="text-sm text-gray-700">{startsLine}</p>}
       </Section>
 
       {/* What the client is promised lives in one place now: the client

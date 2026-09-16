@@ -22,7 +22,7 @@ export type PlanTimeline = {
   /** One sentence about the website, when the site affects timing. */
   website: string | null;
   launchDate: string | null;
-  /** "SEO starts now. Google Ads begins at website launch." */
+  /** "Google Ads begins when your splash page goes live. SEO begins when your full website launches." */
   starts: string | null;
 };
 
@@ -94,7 +94,9 @@ export function buildPlanTimeline(input: {
   const website = input.webStatus ? (WEBSITE_LINE[input.webStatus] ?? null) : null;
 
   const plan = input.servicePlan ?? {};
+  const splashBuild = input.webStatus === "splash_then_full";
   const now: string[] = [];
+  const atSplash: string[] = [];
   const atLaunch: string[] = [];
   const onDate: string[] = [];
   for (const service of input.activeServices) {
@@ -102,7 +104,8 @@ export function buildPlanTimeline(input: {
     const entry = plan[service];
     const trigger = entry?.startTrigger ?? "start_now";
     const date = formatPlainDate(entry?.startDate);
-    if (trigger === "at_launch") atLaunch.push(label);
+    if (trigger === "at_splash") atSplash.push(label);
+    else if (trigger === "at_launch") atLaunch.push(label);
     else if (trigger === "on_date" && date) onDate.push(`${label} starts ${date}`);
     else now.push(label);
   }
@@ -110,11 +113,15 @@ export function buildPlanTimeline(input: {
   // Only worth saying when something does not simply start now; "everything
   // starts now" is what a client assumes anyway.
   const parts: string[] = [];
-  if (atLaunch.length > 0 || onDate.length > 0) {
+  const begins = (services: string[]) => `${listJoin(services)} ${services.length === 1 ? "begins" : "begin"}`;
+  if (atSplash.length > 0 || atLaunch.length > 0 || onDate.length > 0) {
     if (now.length > 0) parts.push(`${listJoin(now)} ${now.length === 1 ? "starts" : "start"} now.`);
+    if (atSplash.length > 0) parts.push(`${begins(atSplash)} when your splash page goes live.`);
     if (atLaunch.length > 0) {
+      // With a splash page first, "your website launches" is ambiguous — there
+      // are two launches — so say which one.
       parts.push(
-        `${listJoin(atLaunch)} ${atLaunch.length === 1 ? "begins" : "begin"} when your website launches${launchDate ? ` (${launchDate})` : ""}.`,
+        `${begins(atLaunch)} when your ${splashBuild ? "full " : ""}website launches${launchDate ? ` (${launchDate})` : ""}.`,
       );
     }
     if (onDate.length > 0) parts.push(`${listJoin(onDate)}.`);

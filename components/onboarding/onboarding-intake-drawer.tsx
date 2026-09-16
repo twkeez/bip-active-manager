@@ -22,7 +22,8 @@ const TIER_OPTIONS: { value: Tier; label: string }[] = [
 
 const START_OPTIONS: { value: StartTrigger; label: string }[] = [
   { value: "start_now", label: "Start now" },
-  { value: "at_launch", label: "At website launch" },
+  { value: "at_splash", label: "At splash page launch" },
+  { value: "at_launch", label: "At full website launch" },
   { value: "on_date", label: "On a date" },
 ];
 
@@ -375,9 +376,17 @@ export default function OnboardingIntakeDrawer({
                         value={form.services[key].startTrigger}
                         onChange={(e) => setService(key, { startTrigger: e.target.value as StartTrigger })}
                       >
-                        {START_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
+                        {START_OPTIONS
+                          // A splash launch only exists for a splash-then-full build.
+                          .filter(
+                            (o) =>
+                              o.value !== "at_splash" ||
+                              form.webStatus === "splash_then_full" ||
+                              form.services[key].startTrigger === "at_splash",
+                          )
+                          .map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
                       </select>
                       {form.services[key].startTrigger === "on_date" && form.services[key].tier !== "none" && (
                         <input

@@ -8,7 +8,11 @@ export type ServiceKey = (typeof SERVICE_KEYS)[number];
 export const TIERS = ["none", "foundation", "premium", "premium_plus"] as const;
 export type Tier = (typeof TIERS)[number];
 
-export const START_TRIGGERS = ["start_now", "at_launch", "on_date"] as const;
+// "at_launch" means the full website launch. "at_splash" exists because a
+// splash-then-full build has two launches, and practices commonly start Ads on
+// the splash page and SEO only once the real site is up — which "at launch"
+// alone could not say (Tiburon, 2026-09-16).
+export const START_TRIGGERS = ["start_now", "at_splash", "at_launch", "on_date"] as const;
 export type StartTrigger = (typeof START_TRIGGERS)[number];
 
 export const WEB_STATUSES = [

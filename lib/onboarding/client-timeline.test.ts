@@ -50,9 +50,32 @@ describe("buildPlanTimeline", () => {
       activeServices: ["seo", "ppc", "smm"],
       servicePlan: { seo: { startTrigger: "at_launch" }, ppc: { startTrigger: "start_now" }, smm: { startTrigger: "at_launch" } },
     });
-    expect(timeline.starts).toBe("Google Ads starts now. SEO and Social Media begin when your website launches (Dec 1, 2026).");
+    expect(timeline.starts).toBe("Google Ads starts now. SEO and Social Media begin when your full website launches (Dec 1, 2026).");
     expect(timeline.website).toMatch(/splash page/);
     expect(timeline.launchDate).toBe("Dec 1, 2026");
+  });
+
+  // Tiburon: Ads go live with the splash page, SEO waits for the real site.
+  it("tells the splash launch apart from the full website launch", () => {
+    expect(
+      buildPlanTimeline({
+        ...base,
+        webStatus: "splash_then_full",
+        activeServices: ["seo", "ppc"],
+        servicePlan: { seo: { startTrigger: "at_launch" }, ppc: { startTrigger: "at_splash" } },
+      }).starts,
+    ).toBe("Google Ads begins when your splash page goes live. SEO begins when your full website launches.");
+  });
+
+  it("does not say 'full' website when there is no splash page", () => {
+    expect(
+      buildPlanTimeline({
+        ...base,
+        webStatus: "wait_for_launch",
+        activeServices: ["seo"],
+        servicePlan: { seo: { startTrigger: "at_launch" } },
+      }).starts,
+    ).toBe("SEO begins when your website launches.");
   });
 
   it("includes a service starting on a set date", () => {
