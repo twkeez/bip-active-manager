@@ -64,6 +64,23 @@ export async function saveGoogleToken(
   if (error) throw new Error(`Failed to store Google token: ${error.message}`);
 }
 
+/**
+ * The permissions this person's Google connection actually carries.
+ *
+ * Adding a scope to the connect flow does nothing for a connection made before
+ * it was added — the old token simply lacks it, and the API answers 403. Asking
+ * first lets a feature say "reconnect Google" instead of failing obscurely.
+ */
+export async function getGoogleScopesForUser(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<string[]> {
+  const stored = await loadStoredToken(admin, userId);
+  return String(stored?.metadata?.scope ?? "")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
 export async function getGoogleAccessTokenForUser(admin: SupabaseClient, userId: string): Promise<string | null> {
   const stored = await loadStoredToken(admin, userId);
   if (!stored?.access_token) return null;

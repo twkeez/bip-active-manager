@@ -7,6 +7,10 @@ const GOOGLE_SCOPES = [
   // permission, so every ads call was rejected with "insufficient
   // authentication scopes" once the API version was current again.
   "https://www.googleapis.com/auth/adwords",
+  // Read-only calendar, for the assistant's day planning (2026-09-16). It can
+  // see when you are busy and what a meeting is about; it cannot create,
+  // move or answer events. Adding a scope means reconnecting Google once.
+  "https://www.googleapis.com/auth/calendar.readonly",
 ];
 
 type TokenExchangeResponse = {
