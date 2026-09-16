@@ -3,13 +3,7 @@ import { useEffect } from "react";
 import OnboardingReport from "@/components/onboarding/onboarding-report";
 import type { OnboardingReportModel } from "@/lib/onboarding/load-onboarding-report";
 
-export default function OnboardingReportPrintClient({
-  model,
-  mode,
-}: {
-  model: OnboardingReportModel;
-  mode: "client" | "internal";
-}) {
+export default function OnboardingReportPrintClient({ model }: { model: OnboardingReportModel }) {
   useEffect(() => {
     const t = setTimeout(() => window.print(), 700);
     return () => clearTimeout(t);
@@ -39,7 +33,7 @@ export default function OnboardingReportPrintClient({
           Print / Save as PDF
         </button>
       </div>
-      <OnboardingReport model={model} mode={mode} />
+      <OnboardingReport model={model} />
     </>
   );
 }

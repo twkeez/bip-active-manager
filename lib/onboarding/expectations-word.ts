@@ -45,7 +45,7 @@ function heading(text: string, rule = "", size = 16): string {
  * so the plan box and the two-column glossary are tables.
  */
 export function renderExpectationsWord(model: ClientExpectationsModel, generatedAt: string): string {
-  const { clientName, town, strategistContacts, kickoffDate, note, noteHeading, content } = model;
+  const { clientName, town, strategistContacts, timeline, market, note, noteHeading, content } = model;
 
   const noteBlock = note
     ? `<table width="100%" cellpadding="10" style="border-collapse:collapse;margin:0 0 14px;"><tr>` +
@@ -69,9 +69,20 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
       }: ${people}</p>`,
     );
   }
-  if (kickoffDate) {
-    planRows.push(`<p style="font-size:12px;color:${INK};margin:4px 0 0;">Kickoff: ${esc(kickoffDate)}</p>`);
+  const planRow = (label: string, value: string) =>
+    `<p style="font-size:12px;color:${INK};margin:4px 0 0;">${esc(label)}: ${value}</p>`;
+  if (timeline.kickoff) planRows.push(planRow(timeline.kickoff.label, esc(timeline.kickoff.date)));
+  if (timeline.website || timeline.launchDate) {
+    planRows.push(
+      planRow(
+        "Your website",
+        [timeline.website ? esc(timeline.website) : "", timeline.launchDate ? `Launch: <strong>${esc(timeline.launchDate)}</strong>` : ""]
+          .filter(Boolean)
+          .join(" "),
+      ),
+    );
   }
+  if (timeline.starts) planRows.push(planRow("Timing", esc(timeline.starts)));
 
   const planBox =
     `<table width="100%" cellpadding="12" style="border-collapse:collapse;margin:0 0 16px;"><tr>` +
@@ -94,6 +105,34 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
           )
           .join("")
       : "";
+
+  // The client-safe part of onboarding research; the rest stays internal.
+  const subheading = (text: string) =>
+    `<p style="font-size:12px;font-weight:bold;color:${PINK};margin:12px 0 2px;">${esc(text)}</p>`;
+  const marketSection = market
+    ? heading("Your local market") +
+      (market.snapshot
+        ? `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 6px;">${multiline(market.snapshot)}</p>`
+        : "") +
+      (market.landscape
+        ? subheading("How pet owners search here") +
+          `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 6px;">${multiline(market.landscape)}</p>`
+        : "") +
+      (market.competitors.length > 0
+        ? subheading("Nearby practices") +
+          `<p style="font-size:11px;color:${MUTED};margin:0 0 6px;">The practices most likely to come up alongside you when people search.</p>` +
+          market.competitors
+            .map(
+              (competitor) =>
+                `<p style="font-size:12px;color:${INK};line-height:1.45;margin:0 0 6px;">` +
+                `<strong>${esc(competitor.name)}</strong>` +
+                (competitor.location ? ` <span style="color:${MUTED};">· ${esc(competitor.location)}</span>` : "") +
+                (competitor.description ? `<br/><span style="color:${MUTED};">${esc(competitor.description)}</span>` : "") +
+                `</p>`,
+            )
+            .join("")
+        : "")
+    : "";
 
   const serviceSections = content.services
     .map(
@@ -135,6 +174,7 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
       ? heading("Your timetable") +
         `<div style="background:${SOFT_BG};padding:10px 12px;"><p style="font-size:12px;color:${INK};line-height:1.5;margin:0;">${multiline(content.timetable)}</p></div>`
       : "") +
+    marketSection +
     serviceSections +
     glossary +
     (content.closing

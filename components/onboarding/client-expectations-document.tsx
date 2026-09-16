@@ -46,7 +46,9 @@ export default function ClientExpectationsDocument({
   model: ClientExpectationsModel;
   generatedAt: string;
 }) {
-  const { clientName, town, strategistContacts, kickoffDate, note, noteHeading, content } = model;
+  const { clientName, town, strategistContacts, timeline, market, note, noteHeading, content } = model;
+  const hasPlanDetails =
+    strategistContacts.length > 0 || timeline.kickoff || timeline.website || timeline.launchDate || timeline.starts;
   const subtitle = [clientName, town, generatedAt ? `Prepared ${generatedAt}` : ""]
     .filter(Boolean)
     .join(" · ");
@@ -86,7 +88,7 @@ export default function ClientExpectationsDocument({
             ))}
           </div>
         )}
-        {(strategistContacts.length > 0 || kickoffDate) && (
+        {hasPlanDetails && (
           <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[13px]">
             {strategistContacts.length > 0 && (
               <>
@@ -111,10 +113,30 @@ export default function ClientExpectationsDocument({
                 </dd>
               </>
             )}
-            {kickoffDate && (
+            {timeline.kickoff && (
               <>
-                <dt className="text-gray-500">Kickoff</dt>
-                <dd className="text-gray-800">{kickoffDate}</dd>
+                <dt className="text-gray-500">{timeline.kickoff.label}</dt>
+                <dd className="text-gray-800">{timeline.kickoff.date}</dd>
+              </>
+            )}
+            {(timeline.website || timeline.launchDate) && (
+              <>
+                <dt className="text-gray-500">Your website</dt>
+                <dd className="text-gray-800">
+                  {timeline.website}
+                  {timeline.launchDate && (
+                    <>
+                      {timeline.website ? " " : ""}
+                      Launch: <span className="font-semibold">{timeline.launchDate}</span>
+                    </>
+                  )}
+                </dd>
+              </>
+            )}
+            {timeline.starts && (
+              <>
+                <dt className="text-gray-500">Timing</dt>
+                <dd className="text-gray-800">{timeline.starts}</dd>
               </>
             )}
           </dl>
@@ -175,6 +197,48 @@ export default function ClientExpectationsDocument({
               {content.timetable}
             </p>
           </div>
+        </section>
+      )}
+
+      {/* The client-safe part of onboarding research. Offers, counter-strategies
+          and campaign detail stay in the internal brief. */}
+      {market && (
+        <section className="mb-7">
+          <Heading>Your local market</Heading>
+          {market.snapshot && (
+            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-700" style={{ breakInside: "avoid" }}>
+              {market.snapshot}
+            </p>
+          )}
+          {market.landscape && (
+            <div style={{ breakInside: "avoid" }}>
+              <p className="mt-4 text-[12.5px] font-semibold" style={{ color: PINK }}>
+                How pet owners search here
+              </p>
+              <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-700">{market.landscape}</p>
+            </div>
+          )}
+          {market.competitors.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[12.5px] font-semibold" style={{ color: PINK }}>
+                Nearby practices
+              </p>
+              <p className="mt-0.5 text-[12.5px] text-gray-500">
+                The practices most likely to come up alongside you when people search.
+              </p>
+              <ul className="mt-2 space-y-2">
+                {market.competitors.map((competitor) => (
+                  <li key={competitor.name} className="text-sm text-gray-700" style={{ breakInside: "avoid" }}>
+                    <span className="font-semibold text-gray-900">{competitor.name}</span>
+                    {competitor.location && <span className="text-gray-500"> · {competitor.location}</span>}
+                    {competitor.description && (
+                      <span className="block text-[13px] leading-relaxed text-gray-600">{competitor.description}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       )}
 

@@ -4,7 +4,6 @@ import { getClientActiveServices } from "@/lib/clients/service-active";
 import type { OnboardingReportModel } from "@/lib/onboarding/load-onboarding-report";
 
 const INDIGO = "#3350a2";
-const INDIGO_SOFT = "#eef1f9";
 const PINK = "#ce2084";
 
 type ServiceKey = "seo" | "ppc" | "smm" | "blog" | "orm";
@@ -58,10 +57,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function OnboardingReport({
   model,
-  mode,
 }: {
   model: OnboardingReportModel;
-  mode: "client" | "internal";
 }) {
   const { client, serviceTiers, intake, keywords, connectionsHealth, kickoff } = model;
   const active = getClientActiveServices(client);
@@ -89,16 +86,6 @@ export default function OnboardingReport({
     (k) => plan[k]?.startTrigger === "at_launch" || plan[k]?.startTrigger === "on_date",
   );
 
-  // Expectations to set up front, tuned to the active services.
-  const expectations: string[] = [];
-  if (active.seo || active.blog)
-    expectations.push(
-      "SEO and content build over time — expect meaningful movement in local search within about 3–6 months.",
-    );
-  if (active.ppc || active.smm)
-    expectations.push("Google Ads and social typically show impact within the first few weeks.");
-  expectations.push("You'll receive a full performance report every month once your services are live.");
-
   // The specific plan line per service, merged into the service list.
   function planDetail(k: ServiceKey): string {
     if (k === "seo")
@@ -114,21 +101,12 @@ export default function OnboardingReport({
     return "We'll set you up in our review platform and monitor your Google reviews.";
   }
 
-  const needFromClient: string[] = [];
-  if (active.ppc) needFromClient.push("Add your billing details to the Google Ads account we create for you.");
-  if (active.smm) {
-    needFromClient.push("Grant us access to your Facebook & Instagram (we'll send a short walkthrough).");
-    needFromClient.push("Share your brand assets — logo, photos, and any brand guidelines.");
-  }
-  if (active.seo || active.orm) needFromClient.push("Grant us access to your Google Business Profile.");
-  needFromClient.push("Tell us anything unique about your practice we should highlight.");
-
   return (
     <div className="report-print-target mx-auto max-w-3xl bg-white px-8 py-8 text-gray-800">
       <header className="mb-6" style={{ breakInside: "avoid" }}>
         <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: PINK }}>Beyond Indigo Pets</p>
         <h1 className="mt-1 text-2xl font-semibold" style={{ color: INDIGO }}>
-          Marketing Onboarding Plan{mode === "internal" ? " — Internal" : ""}
+          Onboarding Brief — Internal
         </h1>
         <p className="mt-1 text-sm text-gray-600">
           {client.account_name}
@@ -150,14 +128,6 @@ export default function OnboardingReport({
           </p>
         )}
       </header>
-
-      {mode === "client" && (
-        <p className="mb-6 text-sm leading-relaxed text-gray-700" style={{ breakInside: "avoid" }}>
-          Welcome to Beyond Indigo, {client.account_name}. Here&apos;s the plan for your first 90 days —
-          what we&apos;ll do, when each piece begins, and the few things we&apos;ll need from you to get
-          started.
-        </p>
-      )}
 
       <Section title="Your plan">
         <ul className="space-y-2.5">
@@ -207,40 +177,15 @@ export default function OnboardingReport({
         )}
       </Section>
 
-      <Section title="What to expect">
-        <div className="rounded-lg px-4 py-3" style={{ background: INDIGO_SOFT }}>
-          <ul className="space-y-1.5">
-            {expectations.map((e, i) => (
-              <li key={i} className="text-sm" style={{ color: "#334155" }}>
-                {e}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </Section>
+      {/* What the client is promised lives in one place now: the client
+          document (plan, expectations and local market). This brief used to
+          carry its own hardcoded copy that contradicted it. */}
+      <p className="mb-5 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+        What this client is told to expect, and what we need from them, is in the client document. This brief is
+        for the team.
+      </p>
 
-      <Section title="What we need from you">
-        <ul className="list-disc space-y-1 pl-5">
-          {needFromClient.map((n, i) => (
-            <li key={i}>{n}</li>
-          ))}
-        </ul>
-      </Section>
-
-      {mode === "client" && (
-        <Section title="What happens next">
-          <p className="mb-1">This week, we&apos;ll open your Basecamp project and send your kickoff invite.</p>
-          <p className="mb-1">
-            {client.marketing_strategist
-              ? `${client.marketing_strategist} is your dedicated strategist and main point of contact.`
-              : "Your dedicated strategist will be your main point of contact."}
-          </p>
-          <p className="text-gray-600">We keep in touch through Basecamp and reply within one business day.</p>
-        </Section>
-      )}
-
-      {mode === "internal" && (
-        <>
+      <>
           <div className="my-6 border-t border-gray-200" />
           <Section title="Basecamp kickoff message">
             <p className="mb-1.5 text-xs text-gray-500">
@@ -306,8 +251,7 @@ export default function OnboardingReport({
               ))}
             </ul>
           </Section>
-        </>
-      )}
+      </>
     </div>
   );
 }

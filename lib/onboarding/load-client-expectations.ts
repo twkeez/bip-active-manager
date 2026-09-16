@@ -10,6 +10,8 @@ import {
   type StrategistContact,
 } from "@/lib/onboarding/expectation-people";
 import type { GlossaryTerm } from "@/lib/onboarding/expectation-glossary";
+import { buildClientMarket, type ClientMarket, type DiscoveryResearch } from "@/lib/onboarding/client-market";
+import { buildPlanTimeline, type PlanTimeline, type ServiceStartPlan } from "@/lib/onboarding/client-timeline";
 import type { ClientServiceKey } from "@/lib/clients/types";
 import {
   assembleServiceExpectations,
@@ -25,8 +27,13 @@ export type ClientExpectationsModel = {
   strategistContacts: StrategistContact[];
   /** The town alone — "Oshawa", not "Oshawa, Ontario, Canada". */
   town: string;
-  /** When onboarding started, e.g. "Jul 15, 2026". Null when not recorded. */
-  kickoffDate: string | null;
+  /** Kickoff meeting, website timing, and which services wait for launch. */
+  timeline: PlanTimeline;
+  /**
+   * The client-safe slice of onboarding research: market summary, search
+   * landscape, nearby practices. Null when no research has been run.
+   */
+  market: ClientMarket | null;
   /** The strategist's note for this client, trimmed. "" when none. */
   note: string;
   /** "A note from Stephanie". */
@@ -34,25 +41,12 @@ export type ClientExpectationsModel = {
   content: ServiceExpectationsModel;
 };
 
-/**
- * A fixed zone, so the same timestamp prints the same date wherever the page is
- * generated — a server in another zone would otherwise move a kickoff by a day.
- */
-function formatKickoff(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-// Loads the client-expectations document model: the client's active services drive
-// which service sections appear; the shared master blocks supply the copy. Content
-// is service-default (no per-client override). Returns null if the client is missing.
+// Loads the client document: the client's active services drive which service
+// sections appear and the shared master blocks supply the copy. Since
+// 2026-09-16 it is also the onboarding report's client version — the two had
+// drifted into contradicting each other — so it carries the kickoff timing and
+// the client-safe part of the onboarding research as well. Returns null if the
+// client is missing.
 export async function loadClientExpectations(
   supabase: SupabaseClient,
   clientId: number,
@@ -61,7 +55,7 @@ export async function loadClientExpectations(
   if (!clientRaw) return null;
   const client = clientRaw as ClientRow;
 
-  const [{ data: blockRows }, { data: glossaryRows }] = await Promise.all([
+  const [{ data: blockRows }, { data: glossaryRows }, { data: intake }] = await Promise.all([
     supabase
       .from("service_expectation_blocks")
       .select("block_key, body, sort_order")
@@ -73,6 +67,11 @@ export async function loadClientExpectations(
       .select("id, term, definition, services, sort_order")
       .order("sort_order", { ascending: true })
       .then((result) => (result.error ? { data: [] } : result)),
+    supabase
+      .from("client_onboarding_intake")
+      .select("kickoff_meeting_at, web_status, website_launch_date, service_start_plan, discovery")
+      .eq("client_id", clientId)
+      .maybeSingle(),
   ]);
 
   const glossary: GlossaryTerm[] = (glossaryRows ?? []).map((row) => ({
@@ -99,11 +98,12 @@ export async function loadClientExpectations(
   const clientName = client.account_name;
   const strategist = strategistDisplayName(strategistContacts);
 
+  const activeServices = getClientActiveServices(client);
   const content = assembleServiceExpectations(blocks, {
     clientName,
     strategist,
     city: client.city,
-    activeServices: getClientActiveServices(client),
+    activeServices,
     // The raw values decide each service's tier, and so which "What to expect"
     // the client reads.
     serviceValues: {
@@ -116,12 +116,22 @@ export async function loadClientExpectations(
     glossary,
   });
 
+  const timeline = buildPlanTimeline({
+    kickoffMeetingAt: intake?.kickoff_meeting_at as string | null | undefined,
+    onboardingStartedAt: client.onboarding_started_at,
+    webStatus: intake?.web_status as string | null | undefined,
+    websiteLaunchDate: intake?.website_launch_date as string | null | undefined,
+    servicePlan: (intake?.service_start_plan ?? null) as ServiceStartPlan,
+    activeServices: (Object.keys(activeServices) as ClientServiceKey[]).filter((key) => activeServices[key]),
+  });
+
   return {
     clientName,
     strategist,
     strategistContacts,
     town: cityForCopy(client.city),
-    kickoffDate: formatKickoff(client.onboarding_started_at),
+    timeline,
+    market: buildClientMarket((intake?.discovery ?? null) as DiscoveryResearch),
     note: (client.expectations_note ?? "").trim(),
     noteHeading: noteHeading(strategistContacts),
     content,

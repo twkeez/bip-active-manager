@@ -439,19 +439,26 @@ export default function OnboardingMap({
             <div>
               <p className="text-sm font-semibold text-bip-text">Finish · Onboarding summary</p>
               <p className="mt-0.5 max-w-md text-xs text-bip-muted">
-                One report from everything gathered here. Share the client version to set expectations up
-                front; keep the internal version as your full record.
+                The client document is their plan and expectations with the local market research — send it
+                before kickoff. The internal brief keeps everything else: offers, counter-strategies,
+                campaigns and your notes.
               </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <a
-              href={`/onboarding-report-print/${clientId}?mode=client`}
+              href={`/client-expectations-print/${clientId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
             >
-              <FileText className="h-3.5 w-3.5" /> Client version
+              <FileText className="h-3.5 w-3.5" /> Client document (PDF)
+            </a>
+            <a
+              href={`/api/client-expectations/${clientId}/word`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
+            >
+              <FileText className="h-3.5 w-3.5" /> Client document (Word)
             </a>
             <a
               href={`/onboarding-report-print/${clientId}?mode=internal`}
@@ -459,7 +466,7 @@ export default function OnboardingMap({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-md border border-bip-border px-3 py-1.5 text-xs text-bip-text hover:bg-bip-fill"
             >
-              <FileText className="h-3.5 w-3.5" /> Internal version
+              <FileText className="h-3.5 w-3.5" /> Internal brief
             </a>
           </div>
         </div>
