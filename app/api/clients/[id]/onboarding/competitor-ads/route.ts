@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { loadOnboardingBackground } from "@/lib/onboarding/background";
 import { createClient } from "@/lib/supabase/server";
 import { VET_ONBOARDING_MODEL } from "@/lib/vet-onboarding/anthropic-model";
 import {
@@ -41,11 +42,8 @@ export async function POST(
   if (!clientRaw) return NextResponse.json({ error: "Client not found" }, { status: 404 });
   const client = clientRaw as ClientRow;
 
-  const { data: intake } = await supabase
-    .from("client_onboarding_intake")
-    .select("pipeline_notes")
-    .eq("client_id", clientId)
-    .maybeSingle();
+  // Pipeline notes plus kickoff doc and Basecamp background.
+  const background = await loadOnboardingBackground(supabase, clientId);
 
   try {
     const anthropic = new Anthropic({ apiKey });
@@ -59,7 +57,7 @@ export async function POST(
           content: buildCompetitorOffersPrompt(
             client.account_name,
             client.city ?? "",
-            (intake?.pipeline_notes as string | null) ?? "",
+            background,
           ),
         },
       ],

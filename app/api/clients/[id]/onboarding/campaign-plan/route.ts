@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { loadOnboardingBackground } from "@/lib/onboarding/background";
 import { createClient } from "@/lib/supabase/server";
 import { VET_ONBOARDING_MODEL } from "@/lib/vet-onboarding/anthropic-model";
 import {
@@ -84,7 +85,7 @@ export async function POST(
           content: buildCampaignPlanPrompt({
             practiceName: client.account_name,
             location: client.city ?? "",
-            notes: (intake?.pipeline_notes as string | null) ?? "",
+            notes: await loadOnboardingBackground(supabase, clientId),
             keywords,
             competitors,
             skeleton,

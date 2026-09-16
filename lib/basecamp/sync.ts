@@ -283,7 +283,7 @@ function buildExcerpt(body: string | null, maxLength = 160) {
   return `${body.slice(0, maxLength - 1)}…`;
 }
 
-function buildClassicAuthHeaders() {
+export function buildClassicAuthHeaders() {
   const config = getBasecampClassicConfig();
   const authorization = config.token
     ? `Bearer ${config.token}`

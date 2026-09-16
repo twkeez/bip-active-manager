@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { loadOnboardingBackground } from "@/lib/onboarding/background";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth/require-admin";
 import { buildResearchPrompt } from "@/lib/prompt";
@@ -53,12 +54,9 @@ export async function POST(
   if (!clientRaw) return NextResponse.json({ error: "Client not found" }, { status: 404 });
   const client = clientRaw as ClientRow;
 
-  const { data: intake } = await supabase
-    .from("client_onboarding_intake")
-    .select("pipeline_notes")
-    .eq("client_id", clientId)
-    .maybeSingle();
-  const notes = (intake?.pipeline_notes as string | null) ?? "";
+  // Pipeline notes plus what the kickoff doc and Basecamp threads added, so the
+  // research knows what the website team has already learned.
+  const notes = await loadOnboardingBackground(supabase, clientId);
 
   const data: ClientFormData = {
     practiceName: client.account_name,
