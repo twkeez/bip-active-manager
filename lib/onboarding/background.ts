@@ -31,7 +31,7 @@ const MAX_SOURCE_CHARS = 90_000;
 
 export type BackgroundParts = {
   pipelineNotes: string | null;
-  /** "Your priorities" from the client document — the client's own goals. */
+  /** "Meeting Notes" from the client document — the client's own goals. */
   clientPriorities?: string | null;
   kickoffSummary: string | null;
   basecampBackground: string | null;
@@ -42,7 +42,7 @@ export function combineBackground(parts: BackgroundParts): string {
   const sections = [
     parts.pipelineNotes?.trim() ? `From the pipeline form:\n${parts.pipelineNotes.trim()}` : null,
     parts.clientPriorities?.trim()
-      ? `What the client told us they want (their priorities, as written in their onboarding document):\n${parts.clientPriorities.trim()}`
+      ? `What the client told us they want (meeting notes from their onboarding document):\n${parts.clientPriorities.trim()}`
       : null,
     parts.kickoffSummary?.trim() ? `From the website team's kickoff doc:\n${parts.kickoffSummary.trim()}` : null,
     parts.basecampBackground?.trim() ? `From the practice's Basecamp threads:\n${parts.basecampBackground.trim()}` : null,

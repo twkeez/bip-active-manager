@@ -73,7 +73,7 @@ export function parseChecklistLines(body: string) {
 }
 
 /**
- * "Your priorities" — what the client told us they want, one item per line.
+ * "Meeting Notes" — what the client told us they want, one item per line.
  * The same pasted-bullet stripping as the checklist.
  */
 export function parsePriorityLines(body: string): string[] {

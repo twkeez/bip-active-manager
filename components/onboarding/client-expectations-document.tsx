@@ -189,7 +189,7 @@ export default function ClientExpectationsDocument({
           heard them before reading what we will do. */}
       {(priorities.length > 0 || editing) && (
         <section className="mb-7" style={{ breakInside: "avoid" }}>
-          <Heading>Your priorities</Heading>
+          <Heading>Meeting Notes</Heading>
           <Editable sectionKey="priorities" value={priorities.join("\n")} hint="One item per line.">
             <ul className="mt-2 space-y-1.5">
               {priorities.map((item) => (

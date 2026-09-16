@@ -96,7 +96,7 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
 
   const prioritiesSection =
     priorities.length > 0
-      ? heading("Your priorities") +
+      ? heading("Meeting Notes") +
         priorities
           .map((item) => `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 4px;">&#8226;&nbsp;&nbsp;${esc(item)}</p>`)
           .join("")
