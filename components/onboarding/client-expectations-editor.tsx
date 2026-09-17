@@ -15,6 +15,15 @@ import {
   type ExpectationBlock,
   type ServiceTier,
 } from "@/lib/onboarding/service-expectations";
+import {
+  DEFAULT_SECTION_ORDER,
+  DOCUMENT_ORDER_BLOCK_KEY,
+  isSameSectionOrder,
+  moveSection,
+  parseSectionOrder,
+  SECTION_LABEL,
+  serialiseSectionOrder,
+} from "@/lib/onboarding/document-order";
 import type { ServiceTierTable } from "@/lib/services/tier-content";
 import { resolveScopeRows } from "@/lib/services/client-plan";
 
@@ -115,6 +124,8 @@ export default function ClientExpectationsEditor({
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(clients[0]?.id ?? null);
   const [glossary, setGlossary] = useState<GlossaryTerm[]>([]);
+  /** The house order every client's document starts from. */
+  const [order, setOrder] = useState<string[]>(DEFAULT_SECTION_ORDER);
 
   useEffect(() => {
     void (async () => {
@@ -133,6 +144,11 @@ export default function ClientExpectationsEditor({
           for (const block of payload.blocks!) next[block.block_key] = block.body;
           return next;
         });
+        setOrder(
+          parseSectionOrder(
+            payload.blocks.find((block) => block.block_key === DOCUMENT_ORDER_BLOCK_KEY)?.body ?? null,
+          ),
+        );
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load template");
       } finally {
@@ -156,7 +172,10 @@ export default function ClientExpectationsEditor({
     setSaving(true);
     setError(null);
     try {
-      const blocks = SERVICE_EXPECTATION_BLOCK_KEYS.map((key) => ({ block_key: key, body: bodies[key] ?? "" }));
+      const blocks = [
+        ...SERVICE_EXPECTATION_BLOCK_KEYS.map((key) => ({ block_key: key, body: bodies[key] ?? "" })),
+        { block_key: DOCUMENT_ORDER_BLOCK_KEY, body: serialiseSectionOrder(order) },
+      ];
       const response = await fetch("/api/service-expectations/blocks", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -179,6 +198,11 @@ export default function ClientExpectationsEditor({
       const next = emptyBodies();
       for (const block of payload.blocks) next[block.block_key] = block.body;
       setBodies(next);
+      setOrder(
+        parseSectionOrder(
+          payload.blocks.find((block) => block.block_key === DOCUMENT_ORDER_BLOCK_KEY)?.body ?? null,
+        ),
+      );
       setSavedAt(new Date().toLocaleTimeString());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save");
@@ -242,6 +266,64 @@ export default function ClientExpectationsEditor({
             <Download className="h-3.5 w-3.5" /> Download Word
           </a>
         </div>
+      </div>
+
+      {/* The house order. A client who reorders their own document keeps that
+          order; everyone else follows this one. */}
+      <div className="rounded-lg border border-bip-border bg-bip-card p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-bip-muted">Order sections print in</p>
+        <p className="mt-1 text-[11px] text-bip-muted">
+          The order every client&rsquo;s document starts in. A client whose document has been reordered on its own
+          review page keeps that order. Sections a client has nothing for are simply not printed. Saved with
+          &ldquo;Save content&rdquo; below.
+        </p>
+        <ol className="mt-2 space-y-1">
+          {order.map((key, index) => (
+            <li
+              key={key}
+              className="flex items-center gap-2 rounded border border-bip-border px-2.5 py-1.5 text-sm text-bip-text"
+            >
+              <span className="w-5 shrink-0 text-[11px] text-bip-muted">{index + 1}</span>
+              <span className="flex-1">{SECTION_LABEL[key] ?? key}</span>
+              <button
+                type="button"
+                title="Move up"
+                disabled={index === 0}
+                onClick={() => {
+                  setOrder((current) => moveSection(current, key, "up"));
+                  setSavedAt(null);
+                }}
+                className="rounded border border-bip-border px-1.5 py-0.5 text-xs text-bip-muted hover:text-bip-text disabled:opacity-30"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                title="Move down"
+                disabled={index === order.length - 1}
+                onClick={() => {
+                  setOrder((current) => moveSection(current, key, "down"));
+                  setSavedAt(null);
+                }}
+                className="rounded border border-bip-border px-1.5 py-0.5 text-xs text-bip-muted hover:text-bip-text disabled:opacity-30"
+              >
+                ↓
+              </button>
+            </li>
+          ))}
+        </ol>
+        {!isSameSectionOrder(order) && (
+          <button
+            type="button"
+            onClick={() => {
+              setOrder(DEFAULT_SECTION_ORDER);
+              setSavedAt(null);
+            }}
+            className="mt-2 text-[11px] text-bip-muted underline hover:text-bip-text"
+          >
+            Back to the order the app ships with
+          </button>
+        )}
       </div>
 
       <p className="text-xs text-bip-muted">

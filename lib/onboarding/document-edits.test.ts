@@ -33,6 +33,7 @@ function model(): ClientExpectationsModel {
     },
     priorities: [],
     sectionOrder: DEFAULT_SECTION_ORDER,
+    standardOrder: DEFAULT_SECTION_ORDER,
     note: "",
     noteHeading: "A note from your strategist",
     edits: { edited: [], hidden: [] },

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SECTION_ORDER,
-  isDefaultSectionOrder,
+  isSameSectionOrder,
   moveSection,
   parseSectionOrder,
   serialiseSectionOrder,
@@ -16,7 +16,7 @@ describe("parseSectionOrder", () => {
   it("falls back to the standard order when nothing is saved", () => {
     expect(parseSectionOrder(null)).toEqual(DEFAULT_SECTION_ORDER);
     expect(parseSectionOrder("")).toEqual(DEFAULT_SECTION_ORDER);
-    expect(isDefaultSectionOrder(parseSectionOrder(""))).toBe(true);
+    expect(isSameSectionOrder(parseSectionOrder(""))).toBe(true);
   });
 
   // A client who reordered their document before a section existed should not
@@ -38,6 +38,22 @@ describe("parseSectionOrder", () => {
     expect(order.filter((key) => key === "checklist")).toHaveLength(1);
     expect(order).not.toContain("whatever");
     expect([...order].sort()).toEqual([...DEFAULT_SECTION_ORDER].sort());
+  });
+});
+
+describe("the house order", () => {
+  // /client-expectations sets the order for everyone; a client's own order is
+  // completed from it, so a section nobody has moved lands where the house
+  // puts it, not where the app shipped it.
+  it("completes a client's order from the house order", () => {
+    const house = ["reassure", ...DEFAULT_SECTION_ORDER.filter((key) => key !== "reassure")];
+    const client = parseSectionOrder("checklist\nintro", house);
+    // The client asked for the checklist first, so a section they never moved
+    // does not push past it — but it still sits where the house puts it.
+    expect(client[0]).toBe("checklist");
+    expect(client.indexOf("reassure")).toBeLessThan(client.indexOf("intro"));
+    expect(isSameSectionOrder(client, house)).toBe(false);
+    expect(isSameSectionOrder(parseSectionOrder(null, house), house)).toBe(true);
   });
 });
 

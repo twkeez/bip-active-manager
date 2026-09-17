@@ -6,8 +6,11 @@ import {
   SERVICE_EXPECTATION_BLOCK_KEYS,
   type ExpectationBlock,
 } from "@/lib/onboarding/service-expectations";
+import { DOCUMENT_ORDER_BLOCK_KEY } from "@/lib/onboarding/document-order";
 
-const VALID_KEYS = new Set<string>(SERVICE_EXPECTATION_BLOCK_KEYS);
+// The house section order is stored as a block too, so one save covers the
+// wording and the order it prints in.
+const VALID_KEYS = new Set<string>([...SERVICE_EXPECTATION_BLOCK_KEYS, DOCUMENT_ORDER_BLOCK_KEY]);
 
 export async function GET() {
   const supabase = await createClient();

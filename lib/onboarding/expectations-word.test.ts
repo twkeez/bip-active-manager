@@ -13,6 +13,7 @@ function model(sectionOrder: string[] = DEFAULT_SECTION_ORDER): ClientExpectatio
     market: null,
     priorities: ["Wellness and dentistry first"],
     sectionOrder,
+    standardOrder: DEFAULT_SECTION_ORDER,
     note: "",
     noteHeading: "A note from your strategist",
     edits: { edited: [], hidden: [] },

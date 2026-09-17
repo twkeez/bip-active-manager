@@ -31,7 +31,15 @@ export const DOCUMENT_SECTIONS: DocumentSection[] = [
   { key: "closing", label: "Closing" },
 ];
 
+/** The order shipped with the app, used until someone changes it. */
 export const DEFAULT_SECTION_ORDER: string[] = DOCUMENT_SECTIONS.map((section) => section.key);
+
+/**
+ * Where the house order lives: a master block, beside the wording it orders,
+ * so /client-expectations saves both with one button. A client's own order is
+ * saved separately and wins for that client.
+ */
+export const DOCUMENT_ORDER_BLOCK_KEY = "document_order";
 
 export const SECTION_LABEL: Record<string, string> = Object.fromEntries(
   DOCUMENT_SECTIONS.map((section) => [section.key, section.label]),
@@ -50,19 +58,32 @@ export function isMovableSection(key: string): boolean {
  * normally sits — after whichever section normally precedes it — rather than
  * at the end, where a new intro would print last.
  */
-export function parseSectionOrder(body: string | null | undefined): string[] {
+export function parseSectionOrder(
+  body: string | null | undefined,
+  /** What a saved order is completed from — the house order, for one client. */
+  fallback: string[] = DEFAULT_SECTION_ORDER,
+): string[] {
   const saved = (body ?? "")
     .split(/[\n,]/)
     .map((key) => key.trim())
     .filter((key) => isMovableSection(key));
   const order = saved.filter((key, index) => saved.indexOf(key) === index);
 
+  const complete = fallback.filter((key) => isMovableSection(key));
   for (const key of DEFAULT_SECTION_ORDER) {
     if (order.includes(key)) continue;
-    const before = DEFAULT_SECTION_ORDER.slice(0, DEFAULT_SECTION_ORDER.indexOf(key))
-      .reverse()
-      .find((candidate) => order.includes(candidate));
-    order.splice(before ? order.indexOf(before) + 1 : 0, 0, key);
+    const from = complete.includes(key) ? complete : DEFAULT_SECTION_ORDER;
+    const at = from.indexOf(key);
+    // Anchored to the section it normally follows. With nothing above it, it
+    // goes above the section it normally precedes instead, so a new section
+    // never displaces a choice the saved order made explicitly.
+    const above = from.slice(0, at).reverse().find((candidate) => order.includes(candidate));
+    if (above) {
+      order.splice(order.indexOf(above) + 1, 0, key);
+      continue;
+    }
+    const below = from.slice(at + 1).find((candidate) => order.includes(candidate));
+    order.splice(below ? order.indexOf(below) : 0, 0, key);
   }
   return order;
 }
@@ -71,8 +92,8 @@ export function serialiseSectionOrder(order: string[]): string {
   return order.join("\n");
 }
 
-export function isDefaultSectionOrder(order: string[]): boolean {
-  return serialiseSectionOrder(order) === serialiseSectionOrder(DEFAULT_SECTION_ORDER);
+export function isSameSectionOrder(order: string[], other: string[] = DEFAULT_SECTION_ORDER): boolean {
+  return serialiseSectionOrder(order) === serialiseSectionOrder(other);
 }
 
 /** One step up or down. At either end the order comes back unchanged. */

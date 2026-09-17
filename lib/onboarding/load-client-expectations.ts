@@ -13,7 +13,7 @@ import type { GlossaryTerm } from "@/lib/onboarding/expectation-glossary";
 import { buildClientMarket, type ClientMarket, type DiscoveryResearch } from "@/lib/onboarding/client-market";
 import { buildPlanTimeline, type PlanTimeline, type ServiceStartPlan } from "@/lib/onboarding/client-timeline";
 import { applyDocumentEdits, type DocumentEdit } from "@/lib/onboarding/document-edits";
-import { DEFAULT_SECTION_ORDER } from "@/lib/onboarding/document-order";
+import { DEFAULT_SECTION_ORDER, DOCUMENT_ORDER_BLOCK_KEY, parseSectionOrder } from "@/lib/onboarding/document-order";
 import type { ClientServiceKey } from "@/lib/clients/types";
 import {
   assembleServiceExpectations,
@@ -44,6 +44,8 @@ export type ClientExpectationsModel = {
   priorities: string[];
   /** The order this client's sections print in. See document-order.ts. */
   sectionOrder: string[];
+  /** The house order, which this client's own order is measured against. */
+  standardOrder: string[];
   /** The strategist's note for this client, trimmed. "" when none. */
   note: string;
   /** "A note from Stephanie". */
@@ -107,6 +109,12 @@ export async function loadClientExpectations(
   }));
 
   const blocks = (blockRows ?? []) as ExpectationBlock[];
+  // The house order is stored beside the wording it orders; unset, it is the
+  // order the app ships with.
+  const standardOrder = parseSectionOrder(
+    blocks.find((block) => block.block_key === DOCUMENT_ORDER_BLOCK_KEY)?.body ?? null,
+    DEFAULT_SECTION_ORDER,
+  );
   // Staff names and emails are read with the service role. Profiles are
   // readable only by their owner and by admins, so with the viewer's own client
   // a team member would see no strategist unless it happened to be them, and
@@ -157,7 +165,8 @@ export async function loadClientExpectations(
     timeline,
     market: buildClientMarket((intake?.discovery ?? null) as DiscoveryResearch),
     priorities: [],
-    sectionOrder: DEFAULT_SECTION_ORDER,
+    sectionOrder: standardOrder,
+    standardOrder,
     note: (client.expectations_note ?? "").trim(),
     noteHeading: noteHeading(strategistContacts),
     content,

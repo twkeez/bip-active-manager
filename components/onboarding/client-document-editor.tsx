@@ -5,11 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileDown, Printer } from "lucide-react";
 import ClientExpectationsDocument from "@/components/onboarding/client-expectations-document";
-import {
-  isDefaultSectionOrder,
-  serialiseSectionOrder,
-  SECTION_LABEL,
-} from "@/lib/onboarding/document-order";
+import { isSameSectionOrder, serialiseSectionOrder, SECTION_LABEL } from "@/lib/onboarding/document-order";
 import { SECTION_ORDER_KEY } from "@/lib/onboarding/document-edits";
 import { DocumentEditContext, type DocumentEditApi } from "@/components/onboarding/document-editable";
 import type { ClientExpectationsModel } from "@/lib/onboarding/load-client-expectations";
@@ -64,7 +60,7 @@ export default function ClientDocumentEditor({
         router.refresh();
       },
       order: model.sectionOrder,
-      orderChanged: !isDefaultSectionOrder(model.sectionOrder),
+      orderChanged: !isSameSectionOrder(model.sectionOrder, model.standardOrder),
       // Swapping the two sections, rather than shifting one by a position, is
       // what makes a move land where it looks like it will: a section this
       // client has nothing to print for still sits in the saved order.
@@ -90,12 +86,12 @@ export default function ClientDocumentEditor({
         router.refresh();
       },
     }),
-    [clientId, editsUrl, model.edits, model.sectionOrder, router],
+    [clientId, editsUrl, model.edits, model.sectionOrder, model.standardOrder, router],
   );
 
   const editedCount = model.edits.edited.length;
   const hiddenCount = model.edits.hidden.length;
-  const orderChanged = !isDefaultSectionOrder(model.sectionOrder);
+  const orderChanged = !isSameSectionOrder(model.sectionOrder, model.standardOrder);
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 p-6">
@@ -132,7 +128,7 @@ export default function ClientDocumentEditor({
                 onClick={() => void api.resetOrder()}
                 className="mt-1 text-xs text-bip-muted underline hover:text-bip-text"
               >
-                Back to the standard order ({model.sectionOrder
+                Back to the standard order ({model.standardOrder
                   .map((key) => SECTION_LABEL[key] ?? key)
                   .slice(0, 3)
                   .join(" → ")}

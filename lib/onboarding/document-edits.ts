@@ -116,6 +116,7 @@ export function applyDocumentEdits(
     timeline: { ...source.timeline },
     priorities: [...source.priorities],
     sectionOrder: [...source.sectionOrder],
+    standardOrder: [...source.standardOrder],
     market: source.market ? { ...source.market, competitors: source.market.competitors.map((c) => ({ ...c })) } : null,
     content: {
       ...source.content,
@@ -137,7 +138,7 @@ export function applyDocumentEdits(
       let applied = true;
       const competitor = COMPETITOR.exec(key);
       const service = SERVICE_FIELD.exec(key);
-      if (key === SECTION_ORDER_KEY) model.sectionOrder = parseSectionOrder(body);
+      if (key === SECTION_ORDER_KEY) model.sectionOrder = parseSectionOrder(body, source.standardOrder);
       else if (key === "intro") model.content.intro = body;
       else if (key === "priorities") model.priorities = parsePriorityLines(body);
       else if (key === "timetable") model.content.timetable = body;
