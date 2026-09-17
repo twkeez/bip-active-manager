@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, Eye, EyeOff, Loader2, Sparkles, ThumbsUp } from "lucide-react";
-import { composeNote, composeSubject } from "@/lib/briefing/compose";
+import {
+  composeClientMessage,
+  composeClientSubject,
+  composeStrategistNote,
+  composeStrategistSubject,
+} from "@/lib/briefing/compose";
 import type { ClientBriefing, FindingLevel } from "@/lib/briefing/types";
 
 /**
@@ -59,13 +64,16 @@ export default function BriefingPreview({
     };
   }, [clientId]);
 
+  const clientMessage = briefing ? composeClientMessage(briefing) : null;
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-bip-border bg-bip-card p-4">
         <h1 className="text-lg font-semibold text-bip-text">Client briefings</h1>
         <p className="mt-1 max-w-2xl text-xs leading-relaxed text-bip-muted">
-          What a strategist would be told about one client, twice a month. Nothing is stored or sent yet — this is
-          here to judge whether the findings are worth reading. Only clients buying a marketing service appear;
+          Two messages built from one client&rsquo;s numbers, twice a month: good news for the practice, and everything
+          else for their strategist alone. Nothing is stored or sent yet — this is here to judge whether they are
+          worth reading. Only clients buying a marketing service appear;
           website-only clients are not briefed. Nothing in the app tracks published blog posts yet, so no briefing
           can speak to the blog.
         </p>
@@ -114,7 +122,10 @@ export default function BriefingPreview({
               ))}
             </div>
 
-            <div className="mt-4 space-y-2">
+            <p className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
+              What the strategist is told
+            </p>
+            <div className="mt-2 space-y-2">
               {briefing.findings.length === 0 ? (
                 <p className="text-sm text-bip-muted">
                   Nothing met the bar for a finding. That is a normal fortnight, not an empty result.
@@ -140,6 +151,21 @@ export default function BriefingPreview({
               )}
             </div>
 
+            {briefing.highlights.length > 0 && (
+              <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
+                  Good news for the client
+                </p>
+                <ul className="mt-1.5 space-y-1">
+                  {briefing.highlights.map((highlight) => (
+                    <li key={highlight.id} className="text-xs text-bip-text">
+                      • {highlight.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {briefing.blindSpots.length > 0 && (
               <div className="mt-4 rounded-lg border border-bip-border bg-bip-fill/40 p-3">
                 <p className="flex items-center gap-1.5 text-xs font-semibold text-bip-text">
@@ -157,13 +183,34 @@ export default function BriefingPreview({
             )}
           </div>
 
+          {/* The client's half: good news only. */}
+          <div className="rounded-xl border border-emerald-500/30 bg-bip-card p-4">
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+              <Sparkles className="h-3.5 w-3.5" /> To the practice
+            </p>
+            {clientMessage ? (
+              <>
+                <p className="mt-2 text-sm font-medium text-bip-text">{composeClientSubject(briefing)}</p>
+                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-bip-text">
+                  {clientMessage}
+                </pre>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-bip-muted">
+                Nothing to send this time. Fewer than two things went up, and a note scraping for one thin positive
+                reads worse than no note at all.
+              </p>
+            )}
+          </div>
+
+          {/* The strategist's half: everything the practice does not get from us. */}
           <div className="rounded-xl border border-bip-border bg-bip-card p-4">
             <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-bip-muted">
-              <Sparkles className="h-3.5 w-3.5" /> The note, as it would arrive
+              <EyeOff className="h-3.5 w-3.5" /> To the strategist, not the client
             </p>
-            <p className="mt-2 text-sm font-medium text-bip-text">{composeSubject(briefing)}</p>
+            <p className="mt-2 text-sm font-medium text-bip-text">{composeStrategistSubject(briefing)}</p>
             <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-bip-text">
-              {composeNote(briefing)}
+              {composeStrategistNote(briefing)}
             </pre>
           </div>
         </>

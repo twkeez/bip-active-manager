@@ -54,13 +54,28 @@ export type BriefingService = {
   planLabel: string | null;
 };
 
+/** One bullet of good news, as the practice would read it. */
+export type BriefingHighlight = {
+  id: string;
+  scope: BriefingScope;
+  text: string;
+};
+
 export type ClientBriefing = {
   clientId: number;
   clientName: string;
   services: BriefingService[];
   strategists: Array<{ name: string; email: string | null }>;
+  /** For the strategist: what needs them, and what we could not see. */
   findings: BriefingFinding[];
   blindSpots: BriefingBlindSpot[];
+  /**
+   * For the practice: what went well. Never the other half — the strategist
+   * decides how and when a problem is raised with their client.
+   */
+  highlights: BriefingHighlight[];
+  /** False when there is not enough good news to be worth a client note. */
+  clientNoteReady: boolean;
   /** True when nothing needs the strategist. Said in one line, not padded. */
   quiet: boolean;
   generatedAt: string;

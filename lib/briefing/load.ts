@@ -17,6 +17,16 @@ import {
   signalFindings,
   type StoredSignal,
 } from "@/lib/briefing/findings";
+import {
+  HIGHLIGHT_FLOORS,
+  risingHighlight,
+  selectHighlights,
+  totalHighlight,
+  worthSending,
+  moneyText,
+  rateText,
+  type Highlight,
+} from "@/lib/briefing/highlights";
 import type {
   BriefingBlindSpot,
   BriefingFinding,
@@ -47,6 +57,18 @@ const SEO_WINDOW_DAYS = 28;
  */
 const SIGHT_DAYS = 3;
 
+/**
+ * A highlight says "this month". Data older than this is not this month, and a
+ * practice told their traffic rose 71% from a snapshot taken in July would be
+ * reading a number that is simply not about now. Looser than SIGHT_DAYS,
+ * because a fortnight-old figure is still fair to report; a two-month-old one
+ * is not.
+ */
+const HIGHLIGHT_MAX_AGE_DAYS = 14;
+
+const recentEnoughToQuote = (at: string | null | undefined) =>
+  Boolean(at && Date.parse(at) >= Date.now() - HIGHLIGHT_MAX_AGE_DAYS * 86_400_000);
+
 const SOURCE_LABEL: Record<string, string> = {
   ppc: "Google Ads",
   smm: "Facebook and Instagram",
@@ -54,6 +76,8 @@ const SOURCE_LABEL: Record<string, string> = {
   orm: "Google reviews",
   blog: "the blog",
 };
+
+const n = (value: number) => Math.round(value).toLocaleString("en-US");
 
 const iso = (daysAgo: number) => new Date(Date.now() - daysAgo * 86_400_000).toISOString();
 const isoDate = (daysAgo: number) => iso(daysAgo).slice(0, 10);
@@ -101,6 +125,8 @@ export async function loadClientBriefing(
 
   const findings: BriefingFinding[] = [];
   const blindSpots: BriefingBlindSpot[] = [];
+  // The client's half. Filled from the same numbers, but only where they rose.
+  const highlights: Highlight[] = [];
   const bought = (key: ClientServiceKey) => Boolean(active[key]);
 
   const blind = (scope: ClientServiceKey, reason: string, lastSeen: string | null) =>
@@ -153,6 +179,52 @@ export async function loadClientBriefing(
       if (spend && !calls) findings.push({ ...spend, level: "watch" });
     }
 
+    if (latest?.totals && recentEnoughToQuote(latest.created_at)) {
+      const totals = latest.totals;
+      const conversions = Number(totals.conversions ?? 0);
+      const clicks = Number(totals.clicks ?? 0);
+      const cost = Number(totals.cost_micros ?? 0) / 1_000_000;
+      const rate = rateText(conversions, clicks);
+      const perConversion = conversions > 0 ? cost / conversions : null;
+      const detail = [
+        rate ? `a ${rate} conversion rate` : null,
+        perConversion !== null && perConversion > 0
+          ? `an average of ${moneyText(perConversion)} per conversion`
+          : null,
+      ].filter(Boolean);
+      const adsTotal = totalHighlight({
+        id: "highlight:ads-total",
+        scope: "ppc",
+        value: conversions,
+        floor: HIGHLIGHT_FLOORS.conversions,
+        text: (formatted) =>
+          `Google Ads brought ${n(clicks)} visits and ${formatted} calls and form fills` +
+          (detail.length ? `, with ${detail.join(" and ")}` : ""),
+      });
+      if (adsTotal) highlights.push(adsTotal);
+      else {
+        const visits = totalHighlight({
+          id: "highlight:ads-visits",
+          scope: "ppc",
+          value: clicks,
+          floor: HIGHLIGHT_FLOORS.clicks,
+          text: (formatted) => `Google Ads brought ${formatted} visits to your website`,
+        });
+        if (visits) highlights.push(visits);
+      }
+
+      if (previous?.totals) {
+        const rise = risingHighlight({
+          id: "highlight:ads-conversions",
+          scope: "ppc",
+          noun: "Calls and form fills from Google Ads",
+          period: { current: conversions, previous: Number(previous.totals.conversions ?? 0) },
+          floor: HIGHLIGHT_FLOORS.conversions,
+        });
+        if (rise) highlights.push(rise);
+      }
+    }
+
     if (latest) {
       const { data: signals } = await admin
         .from("client_ads_signals")
@@ -189,6 +261,32 @@ export async function loadClientBriefing(
       noun: "people reached on social",
     });
     if (reach) findings.push(reach);
+
+    const socialQuotable = recentEnoughToQuote(newest);
+    const reachTotal = !socialQuotable ? null : totalHighlight({
+      id: "highlight:social-total",
+      scope: "smm",
+      value: sum(current, "reach"),
+      floor: HIGHLIGHT_FLOORS.reach,
+      text: (formatted) => `Your Facebook and Instagram posts reached ${formatted} people`,
+    });
+    if (reachTotal) highlights.push(reachTotal);
+
+    for (const [field, noun] of (socialQuotable
+      ? ([
+          ["reach", "The number of people reached on Facebook and Instagram"],
+          ["engagement", "Engagement with your social posts"],
+        ] as const)
+      : ([] as const))) {
+      const rise = risingHighlight({
+        id: `highlight:social-${field}`,
+        scope: "smm",
+        noun,
+        period: { current: sum(current, field), previous: sum(earlier, field) },
+        floor: HIGHLIGHT_FLOORS.reach,
+      });
+      if (rise) highlights.push(rise);
+    }
 
     const { data: posts } = await admin
       .from("client_social_post_snapshots")
@@ -245,6 +343,25 @@ export async function loadClientBriefing(
       if (date >= cutoff) currentClicks += clicks;
       else previousClicks += clicks;
     }
+    const seoQuotable = recentEnoughToQuote(latest?.created_at);
+    const seoTotal = !seoQuotable ? null : totalHighlight({
+      id: "highlight:seo-total",
+      scope: "seo",
+      value: currentClicks,
+      floor: HIGHLIGHT_FLOORS.clicks,
+      text: (formatted) => `${formatted} visits to your website came from Google search`,
+    });
+    if (seoTotal) highlights.push(seoTotal);
+
+    const seoRise = !seoQuotable ? null : risingHighlight({
+      id: "highlight:seo-clicks",
+      scope: "seo",
+      noun: "Visits from Google search",
+      period: { current: currentClicks, previous: previousClicks },
+      floor: HIGHLIGHT_FLOORS.clicks,
+    });
+    if (seoRise) highlights.push(seoRise);
+
     const clicks = compare({
       id: "seo:clicks",
       scope: "seo",
@@ -285,6 +402,18 @@ export async function loadClientBriefing(
       .from("client_gbp_reviews")
       .select("author_name, rating, review_time_unix")
       .eq("client_id", clientId);
+    const gained = (latest?.user_ratings_total ?? 0) - (previous?.user_ratings_total ?? 0);
+    const gainedHighlight = !recentEnoughToQuote(latest?.created_at) ? null : totalHighlight({
+      id: "highlight:reviews-new",
+      scope: "orm",
+      value: previous ? gained : 0,
+      floor: HIGHLIGHT_FLOORS.reviews,
+      text: (formatted) =>
+        `${formatted} new Google reviews` +
+        (latest?.rating ? `, keeping your rating at ${latest.rating.toFixed(1)} stars` : ""),
+    });
+    if (gainedHighlight) highlights.push(gainedHighlight);
+
     findings.push(
       ...reviewFindings({
         rating: latest?.rating ?? null,
@@ -296,12 +425,60 @@ export async function loadClientBriefing(
     );
   }
 
+  // --- Website traffic ----------------------------------------------------
+  // Not a service anyone buys, but it is the line a strategist's own note
+  // opens with, and GA4 stores the previous period beside the current one.
+  if (bought("seo") || bought("ppc")) {
+    const { data: ga4 } = await admin
+      .from("client_ga4_snapshots")
+      .select("totals, previous_totals, created_at, run_status")
+      .eq("client_id", clientId)
+      .eq("run_status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const snapshot = (ga4 ?? [])[0] as
+      | {
+          totals: Record<string, number> | null;
+          previous_totals: Record<string, number> | null;
+          created_at: string;
+        }
+      | undefined;
+    // GA4 syncs nightly now, but only for the properties we have access to —
+    // an old snapshot must not be quoted as this month.
+    if (snapshot?.totals && recentEnoughToQuote(snapshot.created_at)) {
+      const sessions = Number(snapshot.totals.sessions ?? 0);
+      const users = Number(snapshot.totals.users ?? 0);
+      const previousSessions = Number(snapshot.previous_totals?.sessions ?? 0);
+
+      const rise = risingHighlight({
+        id: "highlight:ga4-sessions",
+        scope: "account",
+        noun: "Website traffic",
+        period: { current: sessions, previous: previousSessions },
+        floor: HIGHLIGHT_FLOORS.sessions,
+      });
+      if (rise) highlights.push(rise);
+      else {
+        const total = totalHighlight({
+          id: "highlight:ga4-total",
+          scope: "account",
+          value: sessions,
+          floor: HIGHLIGHT_FLOORS.sessions,
+          text: (formatted) =>
+            `Your website had ${formatted} visits` + (users > 0 ? ` from ${n(users)} people` : ""),
+        });
+        if (total) highlights.push(total);
+      }
+    }
+  }
+
   // Blog has no blind spot line. Nothing in the app tracks published posts, so
   // it would appear on every briefing for every blog client for ever, and a
   // paragraph that never changes is one people stop reading past. It is said
   // once on the briefings screen instead.
 
   const ranked = rankFindings(findings);
+  const chosen = selectHighlights(highlights);
   return {
     clientId,
     clientName: client.account_name,
@@ -309,6 +486,8 @@ export async function loadClientBriefing(
     strategists,
     findings: ranked,
     blindSpots,
+    highlights: chosen,
+    clientNoteReady: worthSending(chosen),
     quiet: !needsAttention(ranked),
     generatedAt: new Date().toISOString(),
   };
