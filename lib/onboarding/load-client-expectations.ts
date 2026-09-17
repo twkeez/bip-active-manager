@@ -13,6 +13,7 @@ import type { GlossaryTerm } from "@/lib/onboarding/expectation-glossary";
 import { buildClientMarket, type ClientMarket, type DiscoveryResearch } from "@/lib/onboarding/client-market";
 import { buildPlanTimeline, type PlanTimeline, type ServiceStartPlan } from "@/lib/onboarding/client-timeline";
 import { applyDocumentEdits, type DocumentEdit } from "@/lib/onboarding/document-edits";
+import { DEFAULT_SECTION_ORDER } from "@/lib/onboarding/document-order";
 import type { ClientServiceKey } from "@/lib/clients/types";
 import {
   assembleServiceExpectations,
@@ -41,6 +42,8 @@ export type ClientExpectationsModel = {
    * wording, so it is empty until someone fills it in and only prints then.
    */
   priorities: string[];
+  /** The order this client's sections print in. See document-order.ts. */
+  sectionOrder: string[];
   /** The strategist's note for this client, trimmed. "" when none. */
   note: string;
   /** "A note from Stephanie". */
@@ -154,6 +157,7 @@ export async function loadClientExpectations(
     timeline,
     market: buildClientMarket((intake?.discovery ?? null) as DiscoveryResearch),
     priorities: [],
+    sectionOrder: DEFAULT_SECTION_ORDER,
     note: (client.expectations_note ?? "").trim(),
     noteHeading: noteHeading(strategistContacts),
     content,

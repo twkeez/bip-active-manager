@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { SECTION_LABEL } from "@/lib/onboarding/document-order";
 
 /**
  * Editing in place, inside the real client document.
@@ -14,6 +15,12 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 
 export type DocumentEditApi = {
   edited: Set<string>;
+  /** This client's section order, and whether it differs from the standard one. */
+  order: string[];
+  orderChanged: boolean;
+  /** Swap two whole sections, so a move lands past sections with nothing in them. */
+  move: (sectionKey: string, swapWith: string) => Promise<void>;
+  resetOrder: () => Promise<void>;
   hidden: Set<string>;
   /** Replace a section's text for this client. */
   save: (sectionKey: string, body: string) => Promise<void>;
@@ -228,6 +235,75 @@ export function Removable({
           Left out of this client&apos;s document
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * A whole section, movable in the editor.
+ *
+ * Outside the editor this is its children and nothing else, so the printed
+ * document is unchanged. Inside it, each section gains a small header with its
+ * name and arrows. Sections this client has nothing to print for are left out
+ * rather than shown as empty rows to shuffle.
+ */
+export function Movable({
+  sectionKey,
+  above,
+  below,
+  children,
+}: {
+  sectionKey: string;
+  /** The section printed above this one for this client, or null when first. */
+  above: string | null;
+  below: string | null;
+  children: ReactNode;
+}) {
+  const api = useContext(DocumentEditContext);
+  const [busy, setBusy] = useState<"up" | "down" | null>(null);
+  if (!api) return <>{children}</>;
+  const editApi = api;
+
+  async function move(direction: "up" | "down", swapWith: string) {
+    setBusy(direction);
+    try {
+      await editApi.move(sectionKey, swapWith);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const arrow =
+    "rounded-md border border-gray-200 px-1.5 py-0.5 text-gray-500 hover:border-gray-400 hover:text-gray-800 disabled:opacity-30";
+
+  return (
+    <div className="relative rounded-lg ring-1 ring-transparent transition hover:ring-indigo-100">
+      <div className="mb-1 flex items-center gap-1.5">
+        <span className="text-[10.5px] font-semibold uppercase tracking-wide text-gray-400">
+          {SECTION_LABEL[sectionKey] ?? sectionKey}
+        </span>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            title={above ? `Move above ${SECTION_LABEL[above] ?? above}` : "Already first"}
+            disabled={!above || busy !== null}
+            onClick={() => above && void move("up", above)}
+            className={arrow}
+          >
+            {busy === "up" ? "…" : "↑"}
+          </button>
+          <button
+            type="button"
+            title={below ? `Move below ${SECTION_LABEL[below] ?? below}` : "Already last"}
+            disabled={!below || busy !== null}
+            onClick={() => below && void move("down", below)}
+            className={arrow}
+          >
+            {busy === "down" ? "…" : "↓"}
+          </button>
+        </div>
+      </div>
+      {children}
     </div>
   );
 }

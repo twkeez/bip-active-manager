@@ -68,6 +68,10 @@ function ScopeReference({
 const GENERAL_LABELS: Record<string, string> = {
   intro: "Intro — always shown",
   timetable: "Timetable — the overall 90-day schedule",
+  reassure_normal:
+    "When not to panic — the normal movement that isn't worth a phone call. One point per line, starting with •",
+  reassure_alert:
+    "When to tell us — what we want to hear about the day it happens, though we watch for it too. One point per line, starting with •",
   closing: "Closing — always shown",
 };
 
@@ -255,6 +259,26 @@ export default function ClientExpectationsEditor({
           label={GENERAL_LABELS.timetable}
           value={bodies.timetable ?? ""}
           onChange={(v) => updateBody("timetable", v)}
+        />
+      </div>
+
+      {/* The two halves of "when to worry", printed as one section. */}
+      <div className="space-y-3 rounded-lg border border-bip-border bg-bip-card p-3">
+        <p className="text-sm font-semibold text-bip-text">
+          When not to panic{" "}
+          <span className="text-xs font-normal text-bip-muted">
+            — printed after the service sections, unless a client&rsquo;s document is reordered
+          </span>
+        </p>
+        <Textarea
+          label={GENERAL_LABELS.reassure_normal}
+          value={bodies.reassure_normal ?? ""}
+          onChange={(v) => updateBody("reassure_normal", v)}
+        />
+        <Textarea
+          label={GENERAL_LABELS.reassure_alert}
+          value={bodies.reassure_alert ?? ""}
+          onChange={(v) => updateBody("reassure_alert", v)}
         />
       </div>
 

@@ -45,7 +45,8 @@ function heading(text: string, rule = "", size = 16): string {
  * so the plan box and the two-column glossary are tables.
  */
 export function renderExpectationsWord(model: ClientExpectationsModel, generatedAt: string): string {
-  const { clientName, town, strategistContacts, timeline, market, priorities, note, noteHeading, content } = model;
+  const { clientName, town, strategistContacts, timeline, market, priorities, sectionOrder, note, noteHeading, content } =
+    model;
 
   const noteBlock = note
     ? `<table width="100%" cellpadding="10" style="border-collapse:collapse;margin:0 0 14px;"><tr>` +
@@ -94,6 +95,9 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
     planRows.join("") +
     `</td></tr></table>`;
 
+  const subheading = (text: string) =>
+    `<p style="font-size:12px;font-weight:bold;color:${PINK};margin:12px 0 2px;">${esc(text)}</p>`;
+
   const prioritiesSection =
     priorities.length > 0
       ? heading("Meeting Notes") +
@@ -115,8 +119,6 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
       : "";
 
   // The client-safe part of onboarding research; the rest stays internal.
-  const subheading = (text: string) =>
-    `<p style="font-size:12px;font-weight:bold;color:${PINK};margin:12px 0 2px;">${esc(text)}</p>`;
   const marketSection = market
     ? heading("Your local market") +
       (market.snapshot
@@ -168,27 +170,47 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
         `<table width="100%" style="border-collapse:collapse;">${glossaryRows.join("")}</table>`
       : "";
 
+  const reassure =
+    content.reassure.normal || content.reassure.alert
+      ? heading("When not to panic \u2014 and when to tell us", PINK) +
+        (content.reassure.normal
+          ? subheading("Normal, and not worth worrying about") +
+            `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 8px;">${multiline(content.reassure.normal)}</p>`
+          : "") +
+        (content.reassure.alert
+          ? `<div style="background:${SOFT_BG};padding:10px 12px;">` +
+            `<p style="font-size:12px;font-weight:bold;color:${INDIGO};margin:0 0 2px;">Tell your strategist \u2014 though we\u2019ll be looking too</p>` +
+            `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0;">${multiline(content.reassure.alert)}</p></div>`
+          : "")
+      : "";
+
+  // The same sections as the PDF, in the same per-client order.
+  const sections: Record<string, string> = {
+    intro: content.intro
+      ? `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 14px;">${multiline(content.intro)}</p>`
+      : "",
+    note: noteBlock,
+    priorities: prioritiesSection,
+    checklist,
+    timetable: content.timetable
+      ? heading("Your timetable") +
+        `<div style="background:${SOFT_BG};padding:10px 12px;"><p style="font-size:12px;color:${INK};line-height:1.5;margin:0;">${multiline(content.timetable)}</p></div>`
+      : "",
+    market: marketSection,
+    services: serviceSections,
+    reassure,
+    glossary,
+    closing: content.closing
+      ? `<p style="font-size:12px;color:${INK};line-height:1.5;margin:18px 0 0;">${multiline(content.closing)}</p>`
+      : "",
+  };
+
   const body =
     `<p style="font-size:11px;font-weight:bold;color:${PINK};text-transform:uppercase;letter-spacing:.12em;margin:0;">Beyond Indigo Pets</p>` +
     `<h1 style="color:${INDIGO};font-size:24px;margin:4px 0 2px;">Your Marketing Plan &amp; Expectations</h1>` +
     `<p style="font-size:12px;color:${MUTED};margin:0 0 16px;">${esc(subtitle)}</p>` +
     planBox +
-    (content.intro
-      ? `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 14px;">${multiline(content.intro)}</p>`
-      : "") +
-    noteBlock +
-    prioritiesSection +
-    checklist +
-    (content.timetable
-      ? heading("Your timetable") +
-        `<div style="background:${SOFT_BG};padding:10px 12px;"><p style="font-size:12px;color:${INK};line-height:1.5;margin:0;">${multiline(content.timetable)}</p></div>`
-      : "") +
-    marketSection +
-    serviceSections +
-    glossary +
-    (content.closing
-      ? `<p style="font-size:12px;color:${INK};line-height:1.5;margin:18px 0 0;">${multiline(content.closing)}</p>`
-      : "");
+    sectionOrder.map((key) => sections[key] ?? "").join("");
 
   return (
     `<!DOCTYPE html><html><head><meta charset="utf-8"/>` +

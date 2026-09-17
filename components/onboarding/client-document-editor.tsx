@@ -5,6 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileDown, Printer } from "lucide-react";
 import ClientExpectationsDocument from "@/components/onboarding/client-expectations-document";
+import {
+  isDefaultSectionOrder,
+  serialiseSectionOrder,
+  SECTION_LABEL,
+} from "@/lib/onboarding/document-order";
+import { SECTION_ORDER_KEY } from "@/lib/onboarding/document-edits";
 import { DocumentEditContext, type DocumentEditApi } from "@/components/onboarding/document-editable";
 import type { ClientExpectationsModel } from "@/lib/onboarding/load-client-expectations";
 
@@ -57,16 +63,39 @@ export default function ClientDocumentEditor({
         await send(`${editsUrl}?sectionKey=${encodeURIComponent(sectionKey)}`, { method: "DELETE" });
         router.refresh();
       },
+      order: model.sectionOrder,
+      orderChanged: !isDefaultSectionOrder(model.sectionOrder),
+      // Swapping the two sections, rather than shifting one by a position, is
+      // what makes a move land where it looks like it will: a section this
+      // client has nothing to print for still sits in the saved order.
+      move: async (sectionKey, swapWith) => {
+        const next = [...model.sectionOrder];
+        const from = next.indexOf(sectionKey);
+        const to = next.indexOf(swapWith);
+        if (from === -1 || to === -1) return;
+        next[from] = swapWith;
+        next[to] = sectionKey;
+        await send(editsUrl, {
+          method: "PUT",
+          body: JSON.stringify({ sectionKey: SECTION_ORDER_KEY, body: serialiseSectionOrder(next) }),
+        });
+        router.refresh();
+      },
+      resetOrder: async () => {
+        await send(`${editsUrl}?sectionKey=${encodeURIComponent(SECTION_ORDER_KEY)}`, { method: "DELETE" });
+        router.refresh();
+      },
       setHidden: async (sectionKey, hidden) => {
         await send(editsUrl, { method: "PUT", body: JSON.stringify({ sectionKey, hidden }) });
         router.refresh();
       },
     }),
-    [clientId, editsUrl, model.edits, router],
+    [clientId, editsUrl, model.edits, model.sectionOrder, router],
   );
 
   const editedCount = model.edits.edited.length;
   const hiddenCount = model.edits.hidden.length;
+  const orderChanged = !isDefaultSectionOrder(model.sectionOrder);
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 p-6">
@@ -81,20 +110,35 @@ export default function ClientDocumentEditor({
             </Link>
             <h1 className="mt-1 text-lg font-semibold text-bip-text">Review &amp; edit · {model.clientName}</h1>
             <p className="mt-1 max-w-2xl text-xs leading-relaxed text-bip-muted">
-              Click any text to change it for this client. Each change is saved as you go and appears in both the PDF
+              Click any text to change it for this client. The arrows beside a section move the whole section up or
+              down. Each change is saved as you go and appears in both the PDF
               and the Word version; other clients keep the standard wording. The plan, strategist and kickoff come from
               the client&apos;s records, so change those on the client page.
             </p>
             <p className="mt-2 text-xs text-bip-text">
-              {editedCount === 0 && hiddenCount === 0
-                ? "Standard wording throughout."
+              {editedCount === 0 && hiddenCount === 0 && !orderChanged
+                ? "Standard wording and order throughout."
                 : [
                     editedCount ? `${editedCount} section${editedCount === 1 ? "" : "s"} edited` : null,
                     hiddenCount ? `${hiddenCount} left out` : null,
+                    orderChanged ? "reordered" : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
             </p>
+            {orderChanged && (
+              <button
+                type="button"
+                onClick={() => void api.resetOrder()}
+                className="mt-1 text-xs text-bip-muted underline hover:text-bip-text"
+              >
+                Back to the standard order ({model.sectionOrder
+                  .map((key) => SECTION_LABEL[key] ?? key)
+                  .slice(0, 3)
+                  .join(" → ")}
+                …)
+              </button>
+            )}
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <a

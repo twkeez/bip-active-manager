@@ -1,4 +1,5 @@
 import type { ClientExpectationsModel } from "@/lib/onboarding/load-client-expectations";
+import { parseSectionOrder } from "@/lib/onboarding/document-order";
 
 /**
  * A client's own edits to their document, laid over the standard version.
@@ -19,6 +20,9 @@ export type DocumentEdit = {
   hidden: boolean;
 };
 
+/** Where a client's own section order is saved, alongside its edited text. */
+export const SECTION_ORDER_KEY = "document.order";
+
 /** Sections whose text can be replaced. An empty replacement prints nothing. */
 const TEXT_KEYS = new Set([
   "intro",
@@ -29,16 +33,21 @@ const TEXT_KEYS = new Set([
   "timetable",
   "market.snapshot",
   "market.landscape",
+  "reassure.normal",
+  "reassure.alert",
   "closing",
+  // Not text a client reads: the section order, saved as one key per line.
+  SECTION_ORDER_KEY,
 ]);
 
 /** Sections that can be left out altogether. */
-const HIDEABLE_KEYS = new Set(["checklist", "timetable", "market", "glossary"]);
+const HIDEABLE_KEYS = new Set(["checklist", "timetable", "market", "reassure", "glossary"]);
 
 const SERVICE_FIELD = /^service:(seo|ppc|smm|blog|orm):(expect|limits|recommend)$/;
 const COMPETITOR = /^market\.competitor:(.{1,200})$/;
 
 export const MAX_EDIT_LENGTH = 10_000;
+
 
 export function competitorKey(name: string): string {
   return `market.competitor:${name}`;
@@ -106,9 +115,11 @@ export function applyDocumentEdits(
     ...source,
     timeline: { ...source.timeline },
     priorities: [...source.priorities],
+    sectionOrder: [...source.sectionOrder],
     market: source.market ? { ...source.market, competitors: source.market.competitors.map((c) => ({ ...c })) } : null,
     content: {
       ...source.content,
+      reassure: { ...source.content.reassure },
       services: source.content.services.map((service) => ({ ...service })),
       checklist: [...source.content.checklist],
       glossary: [...source.content.glossary],
@@ -126,7 +137,8 @@ export function applyDocumentEdits(
       let applied = true;
       const competitor = COMPETITOR.exec(key);
       const service = SERVICE_FIELD.exec(key);
-      if (key === "intro") model.content.intro = body;
+      if (key === SECTION_ORDER_KEY) model.sectionOrder = parseSectionOrder(body);
+      else if (key === "intro") model.content.intro = body;
       else if (key === "priorities") model.priorities = parsePriorityLines(body);
       else if (key === "timetable") model.content.timetable = body;
       else if (key === "closing") model.content.closing = body;
@@ -135,6 +147,8 @@ export function applyDocumentEdits(
       else if (key === "plan.timing") model.timeline.starts = body.trim() || null;
       else if (key === "market.snapshot" && model.market) model.market.snapshot = body;
       else if (key === "market.landscape" && model.market) model.market.landscape = body;
+      else if (key === "reassure.normal") model.content.reassure.normal = body;
+      else if (key === "reassure.alert") model.content.reassure.alert = body;
       else if (competitor && model.market) {
         const match = model.market.competitors.find((c) => c.name === competitor[1]);
         if (match) match.description = body.trim() || null;
@@ -144,7 +158,7 @@ export function applyDocumentEdits(
         if (section) section[service[2] as "expect" | "limits" | "recommend"] = body;
         else applied = false; // the client no longer buys that service
       } else applied = false;
-      if (applied) edited.push(key);
+      if (applied && key !== SECTION_ORDER_KEY) edited.push(key);
     }
 
     if (edit.hidden && canHide(key)) {
@@ -153,6 +167,7 @@ export function applyDocumentEdits(
       const competitor = COMPETITOR.exec(key);
       if (key === "market") model.market = null;
       else if (key === "glossary") model.content.glossary = [];
+      else if (key === "reassure") model.content.reassure = { normal: "", alert: "" };
       else if (key === "timetable") model.content.timetable = "";
       else if (key === "checklist") model.content.checklist = [];
       else if (competitor && model.market) {

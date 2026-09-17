@@ -107,7 +107,13 @@ function blogPlanLabel(raw: string | null | undefined): string | null {
 }
 
 /** Shared (service-agnostic) blocks that always frame the document. */
-export const GENERAL_EXPECTATION_KEYS = ["intro", "timetable", "closing"] as const;
+export const GENERAL_EXPECTATION_KEYS = [
+  "intro",
+  "timetable",
+  "reassure_normal",
+  "reassure_alert",
+  "closing",
+] as const;
 
 /**
  * Every master block key, in editor order: intro → timetable → per service (its
@@ -116,6 +122,8 @@ export const GENERAL_EXPECTATION_KEYS = ["intro", "timetable", "closing"] as con
 export const SERVICE_EXPECTATION_BLOCK_KEYS: string[] = [
   "intro",
   "timetable",
+  "reassure_normal",
+  "reassure_alert",
   ...SERVICE_EXPECTATION_ORDER.flatMap((service) => [
     ...EXPECTATION_FIELDS.map((field) => serviceBlockKey(service, field)),
     ...SERVICE_TIERS[service].map((tier) => tierExpectKey(service, tier)),
@@ -220,6 +228,13 @@ export function buildKickoffChecklist(services: ExpectationServiceSection[]): Ch
 export type ServiceExpectationsModel = {
   intro: string;
   timetable: string;
+  /**
+   * The two halves of "When not to panic": what moves around on its own and is
+   * not worth worrying about, and what is worth telling us straight away. We
+   * watch for both, but a practice sees things first — a phone line down, a
+   * review that needs answering.
+   */
+  reassure: { normal: string; alert: string };
   services: ExpectationServiceSection[];
   /** "What we need from you" across all services, deduplicated — printed as one checklist. */
   checklist: ChecklistItem[];
@@ -285,6 +300,7 @@ export function assembleServiceExpectations(
   return {
     intro: merge("intro"),
     timetable: merge("timetable"),
+    reassure: { normal: merge("reassure_normal"), alert: merge("reassure_alert") },
     services,
     checklist: buildKickoffChecklist(services),
     glossary: selectGlossaryTerms(ctx.glossary ?? [], ctx.activeServices).map((term) => ({

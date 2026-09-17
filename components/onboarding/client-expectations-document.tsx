@@ -4,7 +4,7 @@ import {
   serviceSectionTitle,
 } from "@/lib/onboarding/service-expectations";
 import BeyondIndigoLogo from "@/components/onboarding/beyond-indigo-logo";
-import { Editable, Removable, useDocumentEditing } from "@/components/onboarding/document-editable";
+import { Editable, Movable, Removable, useDocumentEditing } from "@/components/onboarding/document-editable";
 import { checklistToLines, competitorKey, serviceKey } from "@/lib/onboarding/document-edits";
 
 /**
@@ -52,7 +52,8 @@ export default function ClientExpectationsDocument({
   model: ClientExpectationsModel;
   generatedAt: string;
 }) {
-  const { clientName, town, strategistContacts, timeline, market, priorities, note, noteHeading, content } = model;
+  const { clientName, town, strategistContacts, timeline, market, priorities, sectionOrder, note, noteHeading, content } =
+    model;
   // Outside the editor this is false, and every condition below behaves exactly
   // as it did before editing existed.
   const editing = useDocumentEditing();
@@ -61,6 +62,227 @@ export default function ClientExpectationsDocument({
   const subtitle = [clientName, town, generatedAt ? `Prepared ${generatedAt}` : ""]
     .filter(Boolean)
     .join(" · ");
+
+  // Every movable section, built once and printed in this client's order.
+  const sections: Record<string, React.ReactNode> = {
+    intro: (content.intro || editing) && (
+        <Editable sectionKey="intro" value={content.intro}>
+          <p
+            className="mb-6 whitespace-pre-line text-sm leading-relaxed text-gray-700"
+            style={{ breakInside: "avoid" }}
+          >
+            {content.intro}
+          </p>
+        </Editable>
+    ),
+      /* The strategist's own words for this practice — the one part of the
+          document not written as master copy. */
+    note: (note || editing) && (
+        <section
+          className="mb-7 rounded-r-lg border-l-4 px-4 py-3"
+          style={{ borderColor: PINK, background: "#fdf0f7", breakInside: "avoid" }}
+        >
+          <p className="text-[12.5px] font-semibold" style={{ color: PINK }}>
+            {noteHeading}
+          </p>
+          <Editable sectionKey="note" value={note}>
+            <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-800">{note}</p>
+          </Editable>
+        </section>
+    ),
+      /* The client's own goals, as they gave them to us — so they can see we
+          heard them before reading what we will do. */
+    priorities: (priorities.length > 0 || editing) && (
+        <section className="mb-7" style={{ breakInside: "avoid" }}>
+          <Heading>Meeting Notes</Heading>
+          <Editable sectionKey="priorities" value={priorities.join("\n")} hint="One item per line.">
+            <ul className="mt-2 space-y-1.5">
+              {priorities.map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
+                  <span
+                    aria-hidden
+                    className="mt-[7px] inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ background: PINK }}
+                  />
+                  <span className="flex-1">{item}</span>
+                </li>
+              ))}
+            </ul>
+          </Editable>
+        </section>
+    ),
+      /* The one part of the document that asks the client to act. Titled
+          neutrally on purpose: some items are ongoing ("a heads-up on events
+          worth posting"), so "Before kickoff" would promise a timing the list
+          cannot keep. */
+    checklist: (content.checklist.length > 0 || editing) && (
+        <section className="mb-7" style={{ breakInside: "avoid" }}>
+          <Removable sectionKey="checklist" label="this list">
+          <Heading>What we need from you</Heading>
+          <Editable
+            sectionKey="checklist"
+            value={checklistToLines(content.checklist)}
+            hint="One item per line."
+          >
+          <ul className="mt-2 space-y-1.5">
+            {content.checklist.map((item) => (
+              <li key={item.text} className="flex items-start gap-2.5 text-sm text-gray-700">
+                <span
+                  aria-hidden
+                  className="mt-[3px] inline-block h-3.5 w-3.5 shrink-0 rounded-[3px] border-[1.5px]"
+                  style={{ borderColor: INDIGO }}
+                />
+                <span className="flex-1">{item.text}</span>
+                <span className="shrink-0 text-[11px] text-gray-400">{item.serviceLabel}</span>
+              </li>
+            ))}
+          </ul>
+          </Editable>
+          </Removable>
+        </section>
+    ),
+    timetable: (content.timetable || editing) && (
+        <section className="mb-7" style={{ breakInside: "avoid" }}>
+          <Removable sectionKey="timetable" label="the timetable">
+          <Heading>Your timetable</Heading>
+          <div className="mt-2 rounded-lg px-4 py-3" style={{ background: INDIGO_SOFT }}>
+            <Editable sectionKey="timetable" value={content.timetable}>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700">
+              {content.timetable}
+            </p>
+            </Editable>
+          </div>
+          </Removable>
+        </section>
+    ),
+      /* The client-safe part of onboarding research. Offers, counter-strategies
+          and campaign detail stay in the internal brief. */
+    market: market && (
+        <section className="mb-7">
+          <Removable sectionKey="market" label="the market section">
+          <Heading>Your local market</Heading>
+          {(market.snapshot || editing) && (
+            <Editable sectionKey="market.snapshot" value={market.snapshot}>
+            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-700" style={{ breakInside: "avoid" }}>
+              {market.snapshot}
+            </p>
+            </Editable>
+          )}
+          {(market.landscape || editing) && (
+            <div style={{ breakInside: "avoid" }}>
+              <p className="mt-4 text-[12.5px] font-semibold" style={{ color: PINK }}>
+                How pet owners search here
+              </p>
+              <Editable sectionKey="market.landscape" value={market.landscape}>
+              <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-700">{market.landscape}</p>
+              </Editable>
+            </div>
+          )}
+          {market.competitors.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[12.5px] font-semibold" style={{ color: PINK }}>
+                Nearby practices
+              </p>
+              <p className="mt-0.5 text-[12.5px] text-gray-500">
+                The practices most likely to come up alongside you when people search.
+              </p>
+              <ul className="mt-2 space-y-2">
+                {market.competitors.map((competitor) => (
+                  <li key={competitor.name} className="text-sm text-gray-700" style={{ breakInside: "avoid" }}>
+                    <Removable sectionKey={competitorKey(competitor.name)} label="this practice">
+                    <span className="font-semibold text-gray-900">{competitor.name}</span>
+                    {competitor.location && <span className="text-gray-500"> · {competitor.location}</span>}
+                    {(competitor.description || editing) && (
+                      <Editable sectionKey={competitorKey(competitor.name)} value={competitor.description ?? ""}>
+                      <span className="block text-[13px] leading-relaxed text-gray-600">{competitor.description}</span>
+                      </Editable>
+                    )}
+                    </Removable>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          </Removable>
+        </section>
+    ),
+    services: content.services.length > 0 && content.services.map((service) => (
+        <section key={service.key} className="mb-7 border-t-2 pt-4" style={{ borderColor: PINK }}>
+          <Heading>{serviceSectionTitle(service)}</Heading>
+          <Field label={EXPECTATION_FIELD_LABEL.expect} body={service.expect} sectionKey={serviceKey(service.key, "expect")} />
+          <Field label={EXPECTATION_FIELD_LABEL.limits} body={service.limits} sectionKey={serviceKey(service.key, "limits")} />
+          <Field
+            label={EXPECTATION_FIELD_LABEL.recommend}
+            body={service.recommend}
+            sectionKey={serviceKey(service.key, "recommend")}
+          />
+        </section>
+    )),
+    /* The two halves of "when to worry" in one place: what moves on its own
+       and is not worth a phone call, and what is worth telling us straight
+       away. Said plainly, it prevents both the month-two panic and the month-
+       six surprise. */
+    reassure: (content.reassure.normal || content.reassure.alert || editing) && (
+      <section className="mb-7 border-t-2 pt-4" style={{ borderColor: PINK }}>
+        <Removable sectionKey="reassure" label="this section">
+          <Heading>When not to panic &mdash; and when to tell us</Heading>
+          {(content.reassure.normal || editing) && (
+            <div className="mt-3" style={{ breakInside: "avoid" }}>
+              <p className="text-[12.5px] font-semibold" style={{ color: PINK }}>
+                Normal, and not worth worrying about
+              </p>
+              <Editable sectionKey="reassure.normal" value={content.reassure.normal}>
+                <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-700">
+                  {content.reassure.normal}
+                </p>
+              </Editable>
+            </div>
+          )}
+          {(content.reassure.alert || editing) && (
+            <div className="mt-4 rounded-lg px-4 py-3" style={{ background: INDIGO_SOFT, breakInside: "avoid" }}>
+              <p className="text-[12.5px] font-semibold" style={{ color: INDIGO }}>
+                Tell your strategist &mdash; though we&rsquo;ll be looking too
+              </p>
+              <Editable sectionKey="reassure.alert" value={content.reassure.alert}>
+                <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-700">
+                  {content.reassure.alert}
+                </p>
+              </Editable>
+            </div>
+          )}
+        </Removable>
+      </section>
+    ),
+    glossary: content.glossary.length > 0 && (
+        // Last, deliberately: a reference to come back to, not something to read
+        // before the plan it explains. Two columns so it takes less height.
+        <section className="mb-6 border-t-2 pt-4" style={{ borderColor: INDIGO_SOFT }}>
+          <Removable sectionKey="glossary" label="the glossary">
+          <Heading>Terms you&rsquo;ll see us use</Heading>
+          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3">
+            {content.glossary.map((entry) => (
+              <div key={entry.term} style={{ breakInside: "avoid" }}>
+                <dt className="text-[13px] font-semibold text-gray-800">{entry.term}</dt>
+                <dd className="mt-0.5 text-[12.5px] leading-relaxed text-gray-600">
+                  {entry.definition}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          </Removable>
+        </section>
+    ),
+    closing: (content.closing || editing) && (
+        <Editable sectionKey="closing" value={content.closing}>
+          <p
+            className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-700"
+            style={{ breakInside: "avoid" }}
+          >
+            {content.closing}
+          </p>
+        </Editable>
+    ),
+  };
 
   return (
     <div className="report-print-target mx-auto max-w-3xl bg-white px-8 py-8 text-gray-800">
@@ -158,196 +380,19 @@ export default function ClientExpectationsDocument({
         )}
       </section>
 
-      {(content.intro || editing) && (
-        <Editable sectionKey="intro" value={content.intro}>
-          <p
-            className="mb-6 whitespace-pre-line text-sm leading-relaxed text-gray-700"
-            style={{ breakInside: "avoid" }}
+      {/* Only sections with something to print, in this client's order. */}
+      {sectionOrder
+        .filter((key) => Boolean(sections[key]))
+        .map((key, index, printed) => (
+          <Movable
+            key={key}
+            sectionKey={key}
+            above={printed[index - 1] ?? null}
+            below={printed[index + 1] ?? null}
           >
-            {content.intro}
-          </p>
-        </Editable>
-      )}
-
-      {/* The strategist's own words for this practice — the one part of the
-          document not written as master copy. */}
-      {(note || editing) && (
-        <section
-          className="mb-7 rounded-r-lg border-l-4 px-4 py-3"
-          style={{ borderColor: PINK, background: "#fdf0f7", breakInside: "avoid" }}
-        >
-          <p className="text-[12.5px] font-semibold" style={{ color: PINK }}>
-            {noteHeading}
-          </p>
-          <Editable sectionKey="note" value={note}>
-            <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-800">{note}</p>
-          </Editable>
-        </section>
-      )}
-
-      {/* The client's own goals, as they gave them to us — so they can see we
-          heard them before reading what we will do. */}
-      {(priorities.length > 0 || editing) && (
-        <section className="mb-7" style={{ breakInside: "avoid" }}>
-          <Heading>Meeting Notes</Heading>
-          <Editable sectionKey="priorities" value={priorities.join("\n")} hint="One item per line.">
-            <ul className="mt-2 space-y-1.5">
-              {priorities.map((item) => (
-                <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
-                  <span
-                    aria-hidden
-                    className="mt-[7px] inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ background: PINK }}
-                  />
-                  <span className="flex-1">{item}</span>
-                </li>
-              ))}
-            </ul>
-          </Editable>
-        </section>
-      )}
-
-      {/* The one part of the document that asks the client to act. Titled
-          neutrally on purpose: some items are ongoing ("a heads-up on events
-          worth posting"), so "Before kickoff" would promise a timing the list
-          cannot keep. */}
-      {(content.checklist.length > 0 || editing) && (
-        <section className="mb-7" style={{ breakInside: "avoid" }}>
-          <Removable sectionKey="checklist" label="this list">
-          <Heading>What we need from you</Heading>
-          <Editable
-            sectionKey="checklist"
-            value={checklistToLines(content.checklist)}
-            hint="One item per line."
-          >
-          <ul className="mt-2 space-y-1.5">
-            {content.checklist.map((item) => (
-              <li key={item.text} className="flex items-start gap-2.5 text-sm text-gray-700">
-                <span
-                  aria-hidden
-                  className="mt-[3px] inline-block h-3.5 w-3.5 shrink-0 rounded-[3px] border-[1.5px]"
-                  style={{ borderColor: INDIGO }}
-                />
-                <span className="flex-1">{item.text}</span>
-                <span className="shrink-0 text-[11px] text-gray-400">{item.serviceLabel}</span>
-              </li>
-            ))}
-          </ul>
-          </Editable>
-          </Removable>
-        </section>
-      )}
-
-      {(content.timetable || editing) && (
-        <section className="mb-7" style={{ breakInside: "avoid" }}>
-          <Removable sectionKey="timetable" label="the timetable">
-          <Heading>Your timetable</Heading>
-          <div className="mt-2 rounded-lg px-4 py-3" style={{ background: INDIGO_SOFT }}>
-            <Editable sectionKey="timetable" value={content.timetable}>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700">
-              {content.timetable}
-            </p>
-            </Editable>
-          </div>
-          </Removable>
-        </section>
-      )}
-
-      {/* The client-safe part of onboarding research. Offers, counter-strategies
-          and campaign detail stay in the internal brief. */}
-      {market && (
-        <section className="mb-7">
-          <Removable sectionKey="market" label="the market section">
-          <Heading>Your local market</Heading>
-          {(market.snapshot || editing) && (
-            <Editable sectionKey="market.snapshot" value={market.snapshot}>
-            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-700" style={{ breakInside: "avoid" }}>
-              {market.snapshot}
-            </p>
-            </Editable>
-          )}
-          {(market.landscape || editing) && (
-            <div style={{ breakInside: "avoid" }}>
-              <p className="mt-4 text-[12.5px] font-semibold" style={{ color: PINK }}>
-                How pet owners search here
-              </p>
-              <Editable sectionKey="market.landscape" value={market.landscape}>
-              <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-700">{market.landscape}</p>
-              </Editable>
-            </div>
-          )}
-          {market.competitors.length > 0 && (
-            <div className="mt-4">
-              <p className="text-[12.5px] font-semibold" style={{ color: PINK }}>
-                Nearby practices
-              </p>
-              <p className="mt-0.5 text-[12.5px] text-gray-500">
-                The practices most likely to come up alongside you when people search.
-              </p>
-              <ul className="mt-2 space-y-2">
-                {market.competitors.map((competitor) => (
-                  <li key={competitor.name} className="text-sm text-gray-700" style={{ breakInside: "avoid" }}>
-                    <Removable sectionKey={competitorKey(competitor.name)} label="this practice">
-                    <span className="font-semibold text-gray-900">{competitor.name}</span>
-                    {competitor.location && <span className="text-gray-500"> · {competitor.location}</span>}
-                    {(competitor.description || editing) && (
-                      <Editable sectionKey={competitorKey(competitor.name)} value={competitor.description ?? ""}>
-                      <span className="block text-[13px] leading-relaxed text-gray-600">{competitor.description}</span>
-                      </Editable>
-                    )}
-                    </Removable>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          </Removable>
-        </section>
-      )}
-
-      {content.services.map((service) => (
-        <section key={service.key} className="mb-7 border-t-2 pt-4" style={{ borderColor: PINK }}>
-          <Heading>{serviceSectionTitle(service)}</Heading>
-          <Field label={EXPECTATION_FIELD_LABEL.expect} body={service.expect} sectionKey={serviceKey(service.key, "expect")} />
-          <Field label={EXPECTATION_FIELD_LABEL.limits} body={service.limits} sectionKey={serviceKey(service.key, "limits")} />
-          <Field
-            label={EXPECTATION_FIELD_LABEL.recommend}
-            body={service.recommend}
-            sectionKey={serviceKey(service.key, "recommend")}
-          />
-        </section>
-      ))}
-
-      {content.glossary.length > 0 && (
-        // Last, deliberately: a reference to come back to, not something to read
-        // before the plan it explains. Two columns so it takes less height.
-        <section className="mb-6 border-t-2 pt-4" style={{ borderColor: INDIGO_SOFT }}>
-          <Removable sectionKey="glossary" label="the glossary">
-          <Heading>Terms you&rsquo;ll see us use</Heading>
-          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3">
-            {content.glossary.map((entry) => (
-              <div key={entry.term} style={{ breakInside: "avoid" }}>
-                <dt className="text-[13px] font-semibold text-gray-800">{entry.term}</dt>
-                <dd className="mt-0.5 text-[12.5px] leading-relaxed text-gray-600">
-                  {entry.definition}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          </Removable>
-        </section>
-      )}
-
-      {(content.closing || editing) && (
-        <Editable sectionKey="closing" value={content.closing}>
-          <p
-            className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-700"
-            style={{ breakInside: "avoid" }}
-          >
-            {content.closing}
-          </p>
-        </Editable>
-      )}
+            {sections[key]}
+          </Movable>
+        ))}
     </div>
   );
 }
