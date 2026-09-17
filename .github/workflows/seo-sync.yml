@@ -1,0 +1,50 @@
+name: Search Console sync
+
+on:
+  schedule:
+    # Nightly at 08:10 UTC, staggered clear of the ads (07:10) and social
+    # (07:40) jobs so three runs do not contend for the same function limits.
+    - cron: "10 8 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: seo-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh Search Console data for every client with a property
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::APP_URL and CRON_SECRET repository secrets must both be set."
+            exit 1
+          fi
+
+          http_status=$(curl -sS -o response.json -w '%{http_code}' \
+            --max-time 330 \
+            -X POST "${APP_URL%/}/api/cron/seo-sync" \
+            -H "Authorization: Bearer ${CRON_SECRET}")
+
+          echo "HTTP ${http_status}"
+          cat response.json
+          echo
+
+          # 207: some clients failed, most succeeded. Warn, but keep the
+          # schedule green — one revoked property is normal and must not read
+          # as "the sync is broken".
+          if [ "$http_status" = "207" ]; then
+            echo "::warning::Some clients failed to sync — see the body above."
+            exit 0
+          fi
+
+          if [ "$http_status" != "200" ]; then
+            echo "::error::seo-sync failed with HTTP ${http_status}"
+            exit 1
+          fi

@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { runGbpSync } from "@/lib/gbp/google-business-profile";
-import type { GbpReviewRow, GbpSnapshot } from "@/lib/types/client";
+import { syncClientGbp } from "@/lib/gbp/sync-client";
+import type { GbpReviewRow } from "@/lib/types/client";
+
+/**
+ * The "sync" button for one client's Google Business Profile.
+ *
+ * The work itself lives in lib/gbp/sync-client so the nightly job runs exactly
+ * this; what stays here is the session check and the richer response the screen
+ * reads back.
+ */
 
 type SyncRequestBody = {
   clientId?: number;
@@ -48,90 +56,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const now = new Date().toISOString();
-  const { data: createdSnapshot, error: createSnapshotError } = await admin
-    .from("client_gbp_snapshots")
-    .insert({
-      client_id: clientId,
-      place_id: clientRow.google_place_id,
-      run_status: "running",
-      created_at: now,
-      updated_at: now,
-    })
-    .select("*")
-    .single<GbpSnapshot>();
-  if (createSnapshotError || !createdSnapshot) {
-    return NextResponse.json(
-      { error: createSnapshotError?.message ?? "Failed to create GBP snapshot." },
-      { status: 500 },
-    );
-  }
-
   try {
-    const result = await runGbpSync(clientRow.google_place_id);
-    const updatedAt = new Date().toISOString();
-    const { error: updateError } = await admin
-      .from("client_gbp_snapshots")
-      .update({
-        place_id: result.placeId,
-        place_name: result.placeName,
-        profile_url: result.profileUrl,
-        website_url: result.websiteUrl,
-        address: result.address,
-        rating: result.rating,
-        user_ratings_total: result.userRatingsTotal,
-        last_post_at: result.lastPostAt ?? null,
-        profile_fields: result.profileFields ?? null,
-        run_status: "completed",
-        error_message: null,
-        updated_at: updatedAt,
-      })
-      .eq("id", createdSnapshot.id);
-    if (updateError) throw new Error(updateError.message);
+    const result = await syncClientGbp(admin, clientId, clientRow.google_place_id);
 
-    const { error: clearReviewsError } = await admin
+    const { data: reviewRows, error: reviewsError } = await admin
       .from("client_gbp_reviews")
-      .delete()
-      .eq("client_id", clientId);
-    if (clearReviewsError) throw new Error(clearReviewsError.message);
+      .select("*")
+      .eq("client_id", clientId)
+      .order("review_time_unix", { ascending: false, nullsFirst: false })
+      .returns<GbpReviewRow[]>();
+    if (reviewsError) throw new Error(reviewsError.message);
+    const reviews = reviewRows ?? [];
 
-    if (result.reviews.length > 0) {
-      const reviewRows: Omit<GbpReviewRow, "id">[] = result.reviews.map((row) => ({
-        client_id: clientId,
-        snapshot_id: createdSnapshot.id,
-        author_name: row.authorName,
-        rating: row.rating,
-        text: row.text,
-        relative_time_description: row.relativeTimeDescription,
-        review_time_unix: row.reviewTimeUnix,
-        created_at: updatedAt,
-      }));
-      const { error: insertReviewsError } = await admin
-        .from("client_gbp_reviews")
-        .insert(reviewRows);
-      if (insertReviewsError) throw new Error(insertReviewsError.message);
-    }
-
-    const [snapshotResult, reviewsResult] = await Promise.all([
-      admin
-        .from("client_gbp_snapshots")
-        .select("*")
-        .eq("id", createdSnapshot.id)
-        .single<GbpSnapshot>(),
-      admin
-        .from("client_gbp_reviews")
-        .select("*")
-        .eq("client_id", clientId)
-        .order("review_time_unix", { ascending: false, nullsFirst: false })
-        .returns<GbpReviewRow[]>(),
-    ]);
-    if (snapshotResult.error || !snapshotResult.data) {
-      throw new Error(snapshotResult.error?.message ?? "Failed to load GBP snapshot.");
-    }
-    if (reviewsResult.error) {
-      throw new Error(reviewsResult.error.message);
-    }
-    const reviews = reviewsResult.data ?? [];
     const latestReviewTimeUnix = reviews.reduce<number | null>((latest, row) => {
       if (typeof row.review_time_unix !== "number") return latest;
       return latest == null ? row.review_time_unix : Math.max(latest, row.review_time_unix);
@@ -145,31 +81,17 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      snapshot: snapshotResult.data,
+      snapshot: result.snapshot,
       reviews,
       diagnostics: {
-        fetchedReviewCount: result.reviews.length,
+        fetchedReviewCount: result.fetchedReviewCount,
         storedReviewCount: reviews.length,
         latestReviewTimeUnix,
         topReviews,
-        sourceBreakdown: result.diagnostics ?? {
-          placesReviewCount: 0,
-          legacyReviewCount: 0,
-          gbpApiReviewCount: 0,
-          matchedGbpLocationCount: 0,
-          gbpApiError: null,
-        },
+        sourceBreakdown: result.sourceBreakdown,
       },
     });
   } catch (error) {
-    await admin
-      .from("client_gbp_snapshots")
-      .update({
-        run_status: "failed",
-        error_message: error instanceof Error ? error.message : "GBP sync failed",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", createdSnapshot.id);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "GBP sync failed" },
       { status: 500 },
