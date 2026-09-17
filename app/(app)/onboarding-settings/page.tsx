@@ -16,9 +16,10 @@ export default async function OnboardingSettingsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl p-6">
       <div className="mb-4">
-        <h1 className="text-lg font-semibold text-bip-text">Onboarding Settings</h1>
+        <h1 className="text-lg font-semibold text-bip-text">Onboarding Basecamp Message</h1>
         <p className="text-sm text-bip-muted">
-          Master kickoff message template used across client onboarding.
+          The master kickoff message posted to a new client&rsquo;s Basecamp project. Onboarding fills in the
+          practice&rsquo;s own details when it writes the message.
         </p>
       </div>
       <KickoffTemplateEditor />

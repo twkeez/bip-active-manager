@@ -421,7 +421,7 @@ export default function OnboardingWorkspace({
                 <>
                   <p className="mt-1 text-[11px] text-bip-muted">Thread title: {kickoff.title}</p>
                   <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-bip-fill p-3 font-sans text-xs leading-relaxed text-bip-text">
-                    {kickoff.body || "No kickoff template yet — set one up in Onboarding Settings."}
+                    {kickoff.body || "No kickoff template yet — set one up under Onboarding Basecamp Message."}
                   </pre>
                   <button
                     type="button"

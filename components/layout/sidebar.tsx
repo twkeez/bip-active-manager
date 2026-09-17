@@ -88,6 +88,9 @@ const SERVICES: NavItem[] = [
   { label: "Service Playbook", href: "/playbook", icon: BookOpen },
   { label: "Onboarding SOPs", href: "/onboarding-sops", icon: GraduationCap },
   { label: "Client Expectations", href: "/client-expectations", icon: CalendarClock },
+  // The master kickoff message. It lives with the other wording we keep rather
+  // than with the onboarding tools that use it.
+  { label: "Onboarding Basecamp Message", href: "/onboarding-settings", icon: MessageSquare, adminOnly: true },
   { label: "Best Practices", href: "/best-practices", icon: Sparkles },
   { label: "Partnership & Boundaries", href: "/services/partnership", icon: Handshake },
   { label: "Reference Library", href: "/services/library", icon: FolderOpen },
@@ -109,7 +112,6 @@ const ADS: NavItem[] = [
 const ONBOARDING: NavItem[] = [
   { label: "Strategy Mapper", href: "/onboarding-strategy-mapper", icon: Compass, adminOnly: true },
   { label: "Vet Onboarding", href: "/vet-onboarding", icon: Stethoscope, adminOnly: true },
-  { label: "Onboarding Settings", href: "/onboarding-settings", icon: ClipboardList, adminOnly: true },
 ];
 
 // Canaries that watch for drift nobody goes looking for. Sits directly under

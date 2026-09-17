@@ -18,6 +18,7 @@ import {
   Layers,
   Link2,
   ShieldCheck,
+  MessageSquare,
   SlidersHorizontal,
   Stethoscope,
 } from "lucide-react";
@@ -61,7 +62,6 @@ const COAL_MINES: NavItem[] = [
 const GROWTH: NavItem[] = [
   { label: "Strategy Mapper", href: "/onboarding-strategy-mapper", icon: Compass, adminOnly: true },
   { label: "Vet Onboarding", href: "/vet-onboarding", icon: Stethoscope, adminOnly: true },
-  { label: "Onboarding Settings", href: "/onboarding-settings", icon: SlidersHorizontal, adminOnly: true },
 ];
 
 const SUPPORT: NavItem[] = [
@@ -69,6 +69,7 @@ const SUPPORT: NavItem[] = [
   { label: "Service Playbook", href: "/playbook", icon: BookOpen },
   { label: "Onboarding SOPs", href: "/onboarding-sops", icon: GraduationCap, adminOnly: true },
   { label: "Client Expectations", href: "/client-expectations", icon: CalendarClock, adminOnly: true },
+  { label: "Onboarding Basecamp Message", href: "/onboarding-settings", icon: MessageSquare, adminOnly: true },
 ];
 
 function NavLink({

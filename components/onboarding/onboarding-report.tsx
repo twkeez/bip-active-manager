@@ -196,7 +196,7 @@ export default function OnboardingReport({
               </div>
             ) : (
               <p className="text-gray-500">
-                No kickoff template configured yet — set it up in Onboarding Settings.
+                No kickoff template configured yet — set it up under Onboarding Basecamp Message.
               </p>
             )}
           </Section>
