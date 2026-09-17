@@ -107,6 +107,42 @@ function normalizePropertyUrl(rawPropertyUrl: string, fallbackWebsite: string) {
   return `https://${website}`;
 }
 
+/**
+ * The two identities that can read Search Console, and why both are tried.
+ *
+ * Until now this used whichever was configured, in a fixed order, which meant
+ * the OAuth account (a person's Google login) was the only one ever used. Two
+ * problems with that: it makes every client's SEO reporting depend on one
+ * person's password, and a property granted to the *service account* — which is
+ * what we now ask practices for, because it does not belong to anyone and does
+ * not expire — would never be read at all.
+ *
+ * So a sync tries each identity and uses the one that can see the property.
+ */
+export type GscIdentity = "oauth" | "service_account";
+
+async function getAccessTokenFor(identity: GscIdentity): Promise<string | null> {
+  if (identity === "oauth") {
+    const oauthConfig = getGoogleOAuthRefreshConfig();
+    if (!oauthConfig) return null;
+    const oauth = new OAuth2Client(oauthConfig.clientId, oauthConfig.clientSecret, oauthConfig.redirectUri);
+    oauth.setCredentials({ refresh_token: oauthConfig.refreshToken });
+    const response = await oauth.getAccessToken().catch(() => null);
+    const token = typeof response === "string" ? response : response?.token ?? null;
+    return token ?? null;
+  }
+  try {
+    const { clientEmail, privateKey } = getGoogleServiceAccountConfig();
+    const auth = new JWT({ email: clientEmail, key: privateKey, scopes: [SEARCH_CONSOLE_SCOPE] });
+    const token = await auth.getAccessToken();
+    const value = typeof token === "string" ? token : token?.token ?? null;
+    return value ?? null;
+  } catch {
+    // No service account configured is a normal state, not an error.
+    return null;
+  }
+}
+
 async function getAccessToken() {
   const oauthConfig = getGoogleOAuthRefreshConfig();
   let tokenResponse: string | { token?: string | null } | null;
@@ -363,9 +399,39 @@ export async function runSearchConsoleSync(
   if (!requestedPropertyUrl) {
     throw new Error("Search Console property URL is required.");
   }
-  const accessToken = userAccessToken ?? await getAccessToken();
-  const siteEntries = await listAccessibleSites(accessToken);
-  const propertyUrl = resolvePreferredProperty(requestedPropertyUrl, siteEntries);
+  /**
+   * Whoever can actually see this property. A signed-in person's own token wins
+   * when one is supplied — that is the sync button, where their access is the
+   * point — and otherwise each stored identity is tried in turn.
+   */
+  let accessToken = userAccessToken ?? null;
+  let propertyUrl = requestedPropertyUrl;
+  if (accessToken) {
+    propertyUrl = resolvePreferredProperty(requestedPropertyUrl, await listAccessibleSites(accessToken));
+  } else {
+    const attempts: Array<{ identity: GscIdentity; token: string }> = [];
+    for (const identity of ["oauth", "service_account"] as GscIdentity[]) {
+      const token = await getAccessTokenFor(identity);
+      if (token) attempts.push({ identity, token });
+    }
+    if (attempts.length === 0) throw new Error("Failed to acquire Google access token.");
+
+    let chosen: { token: string; property: string } | null = null;
+    for (const attempt of attempts) {
+      const sites = await listAccessibleSites(attempt.token);
+      const resolved = resolvePreferredProperty(requestedPropertyUrl, sites);
+      // Only settle on an identity that is a verified user of the property;
+      // an unverified listing answers 403 to every data request.
+      const entry = sites.find((site) => site.siteUrl === resolved);
+      if (entry && isStrongPermission(entry.permissionLevel)) {
+        chosen = { token: attempt.token, property: resolved };
+        break;
+      }
+      if (!chosen) chosen = { token: attempt.token, property: resolved };
+    }
+    accessToken = chosen!.token;
+    propertyUrl = chosen!.property;
+  }
 
   const [pageRows, queryRows, dailyRows, sitemaps] = await Promise.all([
     fetchSearchAnalytics(accessToken, propertyUrl, startDate, endDate, "page"),
