@@ -22,6 +22,16 @@ import {
   findProjectWiringProblems,
   type ClientProjectRow,
 } from "./project-wiring";
+import {
+  COVERAGE_SILENT_DAYS,
+  findCoverageProblems,
+  summariseCoverage,
+  type CoverageClient,
+  type CoverageProblem,
+} from "./service-coverage";
+import { getClientActiveServices } from "@/lib/clients/service-active";
+import type { ClientRow } from "@/lib/types/client";
+import type { ClientServiceKey } from "@/lib/clients/types";
 
 /**
  * Coal Mines — the checks that stay quiet until something is wrong.
@@ -107,6 +117,7 @@ export async function runCanaries(
     Promise.all([
       checkSyncHealth(supabase, now),
       checkAdsFreshness(supabase, now),
+      checkServiceCoverage(supabase, now),
       checkProjectWiring(supabase),
       checkBasecampThreads(supabase, now),
     ]),
@@ -290,6 +301,174 @@ export async function checkSyncHealth(
  * Client records fighting over the same Basecamp project. The loser of each
  * fight is skipped by the sync and therefore invisible everywhere else.
  */
+/**
+ * A client paying for something we hold no data for.
+ *
+ * The ads freshness canary above watches accounts we *can* sync. This watches
+ * the opposite: clients where the data never arrives at all, which no screen
+ * shows, because a client with no data simply does not appear on the screens
+ * that would show it. The briefing engine found sixteen ads clients who had
+ * never had a single snapshot — ten with a note typed into the customer ID
+ * field, which reads as connected everywhere that only checks for empty.
+ */
+export async function checkServiceCoverage(
+  supabase: SupabaseClient,
+  now: Date = new Date(),
+): Promise<Canary> {
+  const base = {
+    key: "service-coverage",
+    name: "Paid for, but not measured",
+    watches:
+      "Clients buying a service we hold no data for. A missing account ID or an ungranted permission means we report nothing, and nothing says so.",
+  } as const;
+
+  const since = new Date(now.getTime() - 400 * 86_400_000).toISOString();
+  const [clients, ads, gsc, social, gbp, connections] = await Promise.all([
+    supabase.from("clients").select("*"),
+    supabase.from("client_ads_snapshots").select("client_id, created_at").gte("created_at", since),
+    supabase
+      .from("client_gsc_snapshots")
+      .select("client_id, created_at, run_status")
+      .eq("run_status", "completed")
+      .gte("created_at", since),
+    supabase
+      .from("client_social_daily_snapshots")
+      .select("client_id, created_at")
+      .gte("created_at", since),
+    supabase
+      .from("client_gbp_snapshots")
+      .select("client_id, created_at, run_status")
+      .eq("run_status", "completed")
+      .gte("created_at", since),
+    supabase.from("client_social_connections").select("client_id, page_id"),
+  ]);
+
+  const failure = clients.error ?? ads.error ?? gsc.error ?? social.error ?? gbp.error ?? connections.error;
+  if (failure) {
+    return { ...base, status: "attention", headline: "Could not read service coverage.", detail: [failure.message] };
+  }
+
+  /** Newest row per client, so "last data" is one lookup. */
+  const newest = (rows: Array<{ client_id: number; created_at: string }> | null) => {
+    const map = new Map<number, string>();
+    for (const row of rows ?? []) {
+      const at = map.get(row.client_id);
+      if (!at || row.created_at > at) map.set(row.client_id, row.created_at);
+    }
+    return map;
+  };
+  const adsAt = newest(ads.data as never);
+  const gscAt = newest(gsc.data as never);
+  const socialAt = newest(social.data as never);
+  const gbpAt = newest(gbp.data as never);
+  const pageByClient = new Map<number, string>();
+  for (const row of (connections.data ?? []) as Array<{ client_id: number; page_id: string | null }>) {
+    if (row.page_id) pageByClient.set(row.client_id, row.page_id);
+  }
+
+  const coverage: CoverageClient[] = ((clients.data ?? []) as ClientRow[])
+    .map((client) => {
+      const active = getClientActiveServices(client);
+      const services = (["seo", "ppc", "smm", "orm"] as ClientServiceKey[]).filter((key) => active[key]);
+      return {
+        id: client.id,
+        accountName: client.account_name,
+        services,
+        keys: {
+          ads: client.ads_customer_id ?? null,
+          searchConsole: (client.sc_url ?? client.website) ?? null,
+          social: pageByClient.get(client.id) ?? null,
+          reviews: client.google_place_id ?? null,
+        },
+        lastData: {
+          ads: adsAt.get(client.id) ?? null,
+          searchConsole: gscAt.get(client.id) ?? null,
+          social: socialAt.get(client.id) ?? null,
+          reviews: gbpAt.get(client.id) ?? null,
+        },
+      };
+    })
+    // Website-only clients buy none of this.
+    .filter((client) => client.services.length > 0);
+
+  const problems = findCoverageProblems(coverage, now);
+  const counts = summariseCoverage(problems);
+
+  if (problems.length === 0) {
+    return {
+      ...base,
+      status: "ok",
+      headline: `All ${coverage.length} clients have data for everything they buy.`,
+      detail: [],
+    };
+  }
+
+  const group = (
+    kind: CoverageProblem["kind"],
+    heading: string,
+    blurb: string,
+    tone: CanaryStatus,
+  ): CanarySection | null => {
+    const matching = problems.filter((problem) => problem.kind === kind);
+    if (matching.length === 0) return null;
+    return {
+      heading: `${heading} (${matching.length})`,
+      blurb,
+      tone,
+      groups: [
+        {
+          title: heading,
+          meta: `${new Set(matching.map((problem) => problem.clientId)).size} clients`,
+          items: matching.map((problem) => ({
+            label: problem.accountName,
+            meta: problem.note,
+            href: `/dashboard/clients/${problem.clientId}`,
+            flagged: kind === "placeholder",
+          })),
+        },
+      ],
+    };
+  };
+
+  const sections = [
+    group(
+      "placeholder",
+      "A note where an ID should be",
+      "Someone typed a reminder into the identifier field. It reads as connected on every screen that only checks whether the field is filled, so this never surfaces anywhere else.",
+      "overdue",
+    ),
+    group(
+      "not_connected",
+      "Nothing connected",
+      "No account, property or page on file. Ours to fix — the client is paying for a service we cannot report on.",
+      "overdue",
+    ),
+    group(
+      "no_data",
+      "Connected, but silent",
+      `Set up, and no data in ${COVERAGE_SILENT_DAYS}+ days. Usually a permission the practice has to grant, rather than a mistake on our side.`,
+      "attention",
+    ),
+  ].filter((section): section is CanarySection => section !== null);
+
+  return {
+    ...base,
+    // A note in an ID field or nothing connected is a client paying for
+    // silence, which is worse than data going stale.
+    status: counts.placeholders + counts.notConnected > 0 ? "overdue" : "attention",
+    headline: `${counts.clients} clients pay for something we hold no data for.`,
+    detail: [
+      counts.placeholders > 0
+        ? `${counts.placeholders} have a note where an account ID belongs — those look connected everywhere else in the app.`
+        : null,
+      counts.notConnected > 0 ? `${counts.notConnected} have nothing connected at all.` : null,
+      counts.noData > 0 ? `${counts.noData} are connected but returning nothing.` : null,
+    ].filter((line): line is string => line !== null),
+    sections,
+    action: { label: "Open briefings to see what this costs", href: "/client-briefings" },
+  };
+}
+
 export async function checkProjectWiring(supabase: SupabaseClient): Promise<Canary> {
   const base = {
     key: "project-wiring",
