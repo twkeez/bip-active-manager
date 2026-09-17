@@ -29,6 +29,7 @@ import {
   LayoutDashboard,
   Link2,
   Map,
+  Mail,
   MessageSquare,
   MessageSquareQuote,
   MapPinned,
@@ -118,6 +119,7 @@ const ONBOARDING: NavItem[] = [
 // Primary because it is a "check this first" surface, not a tool you go to.
 const COAL_MINES: NavItem[] = [
   { label: "Coal Mines", href: "/coal-mines", icon: Bird, adminOnly: true },
+  { label: "Client Briefings", href: "/client-briefings", icon: Mail, adminOnly: true },
   { label: "Project Wiring", href: "/basecamp-projects", icon: Link2, adminOnly: true },
 ];
 
