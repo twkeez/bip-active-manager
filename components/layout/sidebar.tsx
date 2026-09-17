@@ -106,6 +106,7 @@ const ADS: NavItem[] = [
   { label: "PPC Defense", href: "/ppc-defense", icon: Shield },
   { label: "Ad Cost Trends", href: "/ad-spend-trends", icon: TrendingUp, adminOnly: true },
   { label: "Ad Calls", href: "/ads-calls", icon: Phone, adminOnly: true },
+  { label: "Ads Accounts", href: "/ads-accounts", icon: Link2, adminOnly: true },
 ];
 
 // Supporting onboarding tools + config, gathered from Sales and Tools where they
