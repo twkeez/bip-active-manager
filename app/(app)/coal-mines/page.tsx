@@ -1,14 +1,17 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth/profile";
 import { runCanaries } from "@/lib/coal-mines/canaries";
-import CoalMinesBoard from "@/components/coal-mines/coal-mines-board";
+import { loadRoutineViews } from "@/lib/routines/load";
+import CoalMinesWorkspace from "@/components/coal-mines/coal-mines-workspace";
 
-// Coal Mines: the checks that watch for drift nobody is looking for. Runs the
-// canaries on load for now — scheduling them is the next step, and none of them
-// assume one. The admin client is for the canaries written here rather than
-// shipped: their queries run through a function only the service role may call.
+// Coal Mines: everything that watches, in one place. Routines run on a
+// schedule and keep a history; canaries are evaluated here, on load. The admin
+// client is for the canaries written here rather than shipped — their queries
+// run through a function only the service role may call — and for routines,
+// whose writes go through the service role.
 export default async function CoalMinesPage() {
   const supabase = await createClient();
   const {
@@ -19,7 +22,22 @@ export default async function CoalMinesPage() {
   const profile = await getProfile(supabase);
   if (profile?.role !== "admin") redirect("/dashboard");
 
-  const canaries = await runCanaries(supabase, new Date(), createAdminClient());
+  const admin = createAdminClient();
+  const [canaries, { routines, error }] = await Promise.all([
+    runCanaries(supabase, new Date(), admin),
+    loadRoutineViews(admin),
+  ]);
 
-  return <CoalMinesBoard canaries={canaries} checkedAt={new Date().toISOString()} />;
+  return (
+    // The selected item lives in the address; the Suspense boundary is what
+    // Next asks for around a component that reads it.
+    <Suspense fallback={null}>
+      <CoalMinesWorkspace
+        canaries={canaries}
+        routines={routines}
+        routinesError={error}
+        checkedAt={new Date().toISOString()}
+      />
+    </Suspense>
+  );
 }
