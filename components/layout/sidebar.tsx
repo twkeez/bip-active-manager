@@ -35,6 +35,7 @@ import {
   MapPinned,
   Phone,
   Radar,
+  Repeat,
   ScanSearch,
   Shield,
   ShieldCheck,
@@ -121,6 +122,7 @@ const ONBOARDING: NavItem[] = [
 const COAL_MINES: NavItem[] = [
   { label: "Coal Mines", href: "/coal-mines", icon: Bird, adminOnly: true },
   { label: "Client Briefings", href: "/client-briefings", icon: Mail, adminOnly: true },
+  { label: "Routines", href: "/routines", icon: Repeat, adminOnly: true },
   { label: "Project Wiring", href: "/basecamp-projects", icon: Link2, adminOnly: true },
 ];
 

@@ -1,0 +1,52 @@
+name: Routines
+
+on:
+  schedule:
+    # Hourly. Each routine keeps its own schedule ("weekdays at 9am ET"); this
+    # only wakes the app up to ask which are due. GitHub delivers scheduled runs
+    # late or not at all under load, so a routine counts as due whenever a
+    # scheduled time has passed that it has not run for — a dropped wake-up is
+    # caught by the next one. The odd minute stays clear of the :00 crush.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: routines
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the routines that are due
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::APP_URL and CRON_SECRET repository secrets must both be set."
+            exit 1
+          fi
+
+          http_status=$(curl -sS -o response.json -w '%{http_code}' \
+            --max-time 330 \
+            -X POST "${APP_URL%/}/api/cron/routines" \
+            -H "Authorization: Bearer ${CRON_SECRET}")
+
+          echo "HTTP ${http_status}"
+          cat response.json
+          echo
+
+          # 207: a routine failed. Its run is recorded with the error on the
+          # Routines page, so warn rather than turn the schedule red.
+          if [ "$http_status" = "207" ]; then
+            echo "::warning::A routine failed — see its run on the Routines page."
+            exit 0
+          fi
+
+          if [ "$http_status" != "200" ]; then
+            echo "::error::routines failed with HTTP ${http_status}"
+            exit 1
+          fi

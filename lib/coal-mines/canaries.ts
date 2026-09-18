@@ -6,7 +6,6 @@ import {
   findThreadIssues,
   groupByClient,
   type ThreadFinding,
-  type ThreadRow,
 } from "./basecamp-threads";
 import { assessSyncHealth, type SyncStateRow } from "./sync-health";
 import {
@@ -17,11 +16,11 @@ import {
   type SnapshotRow,
 } from "./snapshot-freshness";
 import { isSyncableAdsCustomerId } from "@/lib/ads/customer-id";
-import { listBasecampProjectIgnores } from "@/lib/clients/basecamp-project-ignores";
 import {
   findProjectWiringProblems,
   type ClientProjectRow,
 } from "./project-wiring";
+import { loadThreadRows } from "./load-threads";
 import {
   COVERAGE_SILENT_DAYS,
   findCoverageProblems,
@@ -547,36 +546,20 @@ export async function checkBasecampThreads(
       "Individual threads where a client is waiting on a reply, or that nobody has touched in a while.",
   } as const;
 
-  const [{ data: rows, error }, { data: clients }, ignores] = await Promise.all([
-    supabase
-      .from("basecamp_communication_events")
-      .select(
-        "client_id, basecamp_project_id, basecamp_project_name, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
-      )
-      .order("occurred_at", { ascending: false })
-      .returns<ThreadRow[]>(),
-    supabase.from("clients").select("id, account_name"),
-    listBasecampProjectIgnores(supabase).catch(() => []),
-  ]);
+  const { rows, clientNames: names, ignoredProjectIds, error } = await loadThreadRows(supabase);
 
   if (error) {
     return {
       ...base,
       status: "attention",
       headline: "Could not read Basecamp threads.",
-      detail: [error.message],
+      detail: [error],
     };
   }
 
-  const names = new Map<number, string>(
-    (clients ?? []).map((c) => [c.id as number, c.account_name as string]),
-  );
-  const { awaitingUs, awaitingThem, stalled, considered } = findThreadIssues(
-    rows ?? [],
-    names,
-    now,
-    { ignoredProjectIds: new Set(ignores.map((row) => row.basecamp_project_id)) },
-  );
+  const { awaitingUs, awaitingThem, stalled, considered } = findThreadIssues(rows, names, now, {
+    ignoredProjectIds,
+  });
 
   if (awaitingUs.length === 0 && awaitingThem.length === 0 && stalled.length === 0) {
     return {
