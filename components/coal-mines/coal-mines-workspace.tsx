@@ -169,7 +169,58 @@ function RoutineFindings({ findings }: { findings: RoutineFinding[] }) {
 // Right: a routine's set-up and history
 // ---------------------------------------------------------------------------
 
-function RoutineInfo({ routine, onChanged }: { routine: RoutineView; onChanged: () => void }) {
+/** Choosing which clients a watch routine covers. */
+function ClientPicker({
+  clients,
+  chosen,
+  onToggle,
+}: {
+  clients: Array<{ id: number; account_name: string }>;
+  chosen: number[];
+  onToggle: (id: number) => void;
+}) {
+  const [filter, setFilter] = useState("");
+  const shown = clients.filter((client) =>
+    client.account_name.toLowerCase().includes(filter.trim().toLowerCase()),
+  );
+  return (
+    <div className="mt-2">
+      <input
+        value={filter}
+        onChange={(event) => setFilter(event.target.value)}
+        placeholder="Find a client…"
+        className="w-full rounded border border-bip-border bg-bip-card px-2 py-1 text-xs text-bip-text focus:border-bip-accent focus:outline-none"
+      />
+      <div className="mt-1.5 max-h-56 overflow-y-auto rounded border border-bip-border">
+        {shown.length === 0 && <p className="px-2 py-1.5 text-xs text-bip-muted">No client matches.</p>}
+        {shown.map((client) => (
+          <label
+            key={client.id}
+            className="flex cursor-pointer items-center gap-2 px-2 py-1 text-xs text-bip-text hover:bg-bip-fill"
+          >
+            <input
+              type="checkbox"
+              checked={chosen.includes(client.id)}
+              onChange={() => onToggle(client.id)}
+              className="h-3 w-3 accent-bip-accent"
+            />
+            <span className="truncate">{client.account_name}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RoutineInfo({
+  routine,
+  clients,
+  onChanged,
+}: {
+  routine: RoutineView;
+  clients: Array<{ id: number; account_name: string }>;
+  onChanged: () => void;
+}) {
   const [busy, setBusy] = useState<"run" | "toggle" | "settings" | null>(null);
   const [error, setError] = useState<string | null>(null);
   // In the order they are listed above, not the database's key order.
@@ -177,7 +228,16 @@ function RoutineInfo({ routine, onChanged }: { routine: RoutineView; onChanged: 
   const [draft, setDraft] = useState<Record<string, string>>(() =>
     Object.fromEntries(editable.map((key) => [key, String(routine.settings[key] ?? "")])),
   );
-  const dirty = editable.some((key) => draft[key] !== String(routine.settings[key] ?? ""));
+  const watches = Array.isArray(routine.settings.clientIds);
+  const [clientIds, setClientIds] = useState<number[]>(
+    watches ? (routine.settings.clientIds as number[]).map(Number) : [],
+  );
+  const clientsChanged =
+    watches &&
+    JSON.stringify([...clientIds].sort()) !==
+      JSON.stringify([...(routine.settings.clientIds as number[])].map(Number).sort());
+  const dirty =
+    editable.some((key) => draft[key] !== String(routine.settings[key] ?? "")) || clientsChanged;
 
   async function send(kind: "run" | "toggle" | "settings") {
     setBusy(kind);
@@ -192,7 +252,12 @@ function RoutineInfo({ routine, onChanged }: { routine: RoutineView; onChanged: 
               body: JSON.stringify(
                 kind === "toggle"
                   ? { enabled: !routine.enabled }
-                  : { settings: Object.fromEntries(editable.map((key) => [key, Number(draft[key])])) },
+                  : {
+                      settings: {
+                        ...Object.fromEntries(editable.map((key) => [key, Number(draft[key])])),
+                        ...(watches ? { clientIds } : {}),
+                      },
+                    },
               ),
             });
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
@@ -255,7 +320,24 @@ function RoutineInfo({ routine, onChanged }: { routine: RoutineView; onChanged: 
         </p>
       </section>
 
-      {editable.length > 0 && (
+      {watches && (
+        <section>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
+            Clients watched ({clientIds.length})
+          </p>
+          <ClientPicker
+            clients={clients}
+            chosen={clientIds}
+            onToggle={(id) =>
+              setClientIds((current) =>
+                current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+              )
+            }
+          />
+        </section>
+      )}
+
+      {(editable.length > 0 || watches) && (
         <section>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Settings</p>
           <div className="mt-2 space-y-2">
@@ -330,11 +412,14 @@ export default function CoalMinesWorkspace({
   canaries,
   routines,
   routinesError,
+  clients,
   checkedAt,
 }: {
   canaries: Canary[];
   routines: RoutineView[];
   routinesError: string | null;
+  /** For routines that watch a chosen list of clients. */
+  clients: Array<{ id: number; account_name: string }>;
   checkedAt: string;
 }) {
   const router = useRouter();
@@ -515,7 +600,12 @@ export default function CoalMinesWorkspace({
       {/* ------------------------------------------------------------------ */}
       <aside className="rounded-xl border border-bip-border bg-bip-card p-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto">
         {!selection ? null : selection.type === "routine" ? (
-          <RoutineInfo key={`${selection.routine.key}-${selection.routine.updated_at}`} routine={selection.routine} onChanged={refresh} />
+          <RoutineInfo
+            key={`${selection.routine.key}-${selection.routine.updated_at}`}
+            routine={selection.routine}
+            clients={clients}
+            onChanged={refresh}
+          />
         ) : (
           <div className="space-y-5">
             <section>
