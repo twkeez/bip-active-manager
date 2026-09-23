@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runBasecampReview } from "@/lib/routines/kinds/basecamp-review";
+import { runBasecampWatch } from "@/lib/routines/kinds/basecamp-watch";
 import { runClientWatch } from "@/lib/routines/kinds/client-watch";
 import { isDue } from "@/lib/routines/schedule";
 import type { RoutineResult, RoutineRow, RoutineRunRow } from "@/lib/routines/types";
@@ -19,6 +20,7 @@ type Runner = (supabase: SupabaseClient, settings: Record<string, unknown>, now:
 /** Every kind of routine the app knows how to run. */
 export const RUNNERS: Record<string, { label: string; run: Runner }> = {
   basecamp_review: { label: "Basecamp review", run: runBasecampReview },
+  basecamp_watch: { label: "Basecamp watch", run: runBasecampWatch },
   client_watch: { label: "Client watch", run: runClientWatch },
 };
 

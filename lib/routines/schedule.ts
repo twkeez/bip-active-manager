@@ -16,11 +16,26 @@
 export type RoutineSchedule = {
   /** 0 = Sunday … 6 = Saturday, as JavaScript counts them. */
   days: number[];
-  hour: number;
+  /**
+   * The hours it runs at, in its own timezone. A watcher checking through the
+   * working day runs at several: [8, 10, 12, 14, 16, 21]. `hour` is the older
+   * single-time form and is still read, so schedules saved before this stay
+   * exactly as they were.
+   */
+  hours?: number[];
+  hour?: number;
   minute: number;
   /** IANA name, e.g. "America/New_York". */
   timezone: string;
 };
+
+/** The times of day a schedule runs at, however it was written. */
+export function scheduleHours(schedule: RoutineSchedule): number[] {
+  const hours = schedule.hours?.length ? schedule.hours : [schedule.hour ?? 0];
+  return [...new Set(hours.filter((hour) => Number.isInteger(hour) && hour >= 0 && hour <= 23))].sort(
+    (a, b) => a - b,
+  );
+}
 
 /**
  * How late a run may still happen. Long enough to survive a morning of missed
@@ -28,6 +43,18 @@ export type RoutineSchedule = {
  * stale "daily" run the moment it is switched back on.
  */
 export const CATCH_UP_HOURS = 20;
+
+/**
+ * For a routine that runs several times a day, a missed slot is only worth
+ * catching up until the next one is due — otherwise a run at 10:05 would still
+ * be "due" for the 8am slot it already covered.
+ */
+function catchUpHours(schedule: RoutineSchedule): number {
+  const hours = scheduleHours(schedule);
+  if (hours.length < 2) return CATCH_UP_HOURS;
+  const gaps = hours.slice(1).map((hour, index) => hour - hours[index]);
+  return Math.max(Math.min(...gaps), 1);
+}
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -88,7 +115,9 @@ function slotsAround(schedule: RoutineSchedule, now: Date, daysBack: number, day
     const probe = new Date(now.getTime() + offset * 86_400_000);
     const local = partsIn(schedule.timezone, probe);
     if (!schedule.days.includes(local.weekday)) continue;
-    slots.push(zonedTime(schedule.timezone, local, schedule.hour, schedule.minute));
+    for (const hour of scheduleHours(schedule)) {
+      slots.push(zonedTime(schedule.timezone, local, hour, schedule.minute));
+    }
   }
   return slots.sort((a, b) => a.getTime() - b.getTime());
 }
@@ -111,7 +140,7 @@ export function isDue(schedule: RoutineSchedule, lastRunAt: string | null, now: 
   if (schedule.days.length === 0) return false;
   const slot = lastSlot(schedule, now);
   if (!slot) return false;
-  if (now.getTime() - slot.getTime() > CATCH_UP_HOURS * 3_600_000) return false;
+  if (now.getTime() - slot.getTime() > catchUpHours(schedule) * 3_600_000) return false;
   if (!lastRunAt) return true;
   return Date.parse(lastRunAt) < slot.getTime();
 }
@@ -119,6 +148,7 @@ export function isDue(schedule: RoutineSchedule, lastRunAt: string | null, now: 
 /** "Weekdays at 9:00 AM ET" — how a person would say it. */
 export function describeSchedule(schedule: RoutineSchedule): string {
   const days = [...schedule.days].sort();
+  const hours = scheduleHours(schedule);
   const weekdays = [1, 2, 3, 4, 5];
   let when: string;
   if (days.length === 7) when = "Every day";
@@ -127,23 +157,43 @@ export function describeSchedule(schedule: RoutineSchedule): string {
   else if (days.length === 1) when = `${DAY_NAMES[days[0]]}s`;
   else when = days.map((day) => DAY_NAMES[day].slice(0, 3)).join(", ");
 
-  const hour12 = schedule.hour % 12 === 0 ? 12 : schedule.hour % 12;
-  const suffix = schedule.hour < 12 ? "AM" : "PM";
-  const time = `${hour12}:${String(schedule.minute).padStart(2, "0")} ${suffix}`;
+  const clock = (hour: number) => {
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    return `${hour12}${schedule.minute ? `:${String(schedule.minute).padStart(2, "0")}` : ""}${hour < 12 ? "am" : "pm"}`;
+  };
   const zone = schedule.timezone === "America/New_York" ? "ET" : schedule.timezone;
-  return `${when} at ${time} ${zone}`;
+
+  if (hours.length === 1) {
+    const hour = hours[0];
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    const suffix = hour < 12 ? "AM" : "PM";
+    return `${when} at ${hour12}:${String(schedule.minute).padStart(2, "0")} ${suffix} ${zone}`;
+  }
+
+  // "Weekdays every 2 hours, 8am to 4pm, and 9pm ET" beats listing six times.
+  const gaps = hours.slice(1).map((hour, index) => hour - hours[index]);
+  const even = gaps.slice(0, -1).every((gap) => gap === gaps[0]);
+  const trailing = gaps.at(-1)! > gaps[0] ? hours.at(-1)! : null;
+  const run = trailing ? hours.slice(0, -1) : hours;
+  if (even && run.length > 2) {
+    const every = `every ${gaps[0]} hours, ${clock(run[0])} to ${clock(run.at(-1)!)}`;
+    return `${when} ${every}${trailing !== null ? `, and ${clock(trailing)}` : ""} ${zone}`;
+  }
+  return `${when} at ${hours.map(clock).join(", ")} ${zone}`;
 }
 
 export function isValidSchedule(value: unknown): value is RoutineSchedule {
   if (!value || typeof value !== "object") return false;
   const schedule = value as Record<string, unknown>;
   const days = schedule.days;
+  const hours = Array.isArray(schedule.hours)
+    ? (schedule.hours as unknown[])
+    : [schedule.hour];
   return (
     Array.isArray(days) &&
     days.every((day) => Number.isInteger(day) && (day as number) >= 0 && (day as number) <= 6) &&
-    Number.isInteger(schedule.hour) &&
-    (schedule.hour as number) >= 0 &&
-    (schedule.hour as number) <= 23 &&
+    hours.length > 0 &&
+    hours.every((hour) => Number.isInteger(hour) && (hour as number) >= 0 && (hour as number) <= 23) &&
     Number.isInteger(schedule.minute) &&
     (schedule.minute as number) >= 0 &&
     (schedule.minute as number) <= 59 &&

@@ -19,7 +19,7 @@ export async function loadThreadRows(supabase: SupabaseClient): Promise<{
     supabase
       .from("basecamp_communication_events")
       .select(
-        "client_id, basecamp_project_id, basecamp_project_name, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
+        "basecamp_recording_id, client_id, basecamp_project_id, basecamp_project_name, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
       )
       .order("occurred_at", { ascending: false })
       .returns<ThreadRow[]>(),

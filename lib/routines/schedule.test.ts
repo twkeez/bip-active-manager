@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { describeSchedule, isDue, lastSlot, nextRun, zonedTime, type RoutineSchedule } from "./schedule";
+import {
+  describeSchedule,
+  isDue,
+  lastSlot,
+  nextRun,
+  scheduleHours,
+  zonedTime,
+  type RoutineSchedule,
+} from "./schedule";
 
 const weekdays9am: RoutineSchedule = { days: [1, 2, 3, 4, 5], hour: 9, minute: 0, timezone: "America/New_York" };
 
@@ -63,5 +71,46 @@ describe("describeSchedule", () => {
     expect(describeSchedule(weekdays9am)).toBe("Weekdays at 9:00 AM ET");
     expect(describeSchedule({ ...weekdays9am, days: [1], hour: 14, minute: 30 })).toBe("Mondays at 2:30 PM ET");
     expect(describeSchedule({ ...weekdays9am, days: [0, 1, 2, 3, 4, 5, 6] })).toBe("Every day at 9:00 AM ET");
+  });
+});
+
+/** The Basecamp watcher's shape: through the working day, plus once at night. */
+const watcher: RoutineSchedule = {
+  days: [1, 2, 3, 4, 5],
+  hours: [8, 10, 12, 14, 16, 21],
+  minute: 0,
+  timezone: "America/New_York",
+};
+
+describe("a routine that runs several times a day", () => {
+  it("reads either form of schedule", () => {
+    expect(scheduleHours(watcher)).toEqual([8, 10, 12, 14, 16, 21]);
+    expect(scheduleHours({ days: [1], hour: 9, minute: 0, timezone: "America/New_York" })).toEqual([9]);
+  });
+
+  it("is due again at each slot through the day", () => {
+    const tenPast10 = new Date("2026-09-23T14:10:00Z"); // 10:10am ET
+    expect(isDue(watcher, "2026-09-23T12:02:00Z", tenPast10)).toBe(true); // ran at 8
+    expect(isDue(watcher, "2026-09-23T14:02:00Z", tenPast10)).toBe(false); // already ran at 10
+  });
+
+  // A wake-up that arrives at 11:30 should not fire the 10am slot as well as
+  // leaving 12 to fire an hour later; one slot, one run.
+  it("does not catch up a slot the next one has overtaken", () => {
+    const halfPastNoon = new Date("2026-09-23T16:30:00Z"); // 12:30pm ET
+    // Ran at 10; the noon slot is due.
+    expect(isDue(watcher, "2026-09-23T14:02:00Z", halfPastNoon)).toBe(true);
+    // Ran at noon; nothing due until 2.
+    expect(isDue(watcher, "2026-09-23T16:02:00Z", halfPastNoon)).toBe(false);
+  });
+
+  it("knows the next slot is tomorrow morning after the night run", () => {
+    const lateEvening = new Date("2026-09-24T01:30:00Z"); // 9:30pm ET Wed
+    expect(nextRun(watcher, lateEvening)?.toISOString()).toBe("2026-09-24T12:00:00.000Z"); // 8am ET Thu
+    expect(lastSlot(watcher, lateEvening)?.toISOString()).toBe("2026-09-24T01:00:00.000Z");
+  });
+
+  it("says it the way a person would", () => {
+    expect(describeSchedule(watcher)).toBe("Weekdays every 2 hours, 8am to 4pm, and 9pm ET");
   });
 });

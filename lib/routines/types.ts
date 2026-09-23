@@ -44,6 +44,11 @@ export type RoutineFinding = {
   href?: string | null;
   /** Worth drawing the eye to: someone chasing, a long wait. */
   flagged?: boolean;
+  /**
+   * For findings that are standing items rather than a snapshot — the Basecamp
+   * watch — the row this line came from, so it can be marked done from here.
+   */
+  itemId?: number;
 };
 
 export type RoutineResult = {

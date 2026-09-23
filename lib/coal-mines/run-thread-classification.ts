@@ -3,7 +3,6 @@ import { classifyThreads, type ThreadToClassify } from "@/lib/coal-mines/classif
 import { fetchLatestThreadMessages } from "@/lib/basecamp/thread-latest";
 import { listBasecampProjectIgnores } from "@/lib/clients/basecamp-project-ignores";
 import {
-  AWAITING_REPLY_DAYS,
   isInternalThread,
   verdictIsCurrent,
   type ThreadRow,
@@ -62,13 +61,20 @@ export async function runThreadClassification(
   const daysSince = (iso: string) =>
     Math.floor((now.getTime() - new Date(iso).getTime()) / 86_400_000);
 
-  // Only threads the canary would surface, and only those whose last message
-  // has changed since it was read.
+  /**
+   * Every thread whose last message has changed since it was read.
+   *
+   * This used to skip anything newer than three days, which suited a report
+   * read once a morning: by the time it mattered, the thread was old enough.
+   * The Basecamp watch runs every two hours, and a client question that cannot
+   * be seen for three days makes that pointless — so a new message is read on
+   * the next pass. It costs one short classification per changed thread, and
+   * roughly ten threads change on a working day.
+   */
   const pending = (rows ?? []).filter(
     (r) =>
       !isInternalThread(r.thread_title) &&
       !ignoredProjectIds.has(r.basecamp_project_id ?? "") &&
-      daysSince(r.occurred_at) >= AWAITING_REPLY_DAYS &&
       (r.thread_excerpt ?? "").trim().length > 0 &&
       !verdictIsCurrent(r),
   );

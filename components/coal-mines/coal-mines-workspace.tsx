@@ -122,7 +122,35 @@ function ListItem({
 // Middle: what a routine found
 // ---------------------------------------------------------------------------
 
-function RoutineFindings({ findings }: { findings: RoutineFinding[] }) {
+/** Marking one watched thread done, for things answered away from Basecamp. */
+function MarkDone({ itemId, onDone }: { itemId: number; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      title="Answered somewhere else — take it off the list"
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await fetch(`/api/basecamp-watch/${itemId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ state: "resolved" }),
+          });
+          onDone();
+        } finally {
+          setBusy(false);
+        }
+      }}
+      className="shrink-0 rounded-md border border-bip-border px-2 py-0.5 text-[10.5px] text-bip-muted hover:bg-bip-fill hover:text-bip-text disabled:opacity-50"
+    >
+      {busy ? "…" : "Mark done"}
+    </button>
+  );
+}
+
+function RoutineFindings({ findings, onChanged }: { findings: RoutineFinding[]; onChanged: () => void }) {
   const groups = new Map<string, RoutineFinding[]>();
   for (const finding of findings) groups.set(finding.group, [...(groups.get(finding.group) ?? []), finding]);
   return (
@@ -156,6 +184,7 @@ function RoutineFindings({ findings }: { findings: RoutineFinding[] }) {
                   )}
                   <p className="text-xs text-bip-muted">{item.meta}</p>
                 </div>
+                {item.itemId !== undefined && <MarkDone itemId={item.itemId} onDone={onChanged} />}
               </li>
             ))}
           </ul>
@@ -567,7 +596,7 @@ export default function CoalMinesWorkspace({
                     {latest.error_message && <p className="mt-1 text-xs text-red-500">{latest.error_message}</p>}
                     <div className="mt-4">
                       {latest.findings.length > 0 ? (
-                        <RoutineFindings findings={latest.findings} />
+                        <RoutineFindings findings={latest.findings} onChanged={refresh} />
                       ) : (
                         <p className="text-sm text-bip-muted">Nothing to act on this time.</p>
                       )}

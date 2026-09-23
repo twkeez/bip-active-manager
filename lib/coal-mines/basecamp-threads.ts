@@ -30,6 +30,8 @@ export const CHASE_THEM_DAYS = 7;
 export const STALLED_DAYS = 30;
 
 export type ThreadRow = {
+  /** Basecamp's own id for the thread; stable across syncs and renames. */
+  basecamp_recording_id?: number;
   /**
    * The project is the identity here, not the client. A Basecamp project we
    * have no client record for still has threads, and people still waiting on
