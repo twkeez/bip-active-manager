@@ -37,6 +37,14 @@ async function loadContext(supabase: Awaited<ReturnType<typeof createClient>>, c
     strategist: client.marketing_strategist?.trim() || "your strategist",
     quarterLabel: quarterLabel(),
     activeServices: getClientActiveServices(client),
+    // The stored plan values decide which tier's wording a client reads.
+    serviceValues: {
+      seo: client.seo,
+      ppc: client.ppc,
+      smm: client.smm,
+      blog: client.blog,
+      orm: client.orm,
+    },
   });
   return { client, defaultTitle, defaultBody };
 }

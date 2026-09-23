@@ -1,4 +1,9 @@
 import type { ClientActiveServices, ClientServiceKey } from "@/lib/clients/types";
+import {
+  resolveServiceTier,
+  SERVICE_TIERS,
+  type ServiceTier,
+} from "@/lib/onboarding/service-expectations";
 
 // Quarterly Basecamp kickoff message generator. Pure + side-effect free: assembles
 // the standard verbiage plus the blocks for the services a client actually bought,
@@ -19,13 +24,31 @@ export const SERVICE_BLOCK_KEYS: Record<ClientServiceKey, string> = {
   orm: "svc_orm",
 };
 
+/**
+ * Per-tier block keys, e.g. "svc_seo_premium".
+ *
+ * What a client is told we will do has to match what they bought. The client
+ * document learned this first: a single block per service told a Foundation
+ * client we would "optimize your priority pages", which starts at Premium. The
+ * kickoff message is the first thing a practice reads, so it makes the same
+ * promises earlier and louder.
+ *
+ * Tiers come from the same source the document uses, so the two cannot drift.
+ */
+export function kickoffTierBlockKey(service: ClientServiceKey, tier: ServiceTier): string {
+  return `${SERVICE_BLOCK_KEYS[service]}_${tier}`;
+}
+
 /** Fixed order the service blocks appear in the message. */
 const SERVICE_ORDER: ClientServiceKey[] = ["seo", "ppc", "smm", "blog", "orm"];
 
 /** The full set of master block keys, in render order (intro → services → closing). */
 export const KICKOFF_BLOCK_KEYS = [
   "intro",
-  ...SERVICE_ORDER.map((s) => SERVICE_BLOCK_KEYS[s]),
+  ...SERVICE_ORDER.flatMap((service) => [
+    SERVICE_BLOCK_KEYS[service],
+    ...SERVICE_TIERS[service].map((tier) => kickoffTierBlockKey(service, tier)),
+  ]),
   "closing",
 ] as const;
 
@@ -59,6 +82,12 @@ export type AssembleContext = {
   strategist: string;
   quarterLabel: string;
   activeServices: ClientActiveServices;
+  /**
+   * The raw stored plan values ("Premium", "4"), which decide the tier. Omitted,
+   * every service falls back to its shared block — exactly what the message
+   * said before tiers existed.
+   */
+  serviceValues?: Partial<Record<ClientServiceKey, string | null>>;
 };
 
 /**
@@ -75,7 +104,12 @@ export function assembleKickoffBody(blocks: KickoffBlock[], ctx: AssembleContext
 
   for (const service of SERVICE_ORDER) {
     if (!ctx.activeServices[service]) continue;
-    const body = byKey.get(SERVICE_BLOCK_KEYS[service]);
+    const tier = resolveServiceTier(service, ctx.serviceValues?.[service] ?? null);
+    // The tier's own wording when it has been written; the shared block
+    // otherwise, so a tier nobody has written copy for degrades to what the
+    // message always said rather than to silence.
+    const tierBody = tier ? byKey.get(kickoffTierBlockKey(service, tier)) : undefined;
+    const body = tierBody?.trim() ? tierBody : byKey.get(SERVICE_BLOCK_KEYS[service]);
     if (body?.trim()) parts.push(body.trim());
   }
 

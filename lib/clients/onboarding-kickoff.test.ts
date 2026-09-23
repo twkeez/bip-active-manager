@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   applyMergeFields,
   assembleKickoffBody,
+  kickoffTierBlockKey,
+  KICKOFF_BLOCK_KEYS,
   kickoffThreadTitle,
   quarterLabel,
   type KickoffBlock,
@@ -73,5 +75,79 @@ describe("assembleKickoffBody", () => {
     const blocks = BLOCKS.map((b) => (b.block_key === "svc_seo" ? { ...b, body: "  " } : b));
     const body = assembleKickoffBody(blocks, { ...ctx, activeServices: { ...NONE, seo: true } });
     expect(body).not.toContain("SEO block.");
+  });
+});
+
+/**
+ * Tier copy. The failure this prevents: telling a Foundation client at kickoff
+ * that we will do the Premium work, in the first message they ever read.
+ */
+describe("tier blocks", () => {
+  const TIERED: KickoffBlock[] = [
+    ...BLOCKS,
+    { block_key: "svc_seo_foundation", body: "SEO Foundation block.", sort_order: 21 },
+    { block_key: "svc_seo_premium", body: "SEO Premium block.", sort_order: 22 },
+    { block_key: "svc_ppc_premium_plus", body: "Ads Premium Plus block.", sort_order: 33 },
+  ];
+  const ctx = {
+    clientName: "Happy Paws",
+    strategist: "Stephanie",
+    quarterLabel: "Q1 2026",
+  };
+
+  it("uses the wording for the tier the client actually bought", () => {
+    const body = assembleKickoffBody(TIERED, {
+      ...ctx,
+      activeServices: { ...NONE, seo: true },
+      serviceValues: { seo: "Premium" },
+    });
+    expect(body).toContain("SEO Premium block.");
+    expect(body).not.toContain("SEO Foundation block.");
+    expect(body).not.toContain("SEO block.");
+  });
+
+  it("reads the tier however it was typed", () => {
+    for (const stored of ["premium plus", "Premium Plus", "premium-plus"]) {
+      const body = assembleKickoffBody(TIERED, {
+        ...ctx,
+        activeServices: { ...NONE, ppc: true },
+        serviceValues: { ppc: stored },
+      });
+      expect(body, stored).toContain("Ads Premium Plus block.");
+    }
+  });
+
+  // A tier nobody has written copy for must not print nothing.
+  it("falls back to the shared block when that tier has no wording yet", () => {
+    const body = assembleKickoffBody(TIERED, {
+      ...ctx,
+      activeServices: { ...NONE, seo: true },
+      serviceValues: { seo: "Premium Plus" },
+    });
+    expect(body).toContain("SEO block.");
+  });
+
+  it("falls back when the stored plan is not a tier we sell", () => {
+    const body = assembleKickoffBody(TIERED, {
+      ...ctx,
+      activeServices: { ...NONE, seo: true },
+      serviceValues: { seo: "Bespoke" },
+    });
+    expect(body).toContain("SEO block.");
+  });
+
+  // Blog is sold by post count, so it has no tiers to choose between.
+  it("leaves blog on its single block", () => {
+    const body = assembleKickoffBody(TIERED, {
+      ...ctx,
+      activeServices: { ...NONE, blog: true },
+      serviceValues: { blog: "4" },
+    });
+    expect(body).toContain("Blog block.");
+  });
+
+  it("offers a block for every tier we sell, and none for blog", () => {
+    expect(KICKOFF_BLOCK_KEYS).toContain(kickoffTierBlockKey("orm", "premium_plus"));
+    expect(KICKOFF_BLOCK_KEYS.filter((key) => key.startsWith("svc_blog"))).toEqual(["svc_blog"]);
   });
 });
