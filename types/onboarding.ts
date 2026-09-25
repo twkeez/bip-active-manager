@@ -43,7 +43,8 @@ export interface LocalResearch {
 export interface OnboardingPlan {
   welcome: string;
   whyItMatters: string;
-  stats: Array<{ num: string; label: string }>;
+  /** No longer generated: the figures were invented. Kept optional so older saved output still type-checks. */
+  stats?: Array<{ num: string; label: string }>;
   serviceStrategy: string;
   /** How the plan directly addresses the client's stated goals */
   goalsPlan: string;

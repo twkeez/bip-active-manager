@@ -229,11 +229,6 @@ Respond with STRICT JSON only — no markdown, no backticks, no commentary. Retu
 {
   "welcome": "A warm, personalized welcome from Beyond Indigo Pets addressing the contact by name and referencing their practice",
   "whyItMatters": "A paragraph explaining why digital marketing matters for their practice type, goals, and local market",
-  "stats": [
-    { "num": "XX%", "label": "Relevant industry stat label" },
-    { "num": "XX%", "label": "Relevant industry stat label" },
-    { "num": "XX%", "label": "Relevant industry stat label" }
-  ],
   "serviceStrategy": "A paragraph on recommended strategy based on selected services, goals, and how to compete locally — reference specific competitor names",
   "goalsPlan": "A paragraph explaining how Beyond Indigo Pets will help the client achieve their specific stated goals — reference each goal and the tactics we will use",
   "roadmap": [
@@ -245,7 +240,7 @@ Respond with STRICT JSON only — no markdown, no backticks, no commentary. Retu
   "nextSteps": ["Next step 1", "Next step 2", "Next step 3"]
 }
 
-Use realistic veterinary industry statistics. Tailor all content to this practice's location, type, services, budget, goals, and local competitive landscape. Reference Beyond Indigo Pets credentials where appropriate.${
+This document goes to the client. Do not state statistics, percentages, awards or credentials unless they appear in the intake or research above; describe the opportunity in words instead of inventing figures. Tailor all content to this practice's location, type, services, budget, goals, and local competitive landscape.${
     data.intakeGoals.length > 0 || data.intakeSummary
       ? " Prioritize the CLIENT STATED GOALS section above over generic recommendations."
       : ""

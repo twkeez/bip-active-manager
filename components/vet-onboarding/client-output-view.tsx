@@ -158,16 +158,7 @@ export default function ClientOutputView({
 
       <ReportSection breakBefore>
         <ReportSectionTitle>The Opportunity</ReportSectionTitle>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {plan.stats.map((stat, i) => (
-            <ReportKpiStat
-              key={i}
-              value={stat.num}
-              label={stat.label}
-            />
-          ))}
-        </div>
-        <p className="mt-6 text-sm leading-relaxed text-[var(--report-muted)]">
+        <p className="text-sm leading-relaxed text-[var(--report-muted)]">
           {whyItMatters}
         </p>
       </ReportSection>

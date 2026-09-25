@@ -5,18 +5,6 @@ const onboardingPlanJsonSchema = {
   properties: {
     welcome: { type: "string" },
     whyItMatters: { type: "string" },
-    stats: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          num: { type: "string" },
-          label: { type: "string" },
-        },
-        required: ["num", "label"],
-        additionalProperties: false,
-      },
-    },
     serviceStrategy: { type: "string" },
     goalsPlan: { type: "string" },
     roadmap: {
@@ -47,7 +35,6 @@ const onboardingPlanJsonSchema = {
   required: [
     "welcome",
     "whyItMatters",
-    "stats",
     "serviceStrategy",
     "goalsPlan",
     "roadmap",
