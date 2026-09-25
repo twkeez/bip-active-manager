@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { syncOnboardingItemsToServices } from "@/lib/clients/onboarding";
+import { changedPlanFields, PLAN_FIELDS } from "@/lib/clients/plan-fields";
+import { isAdmin } from "@/lib/auth/require-admin";
 
 export async function DELETE(
   _request: Request,
@@ -96,7 +98,7 @@ export async function PATCH(
     "blog",
     "orm",
     // The strategist's note on the expectations document. Team members write
-    // it, and this route has no role check, which is intended here.
+    // it, so this route stays open to them; only plan changes are admin-only.
     "expectations_note",
   ] as const;
   const numericAllowed = ["total_package_hours", "hours_for_strategist"] as const;
@@ -131,6 +133,29 @@ export async function PATCH(
 
   if (!Object.keys(patch).length) {
     return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });
+  }
+
+  // Services and tiers are admin-only. Checked against the stored row so a
+  // form that resends an unchanged value is not turned away.
+  if (PLAN_FIELDS.some((k) => k in patch) && !(await isAdmin(supabase))) {
+    const { data: current, error: currentError } = await supabase
+      .from("clients")
+      .select(PLAN_FIELDS.join(","))
+      .eq("id", clientId)
+      .maybeSingle();
+    if (currentError) {
+      return NextResponse.json({ error: currentError.message }, { status: 500 });
+    }
+    if (!current) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+    const changed = changedPlanFields(patch, current as unknown as Record<string, string | null>);
+    if (changed.length) {
+      return NextResponse.json(
+        { error: "Only admins can change a client's services or tiers.", fields: changed },
+        { status: 403 },
+      );
+    }
   }
 
   const { data, error } = await supabase
