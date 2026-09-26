@@ -287,3 +287,39 @@ export interface StrategyMapperStagingState {
   mockMode?: boolean;
   mockFallbackReason?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Prefill from the practice website (POST /api/strategy-mapper/prefill)
+// ---------------------------------------------------------------------------
+
+export interface StrategyMapperPrefillRequest {
+  websiteUrl: string;
+}
+
+/** How far to trust a prefilled field: high = structured markup, medium = inferred. */
+export type PrefillConfidence = "high" | "medium" | "low";
+
+/** What the site revealed that is context, not a form field. */
+export interface StrategyMapperPrefillSignals {
+  platform: string | null;
+  trackingTags: string[];
+  socialLinks: string[];
+  phone: string | null;
+  /** What the site's own markup claims; never copied into the form. */
+  claimedRating: string | null;
+  claimedReviewCount: string | null;
+}
+
+export interface StrategyMapperPrefillResult {
+  websiteUrl: string;
+  finalUrl: string;
+  pagesScanned: number;
+  scannedUrls: string[];
+  form: Partial<StrategyMapperFormData>;
+  salesContext: Partial<SalesPdfExtract>;
+  /** Keyed by form field, or "sales.<field>" for sales context. */
+  confidence: Record<string, PrefillConfidence>;
+  signals: StrategyMapperPrefillSignals;
+  notes: string[];
+  aiUsed: boolean;
+}

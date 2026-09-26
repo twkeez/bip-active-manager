@@ -13,6 +13,7 @@ import {
   SPECIALIZATION_OPTIONS,
   websiteUrlRequiredForSiteContext,
 } from "@/lib/strategy-mapper/form-options";
+import { applyPrefill } from "@/lib/strategy-mapper/apply-prefill";
 import { STRATEGY_MAPPER_MOCK_RESEARCH_STORAGE_KEY } from "@/lib/strategy-mapper/mock-research";
 import type { ServiceTierTemplate } from "@/lib/strategy-mapper/tier-library";
 import { resolveSelectedTiers } from "@/lib/strategy-mapper/tier-resolver";
@@ -23,6 +24,7 @@ import type {
   SalesPdfReference,
   SiteContext,
   StrategyMapperFormData,
+  StrategyMapperPrefillResult,
   StrategyMapperService,
 } from "@/types/strategy-mapper";
 
@@ -99,6 +101,12 @@ export default function StrategyMapperForm({
   const [showSalesContext, setShowSalesContext] = useState(false);
   const [tiers, setTiers] = useState<ServiceTierTemplate[]>([]);
   const [useMockResearch, setUseMockResearch] = useState(false);
+  const [prefillLoading, setPrefillLoading] = useState(false);
+  const [prefillSummary, setPrefillSummary] = useState<{
+    pagesScanned: number;
+    filled: number;
+    notes: string[];
+  } | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
@@ -226,6 +234,38 @@ export default function StrategyMapperForm({
     }
   }
 
+  async function handlePrefill() {
+    const websiteUrl = normalizeWebsiteUrl(form.websiteUrl ?? "");
+    if (!websiteUrl) {
+      setError("Enter the practice's website URL first.");
+      return;
+    }
+    setPrefillLoading(true);
+    setPrefillSummary(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/strategy-mapper/prefill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ websiteUrl }),
+      });
+      const payload = (await res.json()) as StrategyMapperPrefillResult & { error?: string };
+      if (!res.ok) throw new Error(payload.error ?? "Could not read that website.");
+      const { form: merged, filled } = applyPrefill(form, payload);
+      setForm(merged);
+      if (filled.some((key) => key.startsWith("sales."))) setShowSalesContext(true);
+      setPrefillSummary({
+        pagesScanned: payload.pagesScanned,
+        filled: filled.length,
+        notes: payload.notes,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not read that website.");
+    } finally {
+      setPrefillLoading(false);
+    }
+  }
+
   function setUseMockResearchPersisted(value: boolean) {
     setUseMockResearch(value);
     try {
@@ -340,6 +380,36 @@ export default function StrategyMapperForm({
           <p className="mt-1.5 text-xs text-bip-muted">
             Used for the post-staging SEO audit (title, meta, crawl, keyword coverage).
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void handlePrefill()}
+              disabled={prefillLoading || !(form.websiteUrl ?? "").trim()}
+              className="rounded-lg border border-bip-border px-3 py-1.5 text-xs font-medium text-bip-text hover:border-bip-accent disabled:opacity-50"
+            >
+              {prefillLoading ? "Reading the website…" : "Fill from website"}
+            </button>
+            <span className="text-xs text-bip-muted">
+              Fills only empty fields. Takes about 20 seconds.
+            </span>
+          </div>
+          {prefillSummary && (
+            <div className="mt-2 rounded-lg border border-bip-border bg-bip-page px-3 py-2 text-xs text-bip-muted">
+              <p className="text-bip-text">
+                Read {prefillSummary.pagesScanned}{" "}
+                {prefillSummary.pagesScanned === 1 ? "page" : "pages"} · filled{" "}
+                {prefillSummary.filled} {prefillSummary.filled === 1 ? "field" : "fields"}. Check
+                them before fetching data.
+              </p>
+              {prefillSummary.notes.length > 0 && (
+                <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                  {prefillSummary.notes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </Field>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Your Google Rating (optional override)">
