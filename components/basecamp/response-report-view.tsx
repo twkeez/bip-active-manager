@@ -74,15 +74,21 @@ function Side({
     <div className="min-w-0">
       <p className="truncate text-sm text-bip-text">{who || <span className="text-bip-muted">Unattributed</span>}</p>
       <p className="text-xs text-bip-muted">
-        {href ? (
-          <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-bip-text" title={title ?? undefined}>
-            {fmtDate(at)}
-          </a>
-        ) : (
-          fmtDate(at)
-        )}
+        {fmtDate(at)}
         {days != null && <span className="text-bip-muted/70"> · {fmtDays(days)} ago</span>}
       </p>
+      {href && (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-0.5 flex max-w-full items-center gap-1 text-xs text-bip-accent hover:underline"
+          title="Open this thread in Basecamp"
+        >
+          <span className="truncate">{title?.trim() || "Open thread"}</span>
+          <ExternalLink size={10} className="shrink-0" />
+        </a>
+      )}
     </div>
   );
 }
