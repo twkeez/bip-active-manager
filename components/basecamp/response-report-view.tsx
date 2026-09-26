@@ -195,14 +195,23 @@ export default function ResponseReportView({
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-bip-border bg-bip-card">
-            <table className="w-full min-w-[52rem] text-left">
+            {/* Fixed layout so the table fits the page: long names truncate
+                instead of pushing the Basecamp button off-screen. */}
+            <table className="w-full table-fixed text-left">
+              <colgroup>
+                <col />
+                <col />
+                <col />
+                <col className="w-36" />
+                <col className="w-28" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-bip-border text-[11px] uppercase tracking-wide text-bip-muted">
-                  <th className="px-4 py-2 font-medium">Project</th>
-                  <th className="px-4 py-2 font-medium">Last reply from us</th>
-                  <th className="px-4 py-2 font-medium">Last message from client</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2" />
+                  <th className="px-3 py-2 font-medium">Project</th>
+                  <th className="px-3 py-2 font-medium">Last reply from us</th>
+                  <th className="px-3 py-2 font-medium">Last message from client</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody>
@@ -211,11 +220,11 @@ export default function ResponseReportView({
                     key={r.basecamp_project_id}
                     className={`border-b border-bip-border last:border-0 hover:bg-bip-fill/50 ${r.acknowledged ? "opacity-60" : ""}`}
                   >
-                    <td className="px-4 py-2.5">
+                    <td className="min-w-0 px-3 py-2.5 align-top">
                       {r.client_id != null ? (
                         <Link
                           href={`/dashboard/clients/${r.client_id}`}
-                          className="truncate text-sm font-medium text-bip-text hover:text-bip-accent"
+                          className="block truncate text-sm font-medium text-bip-text hover:text-bip-accent"
                         >
                           {r.account_name}
                         </Link>
@@ -226,11 +235,11 @@ export default function ResponseReportView({
                         <p className="text-xs text-bip-muted">No client record</p>
                       ) : (
                         r.marketing_strategist && (
-                          <p className="text-xs text-bip-muted">{r.marketing_strategist}</p>
+                          <p className="truncate text-xs text-bip-muted">{r.marketing_strategist}</p>
                         )
                       )}
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="min-w-0 px-3 py-2.5 align-top">
                       <Side
                         who={r.last_internal_author}
                         at={r.last_internal_at}
@@ -239,7 +248,7 @@ export default function ResponseReportView({
                         title={r.last_internal_thread_title}
                       />
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="min-w-0 px-3 py-2.5 align-top">
                       <Side
                         who={r.last_client_author}
                         at={r.last_client_at}
@@ -248,15 +257,15 @@ export default function ResponseReportView({
                         title={r.last_client_thread_title}
                       />
                     </td>
-                    <td className="px-4 py-2.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_CLASS[r.status]}`}>
+                    <td className="min-w-0 px-3 py-2.5 align-top">
+                      <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_CLASS[r.status]}`}>
                         {STATUS_LABEL[r.status]}
                       </span>
                       {r.acknowledged && (
-                        <span className="ml-1 text-[10px] text-bip-muted">dismissed</span>
+                        <span className="mt-1 block text-[10px] text-bip-muted">dismissed</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className="px-3 py-2.5 text-right align-top">
                       <a
                         href={`https://basecamp.com/2175055/projects/${r.basecamp_project_id}`}
                         target="_blank"
