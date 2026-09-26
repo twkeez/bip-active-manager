@@ -10,7 +10,12 @@ export default async function ResponseReportPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { rows, lastSyncedAt, loadError } = await loadResponseReport(supabase);
+  const { rows, ignored, lastSyncedAt, loadError } = await loadResponseReport(supabase);
 
-  return <ResponseReportView rows={rows} lastSyncedAt={lastSyncedAt} loadError={loadError} />;
+  return <ResponseReportView
+      rows={rows}
+      ignored={ignored}
+      lastSyncedAt={lastSyncedAt}
+      loadError={loadError}
+    />;
 }

@@ -1,4 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  listBasecampProjectIgnores,
+  type BasecampProjectIgnoreRow,
+} from "@/lib/clients/basecamp-project-ignores";
 
 // Reads the basecamp_response_report view — one row per Basecamp project
 // (ignored ones left out) with the last message from our side and the last
@@ -32,6 +36,8 @@ export type ResponseReportRow = {
 
 export type ResponseReportData = {
   rows: ResponseReportRow[];
+  /** Projects someone marked as not worth tracking; the view leaves them out. */
+  ignored: BasecampProjectIgnoreRow[];
   lastSyncedAt: string | null;
   loadError: string | null;
 };
@@ -47,7 +53,7 @@ const MISSING_VIEW_MESSAGE =
 export async function loadResponseReport(
   supabase: SupabaseClient,
 ): Promise<ResponseReportData> {
-  const [report, syncState] = await Promise.all([
+  const [report, syncState, ignored] = await Promise.all([
     supabase
       .from("basecamp_response_report")
       .select("*")
@@ -57,11 +63,13 @@ export async function loadResponseReport(
       .select("last_synced_at")
       .eq("id", 1)
       .maybeSingle(),
+    listBasecampProjectIgnores(supabase).catch(() => []),
   ]);
 
   if (report.error) {
     return {
       rows: [],
+      ignored: [],
       lastSyncedAt: null,
       loadError:
         MISSING_RELATION_CODES.has(report.error.code)
@@ -72,6 +80,7 @@ export async function loadResponseReport(
 
   return {
     rows: (report.data ?? []) as ResponseReportRow[],
+    ignored,
     lastSyncedAt: syncState.data?.last_synced_at ?? null,
     loadError: null,
   };
