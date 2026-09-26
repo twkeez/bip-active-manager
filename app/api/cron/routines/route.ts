@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { runDueRoutines } from "@/lib/routines/run";
 import { cronSecretConfigured, isAuthorizedCronRequest } from "@/lib/cron/authorize";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { watchedCronRoute } from "@/lib/job-watch/record";
 
 /**
  * The hourly wake-up for routines.
@@ -14,7 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 300;
 
-export async function POST(request: Request) {
+async function handle(request: Request) {
   if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json(
       { error: "Unauthorized", configured: cronSecretConfigured() },
@@ -37,3 +38,7 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Every run is recorded so the job watchdog can report failures, timeouts
+// and runs that never came.
+export const POST = watchedCronRoute("routines", handle);

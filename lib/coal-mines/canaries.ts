@@ -105,6 +105,12 @@ export type CanarySection = {
  * queries run through a function the service role alone may call — and it is
  * imported lazily so this module stays importable without any environment.
  */
+async function checkScheduledJobs(supabase: SupabaseClient, now: Date): Promise<Canary> {
+  // Loaded lazily: the job-watch module pulls in the Gmail sender.
+  const { checkScheduledJobs: check } = await import("./scheduled-jobs-canary");
+  return check(supabase, now);
+}
+
 export async function runCanaries(
   supabase: SupabaseClient,
   now: Date = new Date(),
@@ -114,6 +120,7 @@ export async function runCanaries(
   // stale data, and that context changes how you read the rest of the page.
   const [builtIn, custom] = await Promise.all([
     Promise.all([
+      checkScheduledJobs(supabase, now),
       checkSyncHealth(supabase, now),
       checkAdsFreshness(supabase, now),
       checkServiceCoverage(supabase, now),

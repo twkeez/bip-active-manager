@@ -1,0 +1,130 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { assessJobs, jobStatusLines, type JobProblem, type JobRun } from "./assess";
+import { WATCHED_JOBS } from "./jobs";
+import { sendAlertEmail } from "./notify";
+
+const APP_URL = "https://bip-active-manager.vercel.app";
+
+/** The daily summary goes out on the first check at or after this hour, Eastern. */
+export const DAILY_SUMMARY_HOUR_ET = 8;
+
+function easternParts(now: Date): { date: string; hour: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, hour: Number(get("hour")) };
+}
+
+export async function loadJobState(admin: SupabaseClient, now: Date) {
+  const since = new Date(now.getTime() - 7 * 24 * 3_600_000).toISOString();
+  const [runsResult, firstResult] = await Promise.all([
+    admin
+      .from("job_runs")
+      .select("id,job_key,started_at,finished_at,status,http_status,summary")
+      .gte("started_at", since)
+      .order("started_at", { ascending: false })
+      .limit(2000),
+    admin.from("job_runs").select("started_at").order("started_at", { ascending: true }).limit(1),
+  ]);
+  if (runsResult.error) throw new Error(`Could not read job runs: ${runsResult.error.message}`);
+  const runs = (runsResult.data ?? []) as JobRun[];
+  const first = (firstResult.data?.[0] as { started_at: string } | undefined)?.started_at;
+  const watchingSince = first ? new Date(first) : null;
+  return { runs, problems: assessJobs(WATCHED_JOBS, runs, now, watchingSince) };
+}
+
+function problemEmail(problems: JobProblem[]): { subject: string; body: string } {
+  const count = problems.length;
+  return {
+    subject: `BIP: ${count} scheduled ${count === 1 ? "job needs" : "jobs need"} attention`,
+    body: [
+      `${count === 1 ? "Something" : `${count} things`} did not run properly:`,
+      "",
+      ...problems.map((problem) => `- ${problem.message}`),
+      "",
+      `Details: ${APP_URL}/coal-mines`,
+      "",
+      "You get one email per problem. It will not repeat every hour.",
+    ].join("\n"),
+  };
+}
+
+function dailyEmail(open: JobProblem[], statusLines: string[]): { subject: string; body: string } {
+  const allClear = open.length === 0;
+  return {
+    subject: allClear
+      ? "BIP daily check: all scheduled jobs ran"
+      : `BIP daily check: ${open.length} ${open.length === 1 ? "problem" : "problems"} still open`,
+    body: [
+      allClear ? "Every scheduled job ran as it should in the last day." : "Still wrong:",
+      ...(allClear ? [] : ["", ...open.map((problem) => `- ${problem.message}`)]),
+      "",
+      "Each job:",
+      ...statusLines.map((line) => `- ${line}`),
+      "",
+      `Details: ${APP_URL}/coal-mines`,
+      "",
+      "This email comes every morning. If one ever does not arrive, the watchdog itself has stopped. That is the alarm.",
+    ].join("\n"),
+  };
+}
+
+export type WatchResult = {
+  problems: number;
+  newlyReported: number;
+  dailySummarySent: boolean;
+};
+
+/**
+ * The hourly watchdog: find every job problem, email the ones not yet
+ * reported, and send the once-a-day summary. An alert is recorded only after
+ * its email went out, so a failed send is retried next hour, not lost.
+ */
+export async function runJobWatch(admin: SupabaseClient, now: Date = new Date()): Promise<WatchResult> {
+  const { runs, problems } = await loadJobState(admin, now);
+
+  const { data: sentRows, error: sentError } = await admin
+    .from("job_alerts")
+    .select("problem_key")
+    .in("problem_key", problems.length ? problems.map((problem) => problem.key) : ["-"]);
+  if (sentError) throw new Error(`Could not read sent alerts: ${sentError.message}`);
+  const sent = new Set((sentRows ?? []).map((row) => (row as { problem_key: string }).problem_key));
+  const fresh = problems.filter((problem) => !sent.has(problem.key));
+
+  if (fresh.length) {
+    const email = problemEmail(fresh);
+    await sendAlertEmail(admin, email.subject, email.body);
+    await admin.from("job_alerts").insert(
+      fresh.map((problem) => ({
+        problem_key: problem.key,
+        job_key: problem.jobKey,
+        message: problem.message,
+      })),
+    );
+  }
+
+  let dailySummarySent = false;
+  const eastern = easternParts(now);
+  if (eastern.hour >= DAILY_SUMMARY_HOUR_ET) {
+    const dailyKey = `daily:${eastern.date}`;
+    const { data: already } = await admin
+      .from("job_alerts")
+      .select("id")
+      .eq("problem_key", dailyKey)
+      .maybeSingle();
+    if (!already) {
+      const email = dailyEmail(problems, jobStatusLines(WATCHED_JOBS, runs, now));
+      await sendAlertEmail(admin, email.subject, email.body);
+      await admin.from("job_alerts").insert({ problem_key: dailyKey, message: email.subject });
+      dailySummarySent = true;
+    }
+  }
+
+  return { problems: problems.length, newlyReported: fresh.length, dailySummarySent };
+}

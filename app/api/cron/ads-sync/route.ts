@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { runAdsSyncAll } from "@/lib/ads/sync-all";
 import { cronSecretConfigured, isAuthorizedCronRequest } from "@/lib/cron/authorize";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { watchedCronRoute } from "@/lib/job-watch/record";
 
 /**
  * The scheduled half of ads reporting.
@@ -21,7 +22,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 300;
 
-export async function POST(request: Request) {
+async function handle(request: Request) {
   if (!isAuthorizedCronRequest(request)) {
     // `configured` says whether the server has a secret at all, without saying
     // what it is — a 401 otherwise cannot distinguish "the variable never
@@ -57,3 +58,7 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Every run is recorded so the job watchdog can report failures, timeouts
+// and runs that never came.
+export const POST = watchedCronRoute("ads-sync", handle);

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getBasecampOAuthConfig } from "@/lib/env";
 import { markBasecampSyncError, runBasecampSync } from "@/lib/basecamp/sync";
 import { runThreadClassification } from "@/lib/coal-mines/run-thread-classification";
+import { watchedCronRoute } from "@/lib/job-watch/record";
 
 /**
  * The scheduled half of the Basecamp canary.
@@ -34,7 +35,7 @@ function resolveMode(): "oauth" | "classic" {
   }
 }
 
-export async function POST(request: Request) {
+async function handle(request: Request) {
   if (!isAuthorizedCronRequest(request)) {
     // `configured` says whether the server has a secret at all, without saying
     // what it is. Without it, a 401 cannot distinguish "the variable never
@@ -81,3 +82,7 @@ export async function POST(request: Request) {
   result.ms = Date.now() - startedAt;
   return NextResponse.json(result, { status: result.ok ? 200 : 207 });
 }
+
+// Every run is recorded so the job watchdog can report failures, timeouts
+// and runs that never came.
+export const POST = watchedCronRoute("basecamp-watch", handle);
