@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { assessJobs, jobStatusLines, type JobProblem, type JobRun } from "./assess";
 import { WATCHED_JOBS } from "./jobs";
 import { sendAlertEmail } from "./notify";
+import { openForLabel, type FollowupRow } from "@/lib/followups/followups";
+import { sweepFollowups } from "@/lib/followups/process";
 
 const APP_URL = "https://bip-active-manager.vercel.app";
 
@@ -59,6 +61,8 @@ function dailyEmail(
   open: JobProblem[],
   statusLines: string[],
   unrecorded: number,
+  overdueFollowups: FollowupRow[],
+  now: Date,
 ): { subject: string; body: string } {
   // "All ran" only when every job has a recorded run: a job that has never
   // reported is not yet overdue, but it has not proven it runs either.
@@ -69,8 +73,24 @@ function dailyEmail(
       : unrecorded > 0
         ? `BIP daily check: no problems, but ${unrecorded} ${unrecorded === 1 ? "job has" : "jobs have"} not run yet`
         : "BIP daily check: all scheduled jobs ran";
+  const followupCount = overdueFollowups.length;
+  const followupLines = followupCount
+    ? [
+        "",
+        `Follow-ups still open after 2 days (${followupCount}):`,
+        ...overdueFollowups.map(
+          (f) =>
+            `- ${f.project_name}: asked ${f.recipient_name ?? f.recipient_email} ${openForLabel(f.sent_at, now)} ago${
+              f.renudged_at ? " (reminder sent)" : ""
+            }`,
+        ),
+        `See them all: ${APP_URL}/follow-ups`,
+      ]
+    : [];
   return {
-    subject,
+    subject: followupCount
+      ? `${subject} · ${followupCount} overdue ${followupCount === 1 ? "follow-up" : "follow-ups"}`
+      : subject,
     body: [
       allClear
         ? "Every scheduled job ran as it should in the last day."
@@ -78,6 +98,7 @@ function dailyEmail(
           ? "Still wrong:"
           : "Nothing has failed. Jobs marked \"no run recorded yet\" have not run since tracking began; you will be told if one misses its window.",
       ...(allClear ? [] : ["", ...open.map((problem) => `- ${problem.message}`)]),
+      ...followupLines,
       "",
       "Each job:",
       ...statusLines.map((line) => `- ${line}`),
@@ -93,6 +114,10 @@ export type WatchResult = {
   problems: number;
   newlyReported: number;
   dailySummarySent: boolean;
+  followupsClosed: number;
+  followupsReminded: number;
+  /** Anything the follow-up sweep could not do; the route answers 207 so it is reported. */
+  followupErrors: string[];
 };
 
 /**
@@ -102,6 +127,18 @@ export type WatchResult = {
  */
 export async function runJobWatch(admin: SupabaseClient, now: Date = new Date()): Promise<WatchResult> {
   const { runs, problems } = await loadJobState(admin, now);
+
+  let sweep: Awaited<ReturnType<typeof sweepFollowups>>;
+  try {
+    sweep = await sweepFollowups(admin, now);
+  } catch (error) {
+    sweep = {
+      closed: 0,
+      renudged: 0,
+      overdue: [],
+      errors: [error instanceof Error ? error.message : "Follow-up sweep failed."],
+    };
+  }
 
   const { data: sentRows, error: sentError } = await admin
     .from("job_alerts")
@@ -134,12 +171,19 @@ export async function runJobWatch(admin: SupabaseClient, now: Date = new Date())
       .maybeSingle();
     if (!already) {
       const unrecorded = WATCHED_JOBS.filter((job) => !runs.some((run) => run.job_key === job.key)).length;
-      const email = dailyEmail(problems, jobStatusLines(WATCHED_JOBS, runs, now), unrecorded);
+      const email = dailyEmail(problems, jobStatusLines(WATCHED_JOBS, runs, now), unrecorded, sweep.overdue, now);
       await sendAlertEmail(admin, email.subject, email.body);
       await admin.from("job_alerts").insert({ problem_key: dailyKey, message: email.subject });
       dailySummarySent = true;
     }
   }
 
-  return { problems: problems.length, newlyReported: fresh.length, dailySummarySent };
+  return {
+    problems: problems.length,
+    newlyReported: fresh.length,
+    dailySummarySent,
+    followupsClosed: sweep.closed,
+    followupsReminded: sweep.renudged,
+    followupErrors: sweep.errors,
+  };
 }

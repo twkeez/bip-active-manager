@@ -3,12 +3,15 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ExternalLink, EyeOff, MessageSquare } from "lucide-react";
+import { BellRing, ExternalLink, EyeOff, MessageSquare } from "lucide-react";
+import NotifyStrategistDialog, { type StaffOption } from "@/components/basecamp/notify-strategist-dialog";
 import { ErrorState } from "@/components/ui/feedback";
 import { ToolPage } from "@/components/ui/tool-page";
 import { openableBasecampUrl } from "@/lib/basecamp/display";
 import type { ResponseReportRow } from "@/lib/basecamp/load-response-report";
 import type { BasecampProjectIgnoreRow } from "@/lib/clients/basecamp-project-ignores";
+import { isOverdue, openForLabel, type FollowupRow } from "@/lib/followups/followups";
+import { resolveStrategistContacts } from "@/lib/onboarding/expectation-people";
 import {
   internalAuthors,
   OVERDUE_DAYS,
@@ -100,11 +103,15 @@ function Side({
 export default function ResponseReportView({
   rows,
   ignored,
+  staff,
+  openFollowups,
   lastSyncedAt,
   loadError,
 }: {
   rows: ResponseReportRow[];
   ignored: BasecampProjectIgnoreRow[];
+  staff: StaffOption[];
+  openFollowups: FollowupRow[];
   lastSyncedAt: string | null;
   loadError: string | null;
 }) {
@@ -120,6 +127,29 @@ export default function ResponseReportView({
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [actionError, setActionError] = useState<string | null>(null);
   const [showIgnored, setShowIgnored] = useState(false);
+  const [notifying, setNotifying] = useState<ShapedReportRow | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // The newest open follow-up per project, for the "Asked …" tag.
+  const followupByProject = useMemo(() => {
+    const map = new Map<string, FollowupRow>();
+    for (const followup of openFollowups) {
+      const current = map.get(followup.basecamp_project_id);
+      if (!current || followup.sent_at > current.sent_at) map.set(followup.basecamp_project_id, followup);
+    }
+    return map;
+  }, [openFollowups]);
+
+  const staffProfiles = useMemo(
+    () => staff.map((person) => ({ full_name: person.name, email: person.email })),
+    [staff],
+  );
+  function suggestedRecipient(row: ShapedReportRow): string | null {
+    return (
+      resolveStrategistContacts(row.marketing_strategist, staffProfiles).find((contact) => contact.email)
+        ?.email ?? null
+    );
+  }
 
   async function stopTracking(row: ResponseReportRow) {
     setBusy(row.basecamp_project_id);
@@ -228,6 +258,16 @@ export default function ResponseReportView({
             )}
           </p>
 
+          {actionError && <p className="text-sm text-red-400">{actionError}</p>}
+          {notice && (
+            <p className="text-sm text-emerald-400">
+              {notice}{" "}
+              <Link href="/follow-ups" className="underline">
+                See follow-ups
+              </Link>
+            </p>
+          )}
+
           <div className="flex flex-wrap items-center gap-2">
             {filters.map((f) => (
               <button
@@ -335,6 +375,21 @@ export default function ResponseReportView({
                       {r.acknowledged && (
                         <span className="mt-1 block text-[10px] text-bip-muted">dismissed</span>
                       )}
+                      {(() => {
+                        const followup = followupByProject.get(r.basecamp_project_id);
+                        if (!followup) return null;
+                        const overdue = isOverdue(followup, new Date());
+                        return (
+                          <Link
+                            href="/follow-ups"
+                            className={`mt-1 block truncate text-[10px] hover:underline ${overdue ? "text-red-400" : "text-sky-300"}`}
+                            title={`Follow-up sent to ${followup.recipient_email}`}
+                          >
+                            Asked {followup.recipient_name ?? followup.recipient_email} ·{" "}
+                            {openForLabel(followup.sent_at, new Date())}
+                          </Link>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-2.5 text-right align-top">
                       {confirming === r.basecamp_project_id ? (
@@ -381,6 +436,17 @@ export default function ResponseReportView({
                           </a>
                           <button
                             onClick={() => {
+                              setNotice(null);
+                              setNotifying(r);
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] text-bip-accent hover:underline"
+                            title="Email a teammate about this client and track it on Follow-ups"
+                          >
+                            <BellRing size={11} />
+                            Notify strategist
+                          </button>
+                          <button
+                            onClick={() => {
                               setReason(STOP_REASONS[0]);
                               setConfirming(r.basecamp_project_id);
                             }}
@@ -406,7 +472,19 @@ export default function ResponseReportView({
             </table>
           </div>
 
-          {actionError && <p className="text-sm text-red-400">{actionError}</p>}
+          {notifying && (
+            <NotifyStrategistDialog
+              row={notifying}
+              staff={staff}
+              suggestedEmail={suggestedRecipient(notifying)}
+              onClose={() => setNotifying(null)}
+              onSent={() => {
+                setNotice(`Sent. ${notifying.account_name} is now on your follow-up list.`);
+                setNotifying(null);
+                router.refresh();
+              }}
+            />
+          )}
 
           {ignored.length > 0 && (
             <div className="rounded-xl border border-bip-border bg-bip-card">

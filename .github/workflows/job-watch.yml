@@ -5,7 +5,8 @@ on:
     # Hourly, on a minute clear of the other jobs. Emails Tom about any
     # scheduled job that failed, partly failed, timed out or did not run, and
     # sends a summary each morning (so a missing summary means this job itself
-    # has stopped).
+    # has stopped). Also closes answered strategist follow-ups and reminds
+    # once on overdue ones.
     - cron: "47 * * * *"
   workflow_dispatch:
 
@@ -37,6 +38,13 @@ jobs:
           echo "HTTP ${http_status}"
           cat response.json
           echo
+
+          # 207: a follow-up reminder could not be sent. The run is recorded as
+          # partial, and the next hourly check emails Tom about it.
+          if [ "$http_status" = "207" ]; then
+            echo "::warning::The follow-up sweep hit a problem — see the body above."
+            exit 0
+          fi
 
           if [ "$http_status" != "200" ]; then
             echo "::error::job-watch failed with HTTP ${http_status}"
