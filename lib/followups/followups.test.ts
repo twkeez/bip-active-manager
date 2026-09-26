@@ -5,6 +5,7 @@ import {
   followupsAnswered,
   followupsToRenudge,
   isOverdue,
+  threadIdFromUrl,
   type FollowupRow,
 } from "./followups";
 
@@ -64,26 +65,50 @@ describe("defaultNote", () => {
 });
 
 describe("followupsAnswered", () => {
-  it("closes on the first post from our side after the note", () => {
-    const f = followup({ sent_at: hoursAgo(5) });
-    const posts = [
-      { basecamp_project_id: "123", occurred_at: hoursAgo(6), author_email: "early@beyondindigo.com" },
-      { basecamp_project_id: "123", occurred_at: hoursAgo(2), author_email: "late@beyondindigo.com" },
-      { basecamp_project_id: "123", occurred_at: hoursAgo(3), author_email: "first@beyondindigo.com" },
-    ];
-    const answered = followupsAnswered([f], posts);
-    expect(answered).toHaveLength(1);
-    expect(answered[0].post.author_email).toBe("first@beyondindigo.com");
+  // The follow-up is about message 9 in project 123, sent to Stephanie 5h ago.
+  const thread = (overrides: Partial<{ basecamp_project_id: string; basecamp_recording_id: number; occurred_at: string; author_email: string | null }>) => ({
+    basecamp_project_id: "123",
+    basecamp_recording_id: 9,
+    occurred_at: hoursAgo(2),
+    author_email: "stephanie@beyondindigo.com",
+    ...overrides,
   });
 
-  it("ignores posts in other projects, posts before the note, and closed follow-ups", () => {
+  it("closes when the person asked is the last to post in that thread, after the note", () => {
+    const f = followup({ sent_at: hoursAgo(5) });
+    const answered = followupsAnswered([f], [thread({ author_email: "Stephanie@BeyondIndigo.com" })]);
+    expect(answered).toHaveLength(1);
+  });
+
+  it("stays open when someone else posts, even in that thread", () => {
+    const f = followup({ sent_at: hoursAgo(5) });
+    expect(followupsAnswered([f], [thread({ author_email: "tom@beyondindigo.com" })])).toEqual([]);
+  });
+
+  it("stays open when the person asked posts in a different thread", () => {
+    const f = followup({ sent_at: hoursAgo(5) });
+    expect(followupsAnswered([f], [thread({ basecamp_recording_id: 10 })])).toEqual([]);
+  });
+
+  it("stays open for posts before the note, in other projects, or once done", () => {
     const open = followup({ sent_at: hoursAgo(5) });
     const done = followup({ state: "done" });
-    const posts = [
-      { basecamp_project_id: "999", occurred_at: hoursAgo(1), author_email: null },
-      { basecamp_project_id: "123", occurred_at: hoursAgo(10), author_email: null },
-    ];
-    expect(followupsAnswered([open, done], posts)).toEqual([]);
+    const threads = [thread({ occurred_at: hoursAgo(6) }), thread({ basecamp_project_id: "999" })];
+    expect(followupsAnswered([open, done], threads)).toEqual([]);
+  });
+
+  it("with no thread on the note, closes when the person asked posts anywhere in the project", () => {
+    const f = followup({ sent_at: hoursAgo(5), thread_url: null, thread_title: null });
+    expect(followupsAnswered([f], [thread({ basecamp_recording_id: 42 })])).toHaveLength(1);
+    expect(followupsAnswered([f], [thread({ basecamp_recording_id: 42, author_email: "alex@beyondindigo.com" })])).toEqual([]);
+  });
+});
+
+describe("threadIdFromUrl", () => {
+  it("reads the message id from a thread URL", () => {
+    expect(threadIdFromUrl("https://basecamp.com/2175055/projects/123/messages/113355480")).toBe(113355480);
+    expect(threadIdFromUrl(null)).toBeNull();
+    expect(threadIdFromUrl("https://basecamp.com/2175055/projects/123")).toBeNull();
   });
 });
 

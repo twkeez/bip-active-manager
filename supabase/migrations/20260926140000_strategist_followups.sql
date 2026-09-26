@@ -1,10 +1,10 @@
 -- "Notify strategist" from the response report, and the follow-up list that
 -- makes sure each note was acted on.
 --
--- A row is written when the email has gone out. It closes itself when anyone
--- on our side posts in that Basecamp project after the note (the sync already
--- records every post), or when someone marks it done by hand. Nothing is
--- deleted, so "how long did that take?" stays answerable.
+-- A row is written when the email has gone out. It closes itself only when
+-- the person asked replies in that Basecamp thread after the note (or, for a
+-- note with no thread, posts in the project), or when someone marks it done by
+-- hand. Nothing is deleted, so "how long did that take?" stays answerable.
 
 create table if not exists public.strategist_followups (
   id bigint generated always as identity primary key,

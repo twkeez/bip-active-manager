@@ -158,6 +158,7 @@ export default function NotifyStrategistDialog({
           />
           <span className="block text-[11px] text-bip-muted">
             Links to the Basecamp thread and project are added below your note. Sent from your Gmail.
+            It stays on Follow-ups until they reply in that thread or it is marked done.
           </span>
         </label>
 

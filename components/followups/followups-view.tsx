@@ -66,7 +66,7 @@ export default function FollowupsView({
       title="Follow-ups"
       icon={ListChecks}
       maxWidth="5xl"
-      description={`Notes sent to strategists from the Response Report. Each closes on its own once someone on our side posts in that client's Basecamp project, or when marked done. After ${FOLLOWUP_OVERDUE_HOURS / 24} days open, the strategist gets one reminder and it appears in your morning email.`}
+      description={`Notes sent to strategists from the Response Report. Each closes on its own only when the person you asked replies in that Basecamp thread (or, for a note with no thread, posts in the project), or when marked done. After ${FOLLOWUP_OVERDUE_HOURS / 24} days open, they get one reminder and it appears in your morning email every day until it closes.`}
     >
       {loadError ? (
         <ErrorState message={loadError} />
@@ -161,7 +161,7 @@ export default function FollowupsView({
                       <p className="truncate text-xs text-bip-muted">
                         Asked {f.recipient_name ?? f.recipient_email} {fmtDateTime(f.sent_at)} ·{" "}
                         {f.resolution === "we_posted"
-                          ? `${f.resolved_by ?? "Someone on our side"} posted in Basecamp`
+                          ? `${f.resolved_by ?? "They"} replied in Basecamp`
                           : `marked done by ${f.resolved_by ?? "someone"}`}{" "}
                         after {tookLabel(f.sent_at, f.resolved_at)}
                       </p>

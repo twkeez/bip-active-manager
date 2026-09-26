@@ -80,36 +80,60 @@ export function followupEmailBody(
     ...(followup.thread_url ? [`Thread: ${followup.thread_url}`] : []),
     `Basecamp project: https://basecamp.com/2175055/projects/${followup.basecamp_project_id}`,
     "",
-    "(Sent from the BIP Response Report. This closes on its own once someone from our team posts in the project.)",
+    followup.thread_url
+      ? "(Sent from the BIP Response Report. This closes on its own once you reply in that thread.)"
+      : "(Sent from the BIP Response Report. This closes on its own once you post in the project.)",
   ].join("\n");
 }
 
-export type InternalPost = {
+/**
+ * A thread as the Basecamp sync stores it: one row per thread, carrying when
+ * it last changed and who posted last (classic Basecamp's "last updater").
+ */
+export type ThreadActivity = {
   basecamp_project_id: string;
+  basecamp_recording_id: number;
   occurred_at: string;
   author_email: string | null;
 };
 
+/** The Basecamp message id at the end of a thread URL (…/messages/113355480). */
+export function threadIdFromUrl(url: string | null): number | null {
+  const match = (url ?? "").match(/\/messages\/(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
 /**
- * Open follow-ups that have been acted on: someone on our side posted in the
- * project after the note went out. Returns each with the first such post.
+ * Open follow-ups the person asked has acted on (Tom's rule, 2026-09-26: only
+ * the person asked, and only in that thread):
+ * - a note about a thread closes when that thread's latest post is by the
+ *   person asked, after the note went out;
+ * - a note with no thread (nobody has spoken lately) closes when the person
+ *   asked posts anywhere in the project, since reaching out is the ask.
+ *
+ * The sync keeps only each thread's last poster, so if the client answers
+ * before the next sync, the strategist's reply is not seen and the follow-up
+ * stays open for a manual "Mark done". It can stay open wrongly; it cannot
+ * close wrongly.
  */
 export function followupsAnswered(
   followups: FollowupRow[],
-  posts: InternalPost[],
-): Array<{ followup: FollowupRow; post: InternalPost }> {
-  const answered: Array<{ followup: FollowupRow; post: InternalPost }> = [];
+  threads: ThreadActivity[],
+): Array<{ followup: FollowupRow; post: ThreadActivity }> {
+  const answered: Array<{ followup: FollowupRow; post: ThreadActivity }> = [];
   for (const followup of followups) {
     if (followup.state !== "open") continue;
     const sent = new Date(followup.sent_at).getTime();
-    const first = posts
-      .filter(
-        (post) =>
-          post.basecamp_project_id === followup.basecamp_project_id &&
-          new Date(post.occurred_at).getTime() > sent,
-      )
-      .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))[0];
-    if (first) answered.push({ followup, post: first });
+    const recipient = followup.recipient_email.trim().toLowerCase();
+    const threadId = threadIdFromUrl(followup.thread_url);
+    const match = threads.find(
+      (thread) =>
+        thread.basecamp_project_id === followup.basecamp_project_id &&
+        (threadId == null || thread.basecamp_recording_id === threadId) &&
+        (thread.author_email ?? "").trim().toLowerCase() === recipient &&
+        new Date(thread.occurred_at).getTime() > sent,
+    );
+    if (match) answered.push({ followup, post: match });
   }
   return answered;
 }

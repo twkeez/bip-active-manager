@@ -6,7 +6,7 @@ import {
   followupsToRenudge,
   isOverdue,
   type FollowupRow,
-  type InternalPost,
+  type ThreadActivity,
 } from "./followups";
 
 export type FollowupSweep = {
@@ -18,8 +18,8 @@ export type FollowupSweep = {
 };
 
 /**
- * The hourly follow-up sweep, run by the job watchdog: close follow-ups that
- * someone acted on in Basecamp, and re-send each overdue one once, copying
+ * The hourly follow-up sweep, run by the job watchdog: close follow-ups the
+ * person asked has answered in Basecamp, and re-send each overdue one once, copying
  * whoever sent it. Errors are collected, not thrown, so one failed reminder
  * does not stop the rest (the watchdog reports them).
  */
@@ -44,13 +44,12 @@ export async function sweepFollowups(admin: SupabaseClient, now: Date = new Date
   const since = open[0].sent_at;
   const { data: postRows, error: postError } = await admin
     .from("basecamp_communication_events")
-    .select("basecamp_project_id,occurred_at,author_email")
-    .eq("is_internal", true)
+    .select("basecamp_project_id,basecamp_recording_id,occurred_at,author_email")
     .in("basecamp_project_id", [...new Set(open.map((f) => f.basecamp_project_id))])
     .gt("occurred_at", since);
   if (postError) errors.push(`Could not read Basecamp posts: ${postError.message}`);
 
-  const answered = followupsAnswered(open, (postRows ?? []) as InternalPost[]);
+  const answered = followupsAnswered(open, (postRows ?? []) as ThreadActivity[]);
   const closedIds = new Set<number>();
   let closed = 0;
   for (const { followup, post } of answered) {
