@@ -55,14 +55,28 @@ function problemEmail(problems: JobProblem[]): { subject: string; body: string }
   };
 }
 
-function dailyEmail(open: JobProblem[], statusLines: string[]): { subject: string; body: string } {
-  const allClear = open.length === 0;
+function dailyEmail(
+  open: JobProblem[],
+  statusLines: string[],
+  unrecorded: number,
+): { subject: string; body: string } {
+  // "All ran" only when every job has a recorded run: a job that has never
+  // reported is not yet overdue, but it has not proven it runs either.
+  const allClear = open.length === 0 && unrecorded === 0;
+  const subject =
+    open.length > 0
+      ? `BIP daily check: ${open.length} ${open.length === 1 ? "problem" : "problems"} still open`
+      : unrecorded > 0
+        ? `BIP daily check: no problems, but ${unrecorded} ${unrecorded === 1 ? "job has" : "jobs have"} not run yet`
+        : "BIP daily check: all scheduled jobs ran";
   return {
-    subject: allClear
-      ? "BIP daily check: all scheduled jobs ran"
-      : `BIP daily check: ${open.length} ${open.length === 1 ? "problem" : "problems"} still open`,
+    subject,
     body: [
-      allClear ? "Every scheduled job ran as it should in the last day." : "Still wrong:",
+      allClear
+        ? "Every scheduled job ran as it should in the last day."
+        : open.length > 0
+          ? "Still wrong:"
+          : "Nothing has failed. Jobs marked \"no run recorded yet\" have not run since tracking began; you will be told if one misses its window.",
       ...(allClear ? [] : ["", ...open.map((problem) => `- ${problem.message}`)]),
       "",
       "Each job:",
@@ -119,7 +133,8 @@ export async function runJobWatch(admin: SupabaseClient, now: Date = new Date())
       .eq("problem_key", dailyKey)
       .maybeSingle();
     if (!already) {
-      const email = dailyEmail(problems, jobStatusLines(WATCHED_JOBS, runs, now));
+      const unrecorded = WATCHED_JOBS.filter((job) => !runs.some((run) => run.job_key === job.key)).length;
+      const email = dailyEmail(problems, jobStatusLines(WATCHED_JOBS, runs, now), unrecorded);
       await sendAlertEmail(admin, email.subject, email.body);
       await admin.from("job_alerts").insert({ problem_key: dailyKey, message: email.subject });
       dailySummarySent = true;
