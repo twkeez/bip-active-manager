@@ -14,7 +14,6 @@ import {
   ClipboardCheck,
   ClipboardList,
   Compass,
-  Cpu,
   Eye,
   EyeOff,
   FileDown,
@@ -46,7 +45,6 @@ import {
   Trophy,
   User,
   Wand2,
-  Zap,
 } from "lucide-react";
 import { useState } from "react";
 import type { UserRole } from "@/lib/auth/profile";
@@ -63,14 +61,12 @@ type NavItem = {
 const PRIMARY: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Assistant", href: "/assistant", icon: Sparkles, adminOnly: true },
-  { label: "Control Center", href: "/control-center", icon: Cpu, adminOnly: true },
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "Response Report", href: "/response-report", icon: MessageSquare },
   { label: "Follow-ups", href: "/follow-ups", icon: ListChecks, adminOnly: true },
   { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
   { label: "My Tasks", href: "/my-tasks", icon: CheckSquare, adminOnly: true },
   { label: "Team", href: "/team", icon: ShieldCheck, adminOnly: true },
-  { label: "Cockpit", href: "/dashboard/cockpit", icon: Zap, adminOnly: true },
 ];
 
 // Brand magenta — makes the Services section stand out from the indigo nav.
