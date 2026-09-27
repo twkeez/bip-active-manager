@@ -66,7 +66,11 @@ export async function POST() {
 
   try {
     const result = await runBasecampSync(mode);
-    return NextResponse.json({ ok: true, ...result });
+    // 207 when a project failed: the button must not read "done" over a gap.
+    return NextResponse.json(
+      { ...result, ok: result.complete, error: result.complete ? undefined : result.partialErrorSummary },
+      { status: result.complete ? 200 : 207 },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Sync failed";
     try {

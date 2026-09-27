@@ -29,11 +29,15 @@ export default function AppHeaderActions({
     setSyncing(true);
     try {
       const response = await fetch("/api/basecamp/sync", { method: "POST" });
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; ok?: boolean };
+      // 207 means some projects failed: say so rather than look finished.
+      if (!response.ok || payload.ok === false || payload.error) {
         throw new Error(payload.error ?? "Basecamp sync failed");
       }
       onSyncComplete?.();
+      router.refresh();
+    } catch (error) {
+      window.alert(`Basecamp sync did not fully finish: ${error instanceof Error ? error.message : "unknown error"}`);
       router.refresh();
     } finally {
       setSyncing(false);

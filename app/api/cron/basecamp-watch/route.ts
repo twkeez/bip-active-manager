@@ -55,6 +55,13 @@ async function handle(request: Request) {
   try {
     const sync = await runBasecampSync(resolveMode());
     result.sync = sync;
+    // A project that failed, or a roster that could not be listed, is a
+    // partial sync: 207, so the job watchdog emails Tom. It used to answer
+    // 200 and the gap went unnoticed.
+    if (!sync.complete) {
+      result.ok = false;
+      result.error = sync.partialErrorSummary ?? "Some Basecamp projects failed to sync.";
+    }
   } catch (e) {
     const message = e instanceof Error ? e.message : "Basecamp sync failed";
     try {

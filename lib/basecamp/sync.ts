@@ -373,10 +373,7 @@ async function fetchClassicMessageTopics(
 
   while (page <= CLASSIC_TOPICS_MAX_PAGES) {
     const url = `https://basecamp.com/${accountId}/api/v1/projects/${encodeURIComponent(projectId)}/topics.json?page=${page}`;
-    const response = await fetch(url, {
-      headers,
-      cache: "no-store",
-    });
+    const response = await fetchClassic(url, headers);
     if (!response.ok) {
       const body = await response.text();
       throw new Error(
@@ -416,16 +413,30 @@ async function fetchClassicMessageTopics(
   return snapshots;
 }
 
+const CLASSIC_RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+/**
+ * Classic Basecamp allows about 500 requests per 10 seconds and answers 429
+ * past that. One throttled request used to fail the whole project. Retry
+ * throttling and brief server errors, honouring Retry-After, before giving up.
+ */
+async function fetchClassic(url: string, headers: Record<string, string>): Promise<Response> {
+  for (let attempt = 0; ; attempt += 1) {
+    const response = await fetch(url, { headers, cache: "no-store" });
+    if (!CLASSIC_RETRY_STATUSES.has(response.status) || attempt >= 3) return response;
+    const retryAfter = Number(response.headers.get("retry-after"));
+    const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** attempt;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(waitMs, 15_000)));
+  }
+}
+
 async function requestClassicBasecampJson<T>(
   accountId: string,
   headers: Record<string, string>,
   path: string,
 ) {
   const url = `https://basecamp.com/${accountId}${path}`;
-  const response = await fetch(url, {
-    headers,
-    cache: "no-store",
-  });
+  const response = await fetchClassic(url, headers);
   if (!response.ok) {
     const body = await response.text();
     throw new Error(
@@ -1051,9 +1062,14 @@ export async function runBasecampSync(
           .join(" | ")
       : null;
 
+  // Advance the cursor only when every project synced. The next run fetches
+  // from this point, so moving it past a failed project would lose that
+  // project's messages from the gap for good (found 2026-09-27: it used to
+  // move regardless). Holding it makes the next run cover the gap again.
+  const complete = failedProjects === 0 && !rosterError;
   const { error: stateError } = await admin.from("basecamp_sync_state").upsert({
     id: 1,
-    last_synced_at: nowIso,
+    last_synced_at: complete ? nowIso : lastSyncedAt,
     last_error: partialErrorSummary,
     updated_at: nowIso,
   });
@@ -1064,6 +1080,9 @@ export async function runBasecampSync(
   return {
     mode,
     isIncremental,
+    /** False when a project failed or the roster could not be listed; the cursor was held. */
+    complete,
+    partialErrorSummary,
     fetchSince: fetchCutoffIso,
     rosterProjects: roster.length,
     clientlessProjects,
