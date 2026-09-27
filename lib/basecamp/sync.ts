@@ -506,21 +506,36 @@ async function resolveClassicPersonEmail(
   if (!personId) return null;
   const { data: cached, error } = await admin
     .from("basecamp_people_cache")
-    .select("email")
+    .select("email, fetched_at")
     .eq("person_id", personId)
-    .maybeSingle<{ email: string | null }>();
+    .maybeSingle<{ email: string | null; fetched_at: string | null }>();
   if (error) {
     throw new Error(`Failed to read people cache: ${error.message}`);
   }
-  if (cached?.email) {
+  // A cached row answers even with no email: it records a person Basecamp no
+  // longer has (see below), so asking again would only fail again.
+  if (cached) {
     return cached.email;
   }
 
-  const person = await requestClassicBasecampJson<{
-    email_address?: string;
-    email?: string;
-    name?: string;
-  }>(accountId, headers, `/api/v1/people/${personId}.json`);
+  let person: { email_address?: string; email?: string; name?: string };
+  try {
+    person = await requestClassicBasecampJson(accountId, headers, `/api/v1/people/${personId}.json`);
+  } catch (lookupError) {
+    // A deleted or removed person answers 404. Their old posts are still in
+    // threads; that must not fail the whole project (it held the sync cursor
+    // for project 18742150 on 2026-09-27). Remember them as unknown instead.
+    if (lookupError instanceof Error && /\(404\)/.test(lookupError.message)) {
+      await admin.from("basecamp_people_cache").upsert({
+        person_id: personId,
+        email: null,
+        name: null,
+        fetched_at: new Date().toISOString(),
+      });
+      return null;
+    }
+    throw lookupError;
+  }
   const email = trimToNull(person.email_address) ?? trimToNull(person.email);
   const { error: upsertError } = await admin.from("basecamp_people_cache").upsert({
     person_id: personId,
