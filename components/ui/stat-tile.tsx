@@ -16,13 +16,24 @@ export function StatTile({
   label: string;
   value: string | number;
   sub?: string | null;
-  tone?: "warn" | "good";
+  tone?: "warn" | "good" | "danger";
 }) {
-  const toneClass = tone === "warn" ? "text-amber-300" : tone === "good" ? "text-emerald-400" : "text-bip-text";
+  const toneClass =
+    tone === "warn"
+      ? "text-amber-300"
+      : tone === "good"
+        ? "text-emerald-400"
+        : tone === "danger"
+          ? "text-red-200"
+          : "text-bip-text";
   return (
-    <div className="rounded-xl border border-bip-border bg-bip-card px-4 py-3">
+    <div
+      className={`min-w-0 rounded-xl border px-4 py-3 ${
+        tone === "danger" ? "border-red-500/40 bg-red-500/10" : "border-bip-border bg-bip-card"
+      }`}
+    >
       <p className={`text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</p>
-      <p className="text-xs text-bip-muted">
+      <p className="truncate text-xs text-bip-muted" title={sub ? `${label} · ${sub}` : undefined}>
         {label}
         {sub ? ` · ${sub}` : ""}
       </p>
