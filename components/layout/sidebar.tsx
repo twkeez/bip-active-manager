@@ -62,6 +62,7 @@ const PRIMARY: NavItem[] = [
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "Response Report", href: "/response-report", icon: MessageSquare },
   { label: "Follow-ups", href: "/follow-ups", icon: ListChecks, adminOnly: true },
+  { label: "Client Briefings", href: "/client-briefings", icon: Mail, adminOnly: true },
   { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
   { label: "My Tasks", href: "/my-tasks", icon: CheckSquare, adminOnly: true },
   { label: "Team", href: "/team", icon: ShieldCheck, adminOnly: true },
@@ -116,7 +117,6 @@ const ONBOARDING: NavItem[] = [
 // Primary because it is a "check this first" surface, not a tool you go to.
 const COAL_MINES: NavItem[] = [
   { label: "Coal Mines", href: "/coal-mines", icon: Bird, adminOnly: true },
-  { label: "Client Briefings", href: "/client-briefings", icon: Mail, adminOnly: true },
   { label: "Project Wiring", href: "/basecamp-projects", icon: Link2, adminOnly: true },
 ];
 
