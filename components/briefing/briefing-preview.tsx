@@ -27,10 +27,15 @@ const LEVEL_STYLE: Record<FindingLevel, { chip: string; label: string; icon: typ
 
 export default function BriefingPreview({
   clients,
+  initialClientId,
 }: {
   clients: Array<{ id: number; account_name: string }>;
+  /** From ?client= — the reminder preview links straight to a client's briefing. */
+  initialClientId?: number | null;
 }) {
-  const [clientId, setClientId] = useState<number | null>(clients[0]?.id ?? null);
+  const [clientId, setClientId] = useState<number | null>(
+    clients.find((client) => client.id === initialClientId)?.id ?? clients[0]?.id ?? null,
+  );
   const [briefing, setBriefing] = useState<ClientBriefing | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
