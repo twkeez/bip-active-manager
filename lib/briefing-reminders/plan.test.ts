@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cadenceFor, includedInRun, planRun, slotForDate, upcomingRuns, type PlanClient } from "./plan";
+import { cadenceFor, includedInRun, planRun, runDueAt, slotForDate, upcomingRuns, type PlanClient } from "./plan";
 
 describe("slotForDate", () => {
   it("knows the first and third Mondays", () => {
@@ -27,6 +27,23 @@ describe("upcomingRuns", () => {
   });
 });
 
+describe("runDueAt", () => {
+  it("is Monday's run from 8am Eastern until 8am Tuesday, and nothing otherwise", () => {
+    expect(runDueAt(new Date("2026-10-05T11:59:00Z"))).toBeNull(); // 7:59am EDT
+    expect(runDueAt(new Date("2026-10-05T12:00:00Z"))).toEqual({ date: "2026-10-05", slot: "first" });
+    expect(runDueAt(new Date("2026-10-06T06:00:00Z"))).toEqual({ date: "2026-10-05", slot: "first" }); // 2am Tue
+    expect(runDueAt(new Date("2026-10-06T12:30:00Z"))).toBeNull(); // Tue after 8am
+    expect(runDueAt(new Date("2026-10-12T13:00:00Z"))).toBeNull(); // second Monday
+    expect(runDueAt(new Date("2026-10-19T13:00:00Z"))).toEqual({ date: "2026-10-19", slot: "third" });
+  });
+
+  it("keeps 8am local across the clock change (EST in November)", () => {
+    // Mon 2 Nov 2026 is after DST ends: 8am EST = 13:00 UTC.
+    expect(runDueAt(new Date("2026-11-02T12:30:00Z"))).toBeNull();
+    expect(runDueAt(new Date("2026-11-02T13:00:00Z"))).toEqual({ date: "2026-11-02", slot: "first" });
+  });
+});
+
 describe("cadence", () => {
   it("reminds Low Contact clients on the first Monday only", () => {
     expect(includedInRun(cadenceFor(true), "first")).toBe(true);
@@ -41,6 +58,7 @@ describe("planRun", () => {
     { full_name: "Melissa Jones", email: "melissa@beyondindigo.com" },
     { full_name: "Tom Keez", email: "tom@beyondindigo.com" },
     { full_name: "Tom Other", email: "tom2@beyondindigo.com" },
+    { full_name: "Alex Brown", email: "alex@beyondindigo.com" },
   ];
   const client = (overrides: Partial<PlanClient>): PlanClient => ({
     id: 1,
@@ -68,7 +86,6 @@ describe("planRun", () => {
   it("falls back to Tom, saying why, when nobody on file can be emailed", () => {
     const { reminders } = planRun(
       [
-        client({ id: 1, accountName: "A", marketingStrategist: "Low Contact", isLowContact: true }),
         client({ id: 2, accountName: "B", marketingStrategist: null }),
         client({ id: 3, accountName: "C", marketingStrategist: "Tom" }),
       ],
@@ -77,10 +94,25 @@ describe("planRun", () => {
     );
     expect(reminders.every((r) => r.toFallback && r.to[0].email === "tom@beyondindigo.com")).toBe(true);
     expect(reminders.map((r) => r.warnings[0])).toEqual([
-      'Strategist field says "Low Contact", not a teammate.',
       "No strategist on file.",
       '"Tom" matches more than one teammate.',
     ]);
+  });
+
+  it("sends Low Contact reminders to Tom and Alex, plus any named strategist", () => {
+    const { reminders } = planRun(
+      [
+        client({ id: 1, accountName: "A", marketingStrategist: "Low Contact", isLowContact: true }),
+        client({ id: 2, accountName: "B", marketingStrategist: "Stephanie", isLowContact: true }),
+      ],
+      staff,
+      "first",
+    );
+    expect(reminders.map((r) => r.to.map((t) => t.email))).toEqual([
+      ["tom@beyondindigo.com", "alex@beyondindigo.com"],
+      ["tom@beyondindigo.com", "alex@beyondindigo.com", "stephanie@beyondindigo.com"],
+    ]);
+    expect(reminders.every((r) => !r.toFallback && r.warnings.length === 0)).toBe(true);
   });
 
   it("leaves Low Contact clients out of the third-Monday run", () => {

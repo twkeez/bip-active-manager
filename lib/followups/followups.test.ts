@@ -16,6 +16,8 @@ let id = 1;
 function followup(overrides: Partial<FollowupRow> = {}): FollowupRow {
   return {
     id: id++,
+    kind: "note",
+    reminder_run: null,
     basecamp_project_id: "123",
     project_name: "Paws Veterinary Clinic",
     client_id: 7,
@@ -124,6 +126,28 @@ describe("overdue and reminders", () => {
     const alreadySent = followup({ sent_at: hoursAgo(80), renudged_at: hoursAgo(20) });
     const young = followup({ sent_at: hoursAgo(10) });
     expect(followupsToRenudge([due, alreadySent, young], NOW).map((f) => f.id)).toEqual([due.id]);
+  });
+});
+
+describe("client update reminders", () => {
+  it("never close on a Basecamp post, only by hand", () => {
+    const f = followup({ kind: "client_update", reminder_run: "2026-10-05", thread_url: null, sent_at: hoursAgo(5) });
+    const post = { basecamp_project_id: "123", basecamp_recording_id: 42, occurred_at: hoursAgo(1), author_email: "stephanie@beyondindigo.com" };
+    expect(followupsAnswered([f], [post])).toEqual([]);
+  });
+
+  it("are overdue after five days, not two", () => {
+    expect(isOverdue(followup({ kind: "client_update", sent_at: hoursAgo(100) }), NOW)).toBe(false);
+    expect(isOverdue(followup({ kind: "client_update", sent_at: hoursAgo(121) }), NOW)).toBe(true);
+  });
+
+  it("get a reminder that says what is still open", () => {
+    const body = followupEmailBody(
+      followup({ kind: "client_update", reminder_run: "2026-10-05", project_name: "Paws" }),
+      { reminder: true },
+    );
+    expect(body).toContain("Paws's client update from 2026-10-05 is still open");
+    expect(body).toContain("mark it complete");
   });
 });
 

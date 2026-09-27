@@ -21,6 +21,27 @@ function runLabel(date: string): string {
  */
 export default function ReminderPlan({ runs }: { runs: RunPlan[] }) {
   const [open, setOpen] = useState<string | null>(runs[0]?.date ?? null);
+  const [testing, setTesting] = useState<number | null>(null);
+  const [testResult, setTestResult] = useState<{ clientId: number; ok: boolean; message: string } | null>(null);
+
+  async function sendTest(clientId: number) {
+    setTesting(clientId);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/briefing-reminders/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as { error?: string; sentTo?: string };
+      if (!res.ok) throw new Error(payload.error ?? "Could not send the test.");
+      setTestResult({ clientId, ok: true, message: `Test sent to ${payload.sentTo}.` });
+    } catch (err) {
+      setTestResult({ clientId, ok: false, message: err instanceof Error ? err.message : "Could not send the test." });
+    } finally {
+      setTesting(null);
+    }
+  }
 
   return (
     <section className="space-y-3">
@@ -30,8 +51,10 @@ export default function ReminderPlan({ runs }: { runs: RunPlan[] }) {
         </h2>
         <p className="mt-1 text-xs text-bip-muted">
           One email per client to their strategist at 8am Eastern: first Monday of the month for every client with a
-          marketing service, third Monday for everyone except Low Contact. Each becomes a follow-up. <strong>Not
-          switched on yet</strong>: this shows what would go out.
+          marketing service, third Monday for everyone except Low Contact (those go to Tom and Alex). Each goes onto
+          Follow-ups until marked complete. Nothing is sent until every nightly sync has finished that morning. The
+          routine is <strong>switched off</strong> until you turn on &ldquo;Client update reminders&rdquo; on Coal
+          Mines.
         </p>
       </div>
 
@@ -76,10 +99,25 @@ export default function ReminderPlan({ runs }: { runs: RunPlan[] }) {
                           {r.cadence === "monthly" ? "Low Contact · monthly" : "twice a month"}
                         </span>
                       </div>
-                      <p className={`truncate text-xs ${r.toFallback ? "text-amber-300" : "text-bip-muted"}`}>
-                        To {r.to.map((t) => t.name).join(" & ")}
-                        {r.toFallback && " (you, as fallback)"}
-                      </p>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className={`truncate text-xs ${r.toFallback ? "text-amber-300" : "text-bip-muted"}`}>
+                          To {r.to.map((t) => t.name).join(" & ")}
+                          {r.toFallback && " (you, as fallback)"}
+                        </p>
+                        <button
+                          onClick={() => void sendTest(r.clientId)}
+                          disabled={testing !== null}
+                          className="shrink-0 text-[11px] text-bip-accent hover:underline disabled:opacity-50"
+                          title="Email yourself this client's reminder exactly as it would go out, from today's data"
+                        >
+                          {testing === r.clientId ? "Sending…" : "Send me a test"}
+                        </button>
+                      </div>
+                      {testResult?.clientId === r.clientId && (
+                        <p className={`text-[11px] ${testResult.ok ? "text-emerald-400" : "text-red-400"}`}>
+                          {testResult.message}
+                        </p>
+                      )}
                       {r.warnings.map((warning) => (
                         <p key={warning} className="flex items-start gap-1 text-[11px] text-amber-300/90">
                           <AlertTriangle size={11} className="mt-0.5 shrink-0" /> {warning}

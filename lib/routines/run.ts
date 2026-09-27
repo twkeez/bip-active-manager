@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { runBasecampReview } from "@/lib/routines/kinds/basecamp-review";
 import { runBasecampWatch } from "@/lib/routines/kinds/basecamp-watch";
 import { runClientWatch } from "@/lib/routines/kinds/client-watch";
+import { runBriefingReminders } from "@/lib/routines/kinds/briefing-reminders";
 import { isDue } from "@/lib/routines/schedule";
 import type { RoutineResult, RoutineRow, RoutineRunRow } from "@/lib/routines/types";
 
@@ -22,6 +23,7 @@ export const RUNNERS: Record<string, { label: string; run: Runner }> = {
   basecamp_review: { label: "Basecamp review", run: runBasecampReview },
   basecamp_watch: { label: "Basecamp watch", run: runBasecampWatch },
   client_watch: { label: "Client watch", run: runClientWatch },
+  briefing_reminders: { label: "Client update reminders", run: runBriefingReminders },
 };
 
 export async function runRoutine(

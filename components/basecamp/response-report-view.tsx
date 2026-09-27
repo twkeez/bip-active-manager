@@ -134,8 +134,10 @@ export default function ResponseReportView({
   const followupByProject = useMemo(() => {
     const map = new Map<string, FollowupRow>();
     for (const followup of openFollowups) {
-      const current = map.get(followup.basecamp_project_id);
-      if (!current || followup.sent_at > current.sent_at) map.set(followup.basecamp_project_id, followup);
+      const projectId = followup.basecamp_project_id;
+      if (!projectId) continue;
+      const current = map.get(projectId);
+      if (!current || followup.sent_at > current.sent_at) map.set(projectId, followup);
     }
     return map;
   }, [openFollowups]);

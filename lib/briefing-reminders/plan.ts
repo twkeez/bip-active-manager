@@ -2,11 +2,14 @@
 // marketing service gets a reminder to their strategist built from their
 // briefing. Low Contact clients once a month (first Monday), everyone else
 // twice (first and third Monday), at 8am Eastern. One email per client.
+// Low Contact reminders go to Tom and Alex (plus any named strategist); a
+// client with no strategist the app can email goes to Tom.
 //
 // This file is the pure plan: when runs happen, who is in each run and who
 // each reminder goes to. Nothing here sends anything.
 
 import { resolveStrategistContacts, type StaffProfile } from "@/lib/onboarding/expectation-people";
+import { zonedTime } from "@/lib/routines/schedule";
 
 export const REMINDER_TIMEZONE = "America/New_York";
 export const REMINDER_HOUR = 8;
@@ -25,6 +28,9 @@ export type ReminderRun = {
 export function fallbackRecipient(): string {
   return process.env.BRIEFING_FALLBACK_EMAIL?.trim() || "tom@beyondindigo.com";
 }
+
+/** Low Contact clients have no strategist of their own; Tom and Alex cover them. */
+export const LOW_CONTACT_TEAMMATES = ["Alex"];
 
 function easternDate(now: Date): { year: number; month: number; day: number; hour: number } {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -69,6 +75,28 @@ export function upcomingRuns(now: Date, count = 2): ReminderRun[] {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return runs;
+}
+
+/**
+ * The run a wake-up at `now` should carry out, if any: a reminder Monday whose
+ * 8am Eastern has passed within the last day. Looking back a day means a run
+ * GitHub delivers late (2am Tuesday) still counts as Monday's, not as nothing.
+ */
+export function runDueAt(now: Date): ReminderRun | null {
+  for (const daysBack of [0, 1]) {
+    const local = easternDate(new Date(now.getTime() - daysBack * 86_400_000));
+    const slot = slotForDate(local.year, local.month, local.day);
+    if (!slot) continue;
+    const at = zonedTime(REMINDER_TIMEZONE, local, REMINDER_HOUR, 0);
+    const elapsed = now.getTime() - at.getTime();
+    if (elapsed >= 0 && elapsed < 86_400_000) {
+      return {
+        date: `${local.year}-${String(local.month).padStart(2, "0")}-${String(local.day).padStart(2, "0")}`,
+        slot,
+      };
+    }
+  }
+  return null;
 }
 
 export function cadenceFor(isLowContact: boolean): Cadence {
@@ -132,18 +160,34 @@ export function planRun(
     const warnings: string[] = [];
     const field = client.marketingStrategist?.trim() ?? "";
     const contacts = resolveStrategistContacts(field, staff);
-    const to = contacts.filter((c): c is { name: string; email: string } => Boolean(c.email));
+    const to: Array<{ name: string; email: string }> = [];
+    const add = (name: string, email: string) => {
+      if (!to.some((t) => t.email.toLowerCase() === email.toLowerCase())) to.push({ name, email });
+    };
     let toFallback = false;
-    if (to.length === 0) {
-      toFallback = true;
-      to.push({ name: "Tom", email: fallback });
-      warnings.push(
-        !field
-          ? "No strategist on file."
-          : contacts.length
-            ? `"${field}" matches more than one teammate.`
-            : `Strategist field says "${field}", not a teammate.`,
-      );
+
+    if (client.isLowContact) {
+      add("Tom", fallback);
+      for (const name of LOW_CONTACT_TEAMMATES) {
+        const [match] = resolveStrategistContacts(name, staff);
+        if (match?.email) add(match.name, match.email);
+        else warnings.push(`Could not find a single teammate called ${name} to copy.`);
+      }
+      // A named strategist on a Low Contact account still hears about it.
+      for (const contact of contacts) if (contact.email) add(contact.name, contact.email);
+    } else {
+      for (const contact of contacts) if (contact.email) add(contact.name, contact.email);
+      if (to.length === 0) {
+        toFallback = true;
+        add("Tom", fallback);
+        warnings.push(
+          !field
+            ? "No strategist on file."
+            : contacts.length
+              ? `"${field}" matches more than one teammate.`
+              : `Strategist field says "${field}", not a teammate.`,
+        );
+      }
     }
     if (!client.isLowContact && /low contact/i.test(field)) {
       warnings.push('Strategist field says "Low Contact" but the client is not flagged Low Contact, so it is reminded twice a month.');

@@ -17,7 +17,8 @@ export default async function ResponseReportPage() {
     // Profiles are RLS-restricted to your own row, so the teammate list for
     // "Notify strategist" is read with the service role (names and emails only).
     createAdminClient().from("profiles").select("full_name,email").not("email", "is", null),
-    supabase.from("strategist_followups").select("*").eq("state", "open"),
+    // Your own notes only: scheduled client-update reminders live on Follow-ups.
+    supabase.from("strategist_followups").select("*").eq("state", "open").eq("kind", "note"),
   ]);
 
   const staff = ((staffResult.data ?? []) as { full_name: string | null; email: string | null }[])

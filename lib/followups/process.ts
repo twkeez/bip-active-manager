@@ -45,7 +45,9 @@ export async function sweepFollowups(admin: SupabaseClient, now: Date = new Date
   const { data: postRows, error: postError } = await admin
     .from("basecamp_communication_events")
     .select("basecamp_project_id,basecamp_recording_id,occurred_at,author_email")
-    .in("basecamp_project_id", [...new Set(open.map((f) => f.basecamp_project_id))])
+    .in("basecamp_project_id", [
+      ...new Set(open.map((f) => f.basecamp_project_id).filter((id): id is string => Boolean(id))),
+    ])
     .gt("occurred_at", since);
   if (postError) errors.push(`Could not read Basecamp posts: ${postError.message}`);
 

@@ -4,7 +4,11 @@
 
 export type FollowupRow = {
   id: number;
-  basecamp_project_id: string;
+  /** "note": sent by hand from the Response Report. "client_update": a scheduled briefing reminder. */
+  kind: "note" | "client_update";
+  /** The reminder run's Monday, for client updates. */
+  reminder_run: string | null;
+  basecamp_project_id: string | null;
   project_name: string;
   client_id: number | null;
   recipient_name: string | null;
@@ -25,13 +29,19 @@ export type FollowupRow = {
 
 /** Open this long and it is overdue: re-sent once, in the morning email, highlighted. */
 export const FOLLOWUP_OVERDUE_HOURS = 48;
+/** A client update takes longer to write than a reply, so it gets five days. */
+export const CLIENT_UPDATE_OVERDUE_HOURS = 120;
 
 const HOUR = 3_600_000;
 
-export function isOverdue(followup: Pick<FollowupRow, "state" | "sent_at">, now: Date): boolean {
+export function overdueHours(kind: FollowupRow["kind"] | undefined): number {
+  return kind === "client_update" ? CLIENT_UPDATE_OVERDUE_HOURS : FOLLOWUP_OVERDUE_HOURS;
+}
+
+export function isOverdue(followup: Pick<FollowupRow, "state" | "sent_at"> & { kind?: FollowupRow["kind"] }, now: Date): boolean {
   return (
     followup.state === "open" &&
-    now.getTime() - new Date(followup.sent_at).getTime() >= FOLLOWUP_OVERDUE_HOURS * HOUR
+    now.getTime() - new Date(followup.sent_at).getTime() >= overdueHours(followup.kind) * HOUR
   );
 }
 
@@ -68,9 +78,27 @@ export function defaultNote(input: {
 
 /** The email as sent: Tom's note, then the links. */
 export function followupEmailBody(
-  followup: Pick<FollowupRow, "note" | "thread_url" | "basecamp_project_id">,
+  followup: Pick<FollowupRow, "note" | "thread_url" | "basecamp_project_id"> & {
+    kind?: FollowupRow["kind"];
+    project_name?: string;
+    reminder_run?: string | null;
+  },
   options: { reminder?: boolean } = {},
 ): string {
+  if (followup.kind === "client_update") {
+    // Only the overdue reminder goes through here; the first email is the
+    // briefing reminder itself (lib/briefing-reminders/email.ts).
+    return [
+      `Reminder: ${followup.project_name ?? "This client"}'s client update from ${followup.reminder_run ?? "the last reminder"} is still open.`,
+      "",
+      "If it has been posted, mark it complete so it comes off the list.",
+      "",
+      ...(followup.basecamp_project_id
+        ? [`Basecamp project: https://basecamp.com/2175055/projects/${followup.basecamp_project_id}`]
+        : []),
+      "Follow-ups: https://bip-active-manager.vercel.app/follow-ups",
+    ].join("\n");
+  }
   return [
     ...(options.reminder
       ? ["Reminder: this is still open. Nothing has been posted in the Basecamp project since.", ""]
@@ -123,6 +151,9 @@ export function followupsAnswered(
   const answered: Array<{ followup: FollowupRow; post: ThreadActivity }> = [];
   for (const followup of followups) {
     if (followup.state !== "open") continue;
+    // Client updates are the strategist's own wording, so nothing can match
+    // them: only "Mark complete" closes one (Tom, 2026-09-26).
+    if (followup.kind === "client_update") continue;
     const sent = new Date(followup.sent_at).getTime();
     const recipient = followup.recipient_email.trim().toLowerCase();
     const threadId = threadIdFromUrl(followup.thread_url);

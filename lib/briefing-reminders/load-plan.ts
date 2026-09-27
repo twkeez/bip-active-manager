@@ -11,6 +11,14 @@ export type RunPlan = ReminderRun & { reminders: PlannedReminder[]; leftOut: Lef
  * Read with the service role: staff emails are behind per-person RLS.
  */
 export async function loadReminderPlan(admin: SupabaseClient, now: Date = new Date()): Promise<RunPlan[]> {
+  const { clients, staff } = await loadPlanInputs(admin);
+  return upcomingRuns(now, 2).map((run) => ({ ...run, ...planRun(clients, staff, run.slot) }));
+}
+
+/** Every client buying a marketing service, and the staff list to address them with. */
+export async function loadPlanInputs(
+  admin: SupabaseClient,
+): Promise<{ clients: PlanClient[]; staff: Array<{ full_name: string | null; email: string | null }> }> {
   const [clientsResult, projectsResult, ignoresResult, staffResult] = await Promise.all([
     admin
       .from("clients")
@@ -49,5 +57,5 @@ export async function loadReminderPlan(admin: SupabaseClient, now: Date = new Da
     });
 
   const staff = (staffResult.data ?? []) as Array<{ full_name: string | null; email: string | null }>;
-  return upcomingRuns(now, 2).map((run) => ({ ...run, ...planRun(clients, staff, run.slot) }));
+  return { clients, staff };
 }
