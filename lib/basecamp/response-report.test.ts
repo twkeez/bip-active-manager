@@ -6,6 +6,11 @@ import {
   shapeAndSort,
   statusOf,
   summarizeReport,
+  groupByWait,
+  isDismissed,
+  reportTiles,
+  shapeRow,
+  waitTone,
 } from "@/lib/basecamp/response-report";
 
 function row(overrides: Partial<ResponseReportRow> = {}): ResponseReportRow {
@@ -152,5 +157,44 @@ describe("internalAuthors", () => {
       ]),
     );
     expect(authors).toEqual(["Stephanie", "Alex"]);
+  });
+});
+
+describe("triage view", () => {
+  const waiting = (id: string, days: number, extra: Partial<ResponseReportRow> = {}) =>
+    shapeRow(
+      row({
+        basecamp_project_id: id,
+        account_name: `Client ${id}`,
+        client_spoke_last: true,
+        last_client_at: "2026-09-20T10:00:00Z",
+        days_since_client_contact: days,
+        ...extra,
+      }),
+    );
+
+  it("colours the wait: 7+ red, 3–6 amber, under 3 neutral", () => {
+    expect([waitTone(33), waitTone(7), waitTone(6), waitTone(3), waitTone(2), waitTone(null)]).toEqual([
+      "overdue", "overdue", "aging", "aging", "fresh", "fresh",
+    ]);
+  });
+
+  it("groups rows waiting on us by age, oldest first, leaving dismissed rows out", () => {
+    const dismissed = waiting("d", 40, { reply_acknowledged_for_occurred_at: "2026-09-21T10:00:00Z" });
+    expect(isDismissed(dismissed)).toBe(true);
+    const groups = groupByWait([waiting("a", 8), waiting("b", 33), waiting("c", 4), waiting("e", 1), dismissed]);
+    expect(groups.map((g) => [g.label, g.rows.map((r) => r.basecamp_project_id)])).toEqual([
+      ["7+ days", ["b", "a"]],
+      ["3–6 days", ["c"]],
+      ["Under 3 days", ["e"]],
+    ]);
+  });
+
+  it("builds tiles whose waiting count equals the sum of the groups", () => {
+    const rows = [waiting("a", 8), waiting("b", 33), waiting("c", 4), shapeRow(row({ basecamp_project_id: "x" }))];
+    const tiles = reportTiles(rows);
+    const groupTotal = groupByWait(rows).reduce((sum, g) => sum + g.rows.length, 0);
+    expect(tiles.waitingOnUs).toBe(groupTotal);
+    expect(tiles).toMatchObject({ waitingOnUs: 3, waitingOverdue: 2, oldest: { days: 33, name: "Client b" } });
   });
 });

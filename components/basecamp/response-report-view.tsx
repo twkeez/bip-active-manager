@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BellRing, ExternalLink, EyeOff, MessageSquare } from "lucide-react";
@@ -13,15 +13,31 @@ import type { BasecampProjectIgnoreRow } from "@/lib/clients/basecamp-project-ig
 import { isOverdue, openForLabel, type FollowupRow } from "@/lib/followups/followups";
 import { resolveStrategistContacts } from "@/lib/onboarding/expectation-people";
 import {
+  groupByWait,
   internalAuthors,
-  OVERDUE_DAYS,
+  isDismissed,
+  reportTiles,
   shapeAndSort,
   summarizeReport,
+  WAIT_THRESHOLDS,
+  waitTone,
   type ReportStatus,
   type ShapedReportRow,
+  type StatusFilter,
+  type WaitTone,
 } from "@/lib/basecamp/response-report";
 
-type StatusFilter = "all" | ReportStatus;
+const COLUMN_COUNT = 6;
+
+const WAIT_CLASS: Record<WaitTone, string> = {
+  overdue: "bg-red-500/15 text-red-200",
+  aging: "bg-amber-500/15 text-amber-100",
+  fresh: "bg-bip-fill text-bip-muted",
+};
+
+function waitLabel(days: number): string {
+  return days === 1 ? "1 day" : `${days} days`;
+}
 
 const STOP_REASONS = ["No longer a client", "Internal / not a client project", "Other"] as const;
 
@@ -107,7 +123,10 @@ export default function ResponseReportView({
   openFollowups,
   lastSyncedAt,
   loadError,
+  initialStatus,
 }: {
+  /** From ?status= in the address; the page opens on "Waiting on us" otherwise. */
+  initialStatus?: StatusFilter | null;
   rows: ResponseReportRow[];
   ignored: BasecampProjectIgnoreRow[];
   staff: StaffOption[];
@@ -116,7 +135,16 @@ export default function ResponseReportView({
   loadError: string | null;
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState<StatusFilter>("all");
+  const [status, setStatusState] = useState<StatusFilter>(initialStatus ?? "awaiting_us");
+  const [showDismissed, setShowDismissed] = useState(false);
+  // Keep the chosen tab in the address so a reload or a shared link keeps it,
+  // without a navigation that would re-fetch the whole report.
+  function setStatus(next: StatusFilter) {
+    setStatusState(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set("status", next);
+    window.history.replaceState(null, "", url);
+  }
   const [author, setAuthor] = useState<string>("all");
   const [query, setQuery] = useState("");
   // Stop tracking: the row being confirmed, its reason, and rows hidden
@@ -211,6 +239,7 @@ export default function ResponseReportView({
     [rows, hidden],
   );
   const summary = useMemo(() => summarizeReport(shaped), [shaped]);
+  const tiles = useMemo(() => reportTiles(shaped), [shaped]);
   const authors = useMemo(() => internalAuthors(shaped), [shaped]);
 
   const visible = useMemo(() => {
@@ -230,11 +259,174 @@ export default function ResponseReportView({
   }, [shaped, status, author, query]);
 
   const filters: { key: StatusFilter; label: string; count: number }[] = [
-    { key: "all", label: "All projects", count: summary.total },
-    { key: "awaiting_us", label: "Waiting on us", count: summary.awaitingUs },
+    { key: "awaiting_us", label: "Waiting on us", count: tiles.waitingOnUs },
     { key: "awaiting_client", label: "Waiting on client", count: summary.awaitingClient },
     { key: "no_contact", label: "No messages", count: summary.noContact },
+    { key: "all", label: "All", count: summary.total },
   ];
+
+  // Dismissed rows never sit among rows that need action: their own group.
+  const activeRows = visible.filter((r) => !isDismissed(r));
+  const dismissedRows = visible.filter((r) => isDismissed(r));
+  const ageGroups = status === "awaiting_us" ? groupByWait(activeRows) : null;
+
+  function renderRow(r: ShapedReportRow) {
+    return (
+      <tr
+                      key={r.basecamp_project_id}
+                      className="border-b border-bip-border last:border-0 hover:bg-bip-fill/50"
+                    >
+                      <td className="min-w-0 px-3 py-2.5 align-top">
+                        {r.client_id != null ? (
+                          <Link
+                            href={`/dashboard/clients/${r.client_id}`}
+                            className="block truncate text-sm font-medium text-bip-text hover:text-bip-accent"
+                          >
+                            {r.account_name}
+                          </Link>
+                        ) : (
+                          <p className="truncate text-sm font-medium text-bip-text">{r.account_name}</p>
+                        )}
+                        {r.client_id == null ? (
+                          <p className="text-xs text-bip-muted">No client record</p>
+                        ) : (
+                          r.marketing_strategist && (
+                            <p className="truncate text-xs text-bip-muted">{r.marketing_strategist}</p>
+                          )
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 align-top">
+                        {r.waitingDays == null ? (
+                          <span className="text-xs text-bip-muted">—</span>
+                        ) : (
+                          <span
+                            className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
+                              WAIT_CLASS[r.status === "awaiting_us" && !r.acknowledged ? waitTone(r.waitingDays) : "fresh"]
+                            }`}
+                            title={
+                              r.status === "awaiting_us"
+                                ? "Days since the client's last message"
+                                : r.status === "awaiting_client"
+                                  ? "Days since our last reply"
+                                  : undefined
+                            }
+                          >
+                            {waitLabel(r.waitingDays)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="min-w-0 px-3 py-2.5 align-top">
+                        <Side
+                          who={r.last_internal_author}
+                          at={r.last_internal_at}
+                          days={r.days_since_our_reply}
+                          url={r.last_internal_thread_url}
+                          title={r.last_internal_thread_title}
+                        />
+                      </td>
+                      <td className="min-w-0 px-3 py-2.5 align-top">
+                        <Side
+                          who={r.last_client_author}
+                          at={r.last_client_at}
+                          days={r.days_since_client_contact}
+                          url={r.last_client_thread_url}
+                          title={r.last_client_thread_title}
+                        />
+                      </td>
+                      <td className="min-w-0 px-3 py-2.5 align-top">
+                        <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_CLASS[r.status]}`}>
+                          {STATUS_LABEL[r.status]}
+                        </span>
+                        {r.acknowledged && (
+                          <span className="mt-1 block text-[10px] text-bip-muted">dismissed</span>
+                        )}
+                        {(() => {
+                          const followup = followupByProject.get(r.basecamp_project_id);
+                          if (!followup) return null;
+                          const overdue = isOverdue(followup, new Date());
+                          return (
+                            <Link
+                              href="/follow-ups"
+                              className={`mt-1 block truncate text-[10px] hover:underline ${overdue ? "text-red-400" : "text-sky-300"}`}
+                              title={`Follow-up sent to ${followup.recipient_email}`}
+                            >
+                              Asked {followup.recipient_name ?? followup.recipient_email} ·{" "}
+                              {openForLabel(followup.sent_at, new Date())}
+                            </Link>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-3 py-2.5 text-right align-top">
+                        {confirming === r.basecamp_project_id ? (
+                          <div className="space-y-1.5 text-left">
+                            <p className="text-[11px] text-bip-muted">Stop tracking this project?</p>
+                            <select
+                              value={reason}
+                              onChange={(e) => setReason(e.target.value)}
+                              className="w-full rounded-md border border-bip-border bg-bip-page px-1.5 py-1 text-[11px] text-bip-text"
+                              aria-label="Why stop tracking"
+                            >
+                              {STOP_REASONS.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => void stopTracking(r)}
+                                disabled={busy === r.basecamp_project_id}
+                                className="flex-1 rounded-md bg-bip-accent px-2 py-1 text-[11px] font-medium text-black disabled:opacity-50"
+                              >
+                                {busy === r.basecamp_project_id ? "…" : "Stop"}
+                              </button>
+                              <button
+                                onClick={() => setConfirming(null)}
+                                className="flex-1 rounded-md border border-bip-border px-2 py-1 text-[11px] text-bip-muted hover:text-bip-text"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-end gap-1">
+                            <a
+                              href={`https://basecamp.com/2175055/projects/${r.basecamp_project_id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-muted hover:text-bip-text"
+                            >
+                              <ExternalLink size={11} />
+                              Basecamp
+                            </a>
+                            <button
+                              onClick={() => {
+                                setNotice(null);
+                                setNotifying(r);
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] text-bip-accent hover:underline"
+                              title="Email a teammate about this client and track it on Follow-ups"
+                            >
+                              <BellRing size={11} />
+                              Notify strategist
+                            </button>
+                            <button
+                              onClick={() => {
+                                setReason(STOP_REASONS[0]);
+                                setConfirming(r.basecamp_project_id);
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text"
+                              title="Hide this project from the report, Coal Mines and the reply watch. You can restore it below."
+                            >
+                              <EyeOff size={11} />
+                              Stop tracking
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+    );
+  }
 
   return (
     <ToolPage
@@ -247,18 +439,43 @@ export default function ResponseReportView({
         <ErrorState message={loadError} />
       ) : (
         <>
-          <p className="text-sm text-bip-muted">
-            {summary.awaitingUs === 0 ? (
-              <span className="text-emerald-400">Nothing outstanding — every client message has a reply after it.</span>
-            ) : (
-              <>
-                <span className="font-medium text-amber-300">
-                  {summary.awaitingUs} {summary.awaitingUs === 1 ? "project is" : "projects are"} waiting on us
-                </span>
-                {summary.overdue > 0 && <> · {summary.overdue} for {OVERDUE_DAYS} days or more</>}.
-              </>
-            )}
-          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-bip-border bg-bip-card px-4 py-3">
+              <p className="text-[11px] uppercase tracking-wide text-bip-muted">Waiting on us</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-bip-text">{tiles.waitingOnUs}</p>
+            </div>
+            <div
+              className={`rounded-xl border px-4 py-3 ${
+                tiles.waitingOverdue > 0 ? "border-red-500/40 bg-red-500/10" : "border-bip-border bg-bip-card"
+              }`}
+            >
+              <p className="text-[11px] uppercase tracking-wide text-bip-muted">
+                Waiting {WAIT_THRESHOLDS.overdueDays}+ days
+              </p>
+              <p
+                className={`mt-1 text-2xl font-semibold tabular-nums ${
+                  tiles.waitingOverdue > 0 ? "text-red-200" : "text-bip-text"
+                }`}
+              >
+                {tiles.waitingOverdue}
+              </p>
+            </div>
+            <div className="min-w-0 rounded-xl border border-bip-border bg-bip-card px-4 py-3">
+              <p className="text-[11px] uppercase tracking-wide text-bip-muted">Oldest wait</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-bip-text">
+                {tiles.oldest ? waitLabel(tiles.oldest.days) : "—"}
+              </p>
+              {tiles.oldest && (
+                <p className="truncate text-xs text-bip-muted" title={tiles.oldest.name}>
+                  {tiles.oldest.name}
+                </p>
+              )}
+            </div>
+            <div className="rounded-xl border border-bip-border bg-bip-card px-4 py-3">
+              <p className="text-[11px] uppercase tracking-wide text-bip-muted">Waiting on client</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-bip-text">{tiles.waitingOnClient}</p>
+            </div>
+          </div>
 
           {actionError && <p className="text-sm text-red-400">{actionError}</p>}
           {notice && (
@@ -313,6 +530,7 @@ export default function ResponseReportView({
             <table className="w-full table-fixed text-left">
               <colgroup>
                 <col />
+                <col className="w-24" />
                 <col />
                 <col />
                 <col className="w-36" />
@@ -321,6 +539,7 @@ export default function ResponseReportView({
               <thead>
                 <tr className="border-b border-bip-border text-[11px] uppercase tracking-wide text-bip-muted">
                   <th className="px-3 py-2 font-medium">Project</th>
+                  <th className="px-3 py-2 font-medium">Waiting</th>
                   <th className="px-3 py-2 font-medium">Last reply from us</th>
                   <th className="px-3 py-2 font-medium">Last message from client</th>
                   <th className="px-3 py-2 font-medium">Status</th>
@@ -328,144 +547,24 @@ export default function ResponseReportView({
                 </tr>
               </thead>
               <tbody>
-                {visible.map((r) => (
-                  <tr
-                    key={r.basecamp_project_id}
-                    className={`border-b border-bip-border last:border-0 hover:bg-bip-fill/50 ${r.acknowledged ? "opacity-60" : ""}`}
-                  >
-                    <td className="min-w-0 px-3 py-2.5 align-top">
-                      {r.client_id != null ? (
-                        <Link
-                          href={`/dashboard/clients/${r.client_id}`}
-                          className="block truncate text-sm font-medium text-bip-text hover:text-bip-accent"
-                        >
-                          {r.account_name}
-                        </Link>
-                      ) : (
-                        <p className="truncate text-sm font-medium text-bip-text">{r.account_name}</p>
-                      )}
-                      {r.client_id == null ? (
-                        <p className="text-xs text-bip-muted">No client record</p>
-                      ) : (
-                        r.marketing_strategist && (
-                          <p className="truncate text-xs text-bip-muted">{r.marketing_strategist}</p>
-                        )
-                      )}
-                    </td>
-                    <td className="min-w-0 px-3 py-2.5 align-top">
-                      <Side
-                        who={r.last_internal_author}
-                        at={r.last_internal_at}
-                        days={r.days_since_our_reply}
-                        url={r.last_internal_thread_url}
-                        title={r.last_internal_thread_title}
-                      />
-                    </td>
-                    <td className="min-w-0 px-3 py-2.5 align-top">
-                      <Side
-                        who={r.last_client_author}
-                        at={r.last_client_at}
-                        days={r.days_since_client_contact}
-                        url={r.last_client_thread_url}
-                        title={r.last_client_thread_title}
-                      />
-                    </td>
-                    <td className="min-w-0 px-3 py-2.5 align-top">
-                      <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_CLASS[r.status]}`}>
-                        {STATUS_LABEL[r.status]}
-                      </span>
-                      {r.acknowledged && (
-                        <span className="mt-1 block text-[10px] text-bip-muted">dismissed</span>
-                      )}
-                      {(() => {
-                        const followup = followupByProject.get(r.basecamp_project_id);
-                        if (!followup) return null;
-                        const overdue = isOverdue(followup, new Date());
-                        return (
-                          <Link
-                            href="/follow-ups"
-                            className={`mt-1 block truncate text-[10px] hover:underline ${overdue ? "text-red-400" : "text-sky-300"}`}
-                            title={`Follow-up sent to ${followup.recipient_email}`}
-                          >
-                            Asked {followup.recipient_name ?? followup.recipient_email} ·{" "}
-                            {openForLabel(followup.sent_at, new Date())}
-                          </Link>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-3 py-2.5 text-right align-top">
-                      {confirming === r.basecamp_project_id ? (
-                        <div className="space-y-1.5 text-left">
-                          <p className="text-[11px] text-bip-muted">Stop tracking this project?</p>
-                          <select
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                            className="w-full rounded-md border border-bip-border bg-bip-page px-1.5 py-1 text-[11px] text-bip-text"
-                            aria-label="Why stop tracking"
-                          >
-                            {STOP_REASONS.map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => void stopTracking(r)}
-                              disabled={busy === r.basecamp_project_id}
-                              className="flex-1 rounded-md bg-bip-accent px-2 py-1 text-[11px] font-medium text-black disabled:opacity-50"
-                            >
-                              {busy === r.basecamp_project_id ? "…" : "Stop"}
-                            </button>
-                            <button
-                              onClick={() => setConfirming(null)}
-                              className="flex-1 rounded-md border border-bip-border px-2 py-1 text-[11px] text-bip-muted hover:text-bip-text"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-end gap-1">
-                          <a
-                            href={`https://basecamp.com/2175055/projects/${r.basecamp_project_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-muted hover:text-bip-text"
-                          >
-                            <ExternalLink size={11} />
-                            Basecamp
-                          </a>
-                          <button
-                            onClick={() => {
-                              setNotice(null);
-                              setNotifying(r);
-                            }}
-                            className="inline-flex items-center gap-1 text-[11px] text-bip-accent hover:underline"
-                            title="Email a teammate about this client and track it on Follow-ups"
-                          >
-                            <BellRing size={11} />
-                            Notify strategist
-                          </button>
-                          <button
-                            onClick={() => {
-                              setReason(STOP_REASONS[0]);
-                              setConfirming(r.basecamp_project_id);
-                            }}
-                            className="inline-flex items-center gap-1 text-[11px] text-bip-muted hover:text-bip-text"
-                            title="Hide this project from the report, Coal Mines and the reply watch. You can restore it below."
-                          >
-                            <EyeOff size={11} />
-                            Stop tracking
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {visible.length === 0 && (
+                {ageGroups
+                  ? ageGroups.map((group) => (
+                      <Fragment key={group.label}>
+                        <tr className="border-b border-bip-border bg-bip-fill/40">
+                          <td colSpan={COLUMN_COUNT} className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide">
+                            <span className={group.tone === "overdue" ? "text-red-200" : group.tone === "aging" ? "text-amber-100" : "text-bip-muted"}>
+                              {group.label}
+                            </span>{" "}
+                            <span className="tabular-nums text-bip-muted">· {group.rows.length}</span>
+                          </td>
+                        </tr>
+                        {group.rows.map((r) => renderRow(r))}
+                      </Fragment>
+                    ))
+                  : activeRows.map((r) => renderRow(r))}
+                {activeRows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-bip-muted">
+                    <td colSpan={COLUMN_COUNT} className="px-4 py-8 text-center text-sm text-bip-muted">
                       No projects match those filters.
                     </td>
                   </tr>
@@ -473,6 +572,37 @@ export default function ResponseReportView({
               </tbody>
             </table>
           </div>
+
+          {dismissedRows.length > 0 && (
+            <div className="rounded-xl border border-bip-border bg-bip-card">
+              <button
+                onClick={() => setShowDismissed((open) => !open)}
+                aria-expanded={showDismissed}
+                className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-bip-muted hover:text-bip-text"
+              >
+                <span>
+                  Dismissed <span className="tabular-nums">({dismissedRows.length})</span>
+                  <span className="ml-2 text-xs">client spoke last, marked as needing no reply</span>
+                </span>
+                <span className="text-xs">{showDismissed ? "Hide" : "Show"}</span>
+              </button>
+              {showDismissed && (
+                <div className="overflow-x-auto border-t border-bip-border">
+                  <table className="w-full table-fixed text-left">
+                    <colgroup>
+                      <col />
+                      <col className="w-24" />
+                      <col />
+                      <col />
+                      <col className="w-36" />
+                      <col className="w-36" />
+                    </colgroup>
+                    <tbody>{dismissedRows.map((r) => renderRow(r))}</tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
           {notifying && (
             <NotifyStrategistDialog

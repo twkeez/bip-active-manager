@@ -1,11 +1,16 @@
 import { redirect } from "next/navigation";
 import ResponseReportView from "@/components/basecamp/response-report-view";
+import { STATUS_FILTERS, type StatusFilter } from "@/lib/basecamp/response-report";
 import { loadResponseReport } from "@/lib/basecamp/load-response-report";
 import type { FollowupRow } from "@/lib/followups/followups";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function ResponseReportPage() {
+export default async function ResponseReportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,6 +26,9 @@ export default async function ResponseReportPage() {
     supabase.from("strategist_followups").select("*").eq("state", "open").eq("kind", "note"),
   ]);
 
+  const { status } = await searchParams;
+  const initialStatus = STATUS_FILTERS.includes(status as StatusFilter) ? (status as StatusFilter) : null;
+
   const staff = ((staffResult.data ?? []) as { full_name: string | null; email: string | null }[])
     .filter((person) => person.email)
     .map((person) => ({ name: person.full_name?.trim() || person.email!, email: person.email!.toLowerCase() }))
@@ -34,6 +42,7 @@ export default async function ResponseReportPage() {
       openFollowups={(followupResult.data ?? []) as FollowupRow[]}
       lastSyncedAt={lastSyncedAt}
       loadError={loadError}
+      initialStatus={initialStatus}
     />
   );
 }

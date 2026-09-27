@@ -5,6 +5,10 @@ import type { ResponseReportRow } from "@/lib/basecamp/load-response-report";
 
 export type ReportStatus = "awaiting_us" | "awaiting_client" | "no_contact";
 
+/** The report's tabs, in order. The page opens on the first. */
+export type StatusFilter = "all" | ReportStatus;
+export const STATUS_FILTERS: StatusFilter[] = ["awaiting_us", "awaiting_client", "no_contact", "all"];
+
 export type ShapedReportRow = ResponseReportRow & {
   status: ReportStatus;
   /** Someone marked the client's last message as needing no reply. */
@@ -70,7 +74,13 @@ export type ReportSummary = {
   overdue: number;
 };
 
-export const OVERDUE_DAYS = 7;
+/**
+ * How long a client may wait on us before it looks bad. One place, so the
+ * badge colours, the age groups and the tiles always agree.
+ */
+export const WAIT_THRESHOLDS = { overdueDays: 7, agingDays: 3 } as const;
+
+export const OVERDUE_DAYS = WAIT_THRESHOLDS.overdueDays;
 
 export function summarizeReport(rows: ShapedReportRow[]): ReportSummary {
   const open = rows.filter((r) => r.status === "awaiting_us" && !r.acknowledged);
@@ -94,4 +104,65 @@ export function internalAuthors(rows: ShapedReportRow[]): string[] {
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([name]) => name);
+}
+
+// --- Triage view (Response Report redesign, phase 1) -----------------------
+
+export type WaitTone = "overdue" | "aging" | "fresh";
+
+export function waitTone(days: number | null): WaitTone {
+  if (days != null && days >= WAIT_THRESHOLDS.overdueDays) return "overdue";
+  if (days != null && days >= WAIT_THRESHOLDS.agingDays) return "aging";
+  return "fresh";
+}
+
+/**
+ * Dismissed: the client spoke last, but someone marked that message as needing
+ * no reply. Kept in its own group, never among the rows that need action.
+ */
+export function isDismissed(row: ShapedReportRow): boolean {
+  return row.status === "awaiting_us" && row.acknowledged;
+}
+
+export type AgeGroup = { tone: WaitTone; label: string; rows: ShapedReportRow[] };
+
+/** Rows waiting on us, grouped 7+ / 3–6 / under 3 days, oldest first in each. */
+export function groupByWait(rows: ShapedReportRow[]): AgeGroup[] {
+  const { overdueDays, agingDays } = WAIT_THRESHOLDS;
+  const groups: AgeGroup[] = [
+    { tone: "overdue", label: `${overdueDays}+ days`, rows: [] },
+    { tone: "aging", label: `${agingDays}–${overdueDays - 1} days`, rows: [] },
+    { tone: "fresh", label: `Under ${agingDays} days`, rows: [] },
+  ];
+  for (const row of rows) {
+    if (row.status !== "awaiting_us" || isDismissed(row)) continue;
+    groups.find((group) => group.tone === waitTone(row.waitingDays))!.rows.push(row);
+  }
+  for (const group of groups) {
+    group.rows.sort(
+      (a, b) => (b.waitingDays ?? -1) - (a.waitingDays ?? -1) || a.account_name.localeCompare(b.account_name),
+    );
+  }
+  return groups;
+}
+
+export type ReportTiles = {
+  waitingOnUs: number;
+  waitingOverdue: number;
+  oldest: { days: number; name: string } | null;
+  waitingOnClient: number;
+};
+
+export function reportTiles(rows: ShapedReportRow[]): ReportTiles {
+  const open = rows.filter((row) => row.status === "awaiting_us" && !isDismissed(row));
+  const oldest = open.reduce<ShapedReportRow | null>(
+    (best, row) => ((row.waitingDays ?? -1) > (best?.waitingDays ?? -1) ? row : best),
+    null,
+  );
+  return {
+    waitingOnUs: open.length,
+    waitingOverdue: open.filter((row) => waitTone(row.waitingDays) === "overdue").length,
+    oldest: oldest && oldest.waitingDays != null ? { days: oldest.waitingDays, name: oldest.account_name } : null,
+    waitingOnClient: rows.filter((row) => row.status === "awaiting_client").length,
+  };
 }
