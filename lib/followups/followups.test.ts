@@ -99,6 +99,15 @@ describe("followupsAnswered", () => {
     expect(followupsAnswered([open, done], threads)).toEqual([]);
   });
 
+  it("closes on the person's reply inside the thread, even when the client answered after it", () => {
+    const f = followup({ sent_at: hoursAgo(5) });
+    const posts = [
+      thread({ author_email: "client@practice.com", occurred_at: hoursAgo(1) }), // thread row: client posted last
+      { basecamp_project_id: "123", basecamp_recording_id: 777, parent_recording_id: 9, occurred_at: hoursAgo(2), author_email: "stephanie@beyondindigo.com" },
+    ];
+    expect(followupsAnswered([f], posts)).toHaveLength(1);
+  });
+
   it("with no thread on the note, closes when the person asked posts anywhere in the project", () => {
     const f = followup({ sent_at: hoursAgo(5), thread_url: null, thread_title: null });
     expect(followupsAnswered([f], [thread({ basecamp_recording_id: 42 })])).toHaveLength(1);

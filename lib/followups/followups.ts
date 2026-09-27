@@ -115,12 +115,14 @@ export function followupEmailBody(
 }
 
 /**
- * A thread as the Basecamp sync stores it: one row per thread, carrying when
- * it last changed and who posted last (classic Basecamp's "last updater").
+ * A Basecamp post as the sync stores it: a thread row (who posted last), or,
+ * since 2026-09-27, a "comment" row for each post inside a thread, whose
+ * parent_recording_id is the thread.
  */
 export type ThreadActivity = {
   basecamp_project_id: string;
   basecamp_recording_id: number;
+  parent_recording_id?: number | null;
   occurred_at: string;
   author_email: string | null;
 };
@@ -139,10 +141,8 @@ export function threadIdFromUrl(url: string | null): number | null {
  * - a note with no thread (nobody has spoken lately) closes when the person
  *   asked posts anywhere in the project, since reaching out is the ask.
  *
- * The sync keeps only each thread's last poster, so if the client answers
- * before the next sync, the strategist's reply is not seen and the follow-up
- * stays open for a manual "Mark done". It can stay open wrongly; it cannot
- * close wrongly.
+ * Each post in a thread is its own row, so a strategist's reply counts even
+ * when the client answered it before the next sync.
  */
 export function followupsAnswered(
   followups: FollowupRow[],
@@ -160,7 +160,9 @@ export function followupsAnswered(
     const match = threads.find(
       (thread) =>
         thread.basecamp_project_id === followup.basecamp_project_id &&
-        (threadId == null || thread.basecamp_recording_id === threadId) &&
+        (threadId == null ||
+          thread.basecamp_recording_id === threadId ||
+          thread.parent_recording_id === threadId) &&
         (thread.author_email ?? "").trim().toLowerCase() === recipient &&
         new Date(thread.occurred_at).getTime() > sent,
     );

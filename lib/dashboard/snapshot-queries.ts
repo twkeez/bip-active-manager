@@ -260,6 +260,7 @@ export async function fetchLightweightThreadPreviews(
   const { data, error } = await supabase
     .from("basecamp_communication_events")
     .select("basecamp_project_id, thread_title, thread_excerpt, occurred_at")
+    .eq("kind", "message")
     .gte("occurred_at", cutoffIso)
     .order("occurred_at", { ascending: false })
     .limit(800);

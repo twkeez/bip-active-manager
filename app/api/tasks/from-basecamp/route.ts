@@ -95,6 +95,9 @@ export async function POST(request: Request) {
     .eq("basecamp_project_id", basecampProjectId)
     .eq("basecamp_recording_id", basecampRecordingId)
     .order("occurred_at", { ascending: false })
+    // A classic thread's opening post shares the thread's id as a "comment"
+    // row with no text; prefer the thread row itself.
+    .order("kind", { ascending: false })
     .limit(1);
   if (clientId) {
     eventQuery = eventQuery.eq("client_id", clientId);

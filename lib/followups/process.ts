@@ -44,7 +44,7 @@ export async function sweepFollowups(admin: SupabaseClient, now: Date = new Date
   const since = open[0].sent_at;
   const { data: postRows, error: postError } = await admin
     .from("basecamp_communication_events")
-    .select("basecamp_project_id,basecamp_recording_id,occurred_at,author_email")
+    .select("basecamp_project_id,basecamp_recording_id,parent_recording_id,occurred_at,author_email")
     .in("basecamp_project_id", [
       ...new Set(open.map((f) => f.basecamp_project_id).filter((id): id is string => Boolean(id))),
     ])

@@ -42,6 +42,8 @@ export async function runThreadClassification(
     .select(
       "basecamp_recording_id, basecamp_project_id, basecamp_project_name, client_id, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
     )
+    // One row per thread. Replies are stored as "comment" rows beside it.
+    .eq("kind", "message")
     .order("occurred_at", { ascending: false })
     .returns<Row[]>();
   if (error) throw new Error(error.message);
@@ -139,7 +141,8 @@ export async function runThreadClassification(
         classified_excerpt: staleKeyById.get(v.recordingId) ?? null,
         classified_at: classifiedAt,
       })
-      .eq("basecamp_recording_id", v.recordingId);
+      .eq("basecamp_recording_id", v.recordingId)
+      .eq("kind", "message");
     if (!updateError) written += 1;
   }
 

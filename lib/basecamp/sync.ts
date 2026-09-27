@@ -12,6 +12,7 @@ import {
   getActiveBasecampToken,
   requestBasecampJson,
 } from "@/lib/basecamp/client";
+import { classicThreadPosts } from "@/lib/basecamp/classic-thread-posts";
 import { buildSyncRoster, type RosterProject } from "@/lib/basecamp/sync-roster";
 import { runWithConcurrency } from "@/lib/basecamp/concurrency";
 
@@ -567,7 +568,16 @@ async function updateClientCommsAggregate(
   }
 }
 
-export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
+export async function runBasecampSync(
+  mode: BasecampSyncMode = "oauth",
+  options: {
+    /**
+     * Look back this many days regardless of the last sync: a one-off backfill.
+     * Normal runs fetch only what changed since the last sync (or 30 days).
+     */
+    lookbackDays?: number;
+  } = {},
+) {
   const admin = createAdminClient();
   const fallbackInternalDomains = getInternalEmailDomains();
   const fallbackInternalEmails = getInternalEmails();
@@ -591,8 +601,11 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
     .maybeSingle<{ last_synced_at: string | null }>();
   const lastSyncedAt = syncState?.last_synced_at ?? null;
   const lastSyncMs = lastSyncedAt ? new Date(lastSyncedAt).getTime() - 5 * 60 * 1000 : null;
-  const fetchCutoffMs =
-    lastSyncMs && lastSyncMs > thirtyDaysMs ? lastSyncMs : thirtyDaysMs;
+  const fetchCutoffMs = options.lookbackDays
+    ? Date.now() - options.lookbackDays * 24 * 60 * 60 * 1000
+    : lastSyncMs && lastSyncMs > thirtyDaysMs
+      ? lastSyncMs
+      : thirtyDaysMs;
   const fetchCutoffIso = new Date(fetchCutoffMs).toISOString();
   const isIncremental = fetchCutoffMs > thirtyDaysMs;
 
@@ -907,6 +920,46 @@ export async function runBasecampSync(mode: BasecampSyncMode = "oauth") {
             thread_url: topic.thread_url,
             updated_at: nowIso,
           });
+
+          // The row above says only who posted LAST. Read the thread itself so
+          // every post in it (the opening message and each reply, including
+          // email-in replies) is on record, not just the final one. Who and
+          // when only; no post text is stored. See classic-thread-posts.ts.
+          const detail = await requestClassicBasecampJson<unknown>(
+            classic!.accountId,
+            classic!.headers,
+            `/api/v1/projects/${encodeURIComponent(projectId)}/messages/${topic.basecamp_recording_id}.json`,
+          );
+          for (const post of classicThreadPosts(topic.basecamp_recording_id, detail)) {
+            if (new Date(post.occurredAt).getTime() < fetchCutoffMs) continue;
+            const postEmail =
+              post.email ??
+              (await resolveClassicPersonEmail(
+                admin,
+                classic!.accountId,
+                classic!.headers,
+                post.personId,
+              ));
+            const postClassification = classifyAuthor(post.personId, postEmail, internalLookup);
+            events.push({
+              client_id: project.clientId,
+              basecamp_project_id: projectId,
+              basecamp_project_name: project.projectName,
+              basecamp_recording_id: post.recordingId,
+              parent_recording_id: topic.basecamp_recording_id,
+              kind: "comment",
+              occurred_at: post.occurredAt,
+              author_person_id: post.personId,
+              author_email: postEmail,
+              is_internal: storedAuthorIsInternal(postClassification.isInternal, postEmail),
+              source_updated_at: post.occurredAt,
+              thread_title: topic.thread_title,
+              thread_excerpt: null,
+              thread_body: null,
+              thread_url: topic.thread_url,
+              updated_at: nowIso,
+            });
+          }
         }
       }
 
