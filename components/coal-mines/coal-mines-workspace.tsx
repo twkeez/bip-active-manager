@@ -20,7 +20,6 @@ import type { Canary, CanaryStatus } from "@/lib/coal-mines/canaries";
 import type { RoutineView } from "@/lib/routines/load";
 import type { RoutineFinding, RoutineStatus } from "@/lib/routines/types";
 import CanaryBody from "./canary-body";
-import ClassifyThreadsButton from "./classify-threads-button";
 
 /**
  * Coal Mines, in three panels.
@@ -657,14 +656,6 @@ export default function CoalMinesWorkspace({
                 >
                   {selection.canary.action.label} →
                 </Link>
-              </section>
-            )}
-            {selection.canary.key === "basecamp-threads" && (
-              <section>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Threads</p>
-                <div className="mt-1.5">
-                  <ClassifyThreadsButton />
-                </div>
               </section>
             )}
           </div>

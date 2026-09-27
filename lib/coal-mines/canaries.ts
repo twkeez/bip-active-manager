@@ -124,8 +124,9 @@ export async function runCanaries(
       checkSyncHealth(supabase, now),
       checkAdsFreshness(supabase, now),
       checkServiceCoverage(supabase, now),
-      checkProjectWiring(supabase),
-      checkBasecampThreads(supabase, now),
+      // "Client wiring" and "Basecamp threads" left the board on 2026-09-26:
+      // the Response Report and Follow-ups now cover Basecamp replies, and
+      // Project Wiring has its own page. The checks stay for their tests.
     ]),
     runCustom(admin),
   ]);
