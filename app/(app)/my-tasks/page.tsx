@@ -19,6 +19,13 @@ import { joinTasksWithSources } from "@/lib/tasks/shared";
 import { batchProjectMeta } from "@/lib/projects/access";
 import { getProfile } from "@/lib/auth/profile";
 import MyTasksManager from "@/components/tasks/my-tasks-manager";
+import SeoAuditsDuePanel from "@/components/dashboard/seo-audits-due-panel";
+import { dueStatus } from "@/lib/site-audit/seo-audit-schedule";
+import type {
+  ClientSeoAuditSchedule,
+  ClientSeoAuditScheduleWithClient,
+} from "@/lib/site-audit/seo-audit-types";
+import { getStrategistRoster } from "@/lib/team/strategist-roster";
 export default async function MyTasksPage() {
   const supabase = await createClient();
   const {
@@ -160,7 +167,29 @@ export default async function MyTasksPage() {
       } satisfies ClientProjectWithMeta;
     });
   })();
-  return (
+  // SEO audits due: moved here from the retired Dashboard. Shown only when one
+  // is due or overdue, since they are to-dos like the rest of the page.
+  const { data: seoAuditRows } = await supabase
+    .from("client_seo_audit_schedules")
+    .select("*, clients(account_name, marketing_strategist, website)")
+    .eq("owner_user_id", user.id);
+  const seoAuditSchedules: ClientSeoAuditScheduleWithClient[] = (seoAuditRows ?? []).map((row) => {
+    const { clients: c, ...schedule } = row as ClientSeoAuditSchedule & {
+      clients: { account_name: string; marketing_strategist: string | null; website: string | null } | null;
+    };
+    return {
+      ...schedule,
+      account_name: c?.account_name ?? "Unknown client",
+      marketing_strategist: c?.marketing_strategist ?? null,
+      website: c?.website ?? null,
+    };
+  });
+  const auditsNeedDoing = seoAuditSchedules.some((schedule) => {
+    const status = dueStatus(schedule.next_due_at);
+    return status === "due" || status === "overdue";
+  });
+
+  const manager = (
     <MyTasksManager
       initialTasks={joinTasksWithSources(
         tasks,
@@ -180,5 +209,18 @@ export default async function MyTasksPage() {
       initialEmailMessages={gmailMessages}
       initialEmailRules={gmailRules}
     />
+  );
+  if (!auditsNeedDoing) return manager;
+  return (
+    <div className="bg-bip-page">
+      <div className="px-6 pt-6">
+        <SeoAuditsDuePanel
+          schedules={seoAuditSchedules}
+          roster={getStrategistRoster()}
+          appUrl={process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}
+        />
+      </div>
+      {manager}
+    </div>
   );
 }

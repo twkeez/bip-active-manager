@@ -25,7 +25,6 @@ import {
   Handshake,
   Inbox,
   Layers,
-  LayoutDashboard,
   ListChecks,
   Link2,
   Map,
@@ -59,7 +58,6 @@ type NavItem = {
 };
 
 const PRIMARY: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Assistant", href: "/assistant", icon: Sparkles, adminOnly: true },
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "Response Report", href: "/response-report", icon: MessageSquare },

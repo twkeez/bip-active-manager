@@ -1,7 +1,9 @@
+import { getAppMode, type AppMode } from "@/lib/auth/app-mode";
 import type { UserRole } from "@/lib/auth/profile";
 
 // Cookie that lets an admin preview the restricted "user" (strategist) view.
-// Pure helpers only — safe to import from both server and client components.
+// Pure helpers only — safe to import from both server and client components
+// (getAppMode only reads an environment variable).
 export const VIEW_AS_COOKIE = "bip-view-as";
 
 /**
@@ -16,9 +18,12 @@ export function resolveEffectiveRole(
   return actualRole;
 }
 
-/** Where a given role should land after login / from the app root. */
-// Everyone lands on the client selection homescreen; the admin dashboard
-// stays reachable via the sidebar.
-export function landingPathForRole(_role: UserRole): string {
-  return "/dashboard/clients";
+/**
+ * Where a given role lands after login and from the app root. Admins land on
+ * the Response Report (Tom's daily view since the Dashboard was retired,
+ * 2026-09-26). Everyone else, and everyone on the team build (where the
+ * report does not exist), lands on the client homescreen.
+ */
+export function landingPathForRole(role: UserRole, mode: AppMode = getAppMode()): string {
+  return role === "admin" && mode === "full" ? "/response-report" : "/dashboard/clients";
 }
