@@ -1000,6 +1000,8 @@ export type KeywordHealthRow = {
   current_impressions: number;
   previous_impressions: number;
   dropped_by_3_plus: boolean;
+  /** False when the earlier period was not captured, so previous_* are not real zeros. */
+  previous_available?: boolean;
 };
 
 export type ClientKeywordTarget = {

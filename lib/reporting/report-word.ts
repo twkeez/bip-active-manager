@@ -226,12 +226,12 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
       : "");
 
   const keywordBody = table(
-    ["Keyword", "Position", "Change", "Clicks"],
+    ["Keyword", "Position", "Change", "Clicks (28 days)"],
     keywords.rows.map((r) => [
       r.keyword,
       r.currentPosition != null ? r.currentPosition.toFixed(1) : "—",
       r.positionDelta != null ? `${r.positionDelta <= 0 ? "" : "+"}${r.positionDelta.toFixed(1)}` : "—",
-      r.currentClicks.toLocaleString(),
+      r.currentClicks == null ? "—" : r.currentClicks.toLocaleString(),
     ]),
   );
 

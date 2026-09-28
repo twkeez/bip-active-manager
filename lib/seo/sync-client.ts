@@ -35,9 +35,20 @@ export async function syncClientSearchConsole(
   clientId: number,
   client: { sc_url?: string | null; website?: string | null },
   userAccessToken?: string,
+  options: {
+    /**
+     * Capture a past window instead of the last 28 days: the report's
+     * "previous period" when no nightly snapshot covered it. The snapshot is
+     * dated just after its window, so everything that reads "the latest
+     * snapshot" (by created_at) still gets the real latest. Signals and
+     * sitemaps describe the site today, so they are not written for it.
+     */
+    historicalWindow?: { startDate: string; endDate: string };
+  } = {},
 ): Promise<SearchConsoleSyncResult> {
-  const startDate = isoDateDaysAgo(WINDOW_DAYS);
-  const endDate = isoDateDaysAgo(1);
+  const historical = options.historicalWindow ?? null;
+  const startDate = historical?.startDate ?? isoDateDaysAgo(WINDOW_DAYS);
+  const endDate = historical?.endDate ?? isoDateDaysAgo(1);
 
   const { data: createdSnapshot, error: createSnapshotError } = await admin
     .from("client_gsc_snapshots")
@@ -47,6 +58,7 @@ export async function syncClientSearchConsole(
       start_date: startDate,
       end_date: endDate,
       run_status: "running",
+      ...(historical ? { created_at: `${endDate}T12:00:00.000Z` } : {}),
     })
     .select("*")
     .single<GscSnapshot>();
@@ -97,7 +109,7 @@ export async function syncClientSearchConsole(
       "query metrics",
     );
 
-    const signals = buildGscSignals(syncResult.pageRows, syncResult.queryRows);
+    const signals = historical ? [] : buildGscSignals(syncResult.pageRows, syncResult.queryRows);
     await insert(
       "client_gsc_signals",
       signals.map((signal) => ({
@@ -132,7 +144,7 @@ export async function syncClientSearchConsole(
 
     await insert(
       "client_gsc_sitemaps",
-      syncResult.sitemaps.map((sitemap) => ({
+      (historical ? [] : syncResult.sitemaps).map((sitemap) => ({
         client_id: clientId,
         snapshot_id: createdSnapshot.id,
         sitemap_url: sitemap.sitemapUrl,

@@ -182,8 +182,9 @@ export type ReportKeywordRow = {
   currentPosition: number | null;
   previousPosition: number | null;
   positionDelta: number | null;
-  currentClicks: number;
-  previousClicks: number;
+  /** Null when Google has no row for the keyword in that period: shown as "—", not 0. */
+  currentClicks: number | null;
+  previousClicks: number | null;
   droppedBy3Plus: boolean;
   trend: ReportKeywordTrendPoint[];
 };

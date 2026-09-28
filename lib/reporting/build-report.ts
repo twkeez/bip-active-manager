@@ -116,16 +116,24 @@ export function buildWeeklyPerformanceRows(params: {
     },
   ];
 
-  const keywordPrevious = params.keywordRows.reduce((sum, row) => sum + row.previous_clicks, 0);
+  // 28-day totals from one snapshot each, not a sum of overlapping snapshots.
+  // No comparison when the earlier 28 days were not captured.
   const keywordCurrent = params.keywordRows.reduce((sum, row) => sum + row.current_clicks, 0);
+  const comparable =
+    params.keywordRows.length > 0 && params.keywordRows.every((row) => row.previous_available !== false);
+  const keywordPrevious = comparable
+    ? params.keywordRows.reduce((sum, row) => sum + row.previous_clicks, 0)
+    : null;
   const searchRow: WeeklyPerfRow = {
-    label: "Search Clicks (Top Tracked Keywords)",
+    label: "Search Clicks (Top Tracked Keywords, 28 days)",
     category: "channel",
     current: keywordCurrent,
     previous: keywordPrevious,
-    deltaAbsolute: keywordCurrent - keywordPrevious,
+    deltaAbsolute: keywordPrevious == null ? null : keywordCurrent - keywordPrevious,
     deltaPercent:
-      keywordPrevious > 0 ? ((keywordCurrent - keywordPrevious) / keywordPrevious) * 100 : null,
+      keywordPrevious != null && keywordPrevious > 0
+        ? ((keywordCurrent - keywordPrevious) / keywordPrevious) * 100
+        : null,
   };
 
   const campaignRows: WeeklyPerfRow[] =
@@ -885,11 +893,6 @@ function toPeriodMetric(
   return { label, current, previous, deltaAbsolute, deltaPercent, valueSuffix, valuePrefix };
 }
 
-function avg(values: number[]) {
-  if (values.length === 0) return null;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
 /** Coerces a possibly-missing GA4 number (real snapshots can have undefined
  *  totals fields even though the type says number). */
 function gaNum(v: number | null | undefined): number | null {
@@ -1183,47 +1186,50 @@ function buildSearchConsoleChannelBlock(params: {
   };
 }
 
+type KeywordMetricInput = {
+  query: string;
+  clicks: number;
+  impressions: number;
+  position: number;
+  /** Which 28-day period the row belongs to (see lib/reporting/keyword-periods.ts). */
+  period: "current" | "previous";
+};
+
+/**
+ * One row per tracked keyword: its current 28-day numbers against the 28 days
+ * before. Never a sum across snapshots (each is already a 28-day total). A
+ * keyword missing from a period (outside Google's top 100 queries, or the
+ * period was not captured) is null, shown as "—", not zero.
+ */
 function buildKeywordRows(params: {
   managedKeywords: ManagedKeyword[];
-  gscQueryMetrics: Array<{
-    query: string;
-    clicks: number;
-    impressions: number;
-    position: number;
-    created_at: string;
-  }>;
+  gscQueryMetrics: KeywordMetricInput[];
 }): ReportKeywordRow[] {
-  const queryMap = new Map<string, typeof params.gscQueryMetrics>();
+  const byKey = new Map<string, { current?: KeywordMetricInput; previous?: KeywordMetricInput }>();
   for (const row of params.gscQueryMetrics) {
     const key = row.query.trim().toLowerCase();
-    if (!queryMap.has(key)) queryMap.set(key, []);
-    queryMap.get(key)!.push(row);
+    const entry = byKey.get(key) ?? {};
+    entry[row.period] = row;
+    byKey.set(key, entry);
   }
   return params.managedKeywords
     .filter((keyword) => keyword.isActive)
     .map((keyword) => {
-      const key = keyword.keyword.trim().toLowerCase();
-      const rows = (queryMap.get(key) ?? []).sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      );
-      const currentRows = rows.slice(0, 7);
-      const previousRows = rows.slice(7, 14);
-      const currentClicks = currentRows.reduce((sum, row) => sum + row.clicks, 0);
-      const previousClicks = previousRows.reduce((sum, row) => sum + row.clicks, 0);
-      const currentPosition = avg(
-        currentRows.map((row) => row.position).filter((value) => Number.isFinite(value)),
-      );
-      const previousPosition = avg(
-        previousRows.map((row) => row.position).filter((value) => Number.isFinite(value)),
-      );
+      const entry = byKey.get(keyword.keyword.trim().toLowerCase()) ?? {};
+      const current = entry.current ?? null;
+      const previous = entry.previous ?? null;
+      const currentPosition = current && Number.isFinite(current.position) ? current.position : null;
+      const previousPosition = previous && Number.isFinite(previous.position) ? previous.position : null;
       const positionDelta =
         currentPosition == null || previousPosition == null ? null : currentPosition - previousPosition;
-      const trend: ReportKeywordTrendPoint[] = currentRows.slice(0, 6).map((row, index) => ({
-        snapshotLabel: `T-${index + 1}`,
-        clicks: row.clicks,
-        impressions: row.impressions,
-        position: row.position,
-      }));
+      const trend: ReportKeywordTrendPoint[] = [
+        ...(current
+          ? [{ snapshotLabel: "Last 28 days", clicks: current.clicks, impressions: current.impressions, position: currentPosition }]
+          : []),
+        ...(previous
+          ? [{ snapshotLabel: "Previous 28 days", clicks: previous.clicks, impressions: previous.impressions, position: previousPosition }]
+          : []),
+      ];
       return {
         keyword: keyword.keyword,
         tag: keyword.tag,
@@ -1231,8 +1237,8 @@ function buildKeywordRows(params: {
         currentPosition,
         previousPosition,
         positionDelta,
-        currentClicks,
-        previousClicks,
+        currentClicks: current ? current.clicks : null,
+        previousClicks: previous ? previous.clicks : null,
         droppedBy3Plus: (positionDelta ?? 0) >= 3,
         trend,
       };
@@ -1241,13 +1247,7 @@ function buildKeywordRows(params: {
 
 export function buildKeywordSection(params: {
   managedKeywords: ManagedKeyword[];
-  gscQueryMetrics: Array<{
-    query: string;
-    clicks: number;
-    impressions: number;
-    position: number;
-    created_at: string;
-  }>;
+  gscQueryMetrics: KeywordMetricInput[];
 }): ReportKeywordSection {
   const rows = buildKeywordRows(params);
   const dropped = rows.filter((row) => row.droppedBy3Plus).length;
@@ -1283,13 +1283,7 @@ export function buildClientReportModel(params: {
   previousMetaAdsSnapshot?: MetaAdsSnapshot | null;
   gscPageMetrics?: GscPageMetric[];
   gscPreviousPageMetrics?: GscPageMetric[];
-  gscQueryMetrics?: Array<{
-    query: string;
-    clicks: number;
-    impressions: number;
-    position: number;
-    created_at: string;
-  }>;
+  gscQueryMetrics?: KeywordMetricInput[];
   managedKeywords?: ManagedKeyword[];
   socialPostSnapshots?: SocialPostSnapshot[];
   strategistSummary: StrategistSummaryResult | null;

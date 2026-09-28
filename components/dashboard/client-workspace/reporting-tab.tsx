@@ -244,13 +244,17 @@ export default function ReportingOverview({
     () =>
       buildKeywordSection({
         managedKeywords,
-        gscQueryMetrics: keywordRowsForReport.map((row) => ({
-          query: row.keyword,
-          clicks: row.current_clicks,
-          impressions: row.current_impressions,
-          position: row.current_position ?? 0,
-          created_at: new Date().toISOString(),
-        })),
+        // Both periods of the live keyword-health comparison. A keyword with
+        // no position in a period is left out of it, so it shows "—", not a
+        // made-up position 0.
+        gscQueryMetrics: keywordRowsForReport.flatMap((row) => [
+          ...(row.current_position != null
+            ? [{ query: row.keyword, clicks: row.current_clicks, impressions: row.current_impressions, position: row.current_position, period: "current" as const }]
+            : []),
+          ...(row.previous_position != null
+            ? [{ query: row.keyword, clicks: row.previous_clicks, impressions: row.previous_impressions, position: row.previous_position, period: "previous" as const }]
+            : []),
+        ]),
       }),
     [managedKeywords, keywordRowsForReport],
   );

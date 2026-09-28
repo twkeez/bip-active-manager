@@ -847,9 +847,9 @@ export default function ReportPreview({ report, config, draft, printMode = false
                       </td>
                       <td className="px-5 py-3 text-right text-xs">
                         <span className="font-semibold text-gray-800">
-                          {row.currentClicks.toLocaleString()}
+                          {row.currentClicks == null ? "—" : row.currentClicks.toLocaleString()}
                         </span>
-                        {row.previousClicks > 0 && (
+                        {row.previousClicks != null && (
                           <span className="ml-1 text-gray-400">
                             / {row.previousClicks.toLocaleString()}
                           </span>

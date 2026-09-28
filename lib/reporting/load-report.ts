@@ -1,3 +1,4 @@
+import { pickKeywordPeriods, type GscSnapshotWindow, type KeywordPeriodRow } from "@/lib/reporting/keyword-periods";
 import type { createClient } from "@/lib/supabase/server";
 import { loadClientWorkspaceData } from "@/lib/dashboard/load-client-workspace-data";
 import type {
@@ -164,40 +165,50 @@ export async function loadReportForClient(
     staleSourceCount,
   });
 
-  const { data: historicalQueryMetricsRaw } = await supabase
-    .from("client_gsc_query_metrics")
-    .select("query, clicks, impressions, position, created_at")
+  // Keyword numbers: the newest completed 28-day snapshot against the one
+  // covering the 28 days before it. Never a sum of snapshots (see
+  // lib/reporting/keyword-periods.ts). Only those two snapshots' rows are read,
+  // so the 1000-row cap cannot cut them short.
+  const { data: gscSnapshotRows } = await supabase
+    .from("client_gsc_snapshots")
+    .select("id, start_date, end_date, run_status, created_at")
     .eq("client_id", clientId)
-    .order("created_at", { ascending: false })
-    .limit(2000);
-  const queryRows = (historicalQueryMetricsRaw ?? []).map((row) => ({
+    .order("end_date", { ascending: false })
+    .limit(120);
+  const periods = pickKeywordPeriods((gscSnapshotRows ?? []) as GscSnapshotWindow[]);
+  const periodIds = [periods.current?.id, periods.previous?.id].filter((id): id is number => id != null);
+  const { data: periodMetricsRaw } = periodIds.length
+    ? await supabase
+        .from("client_gsc_query_metrics")
+        .select("snapshot_id, query, clicks, impressions, position")
+        .in("snapshot_id", periodIds)
+    : { data: [] };
+  const queryRows: KeywordPeriodRow[] = (periodMetricsRaw ?? []).map((row) => ({
     query: row.query as string,
     clicks: row.clicks as number,
     impressions: row.impressions as number,
     position: row.position as number,
-    created_at: row.created_at as string,
+    period: row.snapshot_id === periods.current?.id ? "current" : "previous",
   }));
+  const previousAvailable = periods.previous != null;
   const keywordRows: KeywordHealthRow[] = managedKeywords
     .map((target) => {
-      const matches = queryRows.filter(
-        (row) => row.query.trim().toLowerCase() === target.keyword.trim().toLowerCase(),
-      );
-      const current = matches.slice(0, 7);
-      const previous = matches.slice(7, 14);
-      const currentPosition = current.length > 0 ? current.reduce((s, r) => s + r.position, 0) / current.length : null;
-      const previousPosition = previous.length > 0 ? previous.reduce((s, r) => s + r.position, 0) / previous.length : null;
-      const positionDelta = currentPosition == null || previousPosition == null ? 0 : currentPosition - previousPosition;
+      const key = target.keyword.trim().toLowerCase();
+      const current = queryRows.find((row) => row.period === "current" && row.query.trim().toLowerCase() === key);
+      const previous = queryRows.find((row) => row.period === "previous" && row.query.trim().toLowerCase() === key);
+      const positionDelta = current && previous ? current.position - previous.position : 0;
       return {
         keyword: target.keyword,
         page_url: null,
-        current_position: currentPosition,
-        previous_position: previousPosition,
+        current_position: current?.position ?? null,
+        previous_position: previous?.position ?? null,
         position_delta: positionDelta,
-        current_clicks: current.reduce((s, r) => s + r.clicks, 0),
-        previous_clicks: previous.reduce((s, r) => s + r.clicks, 0),
-        current_impressions: current.reduce((s, r) => s + r.impressions, 0),
-        previous_impressions: previous.reduce((s, r) => s + r.impressions, 0),
+        current_clicks: current?.clicks ?? 0,
+        previous_clicks: previous?.clicks ?? 0,
+        current_impressions: current?.impressions ?? 0,
+        previous_impressions: previous?.impressions ?? 0,
         dropped_by_3_plus: positionDelta >= 3,
+        previous_available: previousAvailable,
       } satisfies KeywordHealthRow;
     })
     .sort((a, b) => b.current_impressions - a.current_impressions);
