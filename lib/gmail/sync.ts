@@ -20,6 +20,12 @@ type SyncResult = {
   highPriority: number;
   pages: number;
   lastSyncedAt: string;
+  /**
+   * False when the time budget ran out before Gmail's last page. The cursor is
+   * then left where it was, so the next sync covers the same window again and
+   * nothing is skipped.
+   */
+  complete: boolean;
 };
 
 // Processes one page of inbox messages. Does NOT touch the sync cursor — the
@@ -127,15 +133,20 @@ export async function syncInboxForUser(params: {
   admin: SupabaseClient;
   userId: string;
   accessToken: string;
-  maxMessages?: number;
   full?: boolean;
+  /** Stop starting new pages after this instant (ms); the run then reports complete: false. */
+  deadlineMs?: number;
+  /** Look back to this instant instead of the cursor: a one-off recovery of a missed window. */
+  sinceIso?: string;
 }): Promise<SyncResult> {
-  const maxMessages = params.maxMessages ?? 200;
   const now = new Date().toISOString();
   const rules = await loadSenderRules(params.admin, params.userId);
 
   let afterEpoch: number | undefined;
-  if (!params.full) {
+  if (params.sinceIso) {
+    const ms = new Date(params.sinceIso).getTime();
+    if (Number.isFinite(ms)) afterEpoch = Math.floor(ms / 1000);
+  } else if (!params.full) {
     const { data: cursor } = await params.admin
       .from("user_email_sync_cursors")
       .select("last_synced_at")
@@ -152,8 +163,14 @@ export async function syncInboxForUser(params: {
   let highPriority = 0;
   let pages = 0;
   let pageToken: string | undefined;
+  let complete = false;
 
-  while (synced < maxMessages) {
+  // Every page, to the end. This used to stop at 100 messages (300 for a full
+  // pull) and still move the cursor to "now", so anything past the cap was
+  // never fetched (found 2026-09-28). Only a deadline stops it early, and
+  // then the cursor stays put.
+  for (;;) {
+    if (params.deadlineMs !== undefined && Date.now() >= params.deadlineMs) break;
     const page = await processInboxPage({
       admin: params.admin,
       userId: params.userId,
@@ -167,17 +184,24 @@ export async function syncInboxForUser(params: {
     blacklistedArchived += page.blacklistedArchived;
     highPriority += page.highPriority;
     pages += 1;
-    if (!page.nextPageToken) break;
+    if (!page.nextPageToken) {
+      complete = true;
+      break;
+    }
     pageToken = page.nextPageToken;
   }
 
-  const { error: cursorError } = await params.admin.from("user_email_sync_cursors").upsert(
-    { owner_user_id: params.userId, last_synced_at: now, updated_at: now },
-    { onConflict: "owner_user_id" },
-  );
-  if (cursorError) {
-    throw new Error(`Failed to update email sync cursor: ${cursorError.message}`);
+  // Advance the cursor only when every page was read. A recovery run
+  // (sinceIso) never moves it backwards: it only fills a gap.
+  if (complete && !params.sinceIso) {
+    const { error: cursorError } = await params.admin.from("user_email_sync_cursors").upsert(
+      { owner_user_id: params.userId, last_synced_at: now, updated_at: now },
+      { onConflict: "owner_user_id" },
+    );
+    if (cursorError) {
+      throw new Error(`Failed to update email sync cursor: ${cursorError.message}`);
+    }
   }
 
-  return { synced, blacklistedArchived, highPriority, pages, lastSyncedAt: now };
+  return { synced, blacklistedArchived, highPriority, pages, lastSyncedAt: now, complete };
 }

@@ -443,8 +443,9 @@ async function handleSyncGmail(full = false) {
   setGmailLoading(true);
 setError(null);
 try { const response = await fetch("/api/gmail/sync", { method:"POST", headers: {"Content-Type":"application/json" }, body: JSON.stringify({ full }), });
-const payload = (await response.json()) as { error?: string; synced?: number; lastSyncedAt?: string | null; };
-if (!response.ok) throw new Error(payload.error ??"Failed to sync Gmail");
+const payload = (await response.json()) as { error?: string; ok?: boolean; synced?: number; lastSyncedAt?: string | null; };
+// 207 = partly synced (time ran out); treat as an error message, not "done".
+if (!response.ok || payload.ok === false) throw new Error(payload.error ??"Failed to sync Gmail");
 await reloadGmailMessages();
 const when = payload.lastSyncedAt ? new Date(payload.lastSyncedAt).toLocaleString() : new Date().toLocaleString();
 setGmailConnectMeta(`Synced ${payload.synced ?? 0} messages · last synced ${when}`); }

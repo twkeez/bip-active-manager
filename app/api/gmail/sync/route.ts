@@ -6,9 +6,9 @@ import { getGmailAccessTokenForUser } from "@/lib/gmail/token-manager";
 import { syncInboxForUser } from "@/lib/gmail/sync";
 import { scoreUnassessedEmails } from "@/lib/gmail/ai-priority";
 
-// A "full" pull can fetch a few hundred messages (one Gmail call each), so give
-// the function more headroom than the default.
-export const maxDuration = 120;
+// A sync reads every page of the window (one Gmail call per message), so give
+// it the full budget; it stops starting new pages at 240s and says so.
+export const maxDuration = 300;
 
 type SyncBody = {
   full?: boolean;
@@ -42,11 +42,21 @@ export async function POST(request: Request) {
       userId: user.id,
       accessToken: token.accessToken,
       full: body.full === true,
-      maxMessages: body.full === true ? 300 : 100,
+      deadlineMs: Date.now() + 240_000,
     });
     // AI-score newly-synced emails (resilient — never fails the sync).
     const ai = await scoreUnassessedEmails(admin, user.id);
-    return NextResponse.json({ ok: true, ...result, aiScored: ai.scored });
+    // Not finished means more mail is waiting in this window: say so, and the
+    // next sync picks up from the same point.
+    return NextResponse.json(
+      {
+        ...result,
+        ok: result.complete,
+        error: result.complete ? undefined : "Not finished: more messages are waiting. Sync again to continue.",
+        aiScored: ai.scored,
+      },
+      { status: result.complete ? 200 : 207 },
+    );
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to sync Gmail inbox" },

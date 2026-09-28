@@ -164,6 +164,8 @@ export default function InboxManager({ userEmail }: { userEmail?: string }) {
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error ?? "Sync failed.");
         await loadMessages(view);
+        // 207: synced what fit in the time, more is waiting. Show it.
+        if (payload.ok === false && payload.error) setError(payload.error);
       } catch (syncError) {
         setError(syncError instanceof Error ? syncError.message : "Sync failed.");
       } finally {
