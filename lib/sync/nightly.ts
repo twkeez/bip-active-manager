@@ -122,7 +122,12 @@ export function runSearchConsoleSyncAll(admin: SupabaseClient, startedAt = Date.
     snapshotTable: "client_gsc_snapshots",
     eligible: (client) => present(client.sc_url) || present(client.website),
     batchSize: 4,
-    sync: (client) => syncClientSearchConsole(admin, client.id, client),
+    sync: async (client) => {
+      const result = await syncClientSearchConsole(admin, client.id, client);
+      if (result.failedParts.length) {
+        throw new Error(`Saved, but could not retrieve ${result.failedParts.join(", ")}`);
+      }
+    },
     startedAt,
   });
 }

@@ -28,6 +28,8 @@ export type SearchConsoleSyncResult = {
   pageCount: number;
   queryCount: number;
   signalCount: number;
+  /** Optional parts (trend, sitemaps) that could not be retrieved. */
+  failedParts: string[];
 };
 
 export async function syncClientSearchConsole(
@@ -130,7 +132,7 @@ export async function syncClientSearchConsole(
 
     await insert(
       "client_gsc_daily_metrics",
-      syncResult.dailyRows.map((row) => ({
+      (syncResult.dailyRows ?? []).map((row) => ({
         client_id: clientId,
         snapshot_id: createdSnapshot.id,
         metric_date: row.date,
@@ -144,7 +146,7 @@ export async function syncClientSearchConsole(
 
     await insert(
       "client_gsc_sitemaps",
-      (historical ? [] : syncResult.sitemaps).map((sitemap) => ({
+      (historical ? [] : syncResult.sitemaps ?? []).map((sitemap) => ({
         client_id: clientId,
         snapshot_id: createdSnapshot.id,
         sitemap_url: sitemap.sitemapUrl,
@@ -165,7 +167,10 @@ export async function syncClientSearchConsole(
       .update({
         property_url: syncResult.propertyUrl,
         run_status: "completed",
-        error_message: null,
+        // Completed, but name any part that could not be retrieved.
+        error_message: syncResult.failedParts.length
+          ? `Partial: could not retrieve ${syncResult.failedParts.join(", ")}`
+          : null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", createdSnapshot.id)
@@ -180,6 +185,7 @@ export async function syncClientSearchConsole(
       pageCount: syncResult.pageRows.length,
       queryCount: syncResult.queryRows.length,
       signalCount: signals.length,
+      failedParts: syncResult.failedParts,
     };
   } catch (error) {
     await admin

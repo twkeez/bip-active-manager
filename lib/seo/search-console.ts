@@ -38,8 +38,11 @@ export type GscSyncResult = {
   endDate: string;
   pageRows: GscMetricRow[];
   queryRows: GscMetricRow[];
-  dailyRows: GscDailyRow[];
-  sitemaps: GscSitemapEntry[];
+  /** Null = could not be retrieved (see failedParts), not "none". */
+  dailyRows: GscDailyRow[] | null;
+  sitemaps: GscSitemapEntry[] | null;
+  /** Optional parts that failed after retries. */
+  failedParts: string[];
 };
 
 export type GscKeywordPageRow = {
@@ -180,7 +183,7 @@ async function fetchSearchAnalytics(
   rowLimit = 25,
 ): Promise<GscMetricRow[]> {
   const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(propertyUrl)}/searchAnalytics/query`;
-  const response = await fetch(endpoint, {
+  const response = await gscFetch(endpoint, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -222,7 +225,7 @@ async function fetchSearchAnalyticsByQueryAndPage(
   rowLimit: number,
 ): Promise<GscKeywordPageRow[]> {
   const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(propertyUrl)}/searchAnalytics/query`;
-  const response = await fetch(endpoint, {
+  const response = await gscFetch(endpoint, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -258,6 +261,18 @@ async function fetchSearchAnalyticsByQueryAndPage(
     .filter((row): row is GscKeywordPageRow => row != null);
 }
 
+/**
+ * fetch for the Search Console API, retrying 429 (quota) and brief 5xx
+ * responses before giving up, so a busy moment is not recorded as a failure.
+ */
+async function gscFetch(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; ; attempt += 1) {
+    const response = await fetch(url, init);
+    if (![429, 500, 502, 503, 504].includes(response.status) || attempt >= 2) return response;
+    await new Promise((resolve) => setTimeout(resolve, 1500 * 2 ** attempt));
+  }
+}
+
 async function fetchDailyTrend(
   accessToken: string,
   propertyUrl: string,
@@ -265,13 +280,14 @@ async function fetchDailyTrend(
   endDate: string,
 ): Promise<GscDailyRow[]> {
   const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(propertyUrl)}/searchAnalytics/query`;
-  const response = await fetch(endpoint, {
+  const response = await gscFetch(endpoint, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ startDate, endDate, dimensions: ["date"], rowLimit: 90 }),
     cache: "no-store",
   });
-  if (!response.ok) return [];
+  // Used to return [] here, stored as "no search traffic" (found 2026-09-28).
+  if (!response.ok) throw new Error(`daily trend (${response.status})`);
   const payload = (await response.json()) as SearchAnalyticsResponse;
   return (payload.rows ?? [])
     .map((row) => {
@@ -294,11 +310,11 @@ async function fetchSitemaps(
   propertyUrl: string,
 ): Promise<GscSitemapEntry[]> {
   const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(propertyUrl)}/sitemaps`;
-  const response = await fetch(endpoint, {
+  const response = await gscFetch(endpoint, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
-  if (!response.ok) return [];
+  if (!response.ok) throw new Error(`sitemaps (${response.status})`);
   const payload = (await response.json()) as SitemapsListResponse;
   return (payload.sitemap ?? [])
     .map((s) => {
@@ -319,13 +335,15 @@ async function fetchSitemaps(
 }
 
 async function listAccessibleSites(accessToken: string) {
-  const response = await fetch("https://www.googleapis.com/webmasters/v3/sites", {
+  const response = await gscFetch("https://www.googleapis.com/webmasters/v3/sites", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
     cache: "no-store",
   });
-  if (!response.ok) return [];
+  // An error here used to read as "this identity can see no sites", which
+  // then reported a property as inaccessible when the listing had failed.
+  if (!response.ok) throw new Error(`Search Console site list failed (${response.status}); access could not be checked.`);
   const payload = (await response.json()) as SitesListResponse;
   return (payload.siteEntry ?? []).map((entry) => ({
     siteUrl: (entry.siteUrl ?? "").trim(),
@@ -433,11 +451,20 @@ export async function runSearchConsoleSync(
     propertyUrl = chosen!.property;
   }
 
+  // Pages and queries are the core: if they fail, the sync fails. The trend
+  // and sitemaps are extras: a failure is recorded (null = not retrieved),
+  // not stored as an empty list.
+  const failedParts: string[] = [];
+  const optional = <T,>(promise: Promise<T>): Promise<T | null> =>
+    promise.catch((error) => {
+      failedParts.push(error instanceof Error ? error.message : "failed");
+      return null;
+    });
   const [pageRows, queryRows, dailyRows, sitemaps] = await Promise.all([
     fetchSearchAnalytics(accessToken, propertyUrl, startDate, endDate, "page"),
     fetchSearchAnalytics(accessToken, propertyUrl, startDate, endDate, "query", 100),
-    fetchDailyTrend(accessToken, propertyUrl, startDate, endDate),
-    fetchSitemaps(accessToken, propertyUrl).catch(() => [] as GscSitemapEntry[]),
+    optional(fetchDailyTrend(accessToken, propertyUrl, startDate, endDate)),
+    optional(fetchSitemaps(accessToken, propertyUrl)),
   ]);
   return {
     propertyUrl,
@@ -447,6 +474,7 @@ export async function runSearchConsoleSync(
     queryRows,
     dailyRows,
     sitemaps,
+    failedParts,
   };
 }
 
