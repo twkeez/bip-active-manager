@@ -11,6 +11,8 @@ function isoDate(value: string) {
 export type SyncClientGa4Result = {
   snapshot: Ga4Snapshot;
   signals: Ga4Signal[];
+  /** Optional reports that could not be retrieved; their sections are stored as null. */
+  failedReports: string[];
 };
 
 export async function syncClientGa4(
@@ -21,7 +23,10 @@ export async function syncClientGa4(
 ): Promise<SyncClientGa4Result> {
   const endDate = isoDate(new Date().toISOString());
   const startDate = isoDate(isoDaysAgo(30));
-  const prevEndDate = isoDate(isoDaysAgo(1));   // yesterday as end of prior window
+  // The 31 days before the current 31 (-30 .. today). This used to be
+  // -61 .. yesterday, which overlaps the current period entirely and read
+  // about twice the current numbers (found 2026-09-27).
+  const prevEndDate = isoDate(isoDaysAgo(31));
   const prevStartDate = isoDate(isoDaysAgo(61));
 
   const { data: createdSnapshot, error: createError } = await admin
@@ -57,7 +62,11 @@ export async function syncClientGa4(
       .from("client_ga4_snapshots")
       .update({
         run_status: "completed",
-        error_message: null,
+        // Completed, but say which optional reports could not be retrieved:
+        // their sections are stored as null ("not retrieved"), not as empty.
+        error_message: sync.failedReports.length
+          ? `Partial: ${sync.failedReports.join(" | ").slice(0, 900)}`
+          : null,
         totals: sync.totals,
         previous_totals: sync.previousTotals,
         channel_breakdown: sync.channelBreakdown,
@@ -92,7 +101,7 @@ export async function syncClientGa4(
       throw new Error(snapshotResult.error?.message ?? "Failed to reload GA4 snapshot.");
     }
 
-    return { snapshot: snapshotResult.data, signals: signalsResult.data ?? [] };
+    return { snapshot: snapshotResult.data, signals: signalsResult.data ?? [], failedReports: sync.failedReports };
   } catch (error) {
     await admin
       .from("client_ga4_snapshots")

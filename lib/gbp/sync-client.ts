@@ -6,10 +6,15 @@ import type { GbpReviewRow, GbpSnapshot } from "@/lib/types/client";
  * One client's Google Business Profile refresh: the listing and its reviews.
  *
  * Extracted from the sync route so the nightly job runs exactly what the
- * button runs. Reviews are replaced rather than merged, because the Places API
- * returns a rolling window rather than a full history — merging would leave
- * deleted reviews on file forever, and the rating is taken from the listing
- * itself, not from the rows.
+ * button runs.
+ *
+ * Reviews are replaced only when the Business Profile API itself answered for
+ * this location, because only then is the fetched set the full list. When it
+ * failed (refused, no quota, location not in our accounts), what is left is
+ * the ~5 reviews the public Places API returns, and replacing with those used
+ * to wipe the stored set down to 5 every night (found 2026-09-28). Now the
+ * stored reviews are kept, the result says reviews were not refreshed, and the
+ * nightly job reports it.
  */
 
 export type GbpSyncResultSummary = {
@@ -18,6 +23,10 @@ export type GbpSyncResultSummary = {
   storedReviewCount: number;
   /** Which source the reviews came from — the reporting tab shows this. */
   sourceBreakdown: NonNullable<GbpSyncResult["diagnostics"]>;
+  /** False when the Business Profile API did not answer: stored reviews were kept, not replaced. */
+  reviewsRefreshed: boolean;
+  /** Why reviews were not refreshed, when they were not. */
+  reviewsError: string | null;
 };
 
 export async function syncClientGbp(
@@ -63,13 +72,31 @@ export async function syncClientGbp(
       .eq("id", createdSnapshot.id);
     if (updateError) throw new Error(updateError.message);
 
-    const { error: clearReviewsError } = await admin
-      .from("client_gbp_reviews")
-      .delete()
-      .eq("client_id", clientId);
-    if (clearReviewsError) throw new Error(clearReviewsError.message);
+    const diagnostics = result.diagnostics;
+    const apiAnswered = Boolean(diagnostics && !diagnostics.gbpApiError && diagnostics.matchedGbpLocationCount > 0);
+    const reviewsError = apiAnswered
+      ? null
+      : diagnostics?.gbpApiError
+        ? `Business Profile API: ${diagnostics.gbpApiError}`
+        : "This location was not found in our Business Profile accounts.";
 
-    if (result.reviews.length > 0) {
+    const { count: storedBefore } = await admin
+      .from("client_gbp_reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", clientId);
+    // Replace only with a complete set. With nothing stored yet, the partial
+    // set is still better than none.
+    const replace = apiAnswered || !storedBefore;
+
+    if (replace) {
+      const { error: clearReviewsError } = await admin
+        .from("client_gbp_reviews")
+        .delete()
+        .eq("client_id", clientId);
+      if (clearReviewsError) throw new Error(clearReviewsError.message);
+    }
+
+    if (replace && result.reviews.length > 0) {
       const reviewRows: Omit<GbpReviewRow, "id">[] = result.reviews.map((row) => ({
         client_id: clientId,
         snapshot_id: createdSnapshot.id,
@@ -111,6 +138,8 @@ export async function syncClientGbp(
         matchedGbpLocationCount: 0,
         gbpApiError: null,
       },
+      reviewsRefreshed: apiAnswered,
+      reviewsError,
     };
   } catch (error) {
     await admin

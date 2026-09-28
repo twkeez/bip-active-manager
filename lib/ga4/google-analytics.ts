@@ -24,13 +24,16 @@ export type Ga4SyncResult = {
   previousTotals: Ga4Totals;
   channelBreakdown: Ga4ChannelRow[];
   topPages: Ga4PageRow[];
-  conversionsByEvent: Ga4ConversionRow[];
-  geoBreakdown: Ga4GeoRow[];
-  deviceBreakdown: Ga4DeviceRow[];
-  sourceMediumBreakdown: Ga4SourceMediumRow[];
-  newVsReturning: Ga4NewVsReturningRow[];
-  sessionsTrend: Ga4TrendPoint[];
-  landingPages: Ga4LandingPageRow[];
+  /** Null = the report failed (not retrieved), which is different from an empty list. */
+  conversionsByEvent: Ga4ConversionRow[] | null;
+  geoBreakdown: Ga4GeoRow[] | null;
+  deviceBreakdown: Ga4DeviceRow[] | null;
+  sourceMediumBreakdown: Ga4SourceMediumRow[] | null;
+  newVsReturning: Ga4NewVsReturningRow[] | null;
+  sessionsTrend: Ga4TrendPoint[] | null;
+  landingPages: Ga4LandingPageRow[] | null;
+  /** Optional reports that failed after retries, with the reason. */
+  failedReports: string[];
 };
 
 async function getServiceAccountToken(): Promise<string> {
@@ -52,6 +55,8 @@ type Ga4RunReportBody = {
     dimension?: { dimensionName: string };
     desc?: boolean;
   }>;
+  /** Return rows for date ranges with no data, instead of leaving them out. */
+  keepEmptyRows?: boolean;
 };
 
 type Ga4Row = {
@@ -71,13 +76,21 @@ async function runReport(
   body: Ga4RunReportBody,
 ): Promise<Ga4ReportResponse> {
   const url = `${GA4_BASE}/properties/${propertyId}:runReport`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-  const json = (await res.json()) as Ga4ReportResponse;
+  // GA4 answers 429 (quota) and brief 5xx under load; retry those before
+  // giving up, so a busy minute is not recorded as a failed report.
+  let res: Response;
+  let json: Ga4ReportResponse;
+  for (let attempt = 0; ; attempt += 1) {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    json = (await res.json().catch(() => ({}))) as Ga4ReportResponse;
+    if (![429, 500, 502, 503, 504].includes(res.status) || attempt >= 2) break;
+    await new Promise((resolve) => setTimeout(resolve, 1500 * 2 ** attempt));
+  }
   if (!res.ok) {
     let msg = `GA4 API error (${res.status}): ${json.error?.message ?? res.statusText}`;
     if (res.status === 403) {
@@ -126,18 +139,41 @@ function parseTotalsRow(
   };
 }
 
-/** Runs a report and returns a fallback on failure, so an unsupported metric or
- *  dimension on a given property never breaks the whole sync. */
+/**
+ * Runs an optional report. A failure no longer breaks the whole sync, but it
+ * is no longer disguised either: it used to come back as "no rows", stored as
+ * zeros and empty lists that read as a quiet month (found 2026-09-28). Now it
+ * returns null, which is stored as "not retrieved", and the failure is
+ * recorded so the snapshot and the nightly job can say so.
+ */
 async function safeReport(
   propertyId: string,
   token: string,
   body: Ga4RunReportBody,
-): Promise<Ga4ReportResponse> {
+  label: string,
+  failures: string[],
+): Promise<Ga4ReportResponse | null> {
   try {
     return await runReport(propertyId, token, body);
-  } catch {
-    return { rows: [] };
+  } catch (error) {
+    failures.push(`${label}: ${error instanceof Error ? error.message : "failed"}`);
+    return null;
   }
+}
+
+/**
+ * The row for a named date range. With several ranges GA4 adds a dateRange
+ * dimension to each row, and it leaves out a range with no data unless
+ * keepEmptyRows is set, so reading rows by position could show last period's
+ * numbers as this period's exactly when tracking broke.
+ */
+function rowForRange(report: Ga4ReportResponse | null, name: string): Ga4Row | undefined {
+  const rows = report?.rows ?? [];
+  const named = rows.find((row) => row.dimensionValues?.some((value) => value.value === name));
+  if (named) return named;
+  // No dateRange dimension came back: fall back to position (current first).
+  const hasNames = rows.some((row) => (row.dimensionValues ?? []).length > 0);
+  return hasNames ? undefined : rows[name === "current" ? 0 : 1];
 }
 
 export async function runGa4Sync(
@@ -153,42 +189,13 @@ export async function runGa4Sync(
 
   const token = userAccessToken ?? await getServiceAccountToken();
 
-  // Totals for current + previous period in one request (two date ranges)
-  const totalsReport = await runReport(propertyId, token, {
-    dateRanges: [
-      { startDate, endDate, name: "current" },
-      { startDate: prevStartDate, endDate: prevEndDate, name: "previous" },
-    ],
-    metrics: [
-      { name: "sessions" },
-      { name: "totalUsers" },
-      { name: "newUsers" },
-      { name: "engagementRate" },
-      { name: "userEngagementDuration" },
-      { name: "conversions" },
-    ],
-    // returnPropertyQuota: true — not needed here
-  });
-
-  // Engagement-quality metrics in a second request (GA4 caps one request at 10
-  // metrics). safeReport so an unsupported metric just yields zeros.
-  const qualityReport = await safeReport(propertyId, token, {
-    dateRanges: [
-      { startDate, endDate, name: "current" },
-      { startDate: prevStartDate, endDate: prevEndDate, name: "previous" },
-    ],
-    metrics: [
-      { name: "engagedSessions" },
-      { name: "bounceRate" },
-      { name: "averageSessionDuration" },
-      { name: "screenPageViewsPerSession" },
-      { name: "eventsPerSession" },
-    ],
-  });
-
-  // With two date ranges and no dimensions, the API returns two rows (one per range)
-  const currentTotals = parseTotalsRow(totalsReport.rows?.[0], qualityReport.rows?.[0]);
-  const previousTotals = parseTotalsRow(totalsReport.rows?.[1], qualityReport.rows?.[1]);
+  const failures: string[] = [];
+  const { totals: currentTotals, previousTotals } = await fetchGa4PeriodTotals(
+    propertyId,
+    token,
+    { startDate, endDate, prevStartDate, prevEndDate },
+    failures,
+  );
 
   // Channel breakdown (current period only)
   const channelReport = await runReport(propertyId, token, {
@@ -237,8 +244,8 @@ export async function runGa4Sync(
     metrics: [{ name: "conversions" }],
     limit: 25,
     orderBys: [{ metric: { metricName: "conversions" }, desc: true }],
-  });
-  const conversionsByEvent: Ga4ConversionRow[] = (conversionsReport.rows ?? [])
+  }, "conversions by event", failures);
+  const conversionsByEvent: Ga4ConversionRow[] | null = conversionsReport === null ? null : (conversionsReport.rows ?? [])
     .map((row) => ({ event_name: dim(row, 0), conversions: num(row, 0) }))
     .filter((r) => r.conversions > 0);
 
@@ -249,8 +256,8 @@ export async function runGa4Sync(
     metrics: [{ name: "sessions" }, { name: "totalUsers" }],
     limit: 15,
     orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-  });
-  const geoBreakdown: Ga4GeoRow[] = (geoReport.rows ?? []).map((row) => ({
+  }, "geography", failures);
+  const geoBreakdown: Ga4GeoRow[] | null = geoReport === null ? null : (geoReport.rows ?? []).map((row) => ({
     city: dim(row, 0),
     region: dim(row, 1),
     sessions: num(row, 0),
@@ -264,8 +271,8 @@ export async function runGa4Sync(
     metrics: [{ name: "sessions" }, { name: "engagementRate" }],
     limit: 10,
     orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-  });
-  const deviceBreakdown: Ga4DeviceRow[] = (deviceReport.rows ?? []).map((row) => ({
+  }, "devices", failures);
+  const deviceBreakdown: Ga4DeviceRow[] | null = deviceReport === null ? null : (deviceReport.rows ?? []).map((row) => ({
     device: dim(row, 0),
     sessions: num(row, 0),
     engagement_rate: num(row, 1),
@@ -278,8 +285,8 @@ export async function runGa4Sync(
     metrics: [{ name: "sessions" }, { name: "conversions" }],
     limit: 15,
     orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-  });
-  const sourceMediumBreakdown: Ga4SourceMediumRow[] = (sourceMediumReport.rows ?? []).map((row) => ({
+  }, "source / medium", failures);
+  const sourceMediumBreakdown: Ga4SourceMediumRow[] | null = sourceMediumReport === null ? null : (sourceMediumReport.rows ?? []).map((row) => ({
     source_medium: dim(row, 0),
     sessions: num(row, 0),
     conversions: num(row, 1),
@@ -292,8 +299,8 @@ export async function runGa4Sync(
     metrics: [{ name: "sessions" }, { name: "totalUsers" }],
     limit: 5,
     orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-  });
-  const newVsReturning: Ga4NewVsReturningRow[] = (nvrReport.rows ?? []).map((row) => ({
+  }, "new vs returning", failures);
+  const newVsReturning: Ga4NewVsReturningRow[] | null = nvrReport === null ? null : (nvrReport.rows ?? []).map((row) => ({
     cohort: dim(row, 0) || "(unknown)",
     sessions: num(row, 0),
     users: num(row, 1),
@@ -306,8 +313,8 @@ export async function runGa4Sync(
     metrics: [{ name: "sessions" }],
     limit: 60,
     orderBys: [{ dimension: { dimensionName: "date" }, desc: false }],
-  });
-  const sessionsTrend: Ga4TrendPoint[] = (trendReport.rows ?? []).map((row) => {
+  }, "sessions trend", failures);
+  const sessionsTrend: Ga4TrendPoint[] | null = trendReport === null ? null : (trendReport.rows ?? []).map((row) => {
     const raw = dim(row, 0); // YYYYMMDD
     const date =
       raw.length === 8 ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}` : raw;
@@ -321,8 +328,8 @@ export async function runGa4Sync(
     metrics: [{ name: "sessions" }, { name: "engagementRate" }],
     limit: 15,
     orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-  });
-  const landingPages: Ga4LandingPageRow[] = (landingReport.rows ?? []).map((row) => ({
+  }, "landing pages", failures);
+  const landingPages: Ga4LandingPageRow[] | null = landingReport === null ? null : (landingReport.rows ?? []).map((row) => ({
     landing_page: dim(row, 0),
     sessions: num(row, 0),
     engagement_rate: num(row, 1),
@@ -343,5 +350,82 @@ export async function runGa4Sync(
     newVsReturning,
     sessionsTrend,
     landingPages,
+    failedReports: failures,
   };
+}
+
+/** Engagement-quality fields left empty (not zero) when their report failed. */
+function withoutQualityIfFailed(totals: Ga4Totals, qualityReport: Ga4ReportResponse | null): Ga4Totals {
+  if (qualityReport !== null) return totals;
+  return {
+    ...totals,
+    engaged_sessions: null,
+    bounce_rate: null,
+    avg_session_duration_seconds: null,
+    views_per_session: null,
+    events_per_session: null,
+    session_key_event_rate: null,
+  } as unknown as Ga4Totals;
+}
+
+/**
+ * Current and previous period totals, each read by its range name. Exported
+ * so stored snapshots can be corrected with exactly the logic the nightly
+ * sync uses.
+ */
+export async function fetchGa4PeriodTotals(
+  propertyId: string,
+  token: string,
+  window: { startDate: string; endDate: string; prevStartDate: string; prevEndDate: string },
+  failures: string[],
+): Promise<{ totals: Ga4Totals; previousTotals: Ga4Totals }> {
+  const { startDate, endDate, prevStartDate, prevEndDate } = window;
+  // Totals for current + previous period in one request (two date ranges)
+  const totalsReport = await runReport(propertyId, token, {
+    dateRanges: [
+      { startDate, endDate, name: "current" },
+      { startDate: prevStartDate, endDate: prevEndDate, name: "previous" },
+    ],
+    metrics: [
+      { name: "sessions" },
+      { name: "totalUsers" },
+      { name: "newUsers" },
+      { name: "engagementRate" },
+      { name: "userEngagementDuration" },
+      { name: "conversions" },
+    ],
+    keepEmptyRows: true,
+  });
+
+  // Engagement-quality metrics in a second request (GA4 caps one request at 10
+  // metrics). If it fails, those fields are left empty, not zero.
+  const qualityReport = await safeReport(propertyId, token, {
+    dateRanges: [
+      { startDate, endDate, name: "current" },
+      { startDate: prevStartDate, endDate: prevEndDate, name: "previous" },
+    ],
+    metrics: [
+      { name: "engagedSessions" },
+      { name: "bounceRate" },
+      { name: "averageSessionDuration" },
+      { name: "screenPageViewsPerSession" },
+      { name: "eventsPerSession" },
+    ],
+    keepEmptyRows: true,
+  }, "engagement quality", failures);
+
+  const currentTotals = withoutQualityIfFailed(
+    parseTotalsRow(rowForRange(totalsReport, "current"), rowForRange(qualityReport, "current")),
+    qualityReport,
+  );
+  const previousTotals = withoutQualityIfFailed(
+    parseTotalsRow(rowForRange(totalsReport, "previous"), rowForRange(qualityReport, "previous")),
+    qualityReport,
+  );
+
+  return { totals: currentTotals, previousTotals };
+}
+
+export async function getGa4ServiceToken(): Promise<string> {
+  return getServiceAccountToken();
 }

@@ -14,11 +14,15 @@ export async function stampReportRun(clientId: number): Promise<void> {
   if (!Number.isInteger(clientId) || clientId <= 0) return;
   try {
     const admin = createAdminClient();
-    await admin
+    // supabase-js returns errors rather than throwing, so check it: an
+    // unrecorded report would read as "never sent" when deciding corrections.
+    const { error } = await admin
       .from("clients")
       .update({ last_report_run_at: new Date().toISOString() })
       .eq("id", clientId);
-  } catch {
-    // Non-fatal: the report still renders without the stamp.
+    if (error) console.error(`[report-run] could not record a report for client ${clientId}: ${error.message}`);
+  } catch (error) {
+    // Non-fatal: the report still renders without the stamp, but say so.
+    console.error(`[report-run] could not record a report for client ${clientId}:`, error);
   }
 }

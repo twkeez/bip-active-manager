@@ -79,8 +79,11 @@ export async function POST(request: Request) {
       rating: typeof row.rating === "number" ? row.rating : null,
     }));
 
+    // Say plainly when reviews could not be refreshed, rather than "ok".
     return NextResponse.json({
-      ok: true,
+      ok: result.reviewsRefreshed,
+      error: result.reviewsRefreshed ? undefined : `Listing updated; reviews not refreshed. ${result.reviewsError ?? ""}`.trim(),
+      reviewsRefreshed: result.reviewsRefreshed,
       snapshot: result.snapshot,
       reviews,
       diagnostics: {

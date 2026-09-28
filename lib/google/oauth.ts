@@ -11,6 +11,10 @@ const GOOGLE_SCOPES = [
   // see when you are busy and what a meeting is about; it cannot create,
   // move or answer events. Adding a scope means reconnecting Google once.
   "https://www.googleapis.com/auth/calendar.readonly",
+  // Business Profile reviews, posts and listing fields (2026-09-28). Without
+  // it every review fetch was refused and each client kept only the 5 reviews
+  // the public Places API returns. Adding a scope means reconnecting Google once.
+  "https://www.googleapis.com/auth/business.manage",
 ];
 
 type TokenExchangeResponse = {

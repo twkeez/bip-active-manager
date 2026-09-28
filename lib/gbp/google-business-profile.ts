@@ -1,5 +1,8 @@
 import { OAuth2Client } from "google-auth-library";
 import { getGoogleOAuthRefreshConfig } from "@/lib/env";
+import { getGmailAccessTokenForUser } from "@/lib/gmail/token-manager";
+import { getGoogleAccessTokenForScope } from "@/lib/google/token-manager";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type GbpProfileFields = {
   phone: boolean;
@@ -146,10 +149,45 @@ type LegacyPlaceDetailsResponse = {
   };
 };
 
+async function gmailTokenWithScope(
+  admin: ReturnType<typeof createAdminClient>,
+  scope: string,
+): Promise<string | null> {
+  const { data } = await admin
+    .from("integration_api_tokens")
+    .select("token_type, metadata")
+    .eq("provider", "gmail");
+  const row = (data ?? []).find((r) => String((r.metadata as { scope?: string } | null)?.scope ?? "").includes(scope));
+  const userId = row?.token_type?.startsWith("user:") ? row.token_type.slice(5) : null;
+  if (!userId) return null;
+  try {
+    return (await getGmailAccessTokenForUser(admin, userId)).accessToken;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A Google token that may read Business Profiles (business.manage scope).
+ *
+ * The env refresh token lacks that scope, so every review fetch answered
+ * "insufficient authentication scopes" and each client kept only the 5
+ * reviews Places returns (found 2026-09-28: 212 of 216 clients, e.g. Bayside
+ * 5 of 221). The same gap broke Ads until it learned to prefer the stored
+ * connection; this does the same, falling back to the env token.
+ */
 async function getGoogleOAuthAccessTokenForGbp() {
+  const admin = createAdminClient();
+  const stored = await getGoogleAccessTokenForScope(admin, "business.manage").catch(() => null);
+  if (stored) return stored;
+  // Until Google is reconnected with business.manage, the Gmail connection of
+  // the same Google login already holds that permission (granted when Gmail
+  // was connected). Use it rather than keep failing.
+  const viaGmail = await gmailTokenWithScope(admin, "business.manage");
+  if (viaGmail) return viaGmail;
   const oauthConfig = getGoogleOAuthRefreshConfig();
   if (!oauthConfig) {
-    throw new Error("Missing Google OAuth refresh credentials for GBP API probe.");
+    throw new Error("No Google connection with Business Profile access (business.manage).");
   }
   const oauth = new OAuth2Client(
     oauthConfig.clientId,
@@ -240,16 +278,26 @@ function parseRelativeTimeUnix(value: string | null | undefined, nowMs = Date.no
 }
 
 async function listGbpLocationNamesByPlaceId(placeId: string, oauthToken: string) {
-  const accountPayload = await fetchJsonWithRetry<GbpAccountManagementResponse>(
-    "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${oauthToken}` },
-      cache: "no-store",
-    },
-    { label: "GBP accounts API", retries: 2, baseDelayMs: 700 },
-  );
-  const accounts = accountPayload.accounts ?? [];
+  // Every page of accounts: the first page holds 20, and a location under a
+  // later account would otherwise never match.
+  const accounts: NonNullable<GbpAccountManagementResponse["accounts"]> = [];
+  let accountsPageToken: string | null = null;
+  do {
+    const accountsUrl = new URL("https://mybusinessaccountmanagement.googleapis.com/v1/accounts");
+    accountsUrl.searchParams.set("pageSize", "20");
+    if (accountsPageToken) accountsUrl.searchParams.set("pageToken", accountsPageToken);
+    const accountPayload = await fetchJsonWithRetry<GbpAccountManagementResponse & { nextPageToken?: string }>(
+      accountsUrl,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${oauthToken}` },
+        cache: "no-store",
+      },
+      { label: "GBP accounts API", retries: 2, baseDelayMs: 700 },
+    );
+    accounts.push(...(accountPayload.accounts ?? []));
+    accountsPageToken = accountPayload.nextPageToken?.trim() || null;
+  } while (accountsPageToken);
   const matchingLocationNames: string[] = [];
 
   for (const account of accounts) {
@@ -295,22 +343,28 @@ async function fetchGbpApiReviewsForLocation(
   locationName: string,
   oauthToken: string,
 ): Promise<NormalizedReview[]> {
-  const url = new URL(
-    `https://mybusiness.googleapis.com/v4/${locationName}/reviews`,
-  );
-  url.searchParams.set("pageSize", "50");
-  url.searchParams.set("orderBy", "updateTime desc");
-
-  const payload = await fetchJsonWithRetry<GbpReviewsResponse>(
-    url,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${oauthToken}` },
-      cache: "no-store",
-    },
-    { label: "GBP reviews API", retries: 2, baseDelayMs: 700 },
-  );
-  return (payload.reviews ?? []).map((review) => {
+  // Every page: the API returns at most 50 a page, and a practice with 800
+  // reviews would otherwise keep only its newest 50.
+  const all: NonNullable<GbpReviewsResponse["reviews"]> = [];
+  let pageToken: string | null = null;
+  do {
+    const url = new URL(`https://mybusiness.googleapis.com/v4/${locationName}/reviews`);
+    url.searchParams.set("pageSize", "50");
+    url.searchParams.set("orderBy", "updateTime desc");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+    const payload = await fetchJsonWithRetry<GbpReviewsResponse & { nextPageToken?: string }>(
+      url,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${oauthToken}` },
+        cache: "no-store",
+      },
+      { label: "GBP reviews API", retries: 2, baseDelayMs: 700 },
+    );
+    all.push(...(payload.reviews ?? []));
+    pageToken = payload.nextPageToken?.trim() || null;
+  } while (pageToken);
+  return all.map((review) => {
     const relative = null;
     return {
       authorName: review.reviewer?.displayName ?? null,
@@ -462,29 +516,6 @@ export async function runGbpSync(rawPlaceId: string): Promise<GbpSyncResult> {
 
   try {
     const oauthToken = await getGoogleOAuthAccessTokenForGbp();
-    const tokenInfoResponse = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(oauthToken)}`,
-      { method: "GET", cache: "no-store" },
-    );
-    const tokenInfo = (await tokenInfoResponse.json()) as { scope?: string };
-    const scopes = (tokenInfo.scope ?? "").split(" ").filter(Boolean);
-    const hasBusinessManageScope = scopes.includes(
-      "https://www.googleapis.com/auth/business.manage",
-    );
-
-    const accountsResponse = await fetch(
-      "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
-      {
-        method: "GET",
-        headers: { Authorization: `Bearer ${oauthToken}` },
-        cache: "no-store",
-      },
-    );
-    const accountsPayload = (await accountsResponse.json()) as {
-      accounts?: Array<{ name?: string; accountName?: string }>;
-      error?: { message?: string };
-    };
-
     const locationNames = await listGbpLocationNamesByPlaceId(placeId, oauthToken);
     matchedGbpLocationCount = locationNames.length;
     for (const locationName of locationNames) {

@@ -135,7 +135,14 @@ export function runGa4SyncAll(admin: SupabaseClient, startedAt = Date.now()) {
     snapshotTable: "client_ga4_snapshots",
     eligible: (client) => numericGa4Property(client) !== null,
     batchSize: 6,
-    sync: (client) => syncClientGa4(admin, client.id, numericGa4Property(client) ?? ""),
+    // A snapshot with optional reports that failed is kept (the rest is
+    // good), but reported as a failure for the client so Tom hears about it.
+    sync: async (client) => {
+      const result = await syncClientGa4(admin, client.id, numericGa4Property(client) ?? "");
+      if (result.failedReports.length) {
+        throw new Error(`Saved, but some reports could not be retrieved: ${result.failedReports.join(" | ")}`);
+      }
+    },
     startedAt,
   });
 }
@@ -148,7 +155,14 @@ export function runGbpSyncAll(admin: SupabaseClient, startedAt = Date.now()) {
     snapshotTable: "client_gbp_snapshots",
     eligible: (client) => present(client.google_place_id),
     batchSize: 6,
-    sync: (client) => syncClientGbp(admin, client.id, (client.google_place_id ?? "").trim()),
+    // The listing refreshes even when reviews cannot; report that as a failure
+    // for the client so the job answers 207 and Tom hears about it.
+    sync: async (client) => {
+      const result = await syncClientGbp(admin, client.id, (client.google_place_id ?? "").trim());
+      if (!result.reviewsRefreshed) {
+        throw new Error(`Listing updated; reviews not refreshed (stored reviews kept). ${result.reviewsError ?? ""}`.trim());
+      }
+    },
     startedAt,
   });
 }
