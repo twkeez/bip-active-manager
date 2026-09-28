@@ -1,3 +1,4 @@
+import { getGoogleAccessTokenForScope } from "@/lib/google/token-manager";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runGa4Sync } from "@/lib/ga4/google-analytics";
 import { buildGa4Signals } from "@/lib/ga4/signals";
@@ -14,6 +15,33 @@ export type SyncClientGa4Result = {
   /** Optional reports that could not be retrieved; their sections are stored as null. */
   failedReports: string[];
 };
+
+/**
+ * Run the GA4 reports as the service account, and if the property refuses it
+ * (403), as the stored Google connection that holds analytics.readonly.
+ *
+ * Found 2026-09-28: 53 of 88 properties had never granted the service account
+ * access, so they were refused every night and counted as "blocked", while
+ * Tom's own connection can read every one of them.
+ */
+async function runGa4WithFallback(
+  admin: SupabaseClient,
+  propertyId: string,
+  window: { startDate: string; endDate: string; prevStartDate: string; prevEndDate: string },
+  userAccessToken?: string,
+) {
+  const { startDate, endDate, prevStartDate, prevEndDate } = window;
+  if (userAccessToken) return runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate, userAccessToken);
+  try {
+    return await runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate);
+  } catch (error) {
+    const refused = error instanceof Error && /\(403\)/.test(error.message);
+    if (!refused) throw error;
+    const stored = await getGoogleAccessTokenForScope(admin, "analytics.readonly").catch(() => null);
+    if (!stored) throw error;
+    return runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate, stored);
+  }
+}
 
 export async function syncClientGa4(
   admin: SupabaseClient,
@@ -56,7 +84,12 @@ export async function syncClientGa4(
   }
 
   try {
-    const sync = await runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate, userAccessToken);
+    const sync = await runGa4WithFallback(
+      admin,
+      propertyId,
+      { startDate, endDate, prevStartDate, prevEndDate },
+      userAccessToken,
+    );
 
     const { error: updateError } = await admin
       .from("client_ga4_snapshots")
