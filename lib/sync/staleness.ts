@@ -1,3 +1,4 @@
+import { fetchLatestSnapshotsByClient } from "@/lib/dashboard/snapshot-queries";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -17,20 +18,22 @@ export type StalenessOrder = {
   order: (clientId: number) => number;
 };
 
-/** One row per client is all this needs, but the tables store one per run. */
-const SCAN_LIMIT = 20_000;
-
 export async function loadStaleness(
   admin: SupabaseClient,
   table: string,
   { column = "created_at" }: { column?: string } = {},
 ): Promise<StalenessOrder> {
   const newestByClient = new Map<number, string>();
-  const { data, error } = await admin
-    .from(table)
-    .select(`client_id, ${column}`)
-    .order(column, { ascending: false })
-    .limit(SCAN_LIMIT);
+  // Newest row per client, from the database. The 20,000-row scan was really
+  // 1000 rows (the cap), so clients whose last run sat further back were
+  // treated as never synced (found 2026-09-28).
+  let data: Array<Record<string, unknown>> | null = null;
+  let error: { message: string } | null = null;
+  try {
+    data = (await fetchLatestSnapshotsByClient<{ client_id: number; created_at?: string }>(admin, table, `client_id, ${column}`)) as unknown as Array<Record<string, unknown>>;
+  } catch (e) {
+    error = { message: e instanceof Error ? e.message : "failed" };
+  }
   // A table that cannot be read just means nothing is known to be fresh, which
   // orders every client equally rather than failing the run.
   if (!error) {

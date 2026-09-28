@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { evaluateClientSetup } from "@/lib/clients/setup-status";
 import { seoKeywordAllowance } from "@/lib/playbook/client-tiers";
 import { getClientActiveServices, norm } from "@/lib/clients/service-active";
@@ -762,11 +763,18 @@ export async function buildOnboardingContextForClients(
       .select("client_id")
       .eq("owner_user_id", userId)
       .in("client_id", uniqueIds),
-    supabase
-      .from("basecamp_communication_events")
-      .select("*")
-      .in("client_id", uniqueIds)
-      .order("occurred_at", { ascending: false }),
+    // Every post for these clients, in pages (up to 248 clients' history).
+    fetchAllRows<BasecampThreadEvent>(
+      (from, to) =>
+        supabase
+          .from("basecamp_communication_events")
+          .select("*")
+          .in("client_id", uniqueIds)
+          .order("occurred_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      "Basecamp events",
+    ).then((data) => ({ data }), () => ({ data: [] as BasecampThreadEvent[] })),
     supabase
       .from("client_onboarding_intake")
       .select("client_id, web_status, website_launched_at, website_launch_date, kickoff_meeting_at")

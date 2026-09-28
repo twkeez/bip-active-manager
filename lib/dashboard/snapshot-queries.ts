@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import type { BasecampSyncState, LighthouseSnapshot } from "@/lib/types/client";
 
 const SNAPSHOT_SCAN_LIMIT = 500;
@@ -46,12 +47,32 @@ function latestByClientId<T extends { client_id: number; created_at?: string }>(
   return map;
 }
 
+/**
+ * The newest snapshot per client, from the database function
+ * latest_snapshot_per_client (one row per client, so no row cap applies).
+ *
+ * This used to read the newest 500 rows across all clients and keep the
+ * latest per client: once 500 newer rows sat above a client's last snapshot,
+ * that client silently disappeared instead of showing as stale (found
+ * 2026-09-28). `select` is kept for callers but full rows come back.
+ */
 export async function fetchLatestSnapshotsByClient<T extends { client_id: number; created_at?: string }>(
   supabase: SupabaseClient,
   table: string,
   select: string,
   clientId?: number,
+  options: { completedOnly?: boolean } = {},
 ): Promise<T[]> {
+  const { data, error } = await supabase.rpc("latest_snapshot_per_client", {
+    p_table: table,
+    p_client_id: clientId ?? null,
+    p_completed_only: options.completedOnly ?? false,
+  });
+  if (!error) return (data ?? []) as T[];
+
+  // The function arrives with a migration Tom pastes by hand. Until it
+  // exists, fall back to the old scan, and say so rather than fail the page.
+  console.warn(`[latest-snapshot] ${table}: ${error.message}; using the capped scan until the migration runs.`);
   let query = supabase
     .from(table)
     .select(select)
@@ -60,9 +81,9 @@ export async function fetchLatestSnapshotsByClient<T extends { client_id: number
   if (clientId != null) {
     query = query.eq("client_id", clientId);
   }
-  const { data, error } = await query;
-  if (error || !data) return [];
-  return [...latestByClientId(data as unknown as T[]).values()];
+  const fallback = await query;
+  if (fallback.error || !fallback.data) return [];
+  return [...latestByClientId(fallback.data as unknown as T[]).values()];
 }
 
 export async function fetchLighthouseSnapshots(
@@ -145,14 +166,36 @@ function groupSignalSummaries(
   return result;
 }
 
+/**
+ * Search Console issue counts per client, from each client's latest completed
+ * snapshot. GSC signals are never deleted, so counting the whole table added
+ * up every night's issues, and the 1000-row cap then cut that off at random
+ * (found 2026-09-28).
+ */
 export async function fetchGscSignalSummariesByClient(
   supabase: SupabaseClient,
 ): Promise<Record<number, SignalSummary>> {
-  const { data, error } = await supabase
-    .from("client_gsc_signals")
-    .select("client_id, severity");
-  if (error || !data) return {};
-  return groupSignalSummaries(data as Array<{ client_id: number; severity: string }>);
+  const latest = await fetchLatestSnapshotsByClient<{ id: number; client_id: number }>(
+    supabase,
+    "client_gsc_snapshots",
+    "id, client_id",
+    undefined,
+    { completedOnly: true },
+  );
+  const ids = latest.map((snapshot) => snapshot.id);
+  if (!ids.length) return {};
+  const rows = await fetchAllRows<{ client_id: number; severity: string }>(
+    (from, to) =>
+      supabase
+        .from("client_gsc_signals")
+        .select("client_id, severity, id")
+        .in("snapshot_id", ids)
+        .order("id", { ascending: true })
+        .range(from, to),
+    "GSC signals",
+  ).catch(() => null);
+  if (!rows) return {};
+  return groupSignalSummaries(rows);
 }
 
 export async function fetchAdsSignalSummariesByClient(

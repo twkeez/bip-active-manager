@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendGmailAs } from "@/lib/email/gmail-send";
 import {
@@ -42,16 +43,30 @@ export async function sweepFollowups(admin: SupabaseClient, now: Date = new Date
 
   // --- Close the ones somebody acted on -----------------------------------
   const since = open[0].sent_at;
-  const { data: postRows, error: postError } = await admin
-    .from("basecamp_communication_events")
-    .select("basecamp_project_id,basecamp_recording_id,parent_recording_id,occurred_at,author_email")
-    .in("basecamp_project_id", [
-      ...new Set(open.map((f) => f.basecamp_project_id).filter((id): id is string => Boolean(id))),
-    ])
-    .gt("occurred_at", since);
+  const projectIds = [
+    ...new Set(open.map((f) => f.basecamp_project_id).filter((id): id is string => Boolean(id))),
+  ];
+  let postRows: ThreadActivity[] = [];
+  let postError: { message: string } | null = null;
+  try {
+    // Every post since the oldest open follow-up, in pages.
+    postRows = await fetchAllRows<ThreadActivity>(
+      (from, to) =>
+        admin
+          .from("basecamp_communication_events")
+          .select("basecamp_project_id,basecamp_recording_id,parent_recording_id,occurred_at,author_email,id")
+          .in("basecamp_project_id", projectIds)
+          .gt("occurred_at", since)
+          .order("id", { ascending: true })
+          .range(from, to),
+      "Basecamp posts",
+    );
+  } catch (error) {
+    postError = { message: error instanceof Error ? error.message : "failed" };
+  }
   if (postError) errors.push(`Could not read Basecamp posts: ${postError.message}`);
 
-  const answered = followupsAnswered(open, (postRows ?? []) as ThreadActivity[]);
+  const answered = followupsAnswered(open, postRows);
   const closedIds = new Set<number>();
   let closed = 0;
   for (const { followup, post } of answered) {

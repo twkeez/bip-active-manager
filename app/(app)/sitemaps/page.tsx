@@ -1,3 +1,5 @@
+import { fetchLatestSnapshotsByClient } from "@/lib/dashboard/snapshot-queries";
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SitemapsManager from "@/components/sitemaps/sitemaps-manager";
@@ -49,17 +51,36 @@ export default async function SitemapsPage() {
         "id, client_id, sitemap_url, run_status, error_message, url_count, with_lastmod_count, latest_lastmod, stale_90_count, fetched_at, created_at, updated_at",
       )
       .order("created_at", { ascending: false })
-      .limit(1000)
+      // 18 rows today. No limit: if it ever reaches the database's 1000, the
+      // row-cap tripwire records it.
       .returns<SitemapSnapshot[]>(),
 
-    supabase
-      .from("client_gsc_sitemaps")
-      .select(
-        "client_id, sitemap_url, last_submitted, last_downloaded, urls_submitted, urls_indexed, errors, snapshot_id",
-      )
-      .order("snapshot_id", { ascending: false })
-      .limit(1000)
-      .returns<GscSitemapRow[]>(),
+    // Sitemaps from each client's latest completed Search Console snapshot.
+    // Every nightly snapshot re-stores them, so the newest 1000 rows across
+    // all clients left out clients whose last sync was further back.
+    fetchLatestSnapshotsByClient<{ id: number; client_id: number }>(
+      supabase,
+      "client_gsc_snapshots",
+      "id, client_id",
+      undefined,
+      { completedOnly: true },
+    ).then(async (latest) => {
+      const ids = latest.map((snapshot) => snapshot.id);
+      if (!ids.length) return { data: [] as GscSitemapRow[], error: null };
+      const data = await fetchAllRows<GscSitemapRow>(
+        (from, to) =>
+          supabase
+            .from("client_gsc_sitemaps")
+            .select(
+              "client_id, sitemap_url, last_submitted, last_downloaded, urls_submitted, urls_indexed, errors, snapshot_id, id",
+            )
+            .in("snapshot_id", ids)
+            .order("id", { ascending: true })
+            .range(from, to),
+        "GSC sitemaps",
+      );
+      return { data, error: null };
+    }),
   ]);
 
   const clients = clientsResult.data ?? [];

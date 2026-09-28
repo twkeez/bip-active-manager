@@ -1,3 +1,6 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
+import { fetchLatestSnapshotsByClient } from "@/lib/dashboard/snapshot-queries";
+import { pickKeywordPeriods, type GscSnapshotWindow } from "@/lib/reporting/keyword-periods";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AdsSnapshot,
@@ -10,14 +13,6 @@ import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import type { Win, WinSource } from "@/lib/wins/types";
 
 // Keep the latest row per client from a list already sorted newest-first.
-function latestPerClient<T extends { client_id: number }>(rows: T[]): Map<number, T> {
-  const byClient = new Map<number, T>();
-  for (const row of rows) {
-    if (!byClient.has(row.client_id)) byClient.set(row.client_id, row);
-  }
-  return byClient;
-}
-
 function pctChange(current: number, previous: number): number | null {
   if (!previous || previous <= 0) return null;
   return (current - previous) / previous;
@@ -36,14 +31,13 @@ function fmtMoney(value: number): string {
 }
 
 async function detectGa4(admin: SupabaseClient, names: Map<number, string>): Promise<Win[]> {
-  const { data } = await admin
-    .from("client_ga4_snapshots")
-    .select("client_id, totals, previous_totals, start_date, end_date, created_at, run_status")
-    .eq("run_status", "completed")
-    .order("created_at", { ascending: false })
-    .limit(600);
+  // Each client's latest completed snapshot, from the database (one row per
+  // client). The newest 600 rows across all clients left some out.
+  const latest = await fetchLatestSnapshotsByClient<Ga4Snapshot>(admin, "client_ga4_snapshots", "*", undefined, {
+    completedOnly: true,
+  });
   const wins: Win[] = [];
-  for (const snap of latestPerClient((data ?? []) as unknown as Ga4Snapshot[]).values()) {
+  for (const snap of latest) {
     const name = names.get(snap.client_id);
     if (!name) continue;
     const t = snap.totals;
@@ -97,30 +91,34 @@ async function detectGa4(admin: SupabaseClient, names: Map<number, string>): Pro
 }
 
 async function detectGsc(admin: SupabaseClient, names: Map<number, string>): Promise<Win[]> {
-  const { data: snaps } = await admin
-    .from("client_gsc_snapshots")
-    .select("id, client_id, start_date, end_date, created_at, run_status")
-    .eq("run_status", "completed")
-    .order("created_at", { ascending: false })
-    .limit(600);
-  const latest = latestPerClient(
-    (snaps ?? []) as Array<{ id: number; client_id: number }>,
+  const latestRows = await fetchLatestSnapshotsByClient<{ id: number; client_id: number }>(
+    admin,
+    "client_gsc_snapshots",
+    "id, client_id",
+    undefined,
+    { completedOnly: true },
   );
+  const latest = new Map(latestRows.map((row) => [row.client_id, row]));
   const snapshotIds = [...latest.values()].map((s) => s.id);
   if (!snapshotIds.length) return [];
   const snapToClient = new Map<number, number>([...latest.values()].map((s) => [s.id, s.client_id]));
 
   // Strong rankings: queries at average position <= 3 with real impressions.
-  const { data: queries } = await admin
-    .from("client_gsc_query_metrics")
-    .select("snapshot_id, query, clicks, impressions, position")
-    .in("snapshot_id", snapshotIds)
-    .lte("position", 3)
-    .gte("impressions", 50)
-    .limit(5000);
+  const queries = await fetchAllRows<GscQueryMetric>(
+    (from, to) =>
+      admin
+        .from("client_gsc_query_metrics")
+        .select("snapshot_id, query, clicks, impressions, position, id")
+        .in("snapshot_id", snapshotIds)
+        .lte("position", 3)
+        .gte("impressions", 50)
+        .order("id", { ascending: true })
+        .range(from, to),
+    "GSC query metrics",
+  );
 
   const top3ByClient = new Map<number, GscQueryMetric[]>();
-  for (const q of (queries ?? []) as GscQueryMetric[]) {
+  for (const q of queries) {
     const clientId = snapToClient.get(q.snapshot_id);
     if (clientId == null) continue;
     const list = top3ByClient.get(clientId) ?? [];
@@ -129,13 +127,18 @@ async function detectGsc(admin: SupabaseClient, names: Map<number, string>): Pro
   }
 
   // Total organic clicks per snapshot (volume win).
-  const { data: pages } = await admin
-    .from("client_gsc_page_metrics")
-    .select("snapshot_id, clicks")
-    .in("snapshot_id", snapshotIds)
-    .limit(20000);
+  const pages = await fetchAllRows<Pick<GscPageMetric, "snapshot_id" | "clicks">>(
+    (from, to) =>
+      admin
+        .from("client_gsc_page_metrics")
+        .select("snapshot_id, clicks, id")
+        .in("snapshot_id", snapshotIds)
+        .order("id", { ascending: true })
+        .range(from, to),
+    "GSC page metrics",
+  );
   const clicksByClient = new Map<number, number>();
-  for (const pg of (pages ?? []) as Pick<GscPageMetric, "snapshot_id" | "clicks">[]) {
+  for (const pg of pages) {
     const clientId = snapToClient.get(pg.snapshot_id);
     if (clientId == null) continue;
     clicksByClient.set(clientId, (clicksByClient.get(clientId) ?? 0) + (pg.clicks ?? 0));
@@ -181,14 +184,21 @@ async function detectGsc(admin: SupabaseClient, names: Map<number, string>): Pro
 }
 
 async function detectAds(admin: SupabaseClient, names: Map<number, string>): Promise<Win[]> {
-  const { data } = await admin
-    .from("client_ads_snapshots")
-    .select("client_id, totals, start_date, end_date, created_at, run_status")
-    .eq("run_status", "completed")
-    .order("created_at", { ascending: false })
-    .limit(400);
-  const rows = (data ?? []) as unknown as AdsSnapshot[];
-  // Group newest-first; index 0 = latest, index 1 = previous (for deltas).
+  // The last 120 days of completed snapshots, every page. The newest 400 rows
+  // across all clients left clients out once history grew.
+  const cutoff = new Date(Date.now() - 120 * 86_400_000).toISOString();
+  const rows = await fetchAllRows<AdsSnapshot>(
+    (from, to) =>
+      admin
+        .from("client_ads_snapshots")
+        .select("id, client_id, totals, start_date, end_date, created_at, run_status")
+        .eq("run_status", "completed")
+        .gte("created_at", cutoff)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to),
+    "ads snapshots",
+  );
   const byClient = new Map<number, AdsSnapshot[]>();
   for (const r of rows) {
     const list = byClient.get(r.client_id) ?? [];
@@ -200,7 +210,13 @@ async function detectAds(admin: SupabaseClient, names: Map<number, string>): Pro
   for (const [clientId, snaps] of byClient) {
     const name = names.get(clientId);
     if (!name) continue;
-    const t = snaps[0]?.totals;
+    // Latest completed snapshot, and the one covering the 30 days before it.
+    // Snapshots are nightly 30-day windows, so the next-newest one overlaps
+    // the latest almost entirely and made "growth" meaningless.
+    const periods = pickKeywordPeriods(snaps as unknown as GscSnapshotWindow[]);
+    const latestSnap = snaps.find((snap) => snap.id === periods.current?.id);
+    const previousSnap = snaps.find((snap) => snap.id === periods.previous?.id);
+    const t = latestSnap?.totals;
     if (!t) continue;
     const costDollars = (t.cost_micros ?? 0) / 1_000_000;
     const conversions = t.conversions ?? 0;
@@ -258,7 +274,7 @@ async function detectAds(admin: SupabaseClient, names: Map<number, string>): Pro
       });
     }
     // Delta vs previous snapshot.
-    const prev = snaps[1]?.totals;
+    const prev = previousSnap?.totals;
     if (prev) {
       const change = pctChange(conversions, prev.conversions ?? 0);
       if (change != null && change >= 0.3 && change <= 3 && conversions >= 20 && credibleConversions) {

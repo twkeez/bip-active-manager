@@ -98,6 +98,9 @@ export const TEAM_API_NAMESPACES = [
   "client-expectations",
   "client-seo-audits",
   "clients",
+  // Row-cap warnings reported from the browser (lib/data-integrity): the team
+  // reads data too, and a capped read there must be recorded like any other.
+  "data-warnings",
   "ga4",
   "gbp",
   "google",

@@ -22,6 +22,8 @@ import {
 import { getBigQueryDatasetRef, runBigQueryQuery } from "@/lib/reporting/bigquery";
 import { ensureReportingModelV1 } from "@/lib/reporting/bigquery-models";
 import { fetchLatestSnapshotsByClient } from "@/lib/dashboard/snapshot-queries";
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
+import { pickKeywordPeriods, type GscSnapshotWindow, type KeywordPeriodRow } from "@/lib/reporting/keyword-periods";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type SyncOutcome = {
@@ -86,100 +88,36 @@ function rowsForClient<T>(map: Map<number, T[]>, clientId: number, limit: number
   return (map.get(clientId) ?? []).slice(0, limit);
 }
 
-function buildKeywordRowsFromQueryMetrics(
-  queryRows: Array<{
-    query: string;
-    clicks: number;
-    impressions: number;
-    position: number;
-    created_at: string;
-  }>,
-) {
-  const queryAgg = new Map<
-    string,
-    {
-      currentClicks: number;
-      previousClicks: number;
-      currentImpressions: number;
-      previousImpressions: number;
-      currentPositionWeighted: number;
-      currentPositionWeight: number;
-      previousPositionWeighted: number;
-      previousPositionWeight: number;
-    }
-  >();
-  const sortedQueryRows = [...queryRows].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  );
-  const currentQueryRows = sortedQueryRows.slice(0, 200);
-  const previousQueryRows = sortedQueryRows.slice(200, 400);
-  for (const row of currentQueryRows) {
+/**
+ * Keyword facts from one 28-day period against the 28 days before it (see
+ * lib/reporting/keyword-periods.ts). This used to sum the newest 200 query
+ * rows across many overlapping nightly snapshots as "current" and the next
+ * 200 as "previous", inflating clicks several times over (found 2026-09-28).
+ */
+function buildKeywordRowsFromQueryMetrics(queryRows: KeywordPeriodRow[]) {
+  const byKey = new Map<string, { current?: KeywordPeriodRow; previous?: KeywordPeriodRow }>();
+  for (const row of queryRows) {
     const key = row.query.trim().toLowerCase();
     if (!key) continue;
-    const cur =
-      queryAgg.get(key) ??
-      {
-        currentClicks: 0,
-        previousClicks: 0,
-        currentImpressions: 0,
-        previousImpressions: 0,
-        currentPositionWeighted: 0,
-        currentPositionWeight: 0,
-        previousPositionWeighted: 0,
-        previousPositionWeight: 0,
-      };
-    const weight = Math.max(1, row.impressions);
-    cur.currentClicks += row.clicks;
-    cur.currentImpressions += row.impressions;
-    cur.currentPositionWeighted += row.position * weight;
-    cur.currentPositionWeight += weight;
-    queryAgg.set(key, cur);
+    const entry = byKey.get(key) ?? {};
+    entry[row.period] = row;
+    byKey.set(key, entry);
   }
-  for (const row of previousQueryRows) {
-    const key = row.query.trim().toLowerCase();
-    if (!key) continue;
-    const cur =
-      queryAgg.get(key) ??
-      {
-        currentClicks: 0,
-        previousClicks: 0,
-        currentImpressions: 0,
-        previousImpressions: 0,
-        currentPositionWeighted: 0,
-        currentPositionWeight: 0,
-        previousPositionWeighted: 0,
-        previousPositionWeight: 0,
-      };
-    const weight = Math.max(1, row.impressions);
-    cur.previousClicks += row.clicks;
-    cur.previousImpressions += row.impressions;
-    cur.previousPositionWeighted += row.position * weight;
-    cur.previousPositionWeight += weight;
-    queryAgg.set(key, cur);
-  }
-  return [...queryAgg.entries()]
-    .map(([keyword, agg]) => {
-      const currentPosition =
-        agg.currentPositionWeight > 0
-          ? agg.currentPositionWeighted / agg.currentPositionWeight
-          : null;
-      const previousPosition =
-        agg.previousPositionWeight > 0
-          ? agg.previousPositionWeighted / agg.previousPositionWeight
-          : null;
-      const positionDelta =
-        currentPosition == null || previousPosition == null
-          ? 0
-          : currentPosition - previousPosition;
+  return [...byKey.entries()]
+    .filter(([, entry]) => entry.current)
+    .map(([keyword, { current, previous }]) => {
+      const currentPosition = current!.position;
+      const previousPosition = previous ? previous.position : null;
+      const positionDelta = previousPosition == null ? 0 : currentPosition - previousPosition;
       return {
         keyword,
         current_position: currentPosition,
         previous_position: previousPosition,
         position_delta: positionDelta,
-        current_clicks: agg.currentClicks,
-        previous_clicks: agg.previousClicks,
+        current_clicks: current!.clicks,
+        previous_clicks: previous ? previous.clicks : 0,
         dropped_by_3_plus: positionDelta >= 3,
-        current_impressions: agg.currentImpressions,
+        current_impressions: current!.impressions,
       };
     })
     .sort((a, b) => b.current_impressions - a.current_impressions)
@@ -195,7 +133,7 @@ function buildKeywordRowsFromQueryMetrics(
     }));
 }
 
-async function gatherClientContexts(admin: SupabaseClient) {
+export async function gatherClientContexts(admin: SupabaseClient) {
   const { data: clientsRaw, error: clientsError } = await admin
     .from("clients")
     .select("*")
@@ -205,73 +143,99 @@ async function gatherClientContexts(admin: SupabaseClient) {
   if (clients.length === 0) return [];
 
   const clientIds = clients.map((client) => client.id);
-  const batchRowLimit = Math.min(clientIds.length * 300, 15000);
+  // Every read below is either one row per client or paged to the end. They
+  // used to be single capped reads across all 248 clients, which the
+  // database cut at 1000 rows in total, so most clients came out empty or
+  // partial (found 2026-09-28).
+  const all = <T,>(table: string, select: string, since?: { column: string; value: string }) =>
+    fetchAllRows<T>((from, to) => {
+      let query = admin.from(table).select(`${select}, id`).in("client_id", clientIds);
+      if (since) query = query.gte(since.column, since.value);
+      return query.order("id", { ascending: true }).range(from, to);
+    }, table);
 
+  // Search Console: each client's latest completed snapshot, and the one
+  // covering the 28 days before it, for keyword periods.
+  const gscSnapshots = await fetchAllRows<GscSnapshotWindow & { client_id: number }>(
+    (from, to) =>
+      admin
+        .from("client_gsc_snapshots")
+        .select("id, client_id, start_date, end_date, run_status, created_at")
+        .in("client_id", clientIds)
+        .eq("run_status", "completed")
+        .gte("created_at", new Date(Date.now() - 120 * 86_400_000).toISOString())
+        .order("id", { ascending: true })
+        .range(from, to),
+    "client_gsc_snapshots",
+  );
+  const gscPeriodsByClient = new Map<number, ReturnType<typeof pickKeywordPeriods>>();
+  for (const [clientId, snaps] of groupRowsByClientId(gscSnapshots)) {
+    gscPeriodsByClient.set(clientId, pickKeywordPeriods(snaps));
+  }
+  const currentGscIds = [...gscPeriodsByClient.values()].map((p) => p.current?.id).filter((id): id is number => id != null);
+  const previousGscIds = [...gscPeriodsByClient.values()].map((p) => p.previous?.id).filter((id): id is number => id != null);
+  const bySnapshot = <T,>(table: string, select: string, ids: number[]) =>
+    ids.length
+      ? fetchAllRows<T>(
+          (from, to) => admin.from(table).select(`${select}, id`).in("snapshot_id", ids).order("id", { ascending: true }).range(from, to),
+          table,
+        )
+      : Promise.resolve([] as T[]);
+
+  const socialSince = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10);
   const [
     adsSnapshots,
-    adsSignalsRaw,
-    gscPageRaw,
-    gscSignalsRaw,
-    socialDailyRaw,
-    socialSignalsRaw,
+    adsSignalsRows,
+    gscPageRows,
+    gscSignalsRows,
+    socialDailyRows,
+    socialSignalsRows,
     sitemapSnapshots,
     gbpSnapshots,
-    gbpReviewsRaw,
-    keywordHealthRaw,
-    crawlIssuesRaw,
+    gbpReviewsRows,
+    queryMetricRows,
+    crawlIssuesRows,
   ] = await Promise.all([
     fetchLatestSnapshotsByClient<AdsSnapshot>(admin, "client_ads_snapshots", "*"),
-    admin
-      .from("client_ads_signals")
-      .select("*")
-      .in("client_id", clientIds)
-      .order("created_at", { ascending: false })
-      .limit(batchRowLimit),
-    admin
-      .from("client_gsc_page_metrics")
-      .select("*")
-      .in("client_id", clientIds)
-      .order("created_at", { ascending: false })
-      .limit(batchRowLimit),
-    admin
-      .from("client_gsc_signals")
-      .select("*")
-      .in("client_id", clientIds)
-      .order("created_at", { ascending: false })
-      .limit(batchRowLimit),
-    admin
-      .from("client_social_daily_snapshots")
-      .select("*")
-      .in("client_id", clientIds)
-      .order("snapshot_date", { ascending: false })
-      .limit(batchRowLimit),
-    admin
-      .from("client_social_signals")
-      .select("*")
-      .in("client_id", clientIds)
-      .order("created_at", { ascending: false })
-      .limit(batchRowLimit),
+    all<AdsSignal>("client_ads_signals", "*"),
+    bySnapshot<GscPageMetric>("client_gsc_page_metrics", "*", currentGscIds),
+    bySnapshot<GscSignal>("client_gsc_signals", "*", currentGscIds),
+    all<SocialDailySnapshot>("client_social_daily_snapshots", "*", { column: "snapshot_date", value: socialSince }),
+    all<SocialSignal>("client_social_signals", "*"),
     fetchLatestSnapshotsByClient<SitemapSnapshot>(admin, "client_sitemap_snapshots", "*"),
     fetchLatestSnapshotsByClient<GbpSnapshot>(admin, "client_gbp_snapshots", "*"),
-    admin
-      .from("client_gbp_reviews")
-      .select("*")
-      .in("client_id", clientIds)
-      .order("review_time_unix", { ascending: false, nullsFirst: false })
-      .limit(batchRowLimit),
-    admin
-      .from("client_gsc_query_metrics")
-      .select("client_id,query,clicks,impressions,position,created_at")
-      .in("client_id", clientIds)
-      .order("created_at", { ascending: false })
-      .limit(Math.min(clientIds.length * 400, 20000)),
-    admin
-      .from("client_seo_crawl_issues")
-      .select("client_id,id,severity")
-      .in("client_id", clientIds)
-      .order("created_at", { ascending: false })
-      .limit(batchRowLimit),
+    all<GbpReviewRow>("client_gbp_reviews", "*"),
+    bySnapshot<{ snapshot_id: number; client_id: number; query: string; clicks: number; impressions: number; position: number }>(
+      "client_gsc_query_metrics",
+      "snapshot_id, client_id, query, clicks, impressions, position",
+      [...currentGscIds, ...previousGscIds],
+    ),
+    all<{ client_id: number; id: number; severity: string }>("client_seo_crawl_issues", "client_id, severity"),
   ]);
+  const newestFirst = <T extends { created_at?: string }>(rows: T[]) =>
+    [...rows].sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+  const currentGscIdSet = new Set(currentGscIds);
+  const adsSignalsRaw = { data: newestFirst(adsSignalsRows) };
+  const gscPageRaw = { data: gscPageRows };
+  const gscSignalsRaw = { data: newestFirst(gscSignalsRows) };
+  const socialDailyRaw = {
+    data: [...socialDailyRows].sort((a, b) => String(b.snapshot_date).localeCompare(String(a.snapshot_date))),
+  };
+  const socialSignalsRaw = { data: newestFirst(socialSignalsRows) };
+  const gbpReviewsRaw = {
+    data: [...gbpReviewsRows].sort((a, b) => (b.review_time_unix ?? 0) - (a.review_time_unix ?? 0)),
+  };
+  const keywordHealthRaw = {
+    data: queryMetricRows.map((row) => ({
+      client_id: row.client_id,
+      query: row.query,
+      clicks: row.clicks,
+      impressions: row.impressions,
+      position: row.position,
+      period: (currentGscIdSet.has(row.snapshot_id) ? "current" : "previous") as KeywordPeriodRow["period"],
+    })),
+  };
+  const crawlIssuesRaw = { data: crawlIssuesRows };
 
   const adsSnapshotByClient = new Map(adsSnapshots.map((row) => [row.client_id, row]));
   const sitemapByClient = new Map(sitemapSnapshots.map((row) => [row.client_id, row]));
@@ -287,14 +251,7 @@ async function gatherClientContexts(admin: SupabaseClient) {
   );
   const gbpReviewsByClient = groupRowsByClientId((gbpReviewsRaw.data ?? []) as GbpReviewRow[]);
   const queryMetricsByClient = groupRowsByClientId(
-    (keywordHealthRaw.data ?? []) as Array<{
-      client_id: number;
-      query: string;
-      clicks: number;
-      impressions: number;
-      position: number;
-      created_at: string;
-    }>,
+    keywordHealthRaw.data as Array<KeywordPeriodRow & { client_id: number }>,
   );
   const crawlIssuesByClient = groupRowsByClientId(
     (crawlIssuesRaw.data ?? []) as Array<{ client_id: number; id: number; severity: string }>,

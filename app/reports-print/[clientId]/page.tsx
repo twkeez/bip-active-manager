@@ -1,3 +1,5 @@
+import ExportBlocked from "@/components/data-integrity/export-blocked";
+import { withIntegrityScope } from "@/lib/data-integrity/server";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { loadReportForClient } from "@/lib/reporting/load-report";
@@ -25,8 +27,12 @@ export default async function ReportPrintPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const loaded = await loadReportForClient(supabase, user.id, id, range);
+  const { result: loaded, truncated } = await withIntegrityScope(() =>
+    loadReportForClient(supabase, user.id, id, range),
+  );
   if (!loaded) notFound();
+  // Never print numbers built on a read the database cut short.
+  if (truncated.length) return <ExportBlocked what="report" truncated={truncated} />;
 
   const { data: draftRow } = await supabase
     .from("report_drafts")

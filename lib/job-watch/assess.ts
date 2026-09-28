@@ -14,7 +14,7 @@ export type JobProblem = {
   /** Stable per problem, so it is reported once, not every hour. */
   key: string;
   jobKey: string;
-  kind: "failed" | "partial" | "timed_out" | "overdue";
+  kind: "failed" | "partial" | "timed_out" | "overdue" | "data_warning";
   message: string;
 };
 

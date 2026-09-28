@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,13 +17,25 @@ export async function GET() {
   }
 
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("user_email_messages")
-    .select("from_email, from_name")
-    .eq("owner_user_id", user.id)
-    .not("from_email", "is", null)
-    .order("internal_date", { ascending: false, nullsFirst: false })
-    .limit(2000);
+  // Every message's sender, in pages (the 2000 limit was really 1000).
+  let data: Array<{ from_email: string | null; from_name: string | null }> | null = null;
+  let error: { message: string } | null = null;
+  try {
+    data = await fetchAllRows<{ from_email: string | null; from_name: string | null }>(
+      (from, to) =>
+        admin
+          .from("user_email_messages")
+          .select("from_email, from_name, id")
+          .eq("owner_user_id", user.id)
+          .not("from_email", "is", null)
+          .order("internal_date", { ascending: false, nullsFirst: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      "email senders",
+    );
+  } catch (e) {
+    error = { message: e instanceof Error ? e.message : "failed" };
+  }
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

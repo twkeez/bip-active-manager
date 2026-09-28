@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -26,13 +27,24 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: rows, error } = await supabase
-    .from("client_gsc_page_metrics")
-    .select("page_url, clicks, client_id")
-    .ilike("page_url", "%/blog/%")
-    .order("clicks", { ascending: false })
-    .limit(3000);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Every blog page row, in pages (the 3000 limit was really 1000, and
+  // repeats across nightly snapshots filled it with the same pages).
+  let rows: Array<{ page_url: string; clicks: number; client_id: number }>;
+  try {
+    rows = await fetchAllRows<{ page_url: string; clicks: number; client_id: number }>(
+      (from, to) =>
+        supabase
+          .from("client_gsc_page_metrics")
+          .select("page_url, clicks, client_id, id")
+          .ilike("page_url", "%/blog/%")
+          .order("clicks", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      "blog page metrics",
+    );
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 500 });
+  }
 
   // Dedupe by page (highest-clicks snapshot wins, since ordered desc).
   const pageBest = new Map<string, { clicks: number; clientId: number }>();

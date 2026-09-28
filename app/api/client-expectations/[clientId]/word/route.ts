@@ -1,3 +1,5 @@
+import { exportBlockedMessage } from "@/components/data-integrity/export-blocked";
+import { withIntegrityScope } from "@/lib/data-integrity/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadClientExpectations } from "@/lib/onboarding/load-client-expectations";
@@ -16,8 +18,11 @@ export async function GET(request: Request, context: { params: Promise<{ clientI
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const model = await loadClientExpectations(supabase, clientId);
+  const { result: model, truncated } = await withIntegrityScope(() => loadClientExpectations(supabase, clientId));
   if (!model) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  if (truncated.length) {
+    return NextResponse.json({ error: exportBlockedMessage("client document", truncated) }, { status: 409 });
+  }
 
   const generatedAt = new Date().toLocaleDateString(undefined, {
     month: "short",

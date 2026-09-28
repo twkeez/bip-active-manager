@@ -1,7 +1,9 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assessJobs, jobStatusLines, type JobProblem, type JobRun } from "./assess";
 import { WATCHED_JOBS } from "./jobs";
 import { sendAlertEmail } from "./notify";
+import { isActiveWarning, loadOpenWarnings } from "@/lib/data-integrity/warnings";
 import { openForLabel, type FollowupRow } from "@/lib/followups/followups";
 import { sweepFollowups } from "@/lib/followups/process";
 
@@ -26,12 +28,21 @@ function easternParts(now: Date): { date: string; hour: number } {
 export async function loadJobState(admin: SupabaseClient, now: Date) {
   const since = new Date(now.getTime() - 7 * 24 * 3_600_000).toISOString();
   const [runsResult, firstResult] = await Promise.all([
-    admin
-      .from("job_runs")
-      .select("id,job_key,started_at,finished_at,status,http_status,summary")
-      .gte("started_at", since)
-      .order("started_at", { ascending: false })
-      .limit(2000),
+    // Every run in the week, in pages (the jobs make ~600 a week).
+    fetchAllRows<JobRun>(
+      (from, to) =>
+        admin
+          .from("job_runs")
+          .select("id,job_key,started_at,finished_at,status,http_status,summary")
+          .gte("started_at", since)
+          .order("started_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      "job runs",
+    ).then(
+      (data) => ({ data, error: null as { message: string } | null }),
+      (error: Error) => ({ data: null as JobRun[] | null, error: { message: error.message } }),
+    ),
     admin.from("job_runs").select("started_at").order("started_at", { ascending: true }).limit(1),
   ]);
   if (runsResult.error) throw new Error(`Could not read job runs: ${runsResult.error.message}`);
@@ -126,7 +137,23 @@ export type WatchResult = {
  * its email went out, so a failed send is retried next hour, not lost.
  */
 export async function runJobWatch(admin: SupabaseClient, now: Date = new Date()): Promise<WatchResult> {
-  const { runs, problems } = await loadJobState(admin, now);
+  const { runs, problems: jobProblems } = await loadJobState(admin, now);
+
+  // Data that may be incomplete (lib/data-integrity): each active warning is
+  // a problem, keyed by when it (re)opened, so it is emailed once, and again
+  // only if it comes back after being resolved.
+  const warnings = (await loadOpenWarnings(admin)).filter((warning) => isActiveWarning(warning, now));
+  const problems: JobProblem[] = [
+    ...jobProblems,
+    ...warnings.map((warning) => ({
+      key: `datawarn:${warning.id}:${warning.first_seen_at}`,
+      jobKey: "data-integrity",
+      kind: "data_warning" as const,
+      message: `Data may be incomplete. ${warning.detail} Seen ${warning.occurrences} time${
+        warning.occurrences === 1 ? "" : "s"
+      }, last ${new Date(warning.last_seen_at).toLocaleString("en-US", { timeZone: "America/New_York" })} ET. Details: ${APP_URL}/data-health`,
+    })),
+  ];
 
   let sweep: Awaited<ReturnType<typeof sweepFollowups>>;
   try {

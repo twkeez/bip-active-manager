@@ -1,3 +1,5 @@
+import { exportBlockedMessage } from "@/components/data-integrity/export-blocked";
+import { withIntegrityScope } from "@/lib/data-integrity/server";
 import { NextResponse } from "next/server";
 import { loadClientBriefing } from "@/lib/briefing/load";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -27,9 +29,16 @@ export async function GET(_request: Request, context: { params: Promise<{ client
   if (!(await isAdmin(supabase))) return NextResponse.json({ error: "Admins only." }, { status: 403 });
 
   try {
-    const briefing = await loadClientBriefing(createAdminClient(), clientId);
+    const { result: briefing, truncated } = await withIntegrityScope(() =>
+      loadClientBriefing(createAdminClient(), clientId),
+    );
     if (!briefing) return NextResponse.json({ error: "Client not found" }, { status: 404 });
-    return NextResponse.json({ briefing });
+    // The preview still shows, but says plainly that its numbers may be
+    // incomplete; sending is blocked separately.
+    return NextResponse.json({
+      briefing,
+      integrityWarning: truncated.length ? exportBlockedMessage("briefing", truncated) : null,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Could not build the briefing" },

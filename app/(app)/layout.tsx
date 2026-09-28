@@ -5,6 +5,8 @@ import SidebarSwitch from "@/components/layout/sidebar-switch";
 import { getProfile } from "@/lib/auth/profile";
 import { resolveEffectiveRole, VIEW_AS_COOKIE } from "@/lib/auth/effective-role";
 import { getAppMode } from "@/lib/auth/app-mode";
+import DataWarningBanner from "@/components/data-integrity/data-warning-banner";
+import { isActiveWarning, loadOpenWarnings } from "@/lib/data-integrity/warnings";
 
 export default async function AppLayout({
   children,
@@ -28,6 +30,8 @@ export default async function AppLayout({
     cookieStore.get(VIEW_AS_COOKIE)?.value,
   );
 
+  const activeWarnings = (await loadOpenWarnings(supabase)).filter((warning) => isActiveWarning(warning));
+
   return (
     <div className="flex h-screen overflow-hidden">
       <SidebarSwitch
@@ -36,7 +40,10 @@ export default async function AppLayout({
         userName={profile?.full_name ?? ""}
         appMode={getAppMode()}
       />
-      <main className="flex flex-1 flex-col overflow-y-auto">{children}</main>
+      <main className="flex flex-1 flex-col overflow-y-auto">
+        <DataWarningBanner warnings={activeWarnings} showLink={getAppMode() === "full"} />
+        {children}
+      </main>
     </div>
   );
 }

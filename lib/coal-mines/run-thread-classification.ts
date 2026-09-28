@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { classifyThreads, type ThreadToClassify } from "@/lib/coal-mines/classify-threads";
 import { fetchLatestThreadMessages } from "@/lib/basecamp/thread-latest";
@@ -37,16 +38,21 @@ export async function runThreadClassification(
   admin: SupabaseClient,
   now: Date = new Date(),
 ): Promise<ClassificationRun> {
-  const { data: rows, error } = await admin
-    .from("basecamp_communication_events")
-    .select(
-      "basecamp_recording_id, basecamp_project_id, basecamp_project_name, client_id, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
-    )
-    // One row per thread. Replies are stored as "comment" rows beside it.
-    .eq("kind", "message")
-    .order("occurred_at", { ascending: false })
-    .returns<Row[]>();
-  if (error) throw new Error(error.message);
+  // Every thread, in pages (see load-threads.ts).
+  const rows = await fetchAllRows<Row>(
+    (from, to) =>
+      admin
+        .from("basecamp_communication_events")
+        .select(
+          "basecamp_recording_id, basecamp_project_id, basecamp_project_name, client_id, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt, id",
+        )
+        // One row per thread. Replies are stored as "comment" rows beside it.
+        .eq("kind", "message")
+        .order("occurred_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to),
+    "Basecamp threads",
+  );
 
   const { data: clients } = await admin.from("clients").select("id, account_name");
   // Projects marked "not a client" on the wiring screen are never work, so

@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ensureDefaultTaskCategories } from "@/lib/tasks/categories";
@@ -36,12 +37,20 @@ export default async function MyTasksPage() {
   }
   const profile = await getProfile(supabase);
   const isAdmin = profile?.role === "admin";
-  const { data: tasksRaw } = await supabase
-    .from("user_tasks")
-    .select("*")
-    .eq("owner_user_id", user.id)
-    .order("updated_at", { ascending: false })
-    .limit(500);
+  // Every task, in pages. Capped at 500 by updated time, older open tasks
+  // silently dropped off the list once there were more (found 2026-09-28).
+  // A failed load shows an error page, never an empty list that looks real.
+  const tasksRaw = await fetchAllRows<unknown>(
+    (from, to) =>
+      supabase
+        .from("user_tasks")
+        .select("*")
+        .eq("owner_user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to),
+    "tasks",
+  );
   const tasks = (tasksRaw ?? []) as UserTask[];
   const taskIds = tasks.map((task) => task.id);
   let sources: UserTaskSource[] = [];

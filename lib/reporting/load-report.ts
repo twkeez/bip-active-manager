@@ -132,6 +132,12 @@ export async function loadReportForClient(
     hasGa4Property: Boolean((client.ga4_property_id ?? "").trim()),
   });
   const alerts = buildReportingAlerts({ technicalFindings, gscSignals, adsSignals, socialSignals });
+  const { count: socialPostCount30d } = await supabase
+    .from("client_social_post_snapshots")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", clientId)
+    .gte("published_at", new Date(Date.now() - 30 * 86_400_000).toISOString());
+
   const kpis = buildReportingKpis({
     adsSnapshot,
     metaAdsSnapshot,
@@ -141,7 +147,10 @@ export async function loadReportForClient(
     gscSnapshotUpdatedAt: workspace.gscSnapshot?.updated_at ?? gscSignals[0]?.created_at ?? null,
     socialDailyRows,
     socialPeriodReach,
-    socialPostCount: workspace.socialPostSnapshots.length,
+    // Posts published in the last 30 days, counted by the database. This was
+    // the number of posts loaded (all time, capped at 500) under a "(30d)"
+    // label (found 2026-09-28).
+    socialPostCount: socialPostCount30d ?? 0,
     socialConnected: workspace.socialConnections.length > 0,
     crawlIssueCount: crawlIssues.length,
     technicalFindingCount: technicalFindings.length,

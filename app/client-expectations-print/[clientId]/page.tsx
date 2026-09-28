@@ -1,3 +1,5 @@
+import ExportBlocked from "@/components/data-integrity/export-blocked";
+import { withIntegrityScope } from "@/lib/data-integrity/server";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { loadClientExpectations } from "@/lib/onboarding/load-client-expectations";
@@ -20,8 +22,9 @@ export default async function ClientExpectationsPrintPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const model = await loadClientExpectations(supabase, id);
+  const { result: model, truncated } = await withIntegrityScope(() => loadClientExpectations(supabase, id));
   if (!model) notFound();
+  if (truncated.length) return <ExportBlocked what="client document" truncated={truncated} />;
 
   const generatedAt = new Date().toLocaleDateString(undefined, {
     month: "short",

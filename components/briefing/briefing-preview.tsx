@@ -39,6 +39,7 @@ export default function BriefingPreview({
   const [briefing, setBriefing] = useState<ClientBriefing | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [integrityWarning, setIntegrityWarning] = useState<string | null>(null);
 
   useEffect(() => {
     if (clientId === null) return;
@@ -51,10 +52,15 @@ export default function BriefingPreview({
       setError(null);
       try {
         const response = await fetch(`/api/briefings/${clientId}`, { cache: "no-store" });
-        const payload = (await response.json()) as { error?: string; briefing?: ClientBriefing };
+        const payload = (await response.json()) as {
+          error?: string;
+          briefing?: ClientBriefing;
+          integrityWarning?: string | null;
+        };
         if (!live) return;
         if (!response.ok || !payload.briefing) throw new Error(payload.error ?? "Could not build the briefing");
         setBriefing(payload.briefing);
+        setIntegrityWarning(payload.integrityWarning ?? null);
       } catch (loadError) {
         if (live) {
           setBriefing(null);
@@ -73,6 +79,12 @@ export default function BriefingPreview({
 
   return (
     <div className="space-y-4">
+      {integrityWarning && (
+        <div role="alert" className="rounded-xl border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-100">
+          <p className="font-semibold">This briefing may be missing data</p>
+          <p className="mt-1">{integrityWarning}</p>
+        </div>
+      )}
       <div className="rounded-xl border border-bip-border bg-bip-card p-4">
         <h1 className="text-lg font-semibold text-bip-text">Client briefings</h1>
         <p className="mt-1 max-w-2xl text-xs leading-relaxed text-bip-muted">

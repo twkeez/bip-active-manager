@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClientRow } from "@/lib/types/client";
 import type { ClientServiceKey } from "@/lib/clients/types";
@@ -327,13 +328,23 @@ export async function loadClientBriefing(
       blind("seo", "Search Console data has not refreshed in days", seen.at);
     }
 
-    const { data: dailyRows } = await admin
-      .from("client_gsc_daily_metrics")
-      .select("metric_date, clicks")
-      .eq("client_id", clientId)
-      .gte("metric_date", isoDate(SEO_WINDOW_DAYS * 2));
-    const rows = (dailyRows ?? []) as Array<{ metric_date: string; clicks: number | null }>;
-    // One row per date per snapshot, so the same day can appear twice.
+    // Every row, oldest snapshot first. Each nightly snapshot re-stores ~28
+    // days, so this passes the 1000-row cap within weeks (late Oct 2026);
+    // unordered and unpaged, it would have dropped dates at random.
+    const rows = await fetchAllRows<{ metric_date: string; clicks: number | null }>(
+      (from, to) =>
+        admin
+          .from("client_gsc_daily_metrics")
+          .select("metric_date, clicks, created_at, id")
+          .eq("client_id", clientId)
+          .gte("metric_date", isoDate(SEO_WINDOW_DAYS * 2))
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      "GSC daily clicks",
+    );
+    // One row per date per snapshot, so the same day can appear several times;
+    // in created order, the newest snapshot's figure for each day wins.
     const byDate = new Map<string, number>();
     for (const row of rows) byDate.set(row.metric_date, Number(row.clicks ?? 0));
     const cutoff = isoDate(SEO_WINDOW_DAYS);

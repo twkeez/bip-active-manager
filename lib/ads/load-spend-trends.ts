@@ -1,11 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { isSyncableAdsCustomerId } from "@/lib/ads/customer-id";
 import { computeSpendTrend, type SpendTrend } from "@/lib/ads/spend-trend";
 import type { ClientRow } from "@/lib/types/client";
 
-// How far back to pull snapshot history, and a safety cap on rows scanned.
+// How far back to pull snapshot history.
 const HISTORY_DAYS = 180;
-const ROW_CAP = 6000;
 
 export type ClientSpendTrend = {
   clientId: number;
@@ -55,20 +55,33 @@ type SnapRow = {
 };
 
 export async function loadSpendTrends(supabase: SupabaseClient): Promise<SpendTrendsData> {
-  const [{ data: clientsRaw, error: clientsError }, { data: snapsRaw, error: snapsError }] =
-    await Promise.all([
-      supabase
-        .from("clients")
-        .select("id, account_name, ads_customer_id")
-        .order("account_name", { ascending: true }),
-      supabase
-        .from("client_ads_snapshots")
-        .select("client_id, created_at, totals")
-        .eq("run_status", "completed")
-        .gte("created_at", isoDaysAgo(HISTORY_DAYS))
-        .order("created_at", { ascending: true })
-        .limit(ROW_CAP),
-    ]);
+  // Every snapshot in the window, in pages. This asked for up to 6000 rows
+  // oldest-first, and the database stopped at 1000, so it held only the first
+  // weeks of the window and showed months-old "current" spend (found
+  // 2026-09-28).
+  const cutoff = isoDaysAgo(HISTORY_DAYS);
+  const [{ data: clientsRaw, error: clientsError }, snapsResult] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("id, account_name, ads_customer_id")
+      .order("account_name", { ascending: true }),
+    fetchAllRows<{ client_id: number; created_at: string; totals: unknown }>(
+      (from, to) =>
+        supabase
+          .from("client_ads_snapshots")
+          .select("client_id, created_at, totals, id")
+          .eq("run_status", "completed")
+          .gte("created_at", cutoff)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      "ads snapshots",
+    ).then(
+      (data) => ({ data, error: null as { message: string } | null }),
+      (error: Error) => ({ data: null, error: { message: error.message } }),
+    ),
+  ]);
+  const { data: snapsRaw, error: snapsError } = snapsResult;
 
   if (clientsError || snapsError) {
     return {

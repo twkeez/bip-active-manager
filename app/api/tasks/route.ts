@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -79,12 +80,25 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: tasksRaw, error: tasksError } = await supabase
-    .from("user_tasks")
-    .select("*")
-    .eq("owner_user_id", user.id)
-    .order("updated_at", { ascending: false })
-    .limit(500);
+  // Every task, in pages. Capped at 500 by updated time, older open tasks
+  // silently dropped off the list once there were more (found 2026-09-28).
+  let tasksRaw: unknown[] | null = null;
+  let tasksError: { message: string } | null = null;
+  try {
+    tasksRaw = await fetchAllRows<unknown>(
+      (from, to) =>
+        supabase
+          .from("user_tasks")
+          .select("*")
+          .eq("owner_user_id", user.id)
+          .order("updated_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      "tasks",
+    );
+  } catch (e) {
+    tasksError = { message: e instanceof Error ? e.message : "failed" };
+  }
   if (tasksError) {
     return NextResponse.json({ error: tasksError.message }, { status: 500 });
   }

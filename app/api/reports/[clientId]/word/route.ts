@@ -1,3 +1,5 @@
+import { exportBlockedMessage } from "@/components/data-integrity/export-blocked";
+import { withIntegrityScope } from "@/lib/data-integrity/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadReportForClient } from "@/lib/reporting/load-report";
@@ -18,8 +20,14 @@ export async function GET(request: Request, context: { params: Promise<{ clientI
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const range = new URL(request.url).searchParams.get("range") ?? "last30";
-  const loaded = await loadReportForClient(supabase, user.id, clientId, range);
+  const { result: loaded, truncated } = await withIntegrityScope(() =>
+    loadReportForClient(supabase, user.id, clientId, range),
+  );
   if (!loaded) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  // Never export numbers built on a read the database cut short.
+  if (truncated.length) {
+    return NextResponse.json({ error: exportBlockedMessage("report", truncated) }, { status: 409 });
+  }
 
   const html = renderReportWord(loaded.report, loaded.config);
   const filename = reportWordFilename(loaded.report);

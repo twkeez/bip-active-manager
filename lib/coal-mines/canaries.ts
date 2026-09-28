@@ -1,3 +1,4 @@
+import { fetchLatestSnapshotsByClient } from "@/lib/dashboard/snapshot-queries";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AWAITING_REPLY_DAYS,
@@ -151,6 +152,18 @@ async function runCustom(admin?: SupabaseClient): Promise<Canary[]> {
  * do not look stale, they look like facts. Two months of frozen spend and
  * impression share went unnoticed in 2026 because nothing asked this question.
  */
+/**
+ * Per client, the newest attempt (any status) and the newest success, newest
+ * first: the two rows assessFreshness reads.
+ */
+async function newestAttemptAndSuccess(supabase: SupabaseClient, table: string): Promise<SnapshotRow[]> {
+  const [attempts, successes] = await Promise.all([
+    fetchLatestSnapshotsByClient<SnapshotRow>(supabase, table, "*"),
+    fetchLatestSnapshotsByClient<SnapshotRow>(supabase, table, "*", undefined, { completedOnly: true }),
+  ]);
+  return [...attempts, ...successes].sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
 export async function checkAdsFreshness(
   supabase: SupabaseClient,
   now: Date = new Date(),
@@ -162,15 +175,15 @@ export async function checkAdsFreshness(
       "When each ads account last completed a refresh. Stale spend and impression-share figures read as current on the client page.",
   } as const;
 
-  const [{ data: clients, error: clientsError }, { data: snapshots, error: snapshotsError }] =
-    await Promise.all([
-      supabase.from("clients").select("id, account_name, ads_customer_id"),
-      supabase
-        .from("client_ads_snapshots")
-        .select("client_id, run_status, created_at, error_message")
-        .order("created_at", { ascending: false })
-        .returns<SnapshotRow[]>(),
-    ]);
+  // Each client's newest attempt and newest success, from the database (one
+  // row per client each). Reading the whole table newest-first stopped at
+  // 1000 rows, so accounts last refreshed over ~2 weeks ago read as "never
+  // refreshed" (found 2026-09-28).
+  const [{ data: clients, error: clientsError }, snapshots] = await Promise.all([
+    supabase.from("clients").select("id, account_name, ads_customer_id"),
+    newestAttemptAndSuccess(supabase, "client_ads_snapshots"),
+  ]);
+  const snapshotsError = null;
 
   const error = clientsError ?? snapshotsError;
   if (error) {
@@ -330,23 +343,25 @@ export async function checkServiceCoverage(
   } as const;
 
   const since = new Date(now.getTime() - 400 * 86_400_000).toISOString();
+  // Newest data per client, computed in the database: these tables hold
+  // thousands of rows, and reading them whole stopped at 1000, so clients
+  // with data read as having none (found 2026-09-28).
+  const latestSince = async (table: string, completedOnly: boolean) => {
+    const rows = await fetchLatestSnapshotsByClient<{ client_id: number; created_at: string }>(
+      supabase,
+      table,
+      "client_id, created_at",
+      undefined,
+      { completedOnly },
+    );
+    return { data: rows.filter((row) => row.created_at >= since), error: null as { message: string } | null };
+  };
   const [clients, ads, gsc, social, gbp, connections] = await Promise.all([
     supabase.from("clients").select("*"),
-    supabase.from("client_ads_snapshots").select("client_id, created_at").gte("created_at", since),
-    supabase
-      .from("client_gsc_snapshots")
-      .select("client_id, created_at, run_status")
-      .eq("run_status", "completed")
-      .gte("created_at", since),
-    supabase
-      .from("client_social_daily_snapshots")
-      .select("client_id, created_at")
-      .gte("created_at", since),
-    supabase
-      .from("client_gbp_snapshots")
-      .select("client_id, created_at, run_status")
-      .eq("run_status", "completed")
-      .gte("created_at", since),
+    latestSince("client_ads_snapshots", false),
+    latestSince("client_gsc_snapshots", true),
+    latestSince("client_social_daily_snapshots", false),
+    latestSince("client_gbp_snapshots", true),
     supabase.from("client_social_connections").select("client_id, page_id"),
   ]);
 

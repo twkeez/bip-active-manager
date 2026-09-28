@@ -1,3 +1,5 @@
+import { exportBlockedMessage } from "@/components/data-integrity/export-blocked";
+import { withIntegrityScope } from "@/lib/data-integrity/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { composeClientMessage, composeStrategistNote } from "@/lib/briefing/compose";
 import { loadClientBriefing } from "@/lib/briefing/load";
@@ -12,8 +14,13 @@ export async function buildReminder(
   reminder: PlannedReminder,
   run: ReminderRun,
 ): Promise<{ subject: string; body: string }> {
-  const briefing = await loadClientBriefing(admin, reminder.clientId);
+  const { result: briefing, truncated } = await withIntegrityScope(() =>
+    loadClientBriefing(admin, reminder.clientId),
+  );
   if (!briefing) throw new Error(`Could not build a briefing for ${reminder.accountName}.`);
+  // Never send a draft built on a read the database cut short: this throws,
+  // the reminder is not sent, and the run reports it (Tom is emailed).
+  if (truncated.length) throw new Error(exportBlockedMessage("briefing", truncated));
   return reminderEmail({
     accountName: reminder.accountName,
     cadence: reminder.cadence,

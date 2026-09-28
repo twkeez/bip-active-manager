@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { listBasecampProjectIgnores } from "@/lib/clients/basecamp-project-ignores";
 import type { ThreadRow } from "./basecamp-threads";
@@ -16,15 +17,25 @@ export async function loadThreadRows(supabase: SupabaseClient): Promise<{
   error: string | null;
 }> {
   const [{ data: rows, error }, { data: clients }, ignores] = await Promise.all([
-    supabase
-      .from("basecamp_communication_events")
-      .select(
-        "basecamp_recording_id, client_id, basecamp_project_id, basecamp_project_name, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt",
-      )
-      // One row per thread. Replies are stored as "comment" rows beside it.
-      .eq("kind", "message")
-      .order("occurred_at", { ascending: false })
-      .returns<ThreadRow[]>(),
+    // Every thread, in pages: past 1000 threads the oldest (exactly the ones
+    // waiting longest) would drop off first.
+    fetchAllRows<ThreadRow>(
+      (from, to) =>
+        supabase
+          .from("basecamp_communication_events")
+          .select(
+            "basecamp_recording_id, client_id, basecamp_project_id, basecamp_project_name, thread_title, thread_url, thread_excerpt, occurred_at, is_internal, reply_need, reply_need_reason, reply_need_escalated, classified_excerpt, id",
+          )
+          // One row per thread. Replies are stored as "comment" rows beside it.
+          .eq("kind", "message")
+          .order("occurred_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      "Basecamp threads",
+    ).then(
+      (data) => ({ data, error: null as { message: string } | null }),
+      (error: Error) => ({ data: null as ThreadRow[] | null, error: { message: error.message } }),
+    ),
     supabase.from("clients").select("id, account_name"),
     listBasecampProjectIgnores(supabase).catch(() => []),
   ]);

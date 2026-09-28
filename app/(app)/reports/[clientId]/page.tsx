@@ -1,3 +1,5 @@
+import ExportBlocked from "@/components/data-integrity/export-blocked";
+import { withIntegrityScope } from "@/lib/data-integrity/server";
 import { notFound, redirect } from "next/navigation";
 import ClientReportWorkspace from "@/components/reports/client-report-workspace";
 import { createClient } from "@/lib/supabase/server";
@@ -25,7 +27,9 @@ export default async function ReportClientPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const loaded = await loadReportForClient(supabase, user.id, id, range);
+  const { result: loaded, truncated } = await withIntegrityScope(() =>
+    loadReportForClient(supabase, user.id, id, range),
+  );
   if (!loaded) notFound();
   const { report, config: layoutConfig, managedKeywords, workspace } = loaded;
 
@@ -47,14 +51,17 @@ export default async function ReportClientPage({
   const backHref = back === "cockpit" ? `/dashboard/cockpit?client=${id}` : null;
 
   return (
-    <ClientReportWorkspace
-      report={report}
-      clientId={id}
-      initialConfig={layoutConfig}
-      initialDraft={draft}
-      initialKeywords={managedKeywords}
-      syncTimestamps={syncTimestamps}
-      backHref={backHref}
-    />
+    <>
+      {truncated.length > 0 && <ExportBlocked what="report" truncated={truncated} variant="notice" />}
+      <ClientReportWorkspace
+        report={report}
+        clientId={id}
+        initialConfig={layoutConfig}
+        initialDraft={draft}
+        initialKeywords={managedKeywords}
+        syncTimestamps={syncTimestamps}
+        backHref={backHref}
+      />
+    </>
   );
 }

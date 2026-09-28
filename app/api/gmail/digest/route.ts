@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -20,14 +21,19 @@ type MsgRow = {
 };
 
 async function loadInbox(admin: ReturnType<typeof createAdminClient>, userId: string) {
-  const { data } = await admin
-    .from("user_email_messages")
-    .select("from_email, from_name, subject, snippet")
-    .eq("owner_user_id", userId)
-    .eq("triage_status", "inbox")
-    .order("internal_date", { ascending: false, nullsFirst: false })
-    .limit(500);
-  return (data ?? []) as MsgRow[];
+  // The whole inbox, in pages: category counts were capped at 500 messages.
+  return fetchAllRows<MsgRow>(
+    (from, to) =>
+      admin
+        .from("user_email_messages")
+        .select("from_email, from_name, subject, snippet, id")
+        .eq("owner_user_id", userId)
+        .eq("triage_status", "inbox")
+        .order("internal_date", { ascending: false, nullsFirst: false })
+        .order("id", { ascending: false })
+        .range(from, to),
+    "inbox",
+  );
 }
 
 // GET → category counts (no AI).
