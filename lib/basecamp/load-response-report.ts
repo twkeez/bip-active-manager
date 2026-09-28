@@ -32,6 +32,12 @@ export type ResponseReportRow = {
   client_spoke_last: boolean;
   days_since_our_reply: number | null;
   days_since_client_contact: number | null;
+  /**
+   * The project's newest Basecamp activity, from the sync's roster
+   * (basecamp_projects.last_message_at). Read even beyond the stored history,
+   * so a project with no stored messages can say when it was last active.
+   */
+  last_activity_at?: string | null;
 };
 
 export type ResponseReportData = {
@@ -53,7 +59,7 @@ const MISSING_VIEW_MESSAGE =
 export async function loadResponseReport(
   supabase: SupabaseClient,
 ): Promise<ResponseReportData> {
-  const [report, syncState, ignored] = await Promise.all([
+  const [report, syncState, ignored, activity] = await Promise.all([
     supabase
       .from("basecamp_response_report")
       .select("*")
@@ -64,7 +70,14 @@ export async function loadResponseReport(
       .eq("id", 1)
       .maybeSingle(),
     listBasecampProjectIgnores(supabase).catch(() => []),
+    supabase.from("basecamp_projects").select("basecamp_project_id, last_message_at"),
   ]);
+  const lastActivity = new Map(
+    ((activity.data ?? []) as Array<{ basecamp_project_id: string; last_message_at: string | null }>).map((row) => [
+      row.basecamp_project_id,
+      row.last_message_at,
+    ]),
+  );
 
   if (report.error) {
     return {
@@ -79,7 +92,10 @@ export async function loadResponseReport(
   }
 
   return {
-    rows: (report.data ?? []) as ResponseReportRow[],
+    rows: ((report.data ?? []) as ResponseReportRow[]).map((row) => ({
+      ...row,
+      last_activity_at: lastActivity.get(row.basecamp_project_id) ?? null,
+    })),
     ignored,
     lastSyncedAt: syncState.data?.last_synced_at ?? null,
     loadError: null,

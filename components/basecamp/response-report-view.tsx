@@ -53,6 +53,18 @@ const STATUS_LABEL: Record<ReportStatus, string> = {
   no_contact: "No messages",
 };
 
+/**
+ * The Basecamp history held goes back 180 days (the 2026-09-27 backfill). A
+ * project with nothing in it but older activity on record is quiet, not
+ * empty, and is labelled that way.
+ */
+const HISTORY_DAYS = 180;
+
+function statusLabel(r: ShapedReportRow): string {
+  if (r.status === "no_contact" && r.last_activity_at) return `No activity in ${HISTORY_DAYS} days`;
+  return STATUS_LABEL[r.status];
+}
+
 const STATUS_CLASS: Record<ReportStatus, string> = {
   awaiting_us: "bg-amber-500/10 text-amber-300",
   awaiting_client: "bg-emerald-500/10 text-emerald-400",
@@ -257,7 +269,7 @@ export default function ResponseReportView({
   const filters: { key: StatusFilter; label: string; count: number }[] = [
     { key: "awaiting_us", label: "Waiting on us", count: tiles.waitingOnUs },
     { key: "awaiting_client", label: "Waiting on client", count: summary.awaitingClient },
-    { key: "no_contact", label: "No messages", count: summary.noContact },
+    { key: "no_contact", label: `No activity in ${HISTORY_DAYS} days`, count: summary.noContact },
     { key: "all", label: "All", count: summary.total },
   ];
 
@@ -339,7 +351,9 @@ export default function ResponseReportView({
         </td>
         <td className="min-w-0 px-3 py-2 align-top">
           {r.waitingDays == null ? (
-            <span className="text-xs text-bip-muted">—</span>
+            <span className="text-xs text-bip-muted" title={r.last_activity_at ? "Last Basecamp activity" : undefined}>
+              {r.last_activity_at ? `Last active ${fmtDate(r.last_activity_at)}` : "—"}
+            </span>
           ) : (
             <span
               className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
@@ -388,7 +402,7 @@ export default function ResponseReportView({
           <span
             className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_CLASS[r.status]}`}
           >
-            {STATUS_LABEL[r.status]}
+            {statusLabel(r)}
           </span>
         </td>
         <td className="px-3 py-2 text-right align-top">
