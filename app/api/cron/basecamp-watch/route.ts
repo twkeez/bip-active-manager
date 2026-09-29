@@ -23,7 +23,7 @@ import { watchedCronRoute } from "@/lib/job-watch/record";
  * session.
  */
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 /** OAuth when it is configured, Basecamp 2 otherwise — same rule as the button. */
 function resolveMode(): "oauth" | "classic" {

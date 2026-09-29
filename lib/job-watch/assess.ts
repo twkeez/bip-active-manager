@@ -102,7 +102,7 @@ export function assessJobs(
           key: `timeout:${run.id}`,
           jobKey: run.job_key,
           kind: "timed_out",
-          message: `${name} started ${when} and never finished. It was most likely stopped at the 5-minute limit, so its work may be incomplete.`,
+          message: `${name} started ${when} and never finished. It was most likely stopped at its time limit, so its work may be incomplete.`,
         });
       }
     } else if (run.status === "failed" || run.status === "partial") {

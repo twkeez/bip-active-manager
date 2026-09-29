@@ -3,8 +3,8 @@ import { createSocialRunContext, syncClientSocial } from "@/lib/social/sync-clie
 import { runInBatches } from "@/lib/sync/run-in-batches";
 import { loadStaleness, stalestFirst } from "@/lib/sync/staleness";
 
-/** Leaves room inside the 300s request limit to report what happened. */
-export const SOCIAL_DEADLINE_MS = 240_000;
+/** Leaves room inside the 800s request limit (Vercel Pro) to report what happened. */
+export const SOCIAL_DEADLINE_MS = 660_000;
 
 /**
  * Every connected client's social data in one pass.

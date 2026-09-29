@@ -13,7 +13,7 @@ import { watchedCronRoute } from "@/lib/job-watch/record";
  * went quiet. The freshness canary watches this job in turn.
  */
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 async function handle(request: Request) {
   if (!isAuthorizedCronRequest(request)) {

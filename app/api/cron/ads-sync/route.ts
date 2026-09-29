@@ -20,7 +20,7 @@ import { watchedCronRoute } from "@/lib/job-watch/record";
  * workflow can warn without turning the schedule red.
  */
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 async function handle(request: Request) {
   if (!isAuthorizedCronRequest(request)) {

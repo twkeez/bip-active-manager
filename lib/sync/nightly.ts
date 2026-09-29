@@ -24,8 +24,11 @@ import { loadStaleness, stalestFirst } from "@/lib/sync/staleness";
  * and so the freshness canary can name which one stopped.
  */
 
-/** Leaves room inside the 300s request limit to report what happened. */
-export const DEADLINE_MS = 240_000;
+/**
+ * Stop starting clients after 11 minutes: the route's limit is 800s on Vercel
+ * Pro, and this leaves room for the last batch to finish and the run to report.
+ */
+export const DEADLINE_MS = 660_000;
 
 type ClientRow = {
   id: number;
