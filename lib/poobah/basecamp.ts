@@ -78,6 +78,23 @@ export async function loadBasecampActivity(
   if (!Number.isInteger(sinceDays) || sinceDays < 1 || sinceDays > 365) throw new PoobahError("since_days must be between 1 and 365.");
   const since = new Date(Date.now() - sinceDays * 86_400_000).toISOString();
 
+  // Read by the client's Basecamp project, not by client id: when two client
+  // records point at one project (duplicates), the sync files its posts under
+  // whichever claimed it first, and a client-id read of the other finds none.
+  const { data: clientRow, error: clientError } = await admin
+    .from("clients")
+    .select("account_name,basecamp_project_id")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (clientError) throw new PoobahError(`Could not read the client: ${clientError.message}`, 500);
+  const projectId = (clientRow?.basecamp_project_id as string | null | undefined)?.trim() || null;
+  if (!projectId) {
+    throw new PoobahError(
+      `${clientRow?.account_name ?? `Client ${clientId}`} has no Basecamp project linked in BIP Control, so there is no Basecamp to read. Link it at /basecamp-projects (Project Wiring).`,
+      404,
+    );
+  }
+
   const [events, sync, report] = await Promise.all([
     fetchAllRows<EventRow>(
       (from, to) =>
@@ -86,7 +103,7 @@ export async function loadBasecampActivity(
           .select(
             "id,basecamp_project_id,basecamp_project_name,basecamp_recording_id,parent_recording_id,kind,occurred_at,author_email,author_name,is_internal,thread_title,thread_body,thread_url,post_text,post_text_redacted_lines,post_text_withheld",
           )
-          .eq("client_id", clientId)
+          .eq("basecamp_project_id", projectId)
           .gte("occurred_at", since)
           .order("occurred_at")
           .order("id")
@@ -104,7 +121,7 @@ export async function loadBasecampActivity(
       .select(
         "basecamp_project_name,client_spoke_last,days_since_client_contact,days_since_our_reply,last_client_at,last_client_author,last_client_thread_title,last_client_thread_url,last_internal_at,last_internal_author,last_internal_thread_title,last_internal_thread_url",
       )
-      .eq("client_id", clientId),
+      .eq("basecamp_project_id", projectId),
   ]);
   if (sync.error) throw new PoobahError(`Could not read the Basecamp sync state: ${sync.error.message}`, 500);
   if (report.error) throw new PoobahError(`Could not read the Response Report: ${report.error.message}`, 500);
