@@ -1,6 +1,7 @@
 import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assessJobs, jobStatusLines, type JobProblem, type JobRun } from "./assess";
+import { checkCredentials } from "./credentials";
 import { WATCHED_JOBS } from "./jobs";
 import { sendAlertEmail } from "./notify";
 import { isActiveWarning, loadOpenWarnings } from "@/lib/data-integrity/warnings";
@@ -127,7 +128,7 @@ export type WatchResult = {
   dailySummarySent: boolean;
   followupsClosed: number;
   followupsReminded: number;
-  /** Anything the follow-up sweep could not do; the route answers 207 so it is reported. */
+  /** Anything the follow-up sweep or login check could not do; the route answers 207 so it is reported. */
   followupErrors: string[];
 };
 
@@ -154,6 +155,30 @@ export async function runJobWatch(admin: SupabaseClient, now: Date = new Date())
       }, last ${new Date(warning.last_seen_at).toLocaleString("en-US", { timeZone: "America/New_York" })} ET. Details: ${APP_URL}/data-health`,
     })),
   ];
+
+  // Every login the jobs depend on, tried for real. A broken one is emailed
+  // once; once it works again its alert is cleared, so a later break is news.
+  let credentialErrors: string[] = [];
+  try {
+    const credentials = await checkCredentials(admin, now);
+    for (const check of credentials) {
+      if (!check.ok) {
+        problems.push({
+          key: check.key,
+          jobKey: "credentials",
+          kind: "credential",
+          message: `${check.label}: ${check.problem}`,
+        });
+      }
+    }
+    const healthy = credentials.filter((check) => check.ok).map((check) => check.key);
+    if (healthy.length) {
+      const { error } = await admin.from("job_alerts").delete().in("problem_key", healthy);
+      if (error) credentialErrors.push(`Could not clear recovered login alerts: ${error.message}`);
+    }
+  } catch (error) {
+    credentialErrors = [`Login check failed: ${error instanceof Error ? error.message : String(error)}`];
+  }
 
   let sweep: Awaited<ReturnType<typeof sweepFollowups>>;
   try {
@@ -211,6 +236,6 @@ export async function runJobWatch(admin: SupabaseClient, now: Date = new Date())
     dailySummarySent,
     followupsClosed: sweep.closed,
     followupsReminded: sweep.renudged,
-    followupErrors: sweep.errors,
+    followupErrors: [...sweep.errors, ...credentialErrors],
   };
 }

@@ -34,7 +34,7 @@ describe("assessJobs", () => {
     const failed = run({ status: "failed", http_status: 500, summary: "Token expired." });
     const problems = assessJobs(JOBS, [failed, run({ job_key: "routines" })], NOW, WATCHING);
     expect(problems).toHaveLength(1);
-    expect(problems[0]).toMatchObject({ key: `run:${failed.id}`, kind: "failed" });
+    expect(problems[0]).toMatchObject({ key: `streak:ads-sync:${failed.id}`, kind: "failed" });
     expect(problems[0].message).toContain("Token expired.");
   });
 
@@ -63,6 +63,26 @@ describe("assessJobs", () => {
     expect(assessJobs(JOBS, routinesOnly, NOW, new Date(hoursAgo(5)))).toEqual([]);
     const problems = assessJobs(JOBS, routinesOnly, NOW, WATCHING);
     expect(problems.map((p) => p.key)).toEqual(["overdue:ads-sync:never"]);
+  });
+
+  it("reports a repeating problem once per streak, and again after a clean run", () => {
+    const first = run({ status: "partial", started_at: hoursAgo(40), summary: "216 items failed." });
+    const second = run({ status: "partial", started_at: hoursAgo(16), summary: "214 items failed." });
+    const routines = run({ job_key: "routines" });
+    let problems = assessJobs(JOBS, [second, first, routines], NOW, WATCHING);
+    expect(problems.map((p) => p.key)).toEqual([`streak:ads-sync:${first.id}`]);
+    expect(problems[0].message).toContain("214 items failed. Same problem 2 runs in a row.");
+
+    // A different problem is news.
+    const changed = run({ status: "partial", started_at: hoursAgo(2), summary: "3 blocked (no access)." });
+    problems = assessJobs(JOBS, [changed, second, first, routines], NOW, WATCHING);
+    expect(problems.map((p) => p.key)).toEqual([`streak:ads-sync:${changed.id}`, `streak:ads-sync:${first.id}`]);
+
+    // So is the same problem returning after a run that worked.
+    const clean = run({ started_at: hoursAgo(10) });
+    const back = run({ status: "partial", started_at: hoursAgo(2), summary: "216 items failed." });
+    problems = assessJobs(JOBS, [back, clean, second, first, routines], NOW, WATCHING);
+    expect(problems.map((p) => p.key)).toEqual([`streak:ads-sync:${back.id}`, `streak:ads-sync:${first.id}`]);
   });
 
   it("ignores failures older than the lookback window", () => {

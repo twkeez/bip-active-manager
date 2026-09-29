@@ -14,7 +14,7 @@ export type JobProblem = {
   /** Stable per problem, so it is reported once, not every hour. */
   key: string;
   jobKey: string;
-  kind: "failed" | "partial" | "timed_out" | "overdue" | "data_warning";
+  kind: "failed" | "partial" | "timed_out" | "overdue" | "data_warning" | "credential";
   message: string;
 };
 
@@ -28,6 +28,44 @@ function ago(from: Date, iso: string): string {
   if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min ago`;
   if (hours < 48) return `${Math.round(hours)}h ago`;
   return `${Math.round(hours / 24)} days ago`;
+}
+
+/**
+ * The same problem, night after night, is one alert, not one per run.
+ *
+ * A run's fingerprint is its status plus its summary with the numbers taken
+ * out ("216 failed" and "214 failed" match). Consecutive finished runs of a
+ * job with the same fingerprint form a streak, keyed by its first run, so Tom
+ * hears once when it starts, again if the problem changes, and again if it
+ * comes back after a clean run. (GBP's "216 failed" emailed every night.)
+ */
+export function streakOf(runs: JobRun[]): Map<number, { key: string; runsInARow: number }> {
+  const byJob = new Map<string, JobRun[]>();
+  for (const run of runs) {
+    if (run.status === "running") continue;
+    byJob.set(run.job_key, [...(byJob.get(run.job_key) ?? []), run]);
+  }
+  const streaks = new Map<number, { key: string; runsInARow: number }>();
+  for (const [jobKey, jobRuns] of byJob) {
+    jobRuns.sort((a, b) => a.started_at.localeCompare(b.started_at) || a.id - b.id);
+    let fingerprint: string | null = null;
+    let members: JobRun[] = [];
+    const close = () => {
+      for (const member of members) {
+        streaks.set(member.id, { key: `streak:${jobKey}:${members[0].id}`, runsInARow: members.length });
+      }
+      members = [];
+    };
+    for (const run of jobRuns) {
+      const next =
+        run.status === "ok" ? null : `${run.status}|${(run.summary ?? "").replace(/\d+/g, "#").trim()}`;
+      if (next !== fingerprint) close();
+      fingerprint = next;
+      if (next) members.push(run);
+    }
+    close();
+  }
+  return streaks;
 }
 
 /**
@@ -46,8 +84,12 @@ export function assessJobs(
 ): JobProblem[] {
   const problems: JobProblem[] = [];
   const recentCutoff = now.getTime() - LOOKBACK_HOURS * HOUR;
+  const streaks = streakOf(runs);
+  // Runs arrive newest first; one problem per streak, worded from its latest run.
+  const reportedStreaks = new Set<string>();
 
-  for (const run of runs) {
+  const newestFirst = [...runs].sort((a, b) => b.started_at.localeCompare(a.started_at) || b.id - a.id);
+  for (const run of newestFirst) {
     const started = new Date(run.started_at).getTime();
     if (started < recentCutoff) continue;
     const name = jobs.find((job) => job.key === run.job_key)?.name ?? run.job_key;
@@ -63,19 +105,20 @@ export function assessJobs(
           message: `${name} started ${when} and never finished. It was most likely stopped at the 5-minute limit, so its work may be incomplete.`,
         });
       }
-    } else if (run.status === "failed") {
+    } else if (run.status === "failed" || run.status === "partial") {
+      const streak = streaks.get(run.id);
+      const key = streak?.key ?? `run:${run.id}`;
+      if (reportedStreaks.has(key)) continue;
+      reportedStreaks.add(key);
+      const repeat = streak && streak.runsInARow > 1 ? ` Same problem ${streak.runsInARow} runs in a row.` : "";
       problems.push({
-        key: `run:${run.id}`,
+        key,
         jobKey: run.job_key,
-        kind: "failed",
-        message: `${name} failed (${when}).${why}`,
-      });
-    } else if (run.status === "partial") {
-      problems.push({
-        key: `run:${run.id}`,
-        jobKey: run.job_key,
-        kind: "partial",
-        message: `${name} only partly worked (${when}).${why}`,
+        kind: run.status,
+        message:
+          run.status === "failed"
+            ? `${name} failed (${when}).${why}${repeat}`
+            : `${name} only partly worked (${when}).${why}${repeat}`,
       });
     }
   }

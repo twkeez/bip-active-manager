@@ -1,3 +1,4 @@
+import { nightlyOutcome } from "@/lib/sync/nightly-response";
 import { NextResponse } from "next/server";
 import { runGbpSyncAll } from "@/lib/sync/nightly";
 import { cronSecretConfigured, isAuthorizedCronRequest } from "@/lib/cron/authorize";
@@ -29,16 +30,18 @@ async function handle(request: Request) {
   const startedAt = Date.now();
   try {
     const summary = await runGbpSyncAll(createAdminClient(), startedAt);
+    const outcome = nightlyOutcome(summary);
     return NextResponse.json(
       {
-        ok: summary.failed === 0,
+        ok: outcome.complete,
         ...summary,
+        ...(outcome.summaryText ? { error: outcome.summaryText } : {}),
         // Failures need fixing tonight; blocked accounts need a person, and
         // both are worth reading in the log. Successes are visible in the app.
         results: summary.results.filter((result) => result.status !== "ok"),
         ms: Date.now() - startedAt,
       },
-      { status: summary.failed === 0 ? 200 : 207 },
+      { status: outcome.complete ? 200 : 207 },
     );
   } catch (error) {
     return NextResponse.json(
