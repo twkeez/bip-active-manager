@@ -27,6 +27,9 @@ export class OAuthError extends Error {
   }
 }
 
+/** How long a just-used refresh token may be presented again (a concurrent renewal, not theft). */
+export const REFRESH_REUSE_GRACE_MS = 2 * 60 * 1000;
+
 export type OAuthClient = { clientId: string; clientName: string; redirectUris: string[] };
 
 function failed(context: string, error: { message: string } | null): never {
@@ -176,20 +179,24 @@ export async function refreshTokens(
   if (!row) throw new OAuthError("invalid_grant", "Unknown refresh token. Sign in again.");
   if (row.client_id !== input.clientId) throw new OAuthError("invalid_grant", "The refresh token belongs to a different client.");
   if (row.revoked_at) throw new OAuthError("invalid_grant", "This sign-in was revoked. Sign in again.");
-  if (row.used_at) {
-    await admin.from("mcp_oauth_tokens").update({ revoked_at: new Date().toISOString() }).eq("family_id", row.family_id).is("revoked_at", null);
-    throw new OAuthError("invalid_grant", "This refresh token was already used, so the sign-in was revoked for safety. Sign in again.");
-  }
   if (new Date(row.expires_at).getTime() < Date.now()) throw new OAuthError("invalid_grant", "The sign-in expired. Sign in again.");
-  const { data: spent, error: spendError } = await admin
-    .from("mcp_oauth_tokens")
-    .update({ used_at: new Date().toISOString() })
-    .eq("token_hash", hash)
-    .is("used_at", null)
-    .select("token_hash")
-    .maybeSingle();
-  if (spendError) failed("Could not spend the refresh token", spendError);
-  if (!spent) throw new OAuthError("invalid_grant", "The refresh token was just used by another request. Sign in again.");
+  if (row.used_at) {
+    // Several Claude runs share one connection and can renew at the same
+    // moment; the loser of that race is not a thief. Inside the grace window
+    // it gets its own new keys. Outside it, a spent token coming back is
+    // treated as stolen and the whole sign-in is revoked.
+    if (Date.now() - new Date(row.used_at).getTime() > REFRESH_REUSE_GRACE_MS) {
+      await admin.from("mcp_oauth_tokens").update({ revoked_at: new Date().toISOString() }).eq("family_id", row.family_id).is("revoked_at", null);
+      throw new OAuthError("invalid_grant", "This refresh token was already used, so the sign-in was revoked for safety. Sign in again.");
+    }
+  } else {
+    const { error: spendError } = await admin
+      .from("mcp_oauth_tokens")
+      .update({ used_at: new Date().toISOString() })
+      .eq("token_hash", hash)
+      .is("used_at", null);
+    if (spendError) failed("Could not spend the refresh token", spendError);
+  }
   if (!(await isConnectorUser(admin, row.user_id, row.email))) {
     throw new OAuthError("invalid_grant", "This account may no longer use the connector (admins only).");
   }
