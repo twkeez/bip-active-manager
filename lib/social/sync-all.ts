@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { syncClientSocial } from "@/lib/social/sync-client";
+import { createSocialRunContext, syncClientSocial } from "@/lib/social/sync-client";
+import { runInBatches } from "@/lib/sync/run-in-batches";
+import { loadStaleness, stalestFirst } from "@/lib/sync/staleness";
+
+/** Leaves room inside the 300s request limit to report what happened. */
+export const SOCIAL_DEADLINE_MS = 240_000;
 
 /**
  * Every connected client's social data in one pass.
@@ -10,8 +15,12 @@ import { syncClientSocial } from "@/lib/social/sync-client";
  * not failed.
  */
 
-/** Meta rate-limits per app, so this stays deliberately modest. */
-export const SOCIAL_BATCH_SIZE = 3;
+/**
+ * Clients at a time. 6 fits Meta's page-level limits comfortably (about 1,400
+ * calls a night across 60 pages) and ran all 106 clients in 136s on
+ * 2026-09-29; 3 left the job over its time budget.
+ */
+export const SOCIAL_BATCH_SIZE = 6;
 
 export type SocialSyncAllResult = {
   clientId: number;
@@ -26,11 +35,15 @@ export type SocialSyncAllSummary = {
   failed: number;
   skipped: number;
   warned: number;
+  /** Clients the time budget did not reach; they go first next night. */
+  deferred: number;
+  deferredNames: string[];
   results: SocialSyncAllResult[];
 };
 
 export async function runSocialSyncAll(
   admin: SupabaseClient,
+  startedAt: number = Date.now(),
 ): Promise<SocialSyncAllSummary> {
   const { data: connections, error } = await admin
     .from("client_social_connections")
@@ -50,40 +63,51 @@ export async function runSocialSyncAll(
     connectedIds.includes(client.id as number),
   );
 
-  const results: SocialSyncAllResult[] = [];
-  for (let index = 0; index < clients.length; index += SOCIAL_BATCH_SIZE) {
-    const batch = clients.slice(index, index + SOCIAL_BATCH_SIZE);
-    const batchResults = await Promise.all(
-      batch.map(async (client): Promise<SocialSyncAllResult> => {
-        const clientId = client.id as number;
-        const accountName = client.account_name as string;
-        try {
-          const result = await syncClientSocial(admin, clientId);
-          return {
-            clientId,
-            accountName,
-            status: "ok",
-            warnings: result.warnings.length > 0 ? result.warnings : undefined,
-          };
-        } catch (syncError) {
-          // One page losing access must not cost the other hundred.
-          return {
-            clientId,
-            accountName,
-            status: "failed",
-            error: syncError instanceof Error ? syncError.message : "Social sync failed",
-          };
-        }
-      }),
-    );
-    results.push(...batchResults);
-  }
+  // Stalest first, inside a time budget: it used to go alphabetically until
+  // the platform killed it at 300s, three nights running, so clients late in
+  // the alphabet were never refreshed (found 2026-09-29). Whatever the budget
+  // does not reach leads the next run and is reported, not dropped.
+  const staleness = await loadStaleness(admin, "client_social_daily_snapshots");
+  const ordered = stalestFirst(
+    clients.map((client) => ({ id: client.id as number, account_name: client.account_name as string })),
+    staleness,
+  );
+  const context = await createSocialRunContext(admin);
+
+  const { results, deferred } = await runInBatches(
+    ordered,
+    SOCIAL_BATCH_SIZE,
+    async (client): Promise<SocialSyncAllResult> => {
+      const clientId = client.id;
+      const accountName = client.account_name;
+      try {
+        const result = await syncClientSocial(admin, clientId, context);
+        return {
+          clientId,
+          accountName,
+          status: "ok",
+          warnings: result.warnings.length > 0 ? result.warnings : undefined,
+        };
+      } catch (syncError) {
+        // One page losing access must not cost the other hundred.
+        return {
+          clientId,
+          accountName,
+          status: "failed",
+          error: syncError instanceof Error ? syncError.message : "Social sync failed",
+        };
+      }
+    },
+    { deadline: startedAt + SOCIAL_DEADLINE_MS },
+  );
 
   return {
     synced: results.filter((result) => result.status === "ok").length,
     failed: results.filter((result) => result.status === "failed").length,
     skipped: (clientsRaw ?? []).length - clients.length,
     warned: results.filter((result) => result.warnings?.length).length,
+    deferred: deferred.length,
+    deferredNames: deferred.map((client) => client.account_name),
     results,
   };
 }

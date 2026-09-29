@@ -25,10 +25,16 @@ async function handle(request: Request) {
 
   const startedAt = Date.now();
   try {
-    const summary = await runSocialSyncAll(createAdminClient());
+    const summary = await runSocialSyncAll(createAdminClient(), startedAt);
+    // Partial when any client failed or the time budget left some unreached.
+    const complete = summary.failed === 0 && summary.deferred === 0;
     return NextResponse.json(
       {
-        ok: summary.failed === 0,
+        ok: complete,
+        ...(summary.deferred
+          ? { error: `${summary.deferred} client(s) not reached in time; they go first next run: ${summary.deferredNames.slice(0, 10).join(", ")}` }
+          : {}),
+        deferred: summary.deferred,
         synced: summary.synced,
         failed: summary.failed,
         skipped: summary.skipped,
@@ -39,7 +45,7 @@ async function handle(request: Request) {
         ),
         ms: Date.now() - startedAt,
       },
-      { status: summary.failed === 0 ? 200 : 207 },
+      { status: complete ? 200 : 207 },
     );
   } catch (error) {
     return NextResponse.json(

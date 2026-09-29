@@ -5,8 +5,10 @@ import {
   fetchInstagramDaily,
   fetchInstagramMedia,
   fetchInstagramPeriodReach,
+  fetchAllManagedPages,
   fetchMetaPageForClient,
   listMetaPages,
+  StoredPageMissingError,
 } from "@/lib/social/meta";
 import { buildSocialSignals, type SocialSignalDraft } from "@/lib/social/signals";
 import { getMetaAccessTokenForSync } from "@/lib/social/token-manager";
@@ -45,11 +47,37 @@ export type SocialSyncResult = {
   warnings: string[];
 };
 
+/**
+ * Shared across one nightly run: the token, the page list (fetched once, not
+ * once per client), and each page's Meta data (fetched once, reused by every
+ * client record that points at the same page: 46 of 106 did on 2026-09-29).
+ */
+export type SocialRunContext = {
+  tokenState: Awaited<ReturnType<typeof getMetaAccessTokenForSync>>;
+  pages: Awaited<ReturnType<typeof fetchAllManagedPages>>;
+  pageData: Map<string, Promise<PageData>>;
+};
+
+type PageData = [
+  Awaited<ReturnType<typeof fetchFacebookDaily>>,
+  Awaited<ReturnType<typeof fetchFacebookPosts>>,
+  Awaited<ReturnType<typeof fetchInstagramDaily>>,
+  Awaited<ReturnType<typeof fetchInstagramMedia>>,
+  Awaited<ReturnType<typeof fetchInstagramPeriodReach>> | null,
+];
+
+export async function createSocialRunContext(admin: SupabaseClient): Promise<SocialRunContext> {
+  const tokenState = await getMetaAccessTokenForSync(admin);
+  const pages = await fetchAllManagedPages(tokenState.accessToken);
+  return { tokenState, pages, pageData: new Map() };
+}
+
 export async function syncClientSocial(
   admin: SupabaseClient,
   clientId: number,
+  context?: SocialRunContext,
 ): Promise<SocialSyncResult> {
-  const tokenState = await getMetaAccessTokenForSync(admin);
+  const tokenState = context?.tokenState ?? (await getMetaAccessTokenForSync(admin));
   const { data: clientRow, error: clientError } = await admin
     .from("clients")
     .select("id,account_name,website")
@@ -66,12 +94,19 @@ export async function syncClientSocial(
     .eq("platform", "facebook")
     .maybeSingle<{ page_id: string | null }>();
 
-  const page = await fetchMetaPageForClient(
-    clientRow.account_name,
-    clientRow.website ?? "",
-    existingConnection?.page_id ?? null,
-    tokenState.accessToken,
-  );
+  let page: Awaited<ReturnType<typeof fetchMetaPageForClient>>;
+  try {
+    page = await fetchMetaPageForClient(
+      clientRow.account_name,
+      clientRow.website ?? "",
+      existingConnection?.page_id ?? null,
+      tokenState.accessToken,
+      context?.pages,
+    );
+  } catch (error) {
+    if (error instanceof StoredPageMissingError) throw new SocialSyncError(error.message, 409);
+    throw error;
+  }
   if (!page) {
     const candidates = await listMetaPages(tokenState.accessToken);
     throw new SocialSyncError(
@@ -111,14 +146,26 @@ export async function syncClientSocial(
   }
 
   const igUserId = page.instagram_business_account?.id;
-  const [facebookDaily, facebook, instagramDaily, instagramMedia, instagramPeriodReach] =
-    await Promise.all([
-      fetchFacebookDaily(page.id, page.access_token),
-      fetchFacebookPosts(page.id, page.access_token),
-      igUserId ? fetchInstagramDaily(igUserId, page.access_token) : Promise.resolve([]),
-      igUserId ? fetchInstagramMedia(igUserId, page.access_token) : Promise.resolve([]),
-      igUserId ? fetchInstagramPeriodReach(igUserId, page.access_token) : Promise.resolve(null),
-    ]);
+  const pageToken = page.access_token;
+  const loadPageData = (): Promise<PageData> =>
+    Promise.all([
+      fetchFacebookDaily(page.id, pageToken),
+      fetchFacebookPosts(page.id, pageToken),
+      igUserId ? fetchInstagramDaily(igUserId, pageToken) : Promise.resolve([]),
+      igUserId ? fetchInstagramMedia(igUserId, pageToken) : Promise.resolve([]),
+      igUserId ? fetchInstagramPeriodReach(igUserId, pageToken) : Promise.resolve(null),
+    ]) as Promise<PageData>;
+  // Once per page per run; a failed fetch is not cached, so the next client
+  // record for the same page tries again.
+  let pending = context?.pageData.get(page.id);
+  if (!pending) {
+    pending = loadPageData();
+    if (context) {
+      context.pageData.set(page.id, pending);
+      pending.catch(() => context.pageData.delete(page.id));
+    }
+  }
+  const [facebookDaily, facebook, instagramDaily, instagramMedia, instagramPeriodReach] = await pending;
 
   const warnings: string[] = [];
   if (!facebook.linkClicksAvailable) {

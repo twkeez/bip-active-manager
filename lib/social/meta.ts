@@ -182,6 +182,8 @@ async function fetchInsightsMetrics(
   return collected;
 }
 
+export class StoredPageMissingError extends Error {}
+
 function chooseBestPageForClient(
   clientName: string,
   clientWebsite: string,
@@ -192,6 +194,13 @@ function chooseBestPageForClient(
   if (preferredPageId) {
     const known = pages.find((page) => page.id === preferredPageId);
     if (known) return known;
+    // The client's saved page is no longer among the pages our token can see.
+    // This used to fall through to name matching and overwrite the saved page
+    // with a guess, possibly another practice's page (found 2026-09-27).
+    // Stop and say so instead.
+    throw new StoredPageMissingError(
+      `This client's saved Facebook page (${preferredPageId}) is no longer accessible with our Meta token. Reconnect the page or pick it again; nothing was changed.`,
+    );
   }
   const websiteHost = toHost(clientWebsite);
   const websiteTokens = hostTokens(websiteHost);
@@ -248,17 +257,39 @@ function aggregateDailyMetrics(
   return [...byDate.entries()].map(([snapshot_date, values]) => ({ snapshot_date, values }));
 }
 
+/**
+ * Every page our token manages, following Meta's paging to the end (it
+ * returned at most 200 before, silently dropping the rest). One call per run
+ * is enough: the nightly job used to fetch this 4-21s list once per client,
+ * 106 times, which is most of why it never finished (found 2026-09-29).
+ */
+export async function fetchAllManagedPages(accessToken?: string): Promise<MetaPage[]> {
+  const pages: MetaPage[] = [];
+  let json = await graphGet(
+    "me/accounts",
+    { fields: "id,name,link,access_token,instagram_business_account{id,username}", limit: "100" },
+    accessToken,
+  );
+  for (let guard = 0; guard < 100; guard += 1) {
+    pages.push(...((json.data as MetaPage[] | undefined) ?? []));
+    const next = (json.paging as { next?: string } | undefined)?.next;
+    if (!next) return pages;
+    const response = await fetch(next, { cache: "no-store" });
+    json = await response.json();
+    if (!response.ok) throw new Error(`Meta page list failed on a later page (${response.status}).`);
+  }
+  throw new Error("Meta page list did not end after 100 pages.");
+}
+
 export async function fetchMetaPageForClient(
   clientName: string,
   clientWebsite: string,
   preferredPageId?: string | null,
   accessToken?: string,
+  /** The run's page list, when the caller already has it. */
+  managedPages?: MetaPage[],
 ) {
-  const json = await graphGet("me/accounts", {
-    fields: "id,name,link,access_token,instagram_business_account{id,username}",
-    limit: "200",
-  }, accessToken);
-  const pages = (json.data as MetaPage[] | undefined) ?? [];
+  const pages = managedPages ?? (await fetchAllManagedPages(accessToken));
   return chooseBestPageForClient(clientName, clientWebsite, pages, preferredPageId);
 }
 
