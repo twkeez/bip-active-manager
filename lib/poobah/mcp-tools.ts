@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadBasecampActivity } from "./basecamp";
 import { addItem, addLogEntry, addWatch, getWatch, listWatches, resolveWatch, setBasics, setStatus, updateItem } from "./store";
 import { POOBAH_NAME, type PoobahActor } from "./types";
 import { PoobahError, todayEastern } from "./validate";
@@ -78,6 +79,28 @@ export function registerPoobahTools(server: McpServer) {
           current_status: detail.statuses[0] ?? null,
           ...detail,
         };
+      }),
+  );
+
+  server.registerTool(
+    "get_basecamp_activity",
+    {
+      title: "Read a client's Basecamp conversation",
+      description:
+        "Read-only. A watched client's Basecamp activity from BIP Control's own sync: every post in the window with its words (who, when, Beyond Indigo or client), grouped by thread, newest thread first; plus the Response Report's who-is-waiting-on-whom and days waiting. Says when Basecamp last synced and flags it if stale. Words of threads for logins/access are never shown and credential-looking lines are removed. Posts from before 2026-09-29 may have no words until the backfill finishes (each says so).",
+      inputSchema: z.object({
+        client: clientRef,
+        since_days: z.number().int().min(1).max(365).optional().describe("How many days back. Default 30."),
+      }),
+      annotations: readOnly,
+    },
+    async ({ client, since_days }, ctx) =>
+      run(ctx as Ctx, async () => {
+        const watch = await resolveWatch(admin(), client);
+        if (!watch.client_id) {
+          throw new PoobahError(`${watch.name} is not linked to a BIP Control client, so it has no synced Basecamp project.`, 404);
+        }
+        return { client: watch.name, bip_client_id: watch.client_id, ...(await loadBasecampActivity(admin(), watch.client_id, since_days ?? 30)) };
       }),
   );
 

@@ -92,6 +92,11 @@ type CommunicationEvent = {
   thread_excerpt: string | null;
   thread_body: string | null;
   thread_url: string | null;
+  /** The post's own words, credential-scrubbed (classic comment rows only). */
+  post_text?: string | null;
+  post_text_redacted_lines?: number | null;
+  post_text_withheld?: string | null;
+  author_name?: string | null;
   updated_at: string;
 };
 
@@ -949,14 +954,14 @@ export async function runBasecampSync(
 
           // The row above says only who posted LAST. Read the thread itself so
           // every post in it (the opening message and each reply, including
-          // email-in replies) is on record, not just the final one. Who and
-          // when only; no post text is stored. See classic-thread-posts.ts.
+          // email-in replies) is on record, not just the final one, with its
+          // words, credential-scrubbed. See classic-thread-posts.ts.
           const detail = await requestClassicBasecampJson<unknown>(
             classic!.accountId,
             classic!.headers,
             `/api/v1/projects/${encodeURIComponent(projectId)}/messages/${topic.basecamp_recording_id}.json`,
           );
-          for (const post of classicThreadPosts(topic.basecamp_recording_id, detail)) {
+          for (const post of classicThreadPosts(topic.basecamp_recording_id, detail, topic.thread_title)) {
             if (new Date(post.occurredAt).getTime() < fetchCutoffMs) continue;
             const postEmail =
               post.email ??
@@ -983,6 +988,10 @@ export async function runBasecampSync(
               thread_excerpt: null,
               thread_body: null,
               thread_url: topic.thread_url,
+              post_text: post.text,
+              post_text_redacted_lines: post.redactedLines,
+              post_text_withheld: post.withheld,
+              author_name: post.name,
               updated_at: nowIso,
             });
           }
