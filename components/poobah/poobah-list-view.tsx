@@ -7,6 +7,7 @@ import { Crown } from "lucide-react";
 import { EmptyState, ErrorState } from "@/components/ui/feedback";
 import { ToolPage } from "@/components/ui/tool-page";
 import { calendarDate, whenEastern } from "@/lib/poobah/format";
+import { BipStatusBadge, BipStatusLegend, matchesBipFilter, onboardingAccent, type BipFilter } from "@/components/poobah/bip-status";
 import { POOBAH_NAME, type PoobahSummary } from "@/lib/poobah/types";
 
 type ClientOption = { id: number; name: string };
@@ -23,6 +24,7 @@ export default function PoobahListView({
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
+  const [filter, setFilter] = useState<BipFilter>("all");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [unlinked, setUnlinked] = useState(false);
@@ -30,6 +32,12 @@ export default function PoobahListView({
   const [error, setError] = useState<string | null>(null);
 
   const watchedClientIds = useMemo(() => new Set(watches.map((w) => w.client_id).filter(Boolean)), [watches]);
+  const shown = watches.filter((watch) => matchesBipFilter(watch.bip_status, filter));
+  const filterCounts: Record<BipFilter, number> = {
+    all: watches.length,
+    onboarding: watches.filter((watch) => matchesBipFilter(watch.bip_status, "onboarding")).length,
+    active: watches.filter((watch) => matchesBipFilter(watch.bip_status, "active")).length,
+  };
   const picked = clients.find((client) => client.name.toLowerCase() === query.trim().toLowerCase()) ?? null;
 
   async function add() {
@@ -111,7 +119,7 @@ export default function PoobahListView({
               className="mt-1 w-full rounded-md border border-bip-border bg-transparent px-3 py-2 text-sm"
             />
           </label>
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-bip-danger">{error}</p>}
           <div className="flex gap-2">
             <button
               onClick={() => void add()}
@@ -133,20 +141,46 @@ export default function PoobahListView({
         <EmptyState icon={Crown} title="Nobody on the watch list yet" hint="Use “Watch a client” to add the first one." />
       ) : (
         <>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex gap-1" role="group" aria-label="Filter by BIP status">
+              {(["all", "onboarding", "active"] as const).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key)}
+                  aria-pressed={filter === key}
+                  className={`rounded-md border px-2.5 py-1 text-xs ${
+                    filter === key ? "border-bip-accent bg-bip-fill text-bip-text" : "border-bip-border text-bip-muted hover:text-bip-text"
+                  }`}
+                >
+                  {key === "all" ? "All" : key === "onboarding" ? "Onboarding" : "Active"} ({filterCounts[key]})
+                </button>
+              ))}
+            </div>
+            <BipStatusLegend />
+          </div>
           <p className="text-xs text-bip-muted">
-            {watches.length} watched {watches.length === 1 ? "client" : "clients"}, all shown · most recently updated first
+            {filter === "all"
+              ? `${watches.length} watched ${watches.length === 1 ? "client" : "clients"}, all shown`
+              : `${shown.length} of ${watches.length} watched clients shown (${filter === "onboarding" ? "onboarding" : "active"} only)`}{" "}
+            · most recently updated first
           </p>
-          <ul className="divide-y divide-bip-border rounded-xl border border-bip-border bg-bip-card">
-            {watches.map((watch) => (
-              <li key={watch.id}>
+          {shown.length === 0 ? (
+            <p className="text-sm text-bip-muted">No watched clients match this filter.</p>
+          ) : (
+          <ul className="divide-y divide-bip-border overflow-hidden rounded-xl border border-bip-border bg-bip-card">
+            {shown.map((watch) => (
+              <li key={watch.id} className={onboardingAccent(watch.bip_status)}>
                 <Link href={`/client-watch/${watch.id}`} className="grid gap-x-4 gap-y-1 px-4 py-3 hover:bg-bip-hover sm:grid-cols-[14rem_1fr_auto]">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-bip-text">{watch.name}</p>
-                    <p className="text-xs text-bip-muted">{watch.client_id ? "BIP client" : "Not linked"} · updated {whenEastern(watch.updated_at)}</p>
+                    <p className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-sm font-medium text-bip-text">{watch.name}</span>
+                      <BipStatusBadge status={watch.bip_status} />
+                    </p>
+                    <p className="text-xs text-bip-muted">updated {whenEastern(watch.updated_at)}</p>
                   </div>
                   <p className="line-clamp-2 text-sm text-bip-text">{watch.status ?? <span className="text-bip-muted">No status yet</span>}</p>
                   <div className="text-xs text-bip-muted sm:text-right">
-                    <p className={watch.open_items ? "text-amber-400" : undefined}>
+                    <p className={watch.open_items ? "font-medium text-bip-text" : undefined}>
                       {watch.open_items} open {watch.open_items === 1 ? "item" : "items"}
                     </p>
                     <p>Last log: {calendarDate(watch.last_log_date)}</p>
@@ -155,6 +189,7 @@ export default function PoobahListView({
               </li>
             ))}
           </ul>
+          )}
         </>
       )}
     </ToolPage>

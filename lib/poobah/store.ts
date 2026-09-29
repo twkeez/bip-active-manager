@@ -1,8 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getClientLifecycleStatus } from "@/lib/clients/client-status";
 import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import {
   LIMITS,
+  bipStatusLabel,
   type PoobahActor,
+  type PoobahBipStatus,
   type PoobahChange,
   type PoobahDetail,
   type PoobahItem,
@@ -32,7 +35,22 @@ import {
  * Needs the service-role client: the tables are closed to the browser roles.
  */
 
-type ClientName = { id: number; account_name: string | null; public_name: string | null };
+type ClientName = {
+  id: number;
+  account_name: string | null;
+  public_name: string | null;
+  onboarding_status?: string | null;
+  awaiting_website_launch?: boolean | null;
+};
+
+/** The linked client's lifecycle, from the row just read (never stored on the watch). */
+function bipStatusOf(client: ClientName | null): PoobahBipStatus {
+  if (!client) return null;
+  return getClientLifecycleStatus({
+    onboarding_status: client.onboarding_status === "active" || client.onboarding_status === "complete" ? client.onboarding_status : null,
+    awaiting_website_launch: Boolean(client.awaiting_website_launch),
+  });
+}
 type WatchWithClient = PoobahWatch & { client: ClientName | null };
 
 const clientLabel = (client: ClientName | null) =>
@@ -60,7 +78,7 @@ async function loadWatches(admin: SupabaseClient): Promise<WatchWithClient[]> {
       (from, to) =>
         admin
           .from("poobah_watches")
-          .select("*, client:clients(id,account_name,public_name)")
+          .select("*, client:clients(id,account_name,public_name,onboarding_status,awaiting_website_launch)")
           .order("id")
           .range(from, to),
       "Poobah watches",
@@ -105,6 +123,8 @@ export async function listWatches(admin: SupabaseClient): Promise<PoobahSummary[
       name: watch.name,
       client_id: watch.client_id,
       client_name: clientLabel(watch.client),
+      bip_status: bipStatusOf(watch.client),
+      bip_status_label: bipStatusLabel(bipStatusOf(watch.client)),
       status: latestStatus.get(watch.id)?.status ?? null,
       status_set_at: latestStatus.get(watch.id)?.set_at ?? null,
       open_items: openCount.get(watch.id) ?? 0,
@@ -173,7 +193,14 @@ export async function getWatch(admin: SupabaseClient, watchId: number): Promise<
   const { client, ...plain } = watch;
   return {
     watch: plain,
-    client: client ? { id: client.id, name: clientLabel(client) ?? `Client ${client.id}` } : null,
+    client: client
+      ? {
+          id: client.id,
+          name: clientLabel(client) ?? `Client ${client.id}`,
+          bip_status: bipStatusOf(client) ?? "active",
+          bip_status_label: bipStatusLabel(bipStatusOf(client)),
+        }
+      : null,
     statuses,
     items: [...open, ...done],
     log,

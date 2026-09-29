@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Crown } from "lucide-react";
+import { BipStatusBadge, onboardingAccent } from "@/components/poobah/bip-status";
 import { ToolPage } from "@/components/ui/tool-page";
 import { actorLabel, calendarDate, whenEastern } from "@/lib/poobah/format";
 import { LOG_SOURCES, POOBAH_NAME, type PoobahDetail, type PoobahItem } from "@/lib/poobah/types";
@@ -147,7 +148,20 @@ export default function PoobahDetailView({ detail, today }: { detail: PoobahDeta
         </span>
       }
     >
-      {error && <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">Not saved: {error}</p>}
+      {error && <p className="rounded-md bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-fg)]">Not saved: {error}</p>}
+
+      <div className={`flex flex-wrap items-center gap-2 rounded-xl border border-bip-border bg-bip-card px-4 py-2 text-sm ${onboardingAccent(client?.bip_status ?? null)}`}>
+        <span className="text-bip-muted">BIP status:</span>
+        {client ? (
+          <>
+            <span className="font-medium text-bip-text">{client.bip_status_label}</span>
+            <BipStatusBadge status={client.bip_status} />
+            <span className="text-xs text-bip-muted">live from the client record</span>
+          </>
+        ) : (
+          <BipStatusBadge status={null} />
+        )}
+      </div>
 
       <Section
         title="Current status"

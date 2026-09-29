@@ -66,11 +66,31 @@ export type PoobahChange = {
   at: string;
 };
 
+/**
+ * The linked BIP Control client's lifecycle, read live from the clients table
+ * every time (never stored here), by the same rule as the Clients page
+ * (lib/clients/client-status.ts). "launch" is onboarding, waiting on the
+ * website. null: not a BIP client (e.g. a prospect).
+ */
+export type PoobahBipStatus = "onboarding" | "launch" | "active" | null;
+
+export const BIP_STATUS_LABEL: Record<Exclude<PoobahBipStatus, null>, string> = {
+  onboarding: "Onboarding",
+  launch: "Pending launch",
+  active: "Active",
+};
+
+export function bipStatusLabel(status: PoobahBipStatus): string {
+  return status ? BIP_STATUS_LABEL[status] : "Not a BIP client";
+}
+
 export type PoobahSummary = {
   id: number;
   name: string;
   client_id: number | null;
   client_name: string | null;
+  bip_status: PoobahBipStatus;
+  bip_status_label: string;
   status: string | null;
   status_set_at: string | null;
   open_items: number;
@@ -80,7 +100,7 @@ export type PoobahSummary = {
 
 export type PoobahDetail = {
   watch: PoobahWatch;
-  client: { id: number; name: string } | null;
+  client: { id: number; name: string; bip_status: Exclude<PoobahBipStatus, null>; bip_status_label: string } | null;
   /** Newest first; the first is the current status. */
   statuses: PoobahStatus[];
   /** Open first (oldest first), then done (most recently done first). */

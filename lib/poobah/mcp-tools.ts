@@ -41,7 +41,7 @@ export function registerPoobahTools(server: McpServer) {
     "list_watched_clients",
     {
       title: "List watched clients",
-      description: `Every client on ${POOBAH_NAME}, most recently updated first, with current status, open item count and last log date. Always the complete list.`,
+      description: `Every client on ${POOBAH_NAME}, most recently updated first, with current status, open item count, last log date, and the client's live BIP Control lifecycle (bip_status: onboarding, launch = onboarding and waiting on the website, active, or null = not a BIP client). Always the complete list.`,
       inputSchema: z.object({}),
       annotations: readOnly,
     },
@@ -56,7 +56,7 @@ export function registerPoobahTools(server: McpServer) {
     "get_client_watch",
     {
       title: "Get a watched client",
-      description: "Everything about one watched client: current status and earlier ones, all open and done items, the full running log, account basics, and the change history. Nothing is left out.",
+      description: "Everything about one watched client: its live BIP Control lifecycle (bip_status), current status and earlier ones, all open and done items, the full running log, account basics, and the change history. Nothing is left out.",
       inputSchema: z.object({ client: clientRef }),
       annotations: readOnly,
     },
@@ -66,6 +66,8 @@ export function registerPoobahTools(server: McpServer) {
         const detail = await getWatch(admin(), watch.id);
         return {
           complete: true,
+          bip_status: detail.client?.bip_status ?? null,
+          bip_status_label: detail.client?.bip_status_label ?? "Not a BIP client",
           counts: {
             statuses: detail.statuses.length,
             open_items: detail.items.filter((item) => !item.done).length,
