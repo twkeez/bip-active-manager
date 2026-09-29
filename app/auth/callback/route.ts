@@ -1,12 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAllowedEmail } from "@/lib/auth/allowed-domain";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { safeReturnPath } from "@/lib/mcp-oauth/core";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  // A return path set by the login page (e.g. the Claude connector's consent
+  // screen), else the one in the URL. Only a same-site path is ever used:
+  // "@evil.com" or "//evil.com" would otherwise send the person off-site.
+  const returnCookie = request.cookies.get("bip_return_to")?.value;
+  const next = safeReturnPath(returnCookie ? decodeURIComponent(returnCookie) : searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();
@@ -27,7 +32,9 @@ export async function GET(request: Request) {
         }
         return NextResponse.redirect(`${origin}/login?error=domain`);
       }
-      return NextResponse.redirect(`${origin}${next}`);
+      const response = NextResponse.redirect(`${origin}${next}`);
+      if (returnCookie) response.cookies.set("bip_return_to", "", { path: "/", maxAge: 0 });
+      return response;
     }
   }
 

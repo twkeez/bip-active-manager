@@ -9,9 +9,12 @@ import AuthCard, { AuthInput, AuthButton, AuthError } from "./auth-card";
 export default function LoginForm({
   error,
   fallback = false,
+  next,
 }: {
   error?: string;
   fallback?: boolean;
+  /** Where to go after signing in (a same-site path, already checked). */
+  next?: string;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -31,6 +34,12 @@ export default function LoginForm({
     setFormError(null);
     setGoogleLoading(true);
     const supabase = createClient();
+    // Where to land after Google: kept in a short-lived cookie rather than the
+    // redirect URL, which Supabase only accepts from its allow-list. The
+    // callback checks it again before using it.
+    document.cookie = next
+      ? `bip_return_to=${encodeURIComponent(next)}; Path=/; Max-Age=600; SameSite=Lax; Secure`
+      : "bip_return_to=; Path=/; Max-Age=0";
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -59,7 +68,7 @@ export default function LoginForm({
       setFormError(signError.message);
       return;
     }
-    router.push("/dashboard");
+    router.push(next ?? "/dashboard");
     router.refresh();
   }
 

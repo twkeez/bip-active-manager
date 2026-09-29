@@ -1,9 +1,10 @@
 import LoginForm from "@/components/auth/login-form";
+import { safeReturnPath } from "@/lib/mcp-oauth/core";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; fallback?: string }>;
+  searchParams: Promise<{ error?: string; fallback?: string; next?: string }>;
 }) {
-  const { error, fallback } = await searchParams;
-  return <LoginForm error={error} fallback={fallback != null} />;
+  const { error, fallback, next } = await searchParams;
+  return <LoginForm error={error} fallback={fallback != null} next={next ? safeReturnPath(next) : undefined} />;
 }
