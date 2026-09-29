@@ -3,6 +3,13 @@
 
 export const POOBAH_NAME = "Poobah Client Watch";
 
+/**
+ * What the updates can and cannot see. Team members' email is read only with
+ * their own permission, and none have given it yet (Tom, 2026-09-29).
+ */
+export const EMAIL_COVERAGE_NOTE =
+  "Email coverage: only Tom's inbox is checked. Stephanie's, Alex's and Daniel's email can't be checked without their permission, so a client emailing them without Tom copied won't show up here. Basecamp is covered for every linked client.";
+
 /** Who made a change: a person in the app, or Claude acting for a person. */
 export type PoobahActor = { kind: "person" | "claude"; email: string };
 

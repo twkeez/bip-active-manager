@@ -8,7 +8,7 @@ import { EmptyState, ErrorState } from "@/components/ui/feedback";
 import { ToolPage } from "@/components/ui/tool-page";
 import { calendarDate, whenEastern } from "@/lib/poobah/format";
 import { BipStatusBadge, BipStatusLegend, matchesBipFilter, onboardingAccent, type BipFilter } from "@/components/poobah/bip-status";
-import { POOBAH_NAME, type PoobahSummary } from "@/lib/poobah/types";
+import { EMAIL_COVERAGE_NOTE, POOBAH_NAME, type PoobahSummary } from "@/lib/poobah/types";
 
 type ClientOption = { id: number; name: string };
 
@@ -134,6 +134,8 @@ export default function PoobahListView({
           </div>
         </div>
       )}
+
+      <p className="rounded-md border border-bip-border bg-bip-fill px-3 py-2 text-xs text-bip-muted">{EMAIL_COVERAGE_NOTE}</p>
 
       {loadError ? (
         <ErrorState message={loadError} />

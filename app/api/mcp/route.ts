@@ -3,7 +3,7 @@ import { publicOrigin, resourceFor, SCOPE } from "@/lib/mcp-oauth/core";
 import { CORS_HEADERS, preflight } from "@/lib/mcp-oauth/http";
 import { verifyAccessToken } from "@/lib/mcp-oauth/server";
 import { registerPoobahTools } from "@/lib/poobah/mcp-tools";
-import { POOBAH_NAME } from "@/lib/poobah/types";
+import { EMAIL_COVERAGE_NOTE, POOBAH_NAME } from "@/lib/poobah/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -17,7 +17,7 @@ export const maxDuration = 60;
 
 const mcp = createMcpHandler((server) => registerPoobahTools(server), {
   serverInfo: { name: "bip-poobah-client-watch", version: "1.0.0" },
-  instructions: `${POOBAH_NAME}: Tom's notebook of closely watched clients at Beyond Indigo. Each watched client has a current status, open items, a dated running log and account basics. Use list_watched_clients first to find ids. Nothing can be deleted; every change is recorded as made by Claude for the signed-in person.`,
+  instructions: `${POOBAH_NAME}: Tom's notebook of closely watched clients at Beyond Indigo. Each watched client has a current status, open items, a dated running log and account basics. Use list_watched_clients first to find ids. Nothing can be deleted; every change is recorded as made by Claude for the signed-in person. ${EMAIL_COVERAGE_NOTE} When a status or summary relies on email, say that other team members' email was not checked.`,
 });
 
 const handler = withMcpAuth(

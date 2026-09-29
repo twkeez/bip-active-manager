@@ -3,7 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadBasecampActivity } from "./basecamp";
 import { addItem, addLogEntry, addWatch, getWatch, listWatches, resolveWatch, setBasics, setStatus, updateItem } from "./store";
-import { POOBAH_NAME, type PoobahActor } from "./types";
+import { EMAIL_COVERAGE_NOTE, POOBAH_NAME, type PoobahActor } from "./types";
 import { PoobahError, todayEastern } from "./validate";
 
 // Poobah Client Watch as tools for Claude. Every tool answers with an explicit
@@ -49,7 +49,7 @@ export function registerPoobahTools(server: McpServer) {
     async (_args, ctx) =>
       run(ctx as Ctx, async () => {
         const watches = await listWatches(admin());
-        return { count: watches.length, complete: true, note: `${watches.length} of ${watches.length} shown.`, watches };
+        return { count: watches.length, complete: true, note: `${watches.length} of ${watches.length} shown.`, coverage_note: EMAIL_COVERAGE_NOTE, watches };
       }),
   );
 
@@ -67,6 +67,7 @@ export function registerPoobahTools(server: McpServer) {
         const detail = await getWatch(admin(), watch.id);
         return {
           complete: true,
+          coverage_note: EMAIL_COVERAGE_NOTE,
           bip_status: detail.client?.bip_status ?? null,
           bip_status_label: detail.client?.bip_status_label ?? "Not a BIP client",
           counts: {
