@@ -38,4 +38,6 @@ async function handle(request: Request) {
   }
 }
 
-export const POST = watchedCronRoute("job-watch", handle);
+// Vercel Cron calls with GET (vercel.json); POST stays for manual runs.
+export const GET = watchedCronRoute("job-watch", handle);
+export const POST = GET;

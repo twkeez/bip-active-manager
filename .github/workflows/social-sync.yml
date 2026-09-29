@@ -1,10 +1,7 @@
 name: Social sync
 
 on:
-  schedule:
-    # Once nightly at 07:40 UTC — half an hour after the ads sync, so the two
-    # never contend for the same function capacity.
-    - cron: "40 7 * * *"
+  # Scheduled by Vercel Cron (vercel.json) since 2026-09-29; this stays for manual runs.
   workflow_dispatch:
 
 concurrency:

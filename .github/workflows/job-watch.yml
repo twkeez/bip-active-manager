@@ -1,13 +1,7 @@
 name: Job watch
 
 on:
-  schedule:
-    # Hourly, on a minute clear of the other jobs. Emails Tom about any
-    # scheduled job that failed, partly failed, timed out or did not run, and
-    # sends a summary each morning (so a missing summary means this job itself
-    # has stopped). Also closes answered strategist follow-ups and reminds
-    # once on overdue ones.
-    - cron: "47 * * * *"
+  # Scheduled by Vercel Cron (vercel.json) since 2026-09-29; this stays for manual runs.
   workflow_dispatch:
 
 concurrency:

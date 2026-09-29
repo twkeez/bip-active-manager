@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    { "path": "/api/cron/routines", "schedule": "17 * * * *" },
+    { "path": "/api/cron/job-watch", "schedule": "47 * * * *" },
+    { "path": "/api/cron/basecamp-watch", "schedule": "*/30 11-23 * * 1-5" },
+    { "path": "/api/cron/basecamp-watch", "schedule": "0 15 * * 0,6" },
+    { "path": "/api/cron/ads-sync", "schedule": "10 7 * * *" },
+    { "path": "/api/cron/social-sync", "schedule": "40 7 * * *" },
+    { "path": "/api/cron/seo-sync", "schedule": "10 8 * * *" },
+    { "path": "/api/cron/ga4-sync", "schedule": "40 8 * * *" },
+    { "path": "/api/cron/gbp-sync", "schedule": "10 9 * * *" }
+  ]
+}

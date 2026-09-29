@@ -1,11 +1,7 @@
 name: Basecamp watch
 
 on:
-  schedule:
-    # Every 30 minutes, 11:00-23:00 UTC — roughly 6am to 6pm US Eastern.
-    - cron: "*/30 11-23 * * 1-5"
-    # Once each weekend day, so a Friday-evening message isn't missed.
-    - cron: "0 15 * * 0,6"
+  # Scheduled by Vercel Cron (vercel.json) since 2026-09-29; this stays for manual runs.
   workflow_dispatch:
 
 concurrency:

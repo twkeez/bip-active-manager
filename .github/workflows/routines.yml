@@ -1,13 +1,7 @@
 name: Routines
 
 on:
-  schedule:
-    # Hourly. Each routine keeps its own schedule ("weekdays at 9am ET"); this
-    # only wakes the app up to ask which are due. GitHub delivers scheduled runs
-    # late or not at all under load, so a routine counts as due whenever a
-    # scheduled time has passed that it has not run for — a dropped wake-up is
-    # caught by the next one. The odd minute stays clear of the :00 crush.
-    - cron: "17 * * * *"
+  # Scheduled by Vercel Cron (vercel.json) since 2026-09-29; this stays for manual runs.
   workflow_dispatch:
 
 concurrency:

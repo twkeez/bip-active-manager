@@ -92,4 +92,6 @@ async function handle(request: Request) {
 
 // Every run is recorded so the job watchdog can report failures, timeouts
 // and runs that never came.
-export const POST = watchedCronRoute("basecamp-watch", handle);
+// Vercel Cron calls with GET (vercel.json); POST stays for manual runs.
+export const GET = watchedCronRoute("basecamp-watch", handle);
+export const POST = GET;
