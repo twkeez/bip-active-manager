@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { HeartPulse } from "lucide-react";
+import JobHealthSection from "@/components/data-integrity/job-health-section";
 import { ErrorState } from "@/components/ui/feedback";
 import { ToolPage } from "@/components/ui/tool-page";
 import { ACTIVE_WARNING_DAYS, isActiveWarning, type DataWarning } from "@/lib/data-integrity/warnings";
+import type { JobHealthRow } from "@/lib/job-watch/job-health";
 
 function when(value: string | null): string {
   if (!value) return "—";
@@ -13,10 +15,19 @@ function when(value: string | null): string {
 }
 
 /**
- * Data health: every warning that some data may be incomplete. For now, reads
- * the database cut short at its 1000-row limit; job health joins it next.
+ * Data health: how every scheduled job last went, any broken login, and every
+ * warning that some data may be incomplete (reads cut short at the database's
+ * 1000-row limit).
  */
-export default function DataHealthView({ warnings, loadError }: { warnings: DataWarning[]; loadError: string | null }) {
+export default function DataHealthView({
+  warnings,
+  jobs,
+  loadError,
+}: {
+  warnings: DataWarning[];
+  jobs: { rows: JobHealthRow[]; loginProblems: string[]; error: string | null };
+  loadError: string | null;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,8 +83,9 @@ export default function DataHealthView({ warnings, loadError }: { warnings: Data
       title="Data health"
       icon={HeartPulse}
       maxWidth="5xl"
-      description="Anything that means some data may be incomplete. Every database read in the app is checked: one that returns exactly the database's 1,000-row limit was almost certainly cut short. Each is emailed to you once, shown as a banner, and blocks client report and briefing exports while active."
+      description="Anything that means some data may be incomplete: a scheduled job that failed, partly failed or did not run, a login that stopped working, or a database read cut short at its 1,000-row limit. Each is emailed to you once. Cut-short reads also show as a banner and block client report and briefing exports while active."
     >
+      {jobs.error ? <ErrorState message={`Could not load job health: ${jobs.error}`} /> : <JobHealthSection rows={jobs.rows} loginProblems={jobs.loginProblems} />}
       {loadError ? (
         <ErrorState message={loadError} />
       ) : (
@@ -81,7 +93,7 @@ export default function DataHealthView({ warnings, loadError }: { warnings: Data
           {error && <p className="text-sm text-red-400">{error}</p>}
           <section className="space-y-2">
             <h2 className="text-xs font-medium uppercase tracking-wide text-bip-muted">
-              Active · seen in the last {ACTIVE_WARNING_DAYS} days ({active.length})
+              Cut-short reads · active, seen in the last {ACTIVE_WARNING_DAYS} days ({active.length})
             </h2>
             {active.length ? list(active, true) : <p className="text-sm text-emerald-400">Nothing active. No read has been cut short recently.</p>}
           </section>
