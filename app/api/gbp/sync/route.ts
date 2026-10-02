@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncClientGbp } from "@/lib/gbp/sync-client";
+import { NOT_REPUTATION_CLIENT_MESSAGE, isReputationClient } from "@/lib/gbp/reputation-only";
 import type { GbpReviewRow } from "@/lib/types/client";
 
 /**
@@ -40,14 +41,17 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const { data: clientRow, error: clientError } = await admin
     .from("clients")
-    .select("id,google_place_id")
+    .select("id,google_place_id,orm")
     .eq("id", clientId)
-    .single<{ id: number; google_place_id: string | null }>();
+    .single<{ id: number; google_place_id: string | null; orm: string | null }>();
   if (clientError || !clientRow) {
     return NextResponse.json(
       { error: clientError?.message ?? "Client not found" },
       { status: 404 },
     );
+  }
+  if (!isReputationClient(clientRow.orm)) {
+    return NextResponse.json({ error: NOT_REPUTATION_CLIENT_MESSAGE }, { status: 409 });
   }
   if (!clientRow.google_place_id?.trim()) {
     return NextResponse.json(

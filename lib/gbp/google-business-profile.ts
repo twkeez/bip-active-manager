@@ -135,20 +135,6 @@ async function fetchJsonWithRetry<T>(
   throw lastError ?? new Error(`${options.label} failed`);
 }
 
-type LegacyPlaceDetailsResponse = {
-  status?: string;
-  error_message?: string;
-  result?: {
-    reviews?: Array<{
-      author_name?: string;
-      rating?: number;
-      text?: string;
-      relative_time_description?: string;
-      time?: number;
-    }>;
-  };
-};
-
 async function gmailTokenWithScope(
   admin: ReturnType<typeof createAdminClient>,
   scope: string,
@@ -379,19 +365,6 @@ async function fetchGbpApiReviewsForLocation(
   });
 }
 
-function normalizeLegacyReview(
-  review: NonNullable<NonNullable<LegacyPlaceDetailsResponse["result"]>["reviews"]>[number],
-): NormalizedReview {
-  const relative = review.relative_time_description ?? null;
-  return {
-    authorName: review.author_name ?? null,
-    rating: typeof review.rating === "number" ? review.rating : null,
-    text: review.text ?? null,
-    relativeTimeDescription: relative,
-    reviewTimeUnix:
-      typeof review.time === "number" ? review.time : parseRelativeTimeUnix(relative),
-  };
-}
 
 function mergeAndSortReviews(primary: NormalizedReview[], secondary: NormalizedReview[]) {
   const seen = new Set<string>();
@@ -492,21 +465,10 @@ export async function runGbpSync(rawPlaceId: string): Promise<GbpSyncResult> {
         parseRelativeTimeUnix(review.relativePublishTimeDescription),
     })) ?? [];
 
-  const legacyEndpoint = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(
-    placeId,
-  )}&fields=reviews&reviews_sort=newest&key=${encodeURIComponent(apiKey)}`;
-  let legacyReviewsNormalized: NormalizedReview[] = [];
-  try {
-    const legacyResponse = await fetch(legacyEndpoint, {
-      method: "GET",
-      cache: "no-store",
-    });
-    const legacyPayload = (await legacyResponse.json()) as LegacyPlaceDetailsResponse;
-    const legacyReviews = legacyPayload.result?.reviews ?? [];
-    legacyReviewsNormalized = legacyReviews.map((row) => normalizeLegacyReview(row));
-  } catch (error) {
-  }
-
+  // The old Places service used to be asked for reviews here as well, with
+  // any failure quietly ignored. It added a second paid call per client and
+  // nothing on the bill showed it working; removed 2026-10-02 (Tom).
+  const legacyReviewsNormalized: NormalizedReview[] = [];
   const reviews = mergeAndSortReviews(legacyReviewsNormalized, placesReviews);
   let gbpApiReviews: NormalizedReview[] = [];
   let matchedGbpLocationCount = 0;

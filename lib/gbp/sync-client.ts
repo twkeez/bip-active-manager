@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runGbpSync, type GbpSyncResult } from "@/lib/gbp/google-business-profile";
+import { NotReputationClientError, isReputationClient } from "@/lib/gbp/reputation-only";
 import type { GbpReviewRow, GbpSnapshot } from "@/lib/types/client";
 
 /**
@@ -34,6 +35,13 @@ export async function syncClientGbp(
   clientId: number,
   placeId: string,
 ): Promise<GbpSyncResultSummary> {
+  // Every refresh path (nightly and the manual button) comes through here, so
+  // this is where the reputation-only rule holds. Checked before anything is
+  // written or any Google call is made.
+  const { data: clientRow, error: clientError } = await admin.from("clients").select("orm").eq("id", clientId).maybeSingle();
+  if (clientError) throw new Error(`Could not read the client: ${clientError.message}`);
+  if (!isReputationClient((clientRow as { orm?: string | null } | null)?.orm)) throw new NotReputationClientError();
+
   const now = new Date().toISOString();
   const { data: createdSnapshot, error: createSnapshotError } = await admin
     .from("client_gbp_snapshots")

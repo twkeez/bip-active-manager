@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { syncClientSearchConsole } from "@/lib/seo/sync-client";
 import { syncClientGa4 } from "@/lib/ga4/sync-client";
 import { syncClientGbp } from "@/lib/gbp/sync-client";
+import { isReputationClient } from "@/lib/gbp/reputation-only";
 import {
   runInBatches,
   summarise,
@@ -38,6 +39,7 @@ type ClientRow = {
   ga4_property_id?: string | null;
   ga4_id?: string | null;
   google_place_id?: string | null;
+  orm?: string | null;
 };
 
 const present = (value: string | null | undefined) => Boolean((value ?? "").trim());
@@ -159,9 +161,10 @@ export function runGa4SyncAll(admin: SupabaseClient, startedAt = Date.now()) {
 export function runGbpSyncAll(admin: SupabaseClient, startedAt = Date.now()) {
   return runSyncAll({
     admin,
-    columns: "id, account_name, google_place_id",
+    columns: "id, account_name, google_place_id, orm",
     snapshotTable: "client_gbp_snapshots",
-    eligible: (client) => present(client.google_place_id),
+    // Reputation (ORM) clients only: see lib/gbp/reputation-only.ts.
+    eligible: (client) => present(client.google_place_id) && isReputationClient(client.orm),
     batchSize: 6,
     // The listing refreshes even when reviews cannot; report that as a failure
     // for the client so the job answers 207 and Tom hears about it.
