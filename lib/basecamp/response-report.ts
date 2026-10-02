@@ -166,3 +166,60 @@ export function reportTiles(rows: ShapedReportRow[]): ReportTiles {
     waitingOnClient: rows.filter((row) => row.status === "awaiting_client").length,
   };
 }
+
+/** A column the report can be sorted by (Tom, 2026-10-02). */
+export type SortKey = "project" | "waiting" | "our_reply" | "client_message" | "status";
+export type SortDirection = "asc" | "desc";
+export type SortState = { key: SortKey; direction: SortDirection } | null;
+
+/** The first click on a column: names A–Z, waits longest first, dates newest first. */
+export const DEFAULT_DIRECTION: Record<SortKey, SortDirection> = {
+  project: "asc",
+  waiting: "desc",
+  our_reply: "desc",
+  client_message: "desc",
+  status: "asc",
+};
+
+/** Clicking a header: its default direction, then reversed, then back to the report's own order. */
+export function nextSort(current: SortState, key: SortKey): SortState {
+  if (!current || current.key !== key) return { key, direction: DEFAULT_DIRECTION[key] };
+  if (current.direction === DEFAULT_DIRECTION[key]) return { key, direction: current.direction === "asc" ? "desc" : "asc" };
+  return null;
+}
+
+function sortValue(row: ShapedReportRow, key: SortKey): string | number | null {
+  switch (key) {
+    case "project":
+      return row.account_name.toLowerCase();
+    case "waiting":
+      return row.waitingDays;
+    case "our_reply":
+      return row.last_internal_at ? new Date(row.last_internal_at).getTime() : null;
+    case "client_message":
+      return row.last_client_at ? new Date(row.last_client_at).getTime() : null;
+    case "status":
+      return STATUS_RANK[row.status] * 2 + (row.acknowledged ? 1 : 0);
+  }
+}
+
+/**
+ * Rows sorted by one column. Rows with nothing in that column (never
+ * replied, no wait) always go last, whichever the direction, so they never
+ * crowd the top. Ties keep the report's own order.
+ */
+export function sortReportRows(rows: ShapedReportRow[], sort: SortState): ShapedReportRow[] {
+  if (!sort) return rows;
+  const factor = sort.direction === "asc" ? 1 : -1;
+  return rows
+    .map((row, index) => ({ row, index, value: sortValue(row, sort.key) }))
+    .sort((a, b) => {
+      if (a.value == null || b.value == null) {
+        if (a.value == null && b.value == null) return a.index - b.index;
+        return a.value == null ? 1 : -1;
+      }
+      const diff = typeof a.value === "string" ? a.value.localeCompare(String(b.value)) : a.value - (b.value as number);
+      return diff !== 0 ? diff * factor : a.index - b.index;
+    })
+    .map((entry) => entry.row);
+}

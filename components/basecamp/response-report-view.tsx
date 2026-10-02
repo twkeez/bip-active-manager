@@ -27,6 +27,10 @@ import {
   type ShapedReportRow,
   type StatusFilter,
   type WaitTone,
+  nextSort,
+  sortReportRows,
+  type SortKey,
+  type SortState,
 } from "@/lib/basecamp/response-report";
 
 const COLUMN_COUNT = 6;
@@ -155,6 +159,7 @@ export default function ResponseReportView({
   }
   const [author, setAuthor] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortState>(null);
   // Stop tracking: the row being confirmed, its reason, and rows hidden
   // locally while the server catches up.
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -274,9 +279,29 @@ export default function ResponseReportView({
   ];
 
   // Dismissed rows never sit among rows that need action: their own group.
-  const activeRows = visible.filter((r) => !isDismissed(r));
-  const dismissedRows = visible.filter((r) => isDismissed(r));
-  const ageGroups = status === "awaiting_us" ? groupByWait(activeRows) : null;
+  const activeRows = sortReportRows(visible.filter((r) => !isDismissed(r)), sort);
+  const dismissedRows = sortReportRows(visible.filter((r) => isDismissed(r)), sort);
+  // The age bands only make sense in the report's own order; a chosen sort is one flat list.
+  const ageGroups = status === "awaiting_us" && !sort ? groupByWait(activeRows) : null;
+
+  const sortHeader = (key: SortKey, label: string) => {
+    const active = sort?.key === key ? sort.direction : null;
+    return (
+      <th className="px-3 py-2 font-medium" aria-sort={active === "asc" ? "ascending" : active === "desc" ? "descending" : "none"}>
+        <button
+          type="button"
+          onClick={() => setSort((current) => nextSort(current, key))}
+          className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-bip-text ${active ? "text-bip-text" : ""}`}
+          title={active ? "Click to reverse; click again for the report's own order" : `Sort by ${label.toLowerCase()}`}
+        >
+          {label}
+          <span aria-hidden="true" className={active ? "" : "opacity-30"}>
+            {active === "asc" ? "▲" : active === "desc" ? "▼" : "↕"}
+          </span>
+        </button>
+      </th>
+    );
+  };
 
   async function setDismissed(row: ShapedReportRow, dismiss: boolean) {
     if (row.client_id == null) return;
@@ -547,11 +572,11 @@ export default function ResponseReportView({
               </colgroup>
               <thead className="sticky top-0 z-10 bg-bip-card shadow-[0_1px_0_rgba(255,255,255,0.08)]">
                 <tr className="border-b border-bip-border text-[11px] uppercase tracking-wide text-bip-muted">
-                  <th className="px-3 py-2 font-medium">Project</th>
-                  <th className="px-3 py-2 font-medium">Waiting</th>
-                  <th className="px-3 py-2 font-medium">Last reply from us</th>
-                  <th className="px-3 py-2 font-medium">Last message from client</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
+                  {sortHeader("project", "Project")}
+                  {sortHeader("waiting", "Waiting")}
+                  {sortHeader("our_reply", "Last reply from us")}
+                  {sortHeader("client_message", "Last message from client")}
+                  {sortHeader("status", "Status")}
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
