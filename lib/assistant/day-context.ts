@@ -32,13 +32,21 @@ export type DayContext = {
   calendar: CalendarDay;
   tasks: OpenTask[];
   canaries: Canary[];
-  emails: Array<{ from: string; subject: string; snippet: string; received: string; why: string | null }>;
+  emails: Array<{
+    from: string;
+    subject: string;
+    snippet: string;
+    received: string;
+    /** The full timestamp, for pages that show it in a time zone. */
+    receivedAt: string | null;
+    why: string | null;
+  }>;
   emailLastSyncedDaysAgo: number | null;
 };
 
 /** How many recent high-priority emails to show; beyond this the list is noise. */
-const EMAIL_LIMIT = 15;
-const EMAIL_WINDOW_DAYS = 3;
+export const EMAIL_LIMIT = 15;
+export const EMAIL_WINDOW_DAYS = 3;
 
 export async function loadOpenTasks(supabase: SupabaseClient, userId: string): Promise<OpenTask[]> {
   const { data, error } = await supabase
@@ -105,6 +113,7 @@ export async function loadDayContext(
       subject: ((row.subject as string) || "(no subject)").slice(0, 200),
       snippet: ((row.snippet as string) || "").slice(0, 240),
       received: String(row.internal_date).slice(0, 16).replace("T", " "),
+      receivedAt: row.internal_date ? String(row.internal_date) : null,
       // Why the inbox triage flagged it, when it did — cheaper than re-reading.
       why: ((row.ai_priority_reason as string | null) ?? null)?.slice(0, 200) ?? null,
     })),

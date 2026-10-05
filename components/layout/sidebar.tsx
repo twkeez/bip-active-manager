@@ -39,6 +39,7 @@ import {
   Shield,
   ShieldCheck,
   Sparkles,
+  Sunrise,
   Stethoscope,
   Target,
   TrendingUp,
@@ -61,6 +62,7 @@ type NavItem = {
 
 const PRIMARY: NavItem[] = [
   { label: "Assistant", href: "/assistant", icon: Sparkles, adminOnly: true },
+  { label: "Daily Brief", href: "/daily-brief", icon: Sunrise, adminOnly: true },
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "Response Report", href: "/response-report", icon: MessageSquare },
   { label: "Follow-ups", href: "/follow-ups", icon: ListChecks, adminOnly: true },
