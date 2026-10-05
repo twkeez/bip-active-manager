@@ -22,6 +22,7 @@ import {
   MessageSquare,
   SlidersHorizontal,
   Stethoscope,
+  Sunrise,
 } from "lucide-react";
 import type { UserRole } from "@/lib/auth/profile";
 import { isNavItemVisibleForRole, type AppMode } from "@/lib/auth/app-mode";
@@ -46,6 +47,7 @@ type NavItem = { label: string; href: string; icon: React.ElementType; adminOnly
 
 const WORKSPACE: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, adminOnly: true },
+  { label: "Daily Brief", href: "/daily-brief", icon: Sunrise, adminOnly: true },
   { label: "Control Center", href: "/control-center", icon: Cpu, adminOnly: true },
   { label: "Clients", href: "/dashboard/clients", icon: Building2 },
   { label: "Poobah Client Watch", href: "/client-watch", icon: Crown, adminOnly: true },
