@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { DayContext } from "@/lib/assistant/day-context";
+import { EMAIL_LIMIT, EMAIL_WINDOW_DAYS, type DayContext } from "@/lib/assistant/day-context";
 
 /**
  * Today, as of this page load: your calendar, the tasks due or overdue, and the
@@ -19,8 +19,25 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 const muted = (text: string) => <p className="text-bip-muted">{text}</p>;
 
+const easternTime = (iso: string) =>
+  new Date(iso).toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+/** The inbox is only as current as its last sync, and the panel says so. */
+function emailFreshness(daysAgo: number | null): string | null {
+  if (daysAgo === null) return "Email has never synced, so nothing is shown.";
+  if (daysAgo >= 2) return `Email last synced ${daysAgo} days ago, so recent mail is missing.`;
+  return null;
+}
+
 export default function TodayPanel({ context }: { context: DayContext }) {
-  const { calendar, tasks, canaries, today } = context;
+  const { calendar, tasks, canaries, emails, emailLastSyncedDaysAgo, today } = context;
+  const freshness = emailFreshness(emailLastSyncedDaysAgo);
   const due = tasks.filter((task) => task.due_date != null && task.due_date <= today);
 
   return (
@@ -91,6 +108,36 @@ export default function TodayPanel({ context }: { context: DayContext }) {
           )}
         </Card>
       </div>
+
+      <Card title={`High-priority email, last ${EMAIL_WINDOW_DAYS} days (${emails.length})`}>
+        {freshness && <p className="mb-2 text-amber-300">{freshness}</p>}
+        {emails.length === 0 ? (
+          muted(`No high-priority email in the last ${EMAIL_WINDOW_DAYS} days.`)
+        ) : (
+          <ul className="divide-y divide-bip-border">
+            {emails.map((email, index) => (
+              <li key={`${email.received}-${index}`} className="py-2 first:pt-0 last:pb-0">
+                <p>
+                  <span className="font-medium">{email.subject}</span>
+                  <span className="text-bip-muted">
+                    {" "}
+                    · {email.from}
+                    {email.receivedAt ? ` · ${easternTime(email.receivedAt)} ET` : ""}
+                  </span>
+                </p>
+                {email.why && <p className="text-xs text-bip-muted">Flagged because: {email.why}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {emails.length >= EMAIL_LIMIT && (
+          <p className="mt-2 text-xs text-bip-muted">Showing the {EMAIL_LIMIT} most recent; there may be more.</p>
+        )}
+        <p className="mt-2 text-xs text-bip-muted">
+          Only your inbox is checked, and only mail the inbox triage has flagged as high priority. Mail to other team members is not
+          included.
+        </p>
+      </Card>
     </section>
   );
 }
