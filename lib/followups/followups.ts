@@ -53,27 +53,56 @@ export function openForLabel(sentAt: string, now: Date): string {
   return days === 1 ? "1 day" : `${days} days`;
 }
 
+/**
+ * The two messages the Notify box can pre-write.
+ *
+ * - waiting_on_us: the client spoke last and is waiting for a reply. Points at
+ *   the client's thread, which is also what closes the follow-up (the person
+ *   asked replying there).
+ * - been_a_while: it has been a while since we sent anything. About the whole
+ *   project rather than one thread, so it names no thread and closes when the
+ *   person asked posts anywhere in the project (see followupsAnswered).
+ */
+export type NoteKind = "waiting_on_us" | "been_a_while";
+
+export const NOTE_KIND_LABEL: Record<NoteKind, string> = {
+  waiting_on_us: "Waiting on us",
+  been_a_while: "It's been a while",
+};
+
+/** Waiting on us is only true when the client spoke last; everything else is "a while". */
+export function defaultNoteKind(status: "awaiting_us" | "awaiting_client" | "no_contact"): NoteKind {
+  return status === "awaiting_us" ? "waiting_on_us" : "been_a_while";
+}
+
+const dayCount = (days: number) => (days === 1 ? "1 day" : `${days} days`);
+
 /** The note pre-filled in the Notify box, from where the conversation stands. */
 export function defaultNote(input: {
   accountName: string;
   recipientName: string | null;
-  status: "awaiting_us" | "awaiting_client" | "no_contact";
+  kind: NoteKind;
+  /** Days the client has waited on us. Used by "waiting on us". */
   waitingDays: number | null;
+  /** Days since anything went out from our side, or null when nothing is on record. */
+  daysSinceOurMessage: number | null;
+  /** The client's thread, for "waiting on us". */
   threadTitle: string | null;
 }): { subject: string; note: string } {
   const greeting = input.recipientName ? `Hi ${input.recipientName},` : "Hi,";
-  const days =
-    input.waitingDays == null ? "" : input.waitingDays === 1 ? " for 1 day" : ` for ${input.waitingDays} days`;
-  const thread = input.threadTitle ? ` on "${input.threadTitle}"` : "";
-  let ask: string;
-  if (input.status === "awaiting_us") {
-    ask = `${input.accountName} has been waiting on a reply from us${days}${thread}. Could you get back to them?`;
-  } else if (input.status === "awaiting_client") {
-    ask = `We haven't heard from ${input.accountName}${days}${thread}. Could you check in with them?`;
-  } else {
-    ask = `There's been no Basecamp conversation with ${input.accountName} lately. Could you reach out to them?`;
+
+  if (input.kind === "waiting_on_us") {
+    const days = input.waitingDays == null ? "" : ` for ${dayCount(input.waitingDays)}`;
+    const thread = input.threadTitle ? ` on "${input.threadTitle}"` : "";
+    const ask = `${input.accountName} has been waiting on a reply from us${days}${thread}. Could you get back to them?`;
+    return { subject: `Follow-up needed: ${input.accountName}`, note: `${greeting}\n\n${ask}\n\nThanks!` };
   }
-  return { subject: `Follow-up needed: ${input.accountName}`, note: `${greeting}\n\n${ask}\n\nThanks!` };
+
+  const ask =
+    input.daysSinceOurMessage == null
+      ? `There's been no Basecamp conversation with ${input.accountName} lately. Could you reach out to them?`
+      : `It's been a while since we sent anything to ${input.accountName} in Basecamp: ${dayCount(input.daysSinceOurMessage)} since our last message. Could you check in with them?`;
+  return { subject: `Check-in needed: ${input.accountName}`, note: `${greeting}\n\n${ask}\n\nThanks!` };
 }
 
 /** The email as sent: Tom's note, then the links. */

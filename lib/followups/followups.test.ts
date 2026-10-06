@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   defaultNote,
+  defaultNoteKind,
   followupEmailBody,
   followupsAnswered,
   followupsToRenudge,
@@ -40,12 +41,20 @@ function followup(overrides: Partial<FollowupRow> = {}): FollowupRow {
 }
 
 describe("defaultNote", () => {
+  const base = {
+    accountName: "Paws Veterinary Clinic",
+    recipientName: "Stephanie",
+    waitingDays: null,
+    daysSinceOurMessage: null,
+    threadTitle: null,
+  };
+
   it("asks for a reply when the client is waiting on us", () => {
     const { subject, note } = defaultNote({
-      accountName: "Paws Veterinary Clinic",
-      recipientName: "Stephanie",
-      status: "awaiting_us",
+      ...base,
+      kind: "waiting_on_us",
       waitingDays: 6,
+      daysSinceOurMessage: 20,
       threadTitle: "October content",
     });
     expect(subject).toBe("Follow-up needed: Paws Veterinary Clinic");
@@ -53,16 +62,32 @@ describe("defaultNote", () => {
     expect(note).toContain('waiting on a reply from us for 6 days on "October content"');
   });
 
-  it("asks for a check-in when we are waiting on the client", () => {
-    const { note } = defaultNote({
-      accountName: "Paws",
-      recipientName: null,
-      status: "awaiting_client",
-      waitingDays: 1,
-      threadTitle: null,
-    });
+  it("says it has been a while since we sent anything, with the days since our last message", () => {
+    const { subject, note } = defaultNote({ ...base, kind: "been_a_while", daysSinceOurMessage: 34, waitingDays: 3 });
+    expect(subject).toBe("Check-in needed: Paws Veterinary Clinic");
+    expect(note).toContain("It's been a while since we sent anything to Paws Veterinary Clinic in Basecamp: 34 days since our last message.");
+    // It is about the whole project, so it must not claim anyone is waiting.
+    expect(note).not.toContain("waiting");
+  });
+
+  it("uses the singular for one day, and a plain greeting with no recipient", () => {
+    const { note } = defaultNote({ ...base, recipientName: null, kind: "been_a_while", daysSinceOurMessage: 1 });
     expect(note.startsWith("Hi,")).toBe(true);
-    expect(note).toContain("We haven't heard from Paws for 1 day.");
+    expect(note).toContain("1 day since our last message.");
+  });
+
+  it("does not invent a number when nothing from us is on record", () => {
+    const { note } = defaultNote({ ...base, kind: "been_a_while", daysSinceOurMessage: null });
+    expect(note).toContain("no Basecamp conversation with Paws Veterinary Clinic lately");
+    expect(note).not.toMatch(/\d+ days?/);
+  });
+});
+
+describe("defaultNoteKind", () => {
+  it("defaults to waiting on us only when the client spoke last", () => {
+    expect(defaultNoteKind("awaiting_us")).toBe("waiting_on_us");
+    expect(defaultNoteKind("awaiting_client")).toBe("been_a_while");
+    expect(defaultNoteKind("no_contact")).toBe("been_a_while");
   });
 });
 
