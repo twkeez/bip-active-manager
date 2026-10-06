@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { defaultNote } from "@/lib/followups/followups";
+import { defaultNote, defaultNoteKind, NOTE_KIND_LABEL, type NoteKind } from "@/lib/followups/followups";
 import type { ShapedReportRow } from "@/lib/basecamp/response-report";
 
 export type StaffOption = { name: string; email: string };
@@ -32,34 +32,53 @@ export default function NotifyStrategistDialog({
   onClose: () => void;
   onSent: () => void;
 }) {
-  // Waiting on us: point at the client's thread. Otherwise at our last one.
-  const threadTitle =
-    row.status === "awaiting_us" ? row.last_client_thread_title : row.last_internal_thread_title;
-  const threadUrl =
-    row.status === "awaiting_us" ? row.last_client_thread_url : row.last_internal_thread_url;
-
   const initialRecipient = staff.find((person) => person.email === suggestedEmail) ?? null;
   const [recipientEmail, setRecipientEmail] = useState(initialRecipient?.email ?? "");
-  const draft = (name: string | null) =>
+
+  // "Waiting on us" is only true when the client spoke last, so it is the
+  // default there and unavailable elsewhere. "It's been a while" is always true.
+  const [kind, setKind] = useState<NoteKind>(defaultNoteKind(row.status));
+  const waitingOnUsAvailable = row.status === "awaiting_us";
+
+  // Waiting on us points at the client's thread, and the follow-up closes when
+  // the person asked replies there. "It's been a while" is about the whole
+  // project, so it names no thread and closes when they post anywhere in it.
+  const threadTitle = kind === "waiting_on_us" ? row.last_client_thread_title : null;
+  const threadUrl = kind === "waiting_on_us" ? row.last_client_thread_url : null;
+
+  const draft = (name: string | null, forKind: NoteKind) =>
     defaultNote({
       accountName: row.account_name,
       recipientName: name ? firstName(name) : null,
-      status: row.status,
-      waitingDays: row.waitingDays,
-      threadTitle,
+      kind: forKind,
+      waitingDays: row.status === "awaiting_us" ? row.waitingDays : null,
+      daysSinceOurMessage: row.days_since_our_reply,
+      threadTitle: forKind === "waiting_on_us" ? row.last_client_thread_title : null,
     });
-  const [subject, setSubject] = useState(draft(initialRecipient?.name ?? null).subject);
-  const [note, setNote] = useState(draft(initialRecipient?.name ?? null).note);
+  const [subject, setSubject] = useState(draft(initialRecipient?.name ?? null, kind).subject);
+  const [note, setNote] = useState(draft(initialRecipient?.name ?? null, kind).note);
   const [noteEdited, setNoteEdited] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function chooseKind(next: NoteKind) {
+    if (next === kind) return;
+    // A different message replaces the whole note, so do not discard hand edits unasked.
+    if (noteEdited && !window.confirm("Replace what you have written with the other message?")) return;
+    const person = staff.find((option) => option.email === recipientEmail);
+    const fresh = draft(person?.name ?? null, next);
+    setKind(next);
+    setSubject(fresh.subject);
+    setNote(fresh.note);
+    setNoteEdited(false);
+  }
 
   function chooseRecipient(email: string) {
     setRecipientEmail(email);
     // Re-address the greeting, unless the note has been rewritten by hand.
     if (!noteEdited) {
       const person = staff.find((option) => option.email === email);
-      setNote(draft(person?.name ?? null).note);
+      setNote(draft(person?.name ?? null, kind).note);
     }
   }
 
@@ -119,6 +138,34 @@ export default function NotifyStrategistDialog({
           </button>
         </div>
 
+        <fieldset className="space-y-1">
+          <legend className="text-xs text-bip-muted">Message</legend>
+          <div className="flex gap-2" role="radiogroup" aria-label="Which message to send">
+            {(["waiting_on_us", "been_a_while"] as NoteKind[]).map((option) => {
+              const disabled = option === "waiting_on_us" && !waitingOnUsAvailable;
+              const selected = kind === option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  disabled={disabled}
+                  onClick={() => chooseKind(option)}
+                  title={disabled ? "The client has not spoken last, so nobody is waiting on us here." : undefined}
+                  className={`flex-1 rounded-lg border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40 ${
+                    selected
+                      ? "border-bip-accent bg-bip-fill text-bip-text"
+                      : "border-bip-border text-bip-muted hover:text-bip-text"
+                  }`}
+                >
+                  {NOTE_KIND_LABEL[option]}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+
         <label className="block space-y-1">
           <span className="text-xs text-bip-muted">To</span>
           <select value={recipientEmail} onChange={(e) => chooseRecipient(e.target.value)} className={inputClass}>
@@ -157,8 +204,9 @@ export default function NotifyStrategistDialog({
             className={inputClass}
           />
           <span className="block text-[11px] text-bip-muted">
-            Links to the Basecamp thread and project are added below your note. Sent from your Gmail.
-            It stays on Follow-ups until they reply in that thread or it is marked done.
+            {kind === "waiting_on_us"
+              ? "Links to the Basecamp thread and project are added below your note. Sent from your Gmail. It stays on Follow-ups until they reply in that thread or it is marked done."
+              : "A link to the Basecamp project is added below your note. Sent from your Gmail. It stays on Follow-ups until they post anything in that project or it is marked done."}
           </span>
         </label>
 
