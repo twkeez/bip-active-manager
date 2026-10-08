@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import PortalControls from "@/components/client-snapshot/portal-controls";
 import SnapshotView from "@/components/client-snapshot/snapshot-view";
 import { getProfile } from "@/lib/auth/profile";
 import { loadClientSnapshot } from "@/lib/client-snapshot/load";
@@ -52,6 +53,7 @@ export default async function ClientSnapshotPreviewPage({ params }: { params: Pr
           </ul>
         )}
       </div>
+      <PortalControls clientId={id} incomplete={snapshot.incomplete} />
       <SnapshotView snapshot={snapshot} />
     </div>
   );
