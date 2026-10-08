@@ -240,12 +240,12 @@ export default function SnapshotView({
                   key={metric.label}
                   className="overflow-hidden rounded-xl bg-slate-50"
                 >
-                  <div
-                    className="h-1"
-                    style={{ background: accent }}
-                    aria-hidden="true"
-                  />
                   <div className="p-3.5">
+                    <div
+                      className="mb-2 h-1 w-8 rounded-full"
+                      style={{ background: accent }}
+                      aria-hidden="true"
+                    />
                     <p className="text-xs font-medium text-slate-500">
                       {metric.label}
                     </p>
