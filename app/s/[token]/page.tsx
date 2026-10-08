@@ -33,7 +33,7 @@ export default async function ClientSnapshotLinkPage({ params }: { params: Promi
     return <Message title="Your snapshot is on its way" body="Your first Monthly Snapshot hasn't been published yet. Check back soon." />;
   }
   return (
-    <main className="p-4 sm:p-8">
+    <main className="flex-1 bg-slate-100 p-4 sm:p-8">
       <SnapshotView snapshot={result.publication.snapshot} />
     </main>
   );
