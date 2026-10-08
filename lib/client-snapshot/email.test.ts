@@ -32,5 +32,6 @@ describe("snapshot email", () => {
     expect(email.body).toContain("• Calls from your ads: 77");
     expect(email.body).toContain("• Visitors: 1,997");
     expect(email.body).not.toContain("Google reviews");
+    expect(email.body).toContain("https://help.beyondindigo.com");
   });
 });

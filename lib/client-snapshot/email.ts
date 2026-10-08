@@ -144,7 +144,8 @@ export function buildSnapshotEmail(snapshot: ClientSnapshot, url: string, monthL
     "See your snapshot:",
     url,
     "",
-    "This link is just for your practice and works on any phone or computer. Questions? Just reply to this email.",
+    "This link is just for your practice and works on any phone or computer. Questions? Just reply to this email,",
+    "or visit our Help Center for answers and support any time: https://help.beyondindigo.com",
     "",
     "Beyond Indigo Pets",
   ];

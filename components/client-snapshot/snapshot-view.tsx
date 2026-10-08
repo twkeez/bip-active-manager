@@ -22,6 +22,9 @@ const BRAND = {
 };
 const GRADIENT = `linear-gradient(120deg, ${BRAND.indigo} 0%, ${BRAND.purple} 55%, ${BRAND.magenta} 100%)`;
 
+/** Beyond Indigo's helpdesk, linked from every snapshot and email. */
+export const HELPDESK_URL = "https://help.beyondindigo.com";
+
 const SECTION_ACCENT: Record<SnapshotSection["key"], string> = {
   ads: BRAND.indigo,
   website: BRAND.purple,
@@ -288,6 +291,18 @@ export default function SnapshotView({
         <p className="text-sm text-slate-600">
           Questions about anything here? Reply in Basecamp or call your Beyond
           Indigo team.
+        </p>
+        <a
+          href={HELPDESK_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90"
+          style={{ background: GRADIENT }}
+        >
+          Need help? Visit our Help Center →
+        </a>
+        <p className="text-xs text-slate-500">
+          Answers, how-tos and support requests, any time.
         </p>
         <p
           className="text-xs font-semibold tracking-wide"
