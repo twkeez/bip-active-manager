@@ -14,6 +14,16 @@ export default function PortalControls({ clientId, incomplete }: { clientId: num
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newLink, setNewLink] = useState<{ url: string | null; path: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function copyLink(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+    } catch {
+      setError("Your browser blocked copying. Use Open, then copy the address from the new tab.");
+    }
+  }
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/client-snapshot/${clientId}`);
@@ -39,7 +49,10 @@ export default function PortalControls({ clientId, incomplete }: { clientId: num
       });
       const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; url?: string | null; path?: string };
       if (!res.ok || !body.ok) throw new Error(body.error ?? `Failed (HTTP ${res.status}).`);
-      if (action === "create_link" && body.path) setNewLink({ url: body.url ?? null, path: body.path });
+      if (action === "create_link" && body.path) {
+        setNewLink({ url: body.url ?? null, path: body.path });
+        setCopied(false);
+      }
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed.");
@@ -78,7 +91,17 @@ export default function PortalControls({ clientId, incomplete }: { clientId: num
         {newLink && (
           <div className="space-y-1 rounded-md bg-bip-fill p-2">
             <p className="font-medium text-bip-text">Copy this link now. For safety it is stored scrambled and can&apos;t be shown again.</p>
-            <code className="block break-all text-bip-text">{newLink.url ?? newLink.path}</code>
+            <code className="block select-all break-all text-bip-text">{newLink.url ?? newLink.path}</code>
+            {newLink.url && (
+              <div className="flex gap-2">
+                <button className={button} onClick={() => void copyLink(newLink.url!)}>
+                  {copied ? "Copied ✓" : "Copy link"}
+                </button>
+                <a className={button} href={newLink.url} target="_blank" rel="noopener noreferrer">
+                  Open
+                </a>
+              </div>
+            )}
             {!newLink.url && (
               <p className="text-bip-muted">The client site doesn&apos;t have its web address yet; once it does, the link is that address followed by the part above.</p>
             )}
