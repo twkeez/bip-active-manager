@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { getProfile } from "@/lib/auth/profile";
+import { getRecipients, recentSends, sendSnapshotEmail, setRecipients } from "@/lib/client-snapshot/email";
 import { createLink, latestPublication, listLinks, portalBaseUrl, publishSnapshot, revokeLink } from "@/lib/client-snapshot/portal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 type Context = { params: Promise<{ clientId: string }> };
 
-async function asAdmin(context: Context, work: (clientId: number, email: string) => Promise<unknown>) {
+async function asAdmin(context: Context, work: (clientId: number, email: string, userId: string) => Promise<unknown>) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,7 +18,7 @@ async function asAdmin(context: Context, work: (clientId: number, email: string)
   const clientId = Number((await context.params).clientId);
   if (!Number.isInteger(clientId) || clientId <= 0) return NextResponse.json({ ok: false, error: "Invalid client." }, { status: 400 });
   try {
-    return NextResponse.json({ ok: true, ...((await work(clientId, user.email)) as object) });
+    return NextResponse.json({ ok: true, ...((await work(clientId, user.email, user.id)) as object) });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Something went wrong." }, { status: 500 });
   }
@@ -27,15 +28,27 @@ async function asAdmin(context: Context, work: (clientId: number, email: string)
 export async function GET(_request: Request, context: Context) {
   return asAdmin(context, async (clientId) => {
     const admin = createAdminClient();
-    const [publication, links] = await Promise.all([latestPublication(admin, clientId), listLinks(admin, clientId)]);
-    return { published_at: publication?.published_at ?? null, published_by: publication?.published_by_email ?? null, links, portal_url: portalBaseUrl() };
+    const [publication, links, recipients, sends] = await Promise.all([
+      latestPublication(admin, clientId),
+      listLinks(admin, clientId),
+      getRecipients(admin, clientId),
+      recentSends(admin, clientId),
+    ]);
+    return {
+      published_at: publication?.published_at ?? null,
+      published_by: publication?.published_by_email ?? null,
+      links,
+      portal_url: portalBaseUrl(),
+      recipients,
+      sends,
+    };
   });
 }
 
-/** publish | create_link | revoke_link */
+/** publish | create_link | revoke_link | set_recipients | send_email */
 export async function POST(request: Request, context: Context) {
-  const body = (await request.json().catch(() => ({}))) as { action?: string; linkId?: number };
-  return asAdmin(context, async (clientId, email) => {
+  const body = (await request.json().catch(() => ({}))) as { action?: string; linkId?: number; recipients?: string };
+  return asAdmin(context, async (clientId, email, userId) => {
     const admin = createAdminClient();
     if (body.action === "publish") {
       const publication = await publishSnapshot(admin, clientId, email);
@@ -45,6 +58,13 @@ export async function POST(request: Request, context: Context) {
       const { token, link } = await createLink(admin, clientId, email);
       const base = portalBaseUrl();
       return { link, url: base ? `${base}/s/${token}` : null, path: `/s/${token}` };
+    }
+    if (body.action === "set_recipients") {
+      return { recipients: await setRecipients(admin, clientId, String(body.recipients ?? ""), email) };
+    }
+    if (body.action === "send_email") {
+      const sent = await sendSnapshotEmail(admin, clientId, { userId, email });
+      return { sent_to: sent.recipients };
     }
     if (body.action === "revoke_link") {
       await revokeLink(admin, clientId, Number(body.linkId));

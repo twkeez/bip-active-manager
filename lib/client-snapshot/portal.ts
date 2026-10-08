@@ -14,11 +14,13 @@ export function portalBaseUrl(): string | null {
   return url || null;
 }
 
-const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export type PublishedSnapshot = { id: number; snapshot: ClientSnapshot; published_at: string; published_by_email: string };
 export type SnapshotLink = {
   id: number;
+  /** "email" is the one link the monthly email uses; "manual" ones are made by hand. */
+  kind: "manual" | "email";
   created_at: string;
   created_by_email: string;
   revoked_at: string | null;
@@ -66,7 +68,7 @@ export async function latestPublication(admin: SupabaseClient, clientId: number)
 export async function listLinks(admin: SupabaseClient, clientId: number): Promise<SnapshotLink[]> {
   const { data, error } = await admin
     .from("client_snapshot_links")
-    .select("id,created_at,created_by_email,revoked_at,last_viewed_at,view_count")
+    .select("id,kind,created_at,created_by_email,revoked_at,last_viewed_at,view_count")
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
   if (error) failed("Could not read links", error);
@@ -79,7 +81,7 @@ export async function createLink(admin: SupabaseClient, clientId: number, email:
   const { data, error } = await admin
     .from("client_snapshot_links")
     .insert({ client_id: clientId, token_hash: hashToken(token), created_by_email: email })
-    .select("id,created_at,created_by_email,revoked_at,last_viewed_at,view_count")
+    .select("id,kind,created_at,created_by_email,revoked_at,last_viewed_at,view_count")
     .single();
   if (error || !data) failed("Could not create the link", error);
   return { token, link: data as SnapshotLink };
