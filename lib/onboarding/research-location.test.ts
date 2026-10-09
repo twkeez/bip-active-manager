@@ -31,6 +31,14 @@ describe("research location", () => {
     expect(researchLocationFor({ city: "Marietta", state: "XX" })).toMatchObject({ ok: false });
   });
 
+  it("reads Canadian clients and addresses stuffed into the town field", () => {
+    const oshawa = researchLocationFor({ city: "Oshawa, Ontario, Canada" });
+    expect(oshawa.ok && describeLocation(oshawa.location)).toBe("Oshawa, ON (Ontario, Canada)");
+    const delray = researchLocationFor({ city: "Delray Beach, FL 33446" });
+    expect(delray.ok && describeLocation(delray.location)).toBe("Delray Beach, FL 33446 (Florida, USA)");
+    expect(researchLocationFor({ city: "Oshawa", state: "ON" }).ok).toBe(true);
+  });
+
   it("finds states by name and by code", () => {
     expect([...statesNamedIn("Parkville, MO sits in the Kansas City Northland")].sort()).toEqual(["KS", "MO"]);
     expect([...statesNamedIn("Taylor Animal Hospital (Parkville, MO 64152)")]).toEqual(["MO"]);

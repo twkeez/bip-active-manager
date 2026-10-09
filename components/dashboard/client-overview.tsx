@@ -1,5 +1,6 @@
 "use client";
 
+import { researchLocationFor } from "@/lib/onboarding/research-location";
 import ClientPracticeProfile from "@/components/dashboard/client-practice-profile";
 import { WEBSITE_STAGES, WEBSITE_STAGE_LABEL, websiteStageOf, type WebsiteStage } from "@/lib/clients/practice-profile";
 import Link from "next/link";
@@ -806,6 +807,11 @@ export default function ClientOverview({
   // so the shape of the account reads without a click.
   const planSummary = clientPlanSummary(client);
 
+  // The same reading of town and state the research itself uses, so the
+  // button and the research agree (e.g. "Oshawa, Ontario, Canada").
+  const located = researchLocationFor(client);
+  const researchPlace = located.ok ? located.location : null;
+
   async function setWebsiteStage(stage: WebsiteStage) {
     setLaunchSaving(true);
     try {
@@ -1173,8 +1179,8 @@ export default function ClientOverview({
           <BackgroundPanel
             background={background}
             clientId={client.id}
-            city={norm(client.city) ?? ""}
-            state={norm(client.state) ?? ""}
+            city={researchPlace?.city ?? norm(client.city) ?? ""}
+            state={researchPlace?.state ?? ""}
             canRun={isAdminUser}
           />
         )}
