@@ -290,6 +290,17 @@ export default function ClientExpectationsEditor({
         <code className="rounded bg-bip-fill px-1">{"{{city}}"}</code> (town only, or
         &ldquo;your area&rdquo; when we have none).
       </p>
+      <p className="text-xs text-bip-muted">
+        Client-specific wording, written as <code className="rounded bg-bip-fill px-1">{"{{field|standard wording}}"}</code>: a client
+        with that detail filled in on their page gets wording that fits them; everyone else reads the standard wording after
+        the bar, exactly as written. Fields: <code className="rounded bg-bip-fill px-1">ad_spend</code> (their agreed ad
+        budget), <code className="rounded bg-bip-fill px-1">conversion_one</code> /{" "}
+        <code className="rounded bg-bip-fill px-1">conversions_or</code> /{" "}
+        <code className="rounded bg-bip-fill px-1">conversions_and</code> /{" "}
+        <code className="rounded bg-bip-fill px-1">conversion_each</code> (what counts as a lead for them, e.g. &ldquo;a phone call
+        or a walk-in visit&rdquo;), and <code className="rounded bg-bip-fill px-1">search_cost_note</code> (urgent and emergency
+        practices).
+      </p>
 
       {/* Intro + timetable */}
       <div className="space-y-3 rounded-lg border border-bip-border bg-bip-card p-3">
