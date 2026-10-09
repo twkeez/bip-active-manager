@@ -19,12 +19,35 @@ export const US_STATES: Record<string, string> = {
   WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
 };
 
+/** Canadian provinces and territories: Q1 Veterinary Hospital is in Oshawa, Ontario. */
+export const CA_PROVINCES: Record<string, string> = {
+  AB: "Alberta", BC: "British Columbia", MB: "Manitoba", NB: "New Brunswick", NL: "Newfoundland and Labrador",
+  NS: "Nova Scotia", NT: "Northwest Territories", NU: "Nunavut", ON: "Ontario", PE: "Prince Edward Island",
+  QC: "Quebec", SK: "Saskatchewan", YT: "Yukon",
+};
+
+function regionName(code: string): { name: string; country: "USA" | "Canada" } | null {
+  if (US_STATES[code]) return { name: US_STATES[code], country: "USA" };
+  if (CA_PROVINCES[code]) return { name: CA_PROVINCES[code], country: "Canada" };
+  return null;
+}
+
+/** "Ontario" → "ON", "Maryland" → "MD". */
+function codeForName(name: string): string | null {
+  const wanted = name.trim().toLowerCase();
+  for (const [code, full] of [...Object.entries(US_STATES), ...Object.entries(CA_PROVINCES)]) {
+    if (full.toLowerCase() === wanted) return code;
+  }
+  return null;
+}
+
 export type ResearchLocation = {
   street: string | null;
   city: string;
-  /** Two-letter code, e.g. "MD". */
+  /** Two-letter code, e.g. "MD" or "ON". */
   state: string;
   stateName: string;
+  country: "USA" | "Canada";
   zip: string | null;
   /** e.g. "Baltimore County", from the onboarding form when it names one. */
   county: string | null;
@@ -48,12 +71,20 @@ export function researchLocationFor(
 ): { ok: true; location: ResearchLocation } | { ok: false; error: string } {
   let city = (client.city ?? "").trim();
   let state = (client.state ?? "").trim().toUpperCase();
-  // Older records hold "Parkville, MD" in city.
-  const combined = /^(.+?),\s*([A-Za-z]{2})\.?$/.exec(city);
+  let zipFromCity: string | null = null;
+  // Older records hold "Parkville, MD", "Delray Beach, FL 33446" or
+  // "Oshawa, Ontario, Canada" in city.
+  const combined = /^(.+?),\s*([A-Za-z]{2})\.?(?:\s+(\d{5}(?:-\d{4})?))?$/.exec(city);
+  const spelled = /^(.+?),\s*([A-Za-z .]+?)(?:,\s*(?:USA|United States|Canada))?$/.exec(city);
   if (combined) {
     city = combined[1].trim();
     if (!state) state = combined[2].toUpperCase();
+    zipFromCity = combined[3] ?? null;
+  } else if (spelled && codeForName(spelled[2])) {
+    city = spelled[1].trim();
+    if (!state) state = codeForName(spelled[2])!;
   }
+  if (state.length > 2) state = codeForName(state) ?? state;
   if (!city) return { ok: false, error: "Add the client's town on the client page before running research." };
   if (!state) {
     return {
@@ -61,8 +92,8 @@ export function researchLocationFor(
       error: `Add the client's state on the client page before running research. "${city}" alone is ambiguous: there are towns with that name in more than one state.`,
     };
   }
-  const stateName = US_STATES[state];
-  if (!stateName) return { ok: false, error: `"${state}" is not a US state code. Fix it on the client page.` };
+  const region = regionName(state);
+  if (!region) return { ok: false, error: `"${state}" is not a US state or Canadian province code. Fix it on the client page.` };
   const countyMatch = /([A-Z][A-Za-z.' -]+ (County|Parish|Borough))/.exec(pipelineLocation ?? "");
   return {
     ok: true,
@@ -70,8 +101,9 @@ export function researchLocationFor(
       street: client.street_address?.trim() || null,
       city,
       state,
-      stateName,
-      zip: client.zip?.trim() || null,
+      stateName: region.name,
+      country: region.country,
+      zip: client.zip?.trim() || zipFromCity,
       county: countyMatch ? countyMatch[1].trim() : null,
     },
   };
@@ -81,13 +113,13 @@ export function researchLocationFor(
 export function describeLocation(location: ResearchLocation): string {
   const street = location.street ? `${location.street}, ` : "";
   const zip = location.zip ? ` ${location.zip}` : "";
-  const area = [location.county, `${location.stateName}, USA`].filter(Boolean).join(", ");
+  const area = [location.county, `${location.stateName}, ${location.country}`].filter(Boolean).join(", ");
   return `${street}${location.city}, ${location.state}${zip} (${area})`;
 }
 
 /** The instruction every research prompt carries, so the model can't drift to a same-named town. */
 export function locationInstruction(location: ResearchLocation): string {
-  return `LOCATION (read carefully): this practice is in ${location.city}, ${location.stateName} (${location.state}), USA${
+  return `LOCATION (read carefully): this practice is in ${location.city}, ${location.stateName} (${location.state}), ${location.country}${
     location.street ? ` at ${describeLocation(location)}` : ""
   }. Research ONLY that area of ${location.stateName}. Other states may have a town called ${location.city}; ignore them entirely. Every competitor must be in or near ${location.city}, ${location.state}; give each competitor's town and state in its name, like "Example Animal Hospital (Town, ${location.state})".`;
 }
