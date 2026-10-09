@@ -170,7 +170,28 @@ Assess website quality, GBP completeness and reviews, social activity, and NAP c
 Then include 3–5 real competing vet practices in ${data.location}. Base findings on current web search results.`;
 }
 
-export function buildResearchPrompt(data: ClientFormData): string {
+/**
+ * Extra instructions for research run on a known client (the discovery route),
+ * where we know the exact location, the kind of practice and the background.
+ * The standalone vet-onboarding tool passes none, so its prompt is unchanged.
+ */
+export type ResearchExtras = {
+  /** From locationInstruction(): the full address and "ignore other towns named X". */
+  locationInstruction?: string;
+  /** From competitorGuidance(): who counts as a competitor for this kind of practice. */
+  competitorGuidance?: string | null;
+  /** Onboarding background (pipeline notes, kickoff doc, Basecamp). */
+  background?: string;
+};
+
+export function buildResearchPrompt(data: ClientFormData, extras: ResearchExtras = {}): string {
+  const extraBlock = [
+    extras.locationInstruction,
+    extras.competitorGuidance,
+    extras.background ? `Context on this practice from onboarding:\n${extras.background}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
   return `You are a local market researcher for Beyond Indigo Pets, a veterinary marketing agency in the USA.
 
 Use web search to research the competitive and local market context for this veterinary practice. Complete your searches first, then populate the structured output.
@@ -185,7 +206,7 @@ Return:
 - marketSnapshot: 2–3 sentences on the local pet owner market (pet ownership, population, notable local trends)
 - searchLandscape: 1–2 sentences on how competitive the local vet search market is and what stands out
 
-${buildDigitalFootprintResearchInstructions(data)}`;
+${buildDigitalFootprintResearchInstructions(data)}${extraBlock ? `\n\n${extraBlock}` : ""}`;
 }
 
 export function buildPrompt(data: ClientFormData, research: LocalResearch): string {

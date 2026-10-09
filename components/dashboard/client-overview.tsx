@@ -174,10 +174,13 @@ function Widget({
 function RunResearchButton({
   clientId,
   city,
+  state,
   hasExisting,
 }: {
   clientId: number;
   city: string;
+  /** Required: a town alone is how a Maryland client got Missouri research. */
+  state: string;
   hasExisting: boolean;
 }) {
   const router = useRouter();
@@ -204,10 +207,10 @@ function RunResearchButton({
     }
   }
 
-  if (!city) {
+  if (!city || !state) {
     return (
       <span style={{ color: T.faint }} className="text-[10.5px]">
-        No town on file — can&apos;t research
+        {!city ? "No town on file" : "No state on file"} — add it to run research
       </span>
     );
   }
@@ -225,7 +228,7 @@ function RunResearchButton({
         disabled={running}
         style={{ color: T.primary }}
         className="inline-flex items-center gap-1 text-[10.5px] font-semibold hover:underline disabled:opacity-50"
-        title={`Runs an AI market search for ${city}`}
+        title={`Runs an AI market search for ${city}, ${state} (with the street address and ZIP when they're on file)`}
       >
         {running && <Loader2 size={10} className="animate-spin" />}
         {running ? "Researching…" : hasExisting ? "Re-run research" : "Run research"}
@@ -238,11 +241,13 @@ function BackgroundPanel({
   background,
   clientId,
   city,
+  state,
   canRun,
 }: {
   background: ClientBackground | null;
   clientId: number;
   city: string;
+  state: string;
   canRun: boolean;
 }) {
   const competitors = background?.competitors ?? [];
@@ -265,6 +270,7 @@ function BackgroundPanel({
             <RunResearchButton
               clientId={clientId}
               city={city}
+              state={state}
               hasExisting={Boolean(background)}
             />
           </span>
@@ -1147,6 +1153,7 @@ export default function ClientOverview({
             background={background}
             clientId={client.id}
             city={norm(client.city) ?? ""}
+            state={norm(client.state) ?? ""}
             canRun={isAdminUser}
           />
         )}

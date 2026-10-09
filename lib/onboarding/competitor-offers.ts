@@ -35,11 +35,12 @@ export function buildCompetitorOffersPrompt(
   practiceName: string,
   location: string,
   notes: string,
+  extras: { locationInstruction?: string; practiceType?: string; competitorGuidance?: string | null } = {},
 ): string {
-  return `You research the competitive landscape for ${practiceName}, a veterinary practice in ${location || "its local market"}, for our marketing strategist.
+  return `You research the competitive landscape for ${practiceName}, a ${extras.practiceType ?? "veterinary practice"} in ${location || "its local market"}, for our marketing strategist.${extras.locationInstruction ? `\n\n${extras.locationInstruction}` : ""}${extras.competitorGuidance ? `\n\n${extras.competitorGuidance}` : ""}
 
 Use web search to identify 3-5 real competing veterinary practices in the area. For each, return:
-- name
+- name (with its town and state, like "Example Animal Hospital (Town, ST)")
 - offers: what they are currently promoting or advertising — new-client exam specials, emergency / urgent care, wellness plans, financing, discounts. Cite specifics found on their site / Google Business Profile / social; if none found, note their likely draw.
 - positioning: the angle they emphasize (e.g. low-cost, boutique, 24/7 emergency, fear-free).
 - counter: one concrete way ${practiceName} can position against them.
