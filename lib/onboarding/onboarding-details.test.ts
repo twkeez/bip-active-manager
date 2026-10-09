@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PipelineIntake } from "@/lib/onboarding/pipeline-intake";
-import {
-  DetailsError,
-  detailsFromPipeline,
-  intakeFieldsFromDetails,
-  parseDetails,
-  splitLocation,
-  websiteHost,
-} from "./onboarding-details";
+import { DetailsError, detailsFromPipeline, intakeFieldsFromDetails, parseDetails, splitLocation, websiteHost, practiceTypeFromName, clientFieldsFromDetails } from "./onboarding-details";
 
 const tiburon: PipelineIntake = {
   formType: "new_client",
@@ -93,5 +86,37 @@ describe("websiteHost", () => {
     expect(websiteHost("https://www.PawsVC.com/")).toBe("pawsvc.com");
     expect(websiteHost("pawsvc.com")).toBe("pawsvc.com");
     expect(websiteHost("")).toBe("");
+  });
+});
+
+describe("practice details", () => {
+  it("guesses the practice type from the name, for a person to confirm", () => {
+    expect(practiceTypeFromName("Remedy Veterinary Urgent Care")).toBe("urgent_care");
+    expect(practiceTypeFromName("Long Animal Hospital & Emergency Center")).toBe("emergency_24h");
+    expect(practiceTypeFromName("Millhouse Mobile Veterinary")).toBe("mobile");
+    expect(practiceTypeFromName("Carney Animal Hospital")).toBe("");
+  });
+
+  it("checks and saves the practice fields", () => {
+    const details = parseDetails({
+      accountName: "Remedy Veterinary Urgent Care",
+      streetAddress: "9512 Harford Rd",
+      zip: "21234",
+      practiceType: "urgent_care",
+      openingDate: "2026-11-02",
+      adBudget: "$300",
+      conversionTypes: ["walk_ins", "phone_calls", "directions"],
+    });
+    expect(clientFieldsFromDetails(details)).toMatchObject({
+      street_address: "9512 Harford Rd",
+      zip: "21234",
+      practice_type: "urgent_care",
+      practice_opening_date: "2026-11-02",
+      ad_budget_monthly: "$300",
+      conversion_types: ["phone_calls", "walk_ins", "directions"],
+    });
+    expect(() => parseDetails({ accountName: "X", practiceType: "zoo" })).toThrow("Unknown practice type");
+    expect(() => parseDetails({ accountName: "X", conversionTypes: ["fax"] })).toThrow("Unknown lead type");
+    expect(clientFieldsFromDetails(parseDetails({ accountName: "X" }))).toMatchObject({ practice_type: null, conversion_types: null });
   });
 });

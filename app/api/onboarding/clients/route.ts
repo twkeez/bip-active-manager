@@ -4,6 +4,7 @@ import { startOnboardingForClient } from "@/lib/clients/onboarding";
 import { normalizeClientName } from "@/lib/clients/normalize-name";
 import {
   clientFieldsFromDetails,
+  PRACTICE_DETAIL_COLUMNS,
   DetailsError,
   intakeFieldsFromDetails,
   parseDetails,
@@ -47,7 +48,16 @@ export async function POST(request: Request) {
   let clientId: number;
   if (typeof body?.useClientId === "number") {
     clientId = body.useClientId;
-    const { error } = await supabase.from("clients").update(clientFieldsFromDetails(details)).eq("id", clientId);
+    // Linking a pipeline form to a client we already have: the form knows
+    // nothing about practice details someone may have set on the client page
+    // (address, practice type, budget, lead types), so empty ones are left as
+    // they are rather than cleared.
+    const fields = Object.fromEntries(
+      Object.entries(clientFieldsFromDetails(details)).filter(
+        ([key, value]) => !(PRACTICE_DETAIL_COLUMNS as readonly string[]).includes(key) || value !== null,
+      ),
+    );
+    const { error } = await supabase.from("clients").update(fields).eq("id", clientId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   } else {
     if (body?.createAnyway !== true) {

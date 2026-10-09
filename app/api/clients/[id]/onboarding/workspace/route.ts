@@ -26,7 +26,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const [{ data: client }, { data: intake }, { count: keywordCount }, { data: staff }] = await Promise.all([
     admin
       .from("clients")
-      .select("id, account_name, website, city, state, marketing_strategist, seo, ppc, smm, blog, orm, basecamp_project_id")
+      .select(
+        "id, account_name, website, city, state, street_address, zip, practice_type, practice_opening_date, ad_budget_monthly, conversion_types, marketing_strategist, seo, ppc, smm, blog, orm, basecamp_project_id",
+      )
       .eq("id", clientId)
       .maybeSingle(),
     admin
@@ -51,6 +53,12 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     website: (client.website as string | null) ?? "",
     city: (client.city as string | null) ?? "",
     state: (client.state as string | null) ?? "",
+    streetAddress: (client.street_address as string | null) ?? "",
+    zip: (client.zip as string | null) ?? "",
+    practiceType: (client.practice_type as string | null) ?? "",
+    openingDate: (client.practice_opening_date as string | null) ?? "",
+    adBudget: (client.ad_budget_monthly as string | null) ?? "",
+    conversionTypes: (client.conversion_types as string[] | null) ?? [],
     strategist: (client.marketing_strategist as string | null) ?? "",
     services: Object.fromEntries(
       SERVICE_KEYS.map((key) => [key, ((client as Record<string, unknown>)[key] as string | null) ?? "N"]),

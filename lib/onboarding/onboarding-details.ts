@@ -7,6 +7,8 @@ import {
   type WebStatus,
 } from "@/lib/onboarding/pipeline-intake";
 import { SERVICE_OFF } from "@/lib/services/plan-edit";
+import { CONVERSION_TYPES } from "@/lib/onboarding/client-wording";
+import { PRACTICE_TYPES } from "@/lib/onboarding/practice-type";
 
 /**
  * The facts a client document and Basecamp message are built from, as one
@@ -27,7 +29,18 @@ export type OnboardingDetails = {
   website: string;
   city: string;
   state: string;
+  /** Street and ZIP: research uses the full address. */
+  streetAddress: string;
+  zip: string;
   strategist: string;
+  /** "" or a PracticeType: urgent cares and ERs get their own research and wording. */
+  practiceType: string;
+  /** For a practice not open yet (the "when the practice opens" start trigger). */
+  openingDate: string;
+  /** Agreed monthly ad spend, e.g. "$400–$700". */
+  adBudget: string;
+  /** What counts as a lead: phone_calls, walk_ins, directions, online_booking, forms. */
+  conversionTypes: string[];
   /** Stored values, as the client record holds them: "Premium", "2", or "N". */
   services: Record<ClientServiceKey, string>;
   starts: Record<ClientServiceKey, ServiceStart>;
@@ -43,6 +56,19 @@ const TIER_LABEL: Record<string, string> = {
 };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * A first guess at the practice type from its name, for a person to confirm:
+ * "Remedy Veterinary Urgent Care" is plainly an urgent care.
+ */
+export function practiceTypeFromName(name: string | null | undefined): string {
+  const value = name ?? "";
+  if (/urgent\s*care/i.test(value)) return "urgent_care";
+  if (/emergency|\b24[\s/-]*(hour|hr|7)\b|\bER\b/i.test(value)) return "emergency_24h";
+  if (/specialty|specialists?|referral/i.test(value)) return "specialty";
+  if (/mobile|house\s*calls?/i.test(value)) return "mobile";
+  return "";
+}
 
 /** "Tiburon, CA" → town and state; anything else stays as the town. */
 export function splitLocation(location: string | null | undefined): { city: string; state: string } {
@@ -66,7 +92,13 @@ export function detailsFromPipeline(intake: PipelineIntake): OnboardingDetails {
     website: intake.websiteUrl?.trim() ?? "",
     city,
     state,
+    streetAddress: "",
+    zip: "",
     strategist: "",
+    practiceType: practiceTypeFromName(intake.practiceName),
+    openingDate: "",
+    adBudget: "",
+    conversionTypes: [],
     services,
     starts,
     webStatus: intake.webStatus ?? "",
@@ -121,7 +153,22 @@ export function parseDetails(raw: unknown): OnboardingDetails {
     website: text(input.website, "Website"),
     city: text(input.city, "Town", 120),
     state: text(input.state, "State", 2).toUpperCase(),
+    streetAddress: text(input.streetAddress, "Street address", 200),
+    zip: text(input.zip, "ZIP", 10),
     strategist: text(input.strategist, "Strategist", 80),
+    practiceType: (() => {
+      const value = text(input.practiceType, "Practice type", 40);
+      if (value && !(PRACTICE_TYPES as readonly string[]).includes(value)) throw new DetailsError(`Unknown practice type "${value}".`);
+      return value;
+    })(),
+    openingDate: date(input.openingDate, "Opening date"),
+    adBudget: text(input.adBudget, "Ad budget", 60),
+    conversionTypes: (() => {
+      const list = Array.isArray(input.conversionTypes) ? input.conversionTypes.map(String) : [];
+      const bad = list.filter((item) => !(CONVERSION_TYPES as readonly string[]).includes(item));
+      if (bad.length) throw new DetailsError(`Unknown lead type: ${bad.join(", ")}.`);
+      return CONVERSION_TYPES.filter((type) => list.includes(type));
+    })(),
     services,
     starts,
     webStatus,
@@ -142,6 +189,16 @@ export function servicePlanForIntake(details: OnboardingDetails) {
   );
 }
 
+/** Practice detail columns, which a fresh pipeline form can't know about. */
+export const PRACTICE_DETAIL_COLUMNS = [
+  "street_address",
+  "zip",
+  "practice_type",
+  "practice_opening_date",
+  "ad_budget_monthly",
+  "conversion_types",
+] as const;
+
 /** The client record's columns these details own. */
 export function clientFieldsFromDetails(details: OnboardingDetails) {
   return {
@@ -149,6 +206,12 @@ export function clientFieldsFromDetails(details: OnboardingDetails) {
     website: details.website || null,
     city: details.city || null,
     state: details.state || null,
+    street_address: details.streetAddress || null,
+    zip: details.zip || null,
+    practice_type: details.practiceType || null,
+    practice_opening_date: details.openingDate || null,
+    ad_budget_monthly: details.adBudget || null,
+    conversion_types: details.conversionTypes.length ? details.conversionTypes : null,
     marketing_strategist: details.strategist || null,
     seo: details.services.seo,
     ppc: details.services.ppc,
