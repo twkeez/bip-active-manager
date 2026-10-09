@@ -28,12 +28,29 @@ describe("clientSafeDescription", () => {
     ).toBe("They offer CT scanning and laser therapy.");
   });
 
-  it("keeps neutral mentions of visibility", () => {
+  it("cuts a sentence before its ratings talk, keeping the facts", () => {
     const note =
       "Alto Tiburon has operated since 1974 and has highly visible Yelp and Google rankings. Some clients complain about wait times.";
-    expect(clientSafeDescription(note)).toBe(
-      "Alto Tiburon has operated since 1974 and has highly visible Yelp and Google rankings.",
-    );
+    expect(clientSafeDescription(note)).toBe("Alto Tiburon has operated since 1974.");
+  });
+
+  it("drops strategist-only remarks: star ratings, positioning, and the client's own name", () => {
+    const remedy = "Remedy Veterinary Urgent Care";
+    expect(
+      clientSafeDescription(
+        "A 24-hour emergency and critical care hospital at 10626 York Rd with established brand presence in Baltimore County, though its low Yelp rating (2.9 stars) and full ER positioning mean Remedy VUC can carve clear space.",
+        remedy,
+      ),
+    ).toBe("A 24-hour emergency and critical care hospital at 10626 York Rd with established brand presence in Baltimore County.");
+    expect(
+      clientSafeDescription(
+        "Located at 8600 Harford Rd just blocks from Remedy VUC's address, this GP is a key referral relationship to cultivate.",
+        remedy,
+      ),
+    ).toBeNull();
+    expect(
+      clientSafeDescription("A well-established practice at 10019 Harford Rd with an exceptional Google rating (4.9 stars, 1,300+ reviews).", remedy),
+    ).toBe("A well-established practice at 10019 Harford Rd.");
   });
 
   it("does not split a sentence at a doctor's title", () => {
@@ -60,8 +77,8 @@ describe("clientSafeDescription", () => {
   // The first cut ended every Tiburon description mid-phrase with "…".
   it("keeps a long research sentence whole when it fits", () => {
     const sentence =
-      "The closest competitor, Alto Tiburon has operated since 1974 and offers a comprehensive full-service hospital experience including cancer therapy, exotic animal care, advanced diagnostics, and emergency services — with a strong, well-established online presence and highly visible Yelp and Google rankings.";
-    expect(sentence.length).toBeGreaterThan(300);
+      "Alto Tiburon has operated since 1974 and offers a comprehensive full-service hospital experience including cancer therapy, exotic animal care, advanced diagnostics, emergency services, rehabilitation, acupuncture and boarding — with a long-tenured team and a well-established local presence.";
+    expect(sentence.length).toBeGreaterThan(280);
     expect(clientSafeDescription(sentence)).toBe(sentence);
   });
 
