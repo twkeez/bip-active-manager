@@ -1,5 +1,7 @@
 "use client";
 
+import { CONVERSION_TYPES, CONVERSION_TYPE_LABEL } from "@/lib/onboarding/client-wording";
+import { PRACTICE_TYPES, PRACTICE_TYPE_LABEL } from "@/lib/onboarding/practice-type";
 import type { ClientServiceKey } from "@/lib/clients/types";
 import type { OnboardingDetails } from "@/lib/onboarding/onboarding-details";
 import type { StartTrigger, WebStatus } from "@/lib/onboarding/pipeline-intake";
@@ -102,6 +104,77 @@ export default function OnboardingDetailsForm({
             onChange={(e) => set("state", e.target.value.toUpperCase())}
           />
         </label>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-[2fr_0.6fr]">
+        <label className="block">
+          <Label>Street address (makes the market research exact)</Label>
+          <input
+            className={input}
+            disabled={disabled}
+            placeholder="e.g. 9512 Harford Rd"
+            value={value.streetAddress}
+            onChange={(e) => set("streetAddress", e.target.value)}
+          />
+        </label>
+        <label className="block">
+          <Label>ZIP</Label>
+          <input className={input} disabled={disabled} maxLength={10} value={value.zip} onChange={(e) => set("zip", e.target.value)} />
+        </label>
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-bip-border p-3">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="block">
+            <Label>Practice type</Label>
+            <select className={input} disabled={disabled} value={value.practiceType} onChange={(e) => set("practiceType", e.target.value)}>
+              <option value="">Not set (general practice wording)</option>
+              {PRACTICE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {PRACTICE_TYPE_LABEL[type]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <Label>Opening date (if not open yet)</Label>
+            <input type="date" className={input} disabled={disabled} value={value.openingDate} onChange={(e) => set("openingDate", e.target.value)} />
+          </label>
+          <label className="block">
+            <Label>Agreed ad budget, per month</Label>
+            <input
+              className={input}
+              disabled={disabled}
+              placeholder="e.g. $400–$700"
+              value={value.adBudget}
+              onChange={(e) => set("adBudget", e.target.value)}
+            />
+          </label>
+        </div>
+        <div>
+          <Label>Leads come from</Label>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-bip-text">
+            {CONVERSION_TYPES.map((type) => (
+              <label key={type} className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  disabled={disabled}
+                  checked={value.conversionTypes.includes(type)}
+                  onChange={(e) =>
+                    set(
+                      "conversionTypes",
+                      e.target.checked ? [...value.conversionTypes, type] : value.conversionTypes.filter((t) => t !== type),
+                    )
+                  }
+                />
+                {CONVERSION_TYPE_LABEL[type]}
+              </label>
+            ))}
+          </div>
+        </div>
+        <p className="text-[11px] text-bip-muted">
+          Used by the market research and the client&apos;s plan document. Anything left empty keeps the standard wording.
+        </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">

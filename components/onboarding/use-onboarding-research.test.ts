@@ -7,7 +7,13 @@ const details = (overrides: Partial<OnboardingDetails> = {}): OnboardingDetails 
   website: "",
   city: "Tiburon",
   state: "CA",
+  streetAddress: "",
+  zip: "",
   strategist: "",
+  practiceType: "",
+  openingDate: "",
+  adBudget: "",
+  conversionTypes: [],
   services: { seo: "Premium", ppc: "Premium", smm: "N", blog: "N", orm: "N" },
   starts: {
     seo: { startTrigger: "at_launch", startDate: null },
