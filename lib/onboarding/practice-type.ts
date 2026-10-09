@@ -63,3 +63,24 @@ export function competitorGuidance(type: PracticeType | null): string | null {
 export function isUrgentPractice(type: PracticeType | null): boolean {
   return type === "urgent_care" || type === "emergency_24h";
 }
+
+/**
+ * How the plan document introduces the competitor list. General practices and
+ * unknown types keep the original wording.
+ */
+export function competitorFraming(type: PracticeType | null): { title: string; intro: string } {
+  if (type === "urgent_care" || type === "emergency_24h") {
+    return {
+      title: "Other urgent and emergency care nearby",
+      intro:
+        "The urgent cares and emergency hospitals most likely to come up alongside you when people search. Local general practices aren't on this list: they're partners who can send urgent cases your way.",
+    };
+  }
+  if (type === "specialty") {
+    return {
+      title: "Other specialty and referral hospitals nearby",
+      intro: "The practices most likely to come up alongside you when people search. Local general practices are referral partners, not competitors.",
+    };
+  }
+  return { title: "Nearby practices", intro: "The practices most likely to come up alongside you when people search." };
+}

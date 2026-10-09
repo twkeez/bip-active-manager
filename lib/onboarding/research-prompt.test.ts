@@ -34,7 +34,7 @@ function formData(location: string, practiceType: string): ClientFormData {
     previousAgencyName: "",
     intakeGoals: [],
     intakeSummary: "",
-  } as ClientFormData;
+  } as unknown as ClientFormData;
 }
 
 describe("research prompts carry the full location", () => {

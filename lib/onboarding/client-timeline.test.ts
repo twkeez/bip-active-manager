@@ -19,11 +19,18 @@ describe("buildPlanTimeline", () => {
   });
 
   // The old document labelled the record's creation date "Kickoff".
-  it("labels the fallback honestly as when onboarding started", () => {
-    expect(buildPlanTimeline({ ...base, onboardingStartedAt: "2026-09-01T12:00:00Z" }).kickoff).toEqual({
-      label: "Started",
-      date: "Sep 1, 2026",
+  it("leaves the date out without a kickoff meeting, rather than show when onboarding began in the app", () => {
+    expect(buildPlanTimeline({ ...base, onboardingStartedAt: "2026-09-01T12:00:00Z" }).kickoff).toBeNull();
+  });
+
+  it("starts a service when the practice opens", () => {
+    const timeline = buildPlanTimeline({
+      ...base,
+      activeServices: ["seo", "ppc"],
+      practiceOpeningDate: "2026-11-02",
+      servicePlan: { seo: { startTrigger: "at_launch" }, ppc: { startTrigger: "at_opening" } },
     });
+    expect(timeline.starts).toContain("Google Ads begins when your practice opens (Nov 2, 2026).");
   });
 
   it("shows a late-evening Eastern meeting on its Eastern date, not the next UTC day", () => {

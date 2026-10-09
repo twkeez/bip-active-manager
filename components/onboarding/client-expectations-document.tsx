@@ -189,10 +189,10 @@ export default function ClientExpectationsDocument({
           {(market.competitors.length > 0 || editing) && (
             <div className="mt-4">
               <p className="text-[12.5px] font-semibold" style={{ color: PINK }}>
-                Nearby practices
+                {model.competitorFraming.title}
               </p>
               <p className="mt-0.5 text-[12.5px] text-gray-500">
-                The practices most likely to come up alongside you when people search.
+                {model.competitorFraming.intro}
               </p>
               <ul className="mt-2 space-y-2">
                 {market.competitors.map((competitor) => {

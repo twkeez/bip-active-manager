@@ -129,8 +129,8 @@ export function renderExpectationsWord(model: ClientExpectationsModel, generated
           `<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 6px;">${multiline(market.landscape)}</p>`
         : "") +
       (market.competitors.length > 0
-        ? subheading("Nearby practices") +
-          `<p style="font-size:11px;color:${MUTED};margin:0 0 6px;">The practices most likely to come up alongside you when people search.</p>` +
+        ? subheading(model.competitorFraming.title) +
+          `<p style="font-size:11px;color:${MUTED};margin:0 0 6px;">${esc(model.competitorFraming.intro)}</p>` +
           market.competitors
             .map(
               (competitor) =>

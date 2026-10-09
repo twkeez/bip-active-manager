@@ -33,6 +33,7 @@ function model(): ClientExpectationsModel {
         { key: "Harbor Veterinary Services", name: "Harbor Veterinary Services", location: "Sausalito, CA", description: "On Harbor Drive." },
       ],
     },
+    competitorFraming: { title: "Nearby practices", intro: "The practices most likely to come up alongside you when people search." },
     priorities: [],
     sectionOrder: DEFAULT_SECTION_ORDER,
     standardOrder: DEFAULT_SECTION_ORDER,
