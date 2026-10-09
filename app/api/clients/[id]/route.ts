@@ -1,3 +1,4 @@
+import { profilePatch } from "@/lib/clients/practice-profile";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { syncOnboardingItemsToServices } from "@/lib/clients/onboarding";
@@ -90,6 +91,9 @@ export async function PATCH(
     "shared_drive_url",
     "city",
     "state",
+    // The full address, for research (2026-10-09).
+    "street_address",
+    "zip",
     "marketing_strategist",
     "tier",
     "seo",
@@ -104,7 +108,7 @@ export async function PATCH(
   const numericAllowed = ["total_package_hours", "hours_for_strategist"] as const;
   const booleanAllowed = ["awaiting_website_launch"] as const;
 
-  const patch: Record<string, string | number | boolean | null> = {};
+  const patch: Record<string, string | string[] | number | boolean | null> = {};
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(body, key)) {
       const value = body[key];
@@ -131,6 +135,12 @@ export async function PATCH(
     }
   }
 
+  // Practice type, website stage, ad budget, opening date and conversion
+  // types: checked against their allowed values before anything is written.
+  const profile = profilePatch(body as Record<string, unknown>);
+  if ("error" in profile) return NextResponse.json({ error: profile.error }, { status: 400 });
+  Object.assign(patch, profile.patch);
+
   if (!Object.keys(patch).length) {
     return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });
   }
@@ -149,7 +159,7 @@ export async function PATCH(
     if (!current) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
-    const changed = changedPlanFields(patch, current as unknown as Record<string, string | null>);
+    const changed = changedPlanFields(patch as Record<string, string | number | boolean | null>, current as unknown as Record<string, string | null>);
     if (changed.length) {
       return NextResponse.json(
         { error: "Only admins can change a client's services or tiers.", fields: changed },

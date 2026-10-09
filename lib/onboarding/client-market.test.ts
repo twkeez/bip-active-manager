@@ -98,6 +98,7 @@ describe("buildClientMarket", () => {
       landscape: "Searches pull results from across Marin County.",
       competitors: [
         {
+          key: "Marin City Animal Hospital",
           name: "Marin City Animal Hospital",
           location: "Sausalito, CA",
           description: "A newer practice open seven days a week.",

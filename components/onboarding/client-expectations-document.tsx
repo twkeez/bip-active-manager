@@ -4,8 +4,16 @@ import {
   serviceSectionTitle,
 } from "@/lib/onboarding/service-expectations";
 import BeyondIndigoLogo from "@/components/onboarding/beyond-indigo-logo";
-import { Editable, Movable, Removable, useDocumentEditing } from "@/components/onboarding/document-editable";
-import { checklistToLines, competitorKey, serviceKey } from "@/lib/onboarding/document-edits";
+import { AddCompetitorButton, Editable, Movable, Removable, useDocumentEditing } from "@/components/onboarding/document-editable";
+import {
+  addedCompetitorBody,
+  checklistToLines,
+  competitorKey,
+  competitorNameKey,
+  glossaryTermKey,
+  newAddedCompetitorKey,
+  serviceKey,
+} from "@/lib/onboarding/document-edits";
 
 /**
  * The client-facing kickoff document, as rendered for print/PDF.
@@ -178,29 +186,64 @@ export default function ClientExpectationsDocument({
               </Editable>
             </div>
           )}
-          {market.competitors.length > 0 && (
+          {(market.competitors.length > 0 || editing) && (
             <div className="mt-4">
               <p className="text-[12.5px] font-semibold" style={{ color: PINK }}>
-                Nearby practices
+                {model.competitorFraming.title}
               </p>
               <p className="mt-0.5 text-[12.5px] text-gray-500">
-                The practices most likely to come up alongside you when people search.
+                {model.competitorFraming.intro}
               </p>
               <ul className="mt-2 space-y-2">
-                {market.competitors.map((competitor) => (
-                  <li key={competitor.name} className="text-sm text-gray-700" style={{ breakInside: "avoid" }}>
-                    <Removable sectionKey={competitorKey(competitor.name)} label="this practice">
-                    <span className="font-semibold text-gray-900">{competitor.name}</span>
-                    {competitor.location && <span className="text-gray-500"> · {competitor.location}</span>}
-                    {(competitor.description || editing) && (
-                      <Editable sectionKey={competitorKey(competitor.name)} value={competitor.description ?? ""}>
-                      <span className="block text-[13px] leading-relaxed text-gray-600">{competitor.description}</span>
-                      </Editable>
-                    )}
-                    </Removable>
-                  </li>
-                ))}
+                {market.competitors.map((competitor) => {
+                  const nameLine = (
+                    <>
+                      <span className="font-semibold text-gray-900">{competitor.name}</span>
+                      {competitor.location && <span className="text-gray-500"> · {competitor.location}</span>}
+                    </>
+                  );
+                  const description = (
+                    <span className="block text-[13px] leading-relaxed text-gray-600">{competitor.description}</span>
+                  );
+                  // Added by hand: one edit holds the name and the description.
+                  if (competitor.key.startsWith("added:")) {
+                    const addedKey = `market.competitor_added:${competitor.key.slice("added:".length)}`;
+                    return (
+                      <li key={competitor.key} className="text-sm text-gray-700" style={{ breakInside: "avoid" }}>
+                        <Removable sectionKey={addedKey} label="this practice">
+                          <Editable
+                            sectionKey={addedKey}
+                            value={addedCompetitorBody(competitor)}
+                            hint="First line: the practice's name, with (Town, ST) if you like. Next lines: a short, neutral description."
+                          >
+                            {nameLine}
+                            {competitor.description && description}
+                          </Editable>
+                        </Removable>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={competitor.key} className="text-sm text-gray-700" style={{ breakInside: "avoid" }}>
+                      <Removable sectionKey={competitorKey(competitor.key)} label="this practice">
+                        <Editable
+                          sectionKey={competitorNameKey(competitor.key)}
+                          value={competitor.location ? `${competitor.name} (${competitor.location})` : competitor.name}
+                          hint="The practice's name, with (Town, ST) if you like."
+                        >
+                          {nameLine}
+                        </Editable>
+                        {(competitor.description || editing) && (
+                          <Editable sectionKey={competitorKey(competitor.key)} value={competitor.description ?? ""}>
+                            {description}
+                          </Editable>
+                        )}
+                      </Removable>
+                    </li>
+                  );
+                })}
               </ul>
+              <AddCompetitorButton newKey={newAddedCompetitorKey} />
             </div>
           )}
           </Removable>
@@ -262,10 +305,14 @@ export default function ClientExpectationsDocument({
           <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3">
             {content.glossary.map((entry) => (
               <div key={entry.term} style={{ breakInside: "avoid" }}>
+                <Removable sectionKey={glossaryTermKey(entry.term)} label="this term">
                 <dt className="text-[13px] font-semibold text-gray-800">{entry.term}</dt>
+                <Editable sectionKey={glossaryTermKey(entry.term)} value={entry.definition}>
                 <dd className="mt-0.5 text-[12.5px] leading-relaxed text-gray-600">
                   {entry.definition}
                 </dd>
+                </Editable>
+                </Removable>
               </div>
             ))}
           </dl>

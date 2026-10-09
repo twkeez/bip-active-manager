@@ -23,6 +23,9 @@ type Props = {
   clientId: number;
   city: string | null;
   state: string | null;
+  /** Street and ZIP: research uses the full address when it has one. */
+  streetAddress?: string | null;
+  zip?: string | null;
   /** Rendered when there is nothing on file yet — the prompt to add one. */
   emptyLabel?: string;
 };
@@ -39,16 +42,22 @@ export default function ClientLocationEditor({
   clientId,
   city,
   state,
+  streetAddress = null,
+  zip = null,
   emptyLabel = "Add town",
 }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [cityValue, setCityValue] = useState(city ?? "");
   const [stateValue, setStateValue] = useState(state ?? "");
+  const [streetValue, setStreetValue] = useState(streetAddress ?? "");
+  const [zipValue, setZipValue] = useState(zip ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const label = [city?.trim(), state?.trim()].filter(Boolean).join(", ");
+  const label = [streetAddress?.trim(), city?.trim(), [state?.trim(), zip?.trim()].filter(Boolean).join(" ")]
+    .filter(Boolean)
+    .join(", ");
 
   async function save() {
     setSaving(true);
@@ -62,6 +71,8 @@ export default function ClientLocationEditor({
           // Two letters is the convention the master sheet uses, and what
           // reads correctly in "Marietta, GA".
           state: stateValue.trim().toUpperCase(),
+          street_address: streetValue.trim(),
+          zip: zipValue.trim(),
         }),
       });
       const payload = (await response.json()) as { error?: string };
@@ -96,6 +107,17 @@ export default function ClientLocationEditor({
     <span className="inline-flex flex-wrap items-center gap-1.5">
       <input
         autoFocus
+        value={streetValue}
+        onChange={(event) => setStreetValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") void save();
+          if (event.key === "Escape") setEditing(false);
+        }}
+        placeholder="Street address (optional)"
+        style={{ borderColor: TONE.border, color: TONE.ink }}
+        className="w-48 rounded-md border bg-white px-2 py-1 text-[12px] focus:outline-none"
+      />
+      <input
         value={cityValue}
         onChange={(event) => setCityValue(event.target.value)}
         onKeyDown={(event) => {
@@ -116,6 +138,17 @@ export default function ClientLocationEditor({
         placeholder="ST"
         style={{ borderColor: TONE.border, color: TONE.ink }}
         className="w-12 rounded-md border bg-white px-2 py-1 text-[12px] uppercase focus:outline-none"
+      />
+      <input
+        value={zipValue}
+        onChange={(event) => setZipValue(event.target.value.slice(0, 10))}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") void save();
+          if (event.key === "Escape") setEditing(false);
+        }}
+        placeholder="ZIP"
+        style={{ borderColor: TONE.border, color: TONE.ink }}
+        className="w-20 rounded-md border bg-white px-2 py-1 text-[12px] focus:outline-none"
       />
       <button
         type="button"

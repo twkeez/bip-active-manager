@@ -1,5 +1,7 @@
 "use client";
 
+import ClientPracticeProfile from "@/components/dashboard/client-practice-profile";
+import { WEBSITE_STAGES, WEBSITE_STAGE_LABEL, websiteStageOf, type WebsiteStage } from "@/lib/clients/practice-profile";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ClientLocationEditor from "@/components/dashboard/client-location-editor";
@@ -174,10 +176,13 @@ function Widget({
 function RunResearchButton({
   clientId,
   city,
+  state,
   hasExisting,
 }: {
   clientId: number;
   city: string;
+  /** Required: a town alone is how a Maryland client got Missouri research. */
+  state: string;
   hasExisting: boolean;
 }) {
   const router = useRouter();
@@ -204,10 +209,10 @@ function RunResearchButton({
     }
   }
 
-  if (!city) {
+  if (!city || !state) {
     return (
       <span style={{ color: T.faint }} className="text-[10.5px]">
-        No town on file — can&apos;t research
+        {!city ? "No town on file" : "No state on file"} — add it to run research
       </span>
     );
   }
@@ -225,7 +230,7 @@ function RunResearchButton({
         disabled={running}
         style={{ color: T.primary }}
         className="inline-flex items-center gap-1 text-[10.5px] font-semibold hover:underline disabled:opacity-50"
-        title={`Runs an AI market search for ${city}`}
+        title={`Runs an AI market search for ${city}, ${state} (with the street address and ZIP when they're on file)`}
       >
         {running && <Loader2 size={10} className="animate-spin" />}
         {running ? "Researching…" : hasExisting ? "Re-run research" : "Run research"}
@@ -238,11 +243,13 @@ function BackgroundPanel({
   background,
   clientId,
   city,
+  state,
   canRun,
 }: {
   background: ClientBackground | null;
   clientId: number;
   city: string;
+  state: string;
   canRun: boolean;
 }) {
   const competitors = background?.competitors ?? [];
@@ -265,6 +272,7 @@ function BackgroundPanel({
             <RunResearchButton
               clientId={clientId}
               city={city}
+              state={state}
               hasExisting={Boolean(background)}
             />
           </span>
@@ -669,6 +677,9 @@ export default function ClientOverview({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [launchSaving, setLaunchSaving] = useState(false);
   const [awaitingLaunch, setAwaitingLaunch] = useState(client.awaiting_website_launch);
+  // Four stages instead of launched / not launched: a live splash page is not
+  // a launched website (Remedy read "Launched" with only a splash page up).
+  const [websiteStage, setWebsiteStageState] = useState<WebsiteStage>(websiteStageOf(client));
   const [editingPlan, setEditingPlan] = useState(false);
 
   useEffect(() => setBackHref(readStoredClientListHref()), []);
@@ -795,24 +806,25 @@ export default function ClientOverview({
   // so the shape of the account reads without a click.
   const planSummary = clientPlanSummary(client);
 
-  async function toggleLaunch() {
-    const next = !awaitingLaunch;
+  async function setWebsiteStage(stage: WebsiteStage) {
     setLaunchSaving(true);
     try {
       const res = await fetch(`/api/clients/${client.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ awaiting_website_launch: next }),
+        body: JSON.stringify({ website_stage: stage }),
       });
       if (!res.ok) throw new Error("Save failed");
-      setAwaitingLaunch(next);
+      setWebsiteStageState(stage);
+      setAwaitingLaunch(stage !== "launched");
       router.refresh();
     } catch {
-      // Leave the toggle where it was; the next render re-reads the server value.
+      // Leave it where it was; the next render re-reads the server value.
     } finally {
       setLaunchSaving(false);
     }
   }
+
 
   return (
     <main
@@ -885,9 +897,18 @@ export default function ClientOverview({
               <ClientLocationEditor
                 clientId={client.id}
                 city={norm(client.city) ?? null}
+                streetAddress={norm(client.street_address) ?? null}
+                zip={norm(client.zip) ?? null}
                 state={norm(client.state) ?? null}
               />
             </p>
+            <ClientPracticeProfile
+              clientId={client.id}
+              practiceType={client.practice_type ?? null}
+              openingDate={client.practice_opening_date ?? null}
+              adBudget={client.ad_budget_monthly ?? null}
+              conversionTypes={client.conversion_types ?? null}
+            />
 
             {services.length > 0 && (
               <div className="mt-[11px] flex flex-wrap gap-1.5">
@@ -1011,21 +1032,27 @@ export default function ClientOverview({
           </Widget>
 
           {status !== "active" && (
-            <Widget label="Website launch">
+            <Widget label="Website">
               <p className="flex items-center gap-2 text-[15px] font-bold">
-                <Dot color={awaitingLaunch ? T.amber : T.green} />
-                {awaitingLaunch ? "Not launched" : "Launched"}
+                <Dot color={websiteStage === "launched" ? T.green : websiteStage === "splash_live" ? T.primary : T.amber} />
+                {WEBSITE_STAGE_LABEL[websiteStage]}
               </p>
-              <button
-                type="button"
-                onClick={() => void toggleLaunch()}
-                disabled={launchSaving}
-                style={{ color: T.primary }}
-                className="mt-1.5 inline-flex items-center gap-1 text-[11.5px] font-semibold hover:underline disabled:opacity-50"
-              >
+              <label className="mt-1.5 inline-flex items-center gap-1 text-[11.5px] font-semibold" style={{ color: T.primary }}>
                 {launchSaving && <Loader2 size={10} className="animate-spin" />}
-                {awaitingLaunch ? "Mark as launched" : "Mark as not launched"}
-              </button>
+                <select
+                  value={websiteStage}
+                  disabled={launchSaving}
+                  onChange={(event) => void setWebsiteStage(event.target.value as WebsiteStage)}
+                  className="cursor-pointer bg-transparent font-semibold focus:outline-none disabled:opacity-50"
+                  aria-label="Website stage"
+                >
+                  {WEBSITE_STAGES.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {WEBSITE_STAGE_LABEL[stage]}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </Widget>
           )}
 
@@ -1147,6 +1174,7 @@ export default function ClientOverview({
             background={background}
             clientId={client.id}
             city={norm(client.city) ?? ""}
+            state={norm(client.state) ?? ""}
             canRun={isAdminUser}
           />
         )}

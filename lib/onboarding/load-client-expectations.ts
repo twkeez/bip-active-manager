@@ -1,3 +1,5 @@
+import { clientWordingValues } from "@/lib/onboarding/client-wording";
+import { asPracticeType, competitorFraming } from "@/lib/onboarding/practice-type";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClientRow } from "@/lib/types/client";
 import { getClientActiveServices } from "@/lib/clients/service-active";
@@ -36,6 +38,8 @@ export type ClientExpectationsModel = {
    * landscape, nearby practices. Null when no research has been run.
    */
   market: ClientMarket | null;
+  /** How the competitor list is introduced; urgent cares and ERs read differently from GPs. */
+  competitorFraming: { title: string; intro: string };
   /**
    * What the client told us they want — services to push, areas, budget,
    * booking. Written per client in the document editor; there is no standard
@@ -131,10 +135,18 @@ export async function loadClientExpectations(
   const strategist = strategistDisplayName(strategistContacts);
 
   const activeServices = getClientActiveServices(client);
+  const practiceType = asPracticeType(client.practice_type);
   const content = assembleServiceExpectations(blocks, {
     clientName,
     strategist,
     city: client.city,
+    // Agreed budget, conversion types and practice type fill the house copy's
+    // {{field|fallback}} placeholders; with none set it reads as before.
+    wording: clientWordingValues({
+      adBudget: client.ad_budget_monthly,
+      conversionTypes: client.conversion_types,
+      practiceType,
+    }),
     activeServices,
     // The raw values decide each service's tier, and so which "What to expect"
     // the client reads.
@@ -151,6 +163,7 @@ export async function loadClientExpectations(
   const timeline = buildPlanTimeline({
     kickoffMeetingAt: intake?.kickoff_meeting_at as string | null | undefined,
     onboardingStartedAt: client.onboarding_started_at,
+    practiceOpeningDate: client.practice_opening_date,
     webStatus: intake?.web_status as string | null | undefined,
     websiteLaunchDate: intake?.website_launch_date as string | null | undefined,
     servicePlan: (intake?.service_start_plan ?? null) as ServiceStartPlan,
@@ -164,6 +177,7 @@ export async function loadClientExpectations(
     town: cityForCopy(client.city),
     timeline,
     market: buildClientMarket((intake?.discovery ?? null) as DiscoveryResearch),
+    competitorFraming: competitorFraming(practiceType),
     priorities: [],
     sectionOrder: standardOrder,
     standardOrder,

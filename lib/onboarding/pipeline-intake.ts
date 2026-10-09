@@ -12,7 +12,10 @@ export type Tier = (typeof TIERS)[number];
 // splash-then-full build has two launches, and practices commonly start Ads on
 // the splash page and SEO only once the real site is up — which "at launch"
 // alone could not say (Tiburon, 2026-09-16).
-export const START_TRIGGERS = ["start_now", "at_splash", "at_launch", "on_date"] as const;
+// "at_opening" is for a practice that isn't open yet: Remedy's Google Ads start
+// when the doors open, not at the splash page (2026-10-09). Its date is
+// clients.practice_opening_date.
+export const START_TRIGGERS = ["start_now", "at_splash", "at_launch", "at_opening", "on_date"] as const;
 export type StartTrigger = (typeof START_TRIGGERS)[number];
 
 export const WEB_STATUSES = [

@@ -18,6 +18,7 @@ const START_LABEL: Record<StartTrigger, string> = {
   start_now: "Starts now",
   at_splash: "At splash page launch",
   at_launch: "At full website launch",
+  at_opening: "When the practice opens",
   on_date: "On a date",
 };
 

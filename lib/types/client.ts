@@ -40,6 +40,19 @@ export type ClientRow = {
   city?: string | null;
   /** Two-letter state or province. Paired with city; both are optional. */
   state?: string | null;
+  /** Street address and ZIP, for research (migration 20261009120000). */
+  street_address?: string | null;
+  zip?: string | null;
+  /** general_practice | urgent_care | emergency_24h | specialty | mobile | other. Empty = general practice wording. */
+  practice_type?: string | null;
+  /** Agreed monthly Google Ads spend, as written for the client, e.g. "$400–$700". */
+  ad_budget_monthly?: string | null;
+  /** phone_calls | walk_ins | directions | online_booking | forms. Empty = the house conversion wording. */
+  conversion_types?: string[] | null;
+  /** For new practices: the day the doors open (a Google Ads start trigger). */
+  practice_opening_date?: string | null;
+  /** not_started | building | splash_live | launched. Empty falls back to awaiting_website_launch. */
+  website_stage?: string | null;
   last_communication_at: string | null;
   last_event_is_internal: boolean | null;
   needs_reply: boolean;

@@ -1,3 +1,4 @@
+import { applyClientWording, clientWordingValues } from "@/lib/onboarding/client-wording";
 import type { ClientActiveServices, ClientServiceKey } from "@/lib/clients/types";
 import {
   selectGlossaryTerms,
@@ -136,6 +137,8 @@ export type ExpectationMergeContext = {
   strategist: string;
   /** As stored — often "Oshawa, Ontario, Canada". */
   city?: string | null;
+  /** Client-specific values for {{field|fallback}} placeholders (lib/onboarding/client-wording.ts). Unset: every placeholder uses its fallback. */
+  wording?: Record<string, string | null>;
 };
 
 /**
@@ -156,10 +159,11 @@ export function cityForCopy(city: string | null | undefined): string {
  * and a city sits after a preposition ("an emergency vet in your area").
  */
 export function applyExpectationMergeFields(text: string, ctx: ExpectationMergeContext): string {
-  return text
+  const merged = text
     .replaceAll("{{client_name}}", ctx.clientName)
     .replaceAll("{{strategist}}", ctx.strategist.trim() || "Your strategist")
     .replaceAll("{{city}}", cityForCopy(ctx.city) || "your area");
+  return applyClientWording(merged, ctx.wording ?? clientWordingValues({}));
 }
 
 export type ExpectationServiceSection = {

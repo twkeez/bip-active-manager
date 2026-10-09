@@ -76,19 +76,20 @@ function listJoin(items: string[]): string {
 
 export function buildPlanTimeline(input: {
   kickoffMeetingAt: string | null | undefined;
-  onboardingStartedAt: string | null | undefined;
+  /** No longer shown (see kickoff below); kept so callers don't change. */
+  onboardingStartedAt?: string | null | undefined;
+  /** clients.practice_opening_date, for services that start "at practice opening". */
+  practiceOpeningDate?: string | null | undefined;
   webStatus: string | null | undefined;
   websiteLaunchDate: string | null | undefined;
   servicePlan: ServiceStartPlan;
   activeServices: ClientServiceKey[];
 }): PlanTimeline {
+  // Only a real kickoff meeting. "Started" used to fall back to the day
+  // onboarding began inside BIP Control, which clients read as their service
+  // start date (Tom, 2026-10-09): with no kickoff date the line is left out.
   const meeting = formatMoment(input.kickoffMeetingAt);
-  const started = formatMoment(input.onboardingStartedAt);
-  const kickoff = meeting
-    ? { label: "Kickoff" as const, date: meeting }
-    : started
-      ? { label: "Started" as const, date: started }
-      : null;
+  const kickoff = meeting ? { label: "Kickoff" as const, date: meeting } : null;
 
   const launchDate = formatPlainDate(input.websiteLaunchDate);
   const website = input.webStatus ? (WEBSITE_LINE[input.webStatus] ?? null) : null;
@@ -99,12 +100,15 @@ export function buildPlanTimeline(input: {
   const atSplash: string[] = [];
   const atLaunch: string[] = [];
   const onDate: string[] = [];
+  const atOpening: string[] = [];
+  const openingDate = formatPlainDate(input.practiceOpeningDate);
   for (const service of input.activeServices) {
     const label = SERVICE_EXPECTATION_LABEL[service];
     const entry = plan[service];
     const trigger = entry?.startTrigger ?? "start_now";
     const date = formatPlainDate(entry?.startDate);
     if (trigger === "at_splash") atSplash.push(label);
+    else if (trigger === "at_opening") atOpening.push(label);
     else if (trigger === "at_launch") atLaunch.push(label);
     else if (trigger === "on_date" && date) onDate.push(`${label} starts ${date}`);
     else now.push(label);
@@ -114,7 +118,7 @@ export function buildPlanTimeline(input: {
   // starts now" is what a client assumes anyway.
   const parts: string[] = [];
   const begins = (services: string[]) => `${listJoin(services)} ${services.length === 1 ? "begins" : "begin"}`;
-  if (atSplash.length > 0 || atLaunch.length > 0 || onDate.length > 0) {
+  if (atSplash.length > 0 || atLaunch.length > 0 || onDate.length > 0 || atOpening.length > 0) {
     if (now.length > 0) parts.push(`${listJoin(now)} ${now.length === 1 ? "starts" : "start"} now.`);
     if (atSplash.length > 0) parts.push(`${begins(atSplash)} when your splash page goes live.`);
     if (atLaunch.length > 0) {
@@ -123,6 +127,9 @@ export function buildPlanTimeline(input: {
       parts.push(
         `${begins(atLaunch)} when your ${splashBuild ? "full " : ""}website launches${launchDate ? ` (${launchDate})` : ""}.`,
       );
+    }
+    if (atOpening.length > 0) {
+      parts.push(`${begins(atOpening)} when your practice opens${openingDate ? ` (${openingDate})` : ""}.`);
     }
     if (onDate.length > 0) parts.push(`${listJoin(onDate)}.`);
   }

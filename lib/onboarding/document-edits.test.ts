@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ClientExpectationsModel } from "@/lib/onboarding/load-client-expectations";
 import { DEFAULT_SECTION_ORDER } from "@/lib/onboarding/document-order";
 import {
+  competitorNameKey,
+  glossaryTermKey,
   applyDocumentEdits,
   canHide,
   competitorKey,
@@ -27,10 +29,11 @@ function model(): ClientExpectationsModel {
       snapshot: "Tiburon is a small peninsula community.",
       landscape: "Searches pull from across Marin County.",
       competitors: [
-        { name: "Alto Tiburon Veterinary Hospital", location: "Mill Valley, CA", description: "Since 1974." },
-        { name: "Harbor Veterinary Services", location: "Sausalito, CA", description: "On Harbor Drive." },
+        { key: "Alto Tiburon Veterinary Hospital", name: "Alto Tiburon Veterinary Hospital", location: "Mill Valley, CA", description: "Since 1974." },
+        { key: "Harbor Veterinary Services", name: "Harbor Veterinary Services", location: "Sausalito, CA", description: "On Harbor Drive." },
       ],
     },
+    competitorFraming: { title: "Nearby practices", intro: "The practices most likely to come up alongside you when people search." },
     priorities: [],
     sectionOrder: DEFAULT_SECTION_ORDER,
     standardOrder: DEFAULT_SECTION_ORDER,
@@ -159,5 +162,57 @@ describe("parseChecklistLines", () => {
       "Billing details",
       "Service areas",
     ]);
+  });
+});
+
+describe("competitor names, added competitors and glossary terms", () => {
+  const edit = (sectionKey: string, body: string | null, hidden = false) => ({ sectionKey, body, hidden });
+
+  it("renames a competitor and keeps its edited description and hiding, in any order", () => {
+    const orders = [
+      [edit(competitorNameKey("Alto Tiburon Veterinary Hospital"), "Alto Vet (Tiburon, CA)"), edit(competitorKey("Alto Tiburon Veterinary Hospital"), "Edited description.")],
+      [edit(competitorKey("Alto Tiburon Veterinary Hospital"), "Edited description."), edit(competitorNameKey("Alto Tiburon Veterinary Hospital"), "Alto Vet (Tiburon, CA)")],
+    ];
+    for (const edits of orders) {
+      const alto = applyDocumentEdits(model(), edits).model.market!.competitors[0];
+      expect(alto).toMatchObject({ name: "Alto Vet", location: "Tiburon, CA", description: "Edited description." });
+    }
+    const hidden = applyDocumentEdits(model(), [
+      edit(competitorNameKey("Harbor Veterinary Services"), "Harbor Vet"),
+      edit(competitorKey("Harbor Veterinary Services"), null, true),
+    ]).model.market!.competitors;
+    expect(hidden.map((c) => c.name)).toEqual(["Alto Tiburon Veterinary Hospital"]);
+  });
+
+  it("adds competitors by hand, and can leave one out", () => {
+    const result = applyDocumentEdits(model(), [
+      edit("market.competitor_added:b2", "Second Added (Parkville, MD)"),
+      edit("market.competitor_added:a1", "Carney Urgent Pet Care (Parkville, MD)\nA veterinary urgent care on Harford Rd."),
+      edit("market.competitor_added:c3", "Gone Vet", true),
+    ]);
+    const names = result.model.market!.competitors.map((c) => `${c.name}|${c.location}|${c.description}`);
+    expect(names).toEqual([
+      "Alto Tiburon Veterinary Hospital|Mill Valley, CA|Since 1974.",
+      "Harbor Veterinary Services|Sausalito, CA|On Harbor Drive.",
+      "Carney Urgent Pet Care|Parkville, MD|A veterinary urgent care on Harford Rd.",
+      "Second Added|Parkville, MD|null",
+    ]);
+    expect(result.hidden).toContain("market.competitor_added:c3");
+  });
+
+  it("adds a competitor even when the research found none", () => {
+    const empty = model();
+    empty.market = null;
+    const result = applyDocumentEdits(empty, [edit("market.competitor_added:a1", "Only Added (Parkville, MD)")]);
+    expect(result.model.market?.competitors.map((c) => c.name)).toEqual(["Only Added"]);
+  });
+
+  it("edits or leaves out one glossary term", () => {
+    const edited = applyDocumentEdits(model(), [edit(glossaryTermKey("Map Pack"), "The three map results for urgent searches.")]);
+    expect(edited.model.content.glossary[0].definition).toBe("The three map results for urgent searches.");
+    expect(edited.edited).toContain(glossaryTermKey("Map Pack"));
+    const left = applyDocumentEdits(model(), [edit(glossaryTermKey("Map Pack"), null, true)]);
+    expect(left.model.content.glossary).toEqual([]);
+    expect(model().content.glossary[0].definition).toBe("The three results."); // the source is never changed
   });
 });

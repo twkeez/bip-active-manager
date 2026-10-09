@@ -1,6 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
-import { loadOnboardingBackground } from "@/lib/onboarding/background";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth/require-admin";
 import { buildResearchPrompt } from "@/lib/prompt";
@@ -9,6 +8,8 @@ import { localResearchOutputFormat } from "@/lib/vet-onboarding/research-json-sc
 import { activeServiceLabels, getClientActiveServices } from "@/lib/clients/service-active";
 import type { ClientRow } from "@/lib/types/client";
 import { archiveResearchVersion } from "@/lib/onboarding/research-history";
+import { archiveRejectedResearch, loadResearchContext } from "@/lib/onboarding/research-context";
+import { checkResearchLocation, locationProblemMessage } from "@/lib/onboarding/research-location";
 import type { ClientFormData, LocalResearch } from "@/types/onboarding";
 
 function parseClientId(value: string) {
@@ -54,15 +55,19 @@ export async function POST(
   if (!clientRaw) return NextResponse.json({ error: "Client not found" }, { status: 404 });
   const client = clientRaw as ClientRow;
 
-  // Pipeline notes plus what the kickoff doc and Basecamp threads added, so the
-  // research knows what the website team has already learned.
-  const notes = await loadOnboardingBackground(supabase, clientId);
+  // Full address with the state spelled out, the kind of practice, and the
+  // onboarding background (pipeline notes, kickoff doc, Basecamp). Refused
+  // without a state: "Parkville" alone got Remedy Missouri research.
+  const prepared = await loadResearchContext(supabase, client);
+  if (!prepared.ok) return NextResponse.json({ error: prepared.error }, { status: 400 });
+  const researchContext = prepared.context;
+  const notes = researchContext.background;
 
   const data: ClientFormData = {
     practiceName: client.account_name,
     contactName: client.contact_name ?? "",
-    location: client.city ?? "",
-    practiceType: "veterinary practice",
+    location: researchContext.locationLine,
+    practiceType: researchContext.practiceTypeLine,
     numVets: "",
     services: activeServiceLabels(getClientActiveServices(client)),
     mainGoal: "",
@@ -91,11 +96,40 @@ export async function POST(
       model: VET_ONBOARDING_MODEL,
       max_tokens: 4096,
       tools: [{ type: "web_search_20250305", name: "web_search" }],
-      messages: [{ role: "user", content: buildResearchPrompt(data) }],
+      messages: [
+        {
+          role: "user",
+          content: buildResearchPrompt(data, {
+            locationInstruction: researchContext.locationInstruction,
+            competitorGuidance: researchContext.competitorGuidance,
+            background: notes,
+          }),
+        },
+      ],
       output_config: { format: localResearchOutputFormat },
     });
     const research = researchMessage.parsed_output as LocalResearch | null;
     if (!research) throw new Error("Discovery returned no structured output");
+
+    // About the right place? Research naming another state and never the
+    // client's own is refused: the previous research stays, and the rejected
+    // result is kept in history, marked rejected.
+    const problems = checkResearchLocation(
+      [
+        { where: "the market snapshot", text: research.marketSnapshot },
+        { where: "the search landscape", text: research.searchLandscape },
+        ...(research.competitors ?? []).map((competitor, index) => ({
+          where: `competitor ${index + 1} (${competitor.name})`,
+          text: `${competitor.name}. ${competitor.note ?? ""}`,
+        })),
+      ],
+      researchContext.location,
+    );
+    if (problems.length) {
+      const message = locationProblemMessage(problems, researchContext.location);
+      await archiveRejectedResearch(supabase, clientId, "discovery", research, message, user.id);
+      return NextResponse.json({ error: message, locationProblems: problems }, { status: 422 });
+    }
 
     const discoveryAt = new Date().toISOString();
     await archiveResearchVersion(supabase, clientId, "discovery", user.id);
