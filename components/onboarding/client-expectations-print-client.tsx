@@ -18,26 +18,33 @@ export default function ClientExpectationsPrintClient({
   return (
     <>
       <style>{`
-        @page { size: letter; margin: 0.5in; }
+        /* No page margin, so Chrome and Edge have nowhere to stamp their own
+           header and footer (date, page title, URL, "1/6"); the document
+           carries the margin itself, repeated on every printed page. */
+        @page { size: letter; margin: 0; }
         html, body { background: #fff; }
         .report-print-target, .report-print-target * {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
         @media print {
+          .report-print-target {
+            box-sizing: border-box;
+            padding: calc(0.5in + 2rem) !important; /* the old page margin plus the document's own px-8 py-8 */
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+          }
           .no-print { display: none !important; }
           .report-print-target section { break-inside: avoid; }
           .report-print-target h1, .report-print-target h2 { break-after: avoid; }
         }
       `}</style>
       <div className="no-print mx-auto flex max-w-3xl items-center justify-between gap-4 px-8 pt-4">
-        {/* The browser stamps the date, page title and URL onto every printed
-            page, which reads as a screenshot rather than a document. No CSS can
-            turn that off — only the checkbox — so the reminder lives here. */}
+        {/* Chrome and Edge leave their header and footer off now (see @page
+            above). Safari ignores that, so the reminder stays for it. */}
         <p className="text-xs text-gray-500">
-          In the print dialog, open <strong>More settings</strong> and untick{" "}
-          <strong>Headers and footers</strong> — otherwise the date and this page&rsquo;s URL
-          print on every page.
+          Chrome and Edge print without the date and web address. In Safari, untick{" "}
+          <strong>Print headers and footers</strong> in the print dialog.
         </p>
         <button
           type="button"

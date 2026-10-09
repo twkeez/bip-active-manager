@@ -176,7 +176,7 @@ export async function loadClientExpectations(
     strategistContacts,
     town: cityForCopy(client.city),
     timeline,
-    market: buildClientMarket((intake?.discovery ?? null) as DiscoveryResearch),
+    market: buildClientMarket((intake?.discovery ?? null) as DiscoveryResearch, client.account_name),
     competitorFraming: competitorFraming(practiceType),
     priorities: [],
     sectionOrder: standardOrder,

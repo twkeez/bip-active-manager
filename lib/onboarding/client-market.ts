@@ -48,6 +48,16 @@ const UNSUITABLE =
   /\b(complain\w*|exorbitant|overpric\w*|expensive|pric(e|es|ing)\s+concerns?|negative|bad reviews?|poor reviews?|one-star|1-star|rude|unprofessional|lawsuit|malpractice|scathing|criticis\w*|dissatisf\w*|mixed reviews?|low(er)? ratings?)\b/i;
 
 /**
+ * Things written for our strategist, not the client: star ratings and review
+ * counts (praise or criticism, a competitor's reviews are not ours to quote),
+ * and positioning advice. Remedy's 2026-10-09 research printed "its low Yelp
+ * rating (2.9 stars) … can carve clear space as the friendlier alternative"
+ * and "a key referral relationship to cultivate" in the client's document.
+ */
+const STRATEGIST_ONLY =
+  /\b(yelp|ratings?|rated|stars?|reviews?|compet\w*|challeng\w*|advantage\w*|differentiat\w*|position(ing)?\s+(against|itself|as)|positioning|carve\w*|cultivat\w*|should|could|opportunit\w*|threat\w*|captur\w*|win\s+(over|back)|outrank\w*|weak\w*|dominan\w*|dominat\w*|revenue|(low|limited|minimal|poor)\s+(digital|online|web|review|search)\b|(digital|online)\s+(footprint|visibility))\b/i;
+
+/**
  * Research sentences run long — the first sentence of each Tiburon competitor
  * was 250 to 330 characters. A limit below that cut every one mid-phrase
  * ("offers cancer therapy, exotic animal care, advanced…"), which reads as
@@ -56,6 +66,8 @@ const UNSUITABLE =
  */
 const MAX_DESCRIPTION = 420;
 const MIN_USEFUL = 60;
+/** A sentence cut back before strategist-only wording may be shorter: "Alto Tiburon has operated since 1974." */
+const MIN_CUT = 30;
 
 /** "Alto Tiburon Veterinary Hospital (Mill Valley, CA)" → name and location. */
 export function parseCompetitorName(raw: string): { name: string; location: string | null } {
@@ -94,14 +106,61 @@ function shortenAtClause(text: string, max: number): string | null {
   return clause.length >= MIN_USEFUL ? `${clause}.` : null;
 }
 
-/** The first sentence fit for a client to read, or null. */
-export function clientSafeDescription(note: string | null | undefined): string | null {
-  if (!note?.trim()) return null;
-  const suitable = sentences(note).find((sentence) => !UNSUITABLE.test(sentence));
-  return suitable ? shortenAtClause(suitable, MAX_DESCRIPTION) : null;
+/** The client's own name and short forms ("Remedy", "VUC"): research about others shouldn't talk about them. */
+export function selfReferencePattern(clientName: string | null | undefined): RegExp | null {
+  const words = (clientName ?? "").split(/[^A-Za-z0-9&']+/).filter(Boolean);
+  const generic = /^(the|of|and|&|veterinary|vet|animal|pet|pets|hospital|clinic|care|center|centre|urgent|emergency|services?|practice|group|medical)$/i;
+  const distinctive = words.filter((word) => word.length >= 4 && !generic.test(word));
+  // Short forms researchers coin: "AMH" for Animal Medical Hospital, "VUC"
+  // for Remedy Veterinary Urgent Care. Initials of the first words, and of
+  // the words after the first, three letters or more.
+  const letters = words.filter((word) => /^[A-Za-z]/.test(word)).map((word) => word[0].toUpperCase());
+  const initials = new Set<string>();
+  for (let n = 3; n <= letters.length; n += 1) initials.add(letters.slice(0, n).join(""));
+  for (let n = 3; n <= letters.length - 1; n += 1) initials.add(letters.slice(1, n + 1).join(""));
+  const terms = [...distinctive, ...initials].map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return terms.length ? new RegExp(`\\b(${terms.join("|")})\\b`, "i") : null;
 }
 
-export function buildClientMarket(discovery: DiscoveryResearch): ClientMarket | null {
+/** The first problem in a sentence: review talk, strategist-only wording, or the client named. */
+function firstProblem(sentence: string, self: RegExp | null): number {
+  const found = [UNSUITABLE, STRATEGIST_ONLY, self]
+    .map((pattern) => (pattern ? pattern.exec(sentence)?.index ?? -1 : -1))
+    .filter((index) => index >= 0);
+  return found.length ? Math.min(...found) : -1;
+}
+
+/**
+ * The first sentence fit for a client to read, or null. A sentence that
+ * starts with neutral facts and drifts into ratings or positioning advice is
+ * cut at the last clause break before the drift ("A family-owned GP since
+ * 1952 at 9011 Harford Rd, …"); if too little is left, it is skipped.
+ */
+export function clientSafeDescription(note: string | null | undefined, clientName?: string | null): string | null {
+  if (!note?.trim()) return null;
+  const self = selfReferencePattern(clientName);
+  for (const sentence of sentences(note)) {
+    const at = firstProblem(sentence, self);
+    if (at < 0) {
+      const short = shortenAtClause(sentence, MAX_DESCRIPTION);
+      if (short) return short;
+      continue;
+    }
+    const before = sentence.slice(0, at);
+    const cut = Math.max(
+      ...[", ", " — ", "; ", " (", " with ", " and ", " offering ", " making ", " though ", " which "].map((mark) => before.lastIndexOf(mark)),
+    );
+    if (cut < MIN_CUT) continue;
+    const clause = before
+      .slice(0, cut)
+      .replace(/\s+(and|or|with|including|such as|while|but|making|though|which|whose)$/i, "")
+      .replace(/[,;:\s—(-]+$/, "");
+    if (clause.length >= MIN_CUT) return shortenAtClause(clause.endsWith(".") ? clause : `${clause}.`, MAX_DESCRIPTION);
+  }
+  return null;
+}
+
+export function buildClientMarket(discovery: DiscoveryResearch, clientName?: string | null): ClientMarket | null {
   if (!discovery) return null;
   const snapshot = discovery.marketSnapshot?.trim() ?? "";
   const landscape = discovery.searchLandscape?.trim() ?? "";
@@ -109,7 +168,7 @@ export function buildClientMarket(discovery: DiscoveryResearch): ClientMarket | 
     .filter((competitor) => competitor.name?.trim())
     .map((competitor) => {
       const parsed = parseCompetitorName(competitor.name!);
-      return { key: parsed.name, ...parsed, description: clientSafeDescription(competitor.note) };
+      return { key: parsed.name, ...parsed, description: clientSafeDescription(competitor.note, clientName) };
     });
 
   if (!snapshot && !landscape && competitors.length === 0) return null;
