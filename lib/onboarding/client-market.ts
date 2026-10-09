@@ -16,6 +16,12 @@ export type DiscoveryResearch = {
 } | null;
 
 export type ClientCompetitor = {
+  /**
+   * What edits are keyed by, and never changes: the name the research gave
+   * (parsed), or "added:<id>" for a competitor added by hand. The shown name
+   * can be edited, so it can't be the key.
+   */
+  key: string;
   name: string;
   /** "Mill Valley, CA", when the research gave one. */
   location: string | null;
@@ -101,10 +107,10 @@ export function buildClientMarket(discovery: DiscoveryResearch): ClientMarket | 
   const landscape = discovery.searchLandscape?.trim() ?? "";
   const competitors = (discovery.competitors ?? [])
     .filter((competitor) => competitor.name?.trim())
-    .map((competitor) => ({
-      ...parseCompetitorName(competitor.name!),
-      description: clientSafeDescription(competitor.note),
-    }));
+    .map((competitor) => {
+      const parsed = parseCompetitorName(competitor.name!);
+      return { key: parsed.name, ...parsed, description: clientSafeDescription(competitor.note) };
+    });
 
   if (!snapshot && !landscape && competitors.length === 0) return null;
   return { snapshot, landscape, competitors };

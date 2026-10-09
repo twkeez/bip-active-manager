@@ -1,5 +1,6 @@
 import type { ClientExpectationsModel } from "@/lib/onboarding/load-client-expectations";
 import { parseSectionOrder } from "@/lib/onboarding/document-order";
+import { parseCompetitorName } from "@/lib/onboarding/client-market";
 
 /**
  * A client's own edits to their document, laid over the standard version.
@@ -45,6 +46,12 @@ const HIDEABLE_KEYS = new Set(["checklist", "timetable", "market", "reassure", "
 
 const SERVICE_FIELD = /^service:(seo|ppc|smm|blog|orm):(expect|limits|recommend)$/;
 const COMPETITOR = /^market\.competitor:(.{1,200})$/;
+/** A research competitor's shown name, keyed by the name the research gave. */
+const COMPETITOR_NAME = /^market\.competitor_name:(.{1,200})$/;
+/** A competitor added by hand: first line its name (optionally "(Town, ST)"), the rest its description. */
+const COMPETITOR_ADDED = /^market\.competitor_added:([a-z0-9-]{1,40})$/;
+/** One glossary term's definition for this client, keyed by the term. */
+const GLOSSARY_TERM = /^glossary\.term:(.{1,120})$/;
 
 export const MAX_EDIT_LENGTH = 10_000;
 
@@ -53,16 +60,55 @@ export function competitorKey(name: string): string {
   return `market.competitor:${name}`;
 }
 
+export function competitorNameKey(key: string): string {
+  return `market.competitor_name:${key}`;
+}
+
+/** A new hand-added competitor's key. */
+export function newAddedCompetitorKey(): string {
+  return `market.competitor_added:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+export function glossaryTermKey(term: string): string {
+  return `glossary.term:${term}`;
+}
+
+/** "Name (Town, ST)\nDescription" → a competitor; null when there's no name. */
+export function parseAddedCompetitor(key: string, body: string) {
+  const [first = "", ...rest] = body.split("\n");
+  if (!first.trim()) return null;
+  const { name, location } = parseCompetitorName(first.trim());
+  const description = rest.join("\n").trim();
+  return { key: `added:${key}`, name, location, description: description || null };
+}
+
+export function addedCompetitorBody(competitor: { name: string; location: string | null; description: string | null }): string {
+  const first = competitor.location ? `${competitor.name} (${competitor.location})` : competitor.name;
+  return competitor.description ? `${first}\n${competitor.description}` : first;
+}
+
 export function serviceKey(service: string, field: "expect" | "limits" | "recommend"): string {
   return `service:${service}:${field}`;
 }
 
 export function canEditText(sectionKey: string): boolean {
-  return TEXT_KEYS.has(sectionKey) || SERVICE_FIELD.test(sectionKey) || COMPETITOR.test(sectionKey);
+  return (
+    TEXT_KEYS.has(sectionKey) ||
+    SERVICE_FIELD.test(sectionKey) ||
+    COMPETITOR.test(sectionKey) ||
+    COMPETITOR_NAME.test(sectionKey) ||
+    COMPETITOR_ADDED.test(sectionKey) ||
+    GLOSSARY_TERM.test(sectionKey)
+  );
 }
 
 export function canHide(sectionKey: string): boolean {
-  return HIDEABLE_KEYS.has(sectionKey) || COMPETITOR.test(sectionKey);
+  return (
+    HIDEABLE_KEYS.has(sectionKey) ||
+    COMPETITOR.test(sectionKey) ||
+    COMPETITOR_ADDED.test(sectionKey) ||
+    GLOSSARY_TERM.test(sectionKey)
+  );
 }
 
 export function isValidSectionKey(sectionKey: string): boolean {
@@ -123,11 +169,25 @@ export function applyDocumentEdits(
       reassure: { ...source.content.reassure },
       services: source.content.services.map((service) => ({ ...service })),
       checklist: [...source.content.checklist],
-      glossary: [...source.content.glossary],
+      glossary: source.content.glossary.map((entry) => ({ ...entry })),
     },
   };
   const edited: string[] = [];
   const hidden: string[] = [];
+
+  // Hand-added competitors first, in the order they were added, so every
+  // other edit (and hiding) can find them whatever order the edits come in.
+  const added = edits
+    .map((edit) => ({ edit, match: COMPETITOR_ADDED.exec(edit.sectionKey) }))
+    .filter((entry): entry is { edit: DocumentEdit; match: RegExpExecArray } => Boolean(entry.match) && entry.edit.body !== null)
+    .sort((a, b) => a.match[1].localeCompare(b.match[1]));
+  for (const { edit, match } of added) {
+    const competitor = parseAddedCompetitor(match[1], edit.body!);
+    if (!competitor) continue;
+    if (!model.market) model.market = { snapshot: "", landscape: "", competitors: [] };
+    model.market.competitors.push(competitor);
+    edited.push(edit.sectionKey);
+  }
 
   for (const edit of edits) {
     const key = edit.sectionKey;
@@ -137,6 +197,8 @@ export function applyDocumentEdits(
       const body = edit.body;
       let applied = true;
       const competitor = COMPETITOR.exec(key);
+      const competitorName = COMPETITOR_NAME.exec(key);
+      const glossaryTerm = GLOSSARY_TERM.exec(key);
       const service = SERVICE_FIELD.exec(key);
       if (key === SECTION_ORDER_KEY) model.sectionOrder = parseSectionOrder(body, source.standardOrder);
       else if (key === "intro") model.content.intro = body;
@@ -151,9 +213,22 @@ export function applyDocumentEdits(
       else if (key === "reassure.normal") model.content.reassure.normal = body;
       else if (key === "reassure.alert") model.content.reassure.alert = body;
       else if (competitor && model.market) {
-        const match = model.market.competitors.find((c) => c.name === competitor[1]);
+        const match = model.market.competitors.find((c) => c.key === competitor[1]);
         if (match) match.description = body.trim() || null;
         else applied = false; // research re-run and the practice is gone
+      } else if (competitorName && model.market) {
+        const match = model.market.competitors.find((c) => c.key === competitorName[1]);
+        const renamed = parseCompetitorName(body.trim());
+        if (match && renamed.name) {
+          match.name = renamed.name;
+          match.location = renamed.location ?? match.location;
+        } else applied = false;
+      } else if (COMPETITOR_ADDED.test(key)) {
+        applied = false; // laid in (and counted) above; hiding below still applies
+      } else if (glossaryTerm) {
+        const entry = model.content.glossary.find((g) => g.term === glossaryTerm[1]);
+        if (entry && body.trim()) entry.definition = body.trim();
+        else applied = false;
       } else if (service) {
         const section = model.content.services.find((s) => s.key === service[1]);
         if (section) section[service[2] as "expect" | "limits" | "recommend"] = body;
@@ -166,13 +241,19 @@ export function applyDocumentEdits(
       hidden.push(key);
       if (keepHidden) continue;
       const competitor = COMPETITOR.exec(key);
+      const addedCompetitor = COMPETITOR_ADDED.exec(key);
+      const glossaryTerm = GLOSSARY_TERM.exec(key);
       if (key === "market") model.market = null;
       else if (key === "glossary") model.content.glossary = [];
       else if (key === "reassure") model.content.reassure = { normal: "", alert: "" };
       else if (key === "timetable") model.content.timetable = "";
       else if (key === "checklist") model.content.checklist = [];
       else if (competitor && model.market) {
-        model.market.competitors = model.market.competitors.filter((c) => c.name !== competitor[1]);
+        model.market.competitors = model.market.competitors.filter((c) => c.key !== competitor[1]);
+      } else if (addedCompetitor && model.market) {
+        model.market.competitors = model.market.competitors.filter((c) => c.key !== `added:${addedCompetitor[1]}`);
+      } else if (glossaryTerm) {
+        model.content.glossary = model.content.glossary.filter((g) => g.term !== glossaryTerm[1]);
       }
     }
   }

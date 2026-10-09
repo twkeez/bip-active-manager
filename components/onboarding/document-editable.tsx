@@ -307,3 +307,37 @@ export function Movable({
     </div>
   );
 }
+
+/**
+ * "Add a competitor": a new hand-added competitor for this client, saved with
+ * placeholder text to edit in place. Only in the editor.
+ */
+export function AddCompetitorButton({ newKey }: { newKey: () => string }) {
+  const api = useContext(DocumentEditContext);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!api) return null;
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            await api.save(newKey(), "New practice name (Town, ST)\nOne neutral sentence about them.");
+          } catch (addError) {
+            setError(addError instanceof Error ? addError.message : "Could not add.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+        className="rounded-full border border-dashed border-indigo-300 px-3 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+      >
+        {busy ? "Adding…" : "+ Add a competitor"}
+      </button>
+      {error && <span className="text-xs text-red-600">{error}</span>}
+    </div>
+  );
+}
