@@ -245,6 +245,27 @@ export function getHarvestConfig() {
   return { accessToken, accountId, userAgent };
 }
 
+/**
+ * Zendesk (help.beyondindigo.com is a custom domain on the "beyondindigo"
+ * account). Either an admin's email + API token, or an OAuth access token.
+ * The incremental exports the help desk report relies on are admin-only, so
+ * the email must belong to a Zendesk admin.
+ */
+export function getZendeskConfig() {
+  const subdomain = normalizeSecret(process.env.ZENDESK_SUBDOMAIN) || "beyondindigo";
+  const oauthToken = normalizeSecret(process.env.ZENDESK_OAUTH_TOKEN);
+  const email = normalizeSecret(process.env.ZENDESK_EMAIL);
+  const apiToken = normalizeSecret(process.env.ZENDESK_API_TOKEN);
+  if (oauthToken) {
+    return { subdomain, authorization: `Bearer ${oauthToken}` };
+  }
+  if (email && apiToken) {
+    const basic = Buffer.from(`${email}/token:${apiToken}`).toString("base64");
+    return { subdomain, authorization: `Basic ${basic}` };
+  }
+  return null;
+}
+
 export function getDataForSeoConfig() {
   const login = normalizeSecret(process.env.DATAFORSEO_LOGIN);
   const password = normalizeSecret(process.env.DATAFORSEO_PASSWORD);
