@@ -25,6 +25,8 @@ export type MasterSheetRow = {
   state: string | null;
   packageValue: string | null;
   strategist: string | null;
+  /** "Website Product" — read by the help desk report; not stored in master_sheet_practices. */
+  websiteProduct?: string | null;
 };
 
 export function parseCsv(text: string): string[][] {
@@ -96,6 +98,7 @@ export function parseMasterSheetRows(rows: string[][]): MasterSheetRow[] {
   const stateCol = col("state");
   const packageCol = col("package");
   const strategistCol = col("strategist");
+  const websiteProductCol = col("website product");
 
   const out: MasterSheetRow[] = [];
   const seen = new Set<string>();
@@ -113,6 +116,7 @@ export function parseMasterSheetRows(rows: string[][]): MasterSheetRow[] {
       state: stateCol === -1 ? null : clean(row[stateCol]),
       packageValue: packageCol === -1 ? null : clean(row[packageCol]),
       strategist: strategistCol === -1 ? null : clean(row[strategistCol]),
+      websiteProduct: websiteProductCol === -1 ? null : clean(row[websiteProductCol]),
     });
   }
   return out;
