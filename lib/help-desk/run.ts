@@ -19,7 +19,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Zendesk sync first) and writes it to the report's Google Sheet.
  */
 
-/** "Help Desk Report (website-only clients)" in Tom's Drive. Override to move it. */
+/** "Help Desk Report" in Tom's Drive. Override to move it. */
 const DEFAULT_REPORT_SHEET_ID = "1gaFBgQBIvvhOWPg7oeP4KUa7vjKuHJhBUxg6CWCKSOk";
 
 export function getHelpDeskReportSheetId() {

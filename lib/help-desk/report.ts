@@ -149,16 +149,22 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
       .filter((r) => r.user && !isInternalEmail(r.user.email, internalDomains) && r.user.role !== "agent" && r.user.role !== "admin")
       .sort((a, b) => b.tickets - a.tickets);
 
-  // ── Clients: one row per website-only practice ──────────────────────────
-  const websiteOnly = practices.filter(isWebsiteOnly).sort((a, b) => a.practiceName.localeCompare(b.practiceName));
+  // ── Clients: one row per Master Sheet practice ──────────────────────────
+  const allClients = [...practices].sort((a, b) => a.practiceName.localeCompare(b.practiceName));
+  const websiteOnly = allClients.filter(isWebsiteOnly);
   const clientRows: Cell[][] = [[
-    "Practice Name", "URL", "Website Product", "Launch Date", "Zendesk Tickets", "Last Help Desk Contact",
-    "What They Ask For (by ticket count)", "Recent Requests", "Zendesk Contacts", "Basecamp Contacts", "How Tickets Were Matched",
+    "Practice Name", "URL", "Package", "Strategist", "Website Only?", "Website Product", "Launch Date",
+    "Zendesk Tickets", "Last Help Desk Contact", "What They Ask For (by ticket count)", "Recent Requests",
+    "Zendesk Contacts", "Basecamp Contacts", "How Tickets Were Matched",
   ]];
+  let clientsWithTickets = 0;
   let websiteOnlyWithTickets = 0;
-  for (const practice of websiteOnly) {
+  for (const practice of allClients) {
     const s = stats.get(practice);
-    if (s?.tickets.length) websiteOnlyWithTickets += 1;
+    if (s?.tickets.length) {
+      clientsWithTickets += 1;
+      if (isWebsiteOnly(practice)) websiteOnlyWithTickets += 1;
+    }
 
     const categories = new Map<string, number>();
     for (const t of s?.tickets ?? []) {
@@ -189,6 +195,9 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
     clientRows.push([
       practice.practiceName,
       practice.url ?? "",
+      practice.packageValue ?? "",
+      practice.strategist ?? "",
+      isWebsiteOnly(practice) ? "Yes" : "No",
       practice.websiteProduct ?? "",
       practice.launchDate ?? "",
       s?.tickets.length ?? 0,
@@ -292,6 +301,8 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
     unmatchedTickets,
     ignoredTickets,
     unmatchedRequesters: unmatchedByRequester.size,
+    clients: allClients.length,
+    clientsWithTickets,
     websiteOnlyClients: websiteOnly.length,
     websiteOnlyWithTickets,
     uncategorized: tickets.filter((t) => !t.category).length,
@@ -310,7 +321,10 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
     ["How tickets were matched", ""],
     ...(Object.keys(METHOD_LABEL) as MatchMethod[]).map((m) => [`  ${METHOD_LABEL[m]}`, methodCounts.get(m) ?? 0] as Cell[]),
     ["", ""],
-    ["Website-only clients on the Master Sheet", websiteOnly.length],
+    ["Clients on the Master Sheet", allClients.length],
+    ["  …with at least one ticket", clientsWithTickets],
+    ["  …with no tickets found", allClients.length - clientsWithTickets],
+    ["Website-only clients (subset of the above)", websiteOnly.length],
     ["  …with at least one ticket", websiteOnlyWithTickets],
     ["  …with no tickets found", websiteOnly.length - websiteOnlyWithTickets],
     ["Tickets not yet categorized", summary.uncategorized],

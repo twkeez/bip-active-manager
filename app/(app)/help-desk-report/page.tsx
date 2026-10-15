@@ -11,9 +11,9 @@ import HelpDeskReportRunner from "@/components/help-desk/help-desk-report-runner
 export const dynamic = "force-dynamic";
 
 /**
- * Help Desk Report: Zendesk tickets for each website-only client on the
- * Master Sheet — who writes in, what they ask for, how often, and when last —
- * written to a Google Sheet. Admin-only: ticket text is client correspondence.
+ * Help Desk Report: Zendesk tickets for each client on the Master Sheet —
+ * who writes in, what they ask for, how often, and when last — written to a
+ * Google Sheet. Admin-only: ticket text is client correspondence.
  */
 export default async function HelpDeskReportPage() {
   const supabase = await createClient();

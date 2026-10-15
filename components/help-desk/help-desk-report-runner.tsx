@@ -99,9 +99,9 @@ export default function HelpDeskReportRunner(props: Props) {
       <header>
         <h1 className="text-lg font-semibold text-bip-text">Help Desk Report</h1>
         <p className="mt-1 text-xs text-bip-muted">
-          Zendesk tickets for every website-only client on the Master Sheet (no Package and no
-          Strategist): who writes in, what they ask for, how many tickets, and when they last
-          wrote — plus their Basecamp contacts. Tickets are matched to practices by website
+          Zendesk tickets for every client on the Master Sheet, with their Package, Strategist
+          and whether they are website-only: who writes in, what they ask for, how many tickets,
+          and when they last wrote — plus their Basecamp contacts. Tickets are matched to practices by website
           address first, then by name; anything that does not match lands on the sheet&apos;s
           Unmatched tab for you to fix.
         </p>
@@ -144,8 +144,9 @@ export default function HelpDeskReportRunner(props: Props) {
           <p className="mt-3">
             Last sheet written {new Date(props.lastRun.ran_at).toLocaleString()}
             {props.lastRun.ran_by ? ` by ${props.lastRun.ran_by}` : ""}: {props.lastRun.summary.matchedTickets} of{" "}
-            {props.lastRun.summary.tickets} tickets matched, {props.lastRun.summary.websiteOnlyWithTickets} of{" "}
-            {props.lastRun.summary.websiteOnlyClients} website-only clients have tickets.
+            {props.lastRun.summary.tickets} tickets matched,{" "}
+            {props.lastRun.summary.clientsWithTickets ?? props.lastRun.summary.websiteOnlyWithTickets} of{" "}
+            {props.lastRun.summary.clients ?? props.lastRun.summary.websiteOnlyClients} clients have tickets.
           </p>
         )}
         {props.serviceAccountEmail && (

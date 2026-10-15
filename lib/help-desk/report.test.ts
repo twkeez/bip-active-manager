@@ -70,18 +70,26 @@ describe("buildReport", () => {
   });
   const tab = (title: string) => tabs.find((t) => t.title === title)!.rows;
 
-  it("lists only website-only clients, with counts, last contact and request mix", () => {
+  it("lists every client with package, strategist, counts, last contact and request mix", () => {
     const clients = tab("Clients");
-    expect(clients).toHaveLength(2);
-    const row = clients[1]!;
-    expect(row[0]).toBe("Happy Paws Vet");
-    expect(row[3]).toBe("May 2022");
-    expect(row[4]).toBe(3);
-    expect(row[5]).toBe("2026-03-01");
-    expect(row[6]).toBe("Photo / image change (2); Staff or doctor update (1)");
+    expect(clients).toHaveLength(3);
+    const header = clients[0]!;
+    const col = (name: string) => header.indexOf(name);
+    const happy = clients.find((r) => r[0] === "Happy Paws Vet")!;
+    const oak = clients.find((r) => r[0] === "Oak Creek Clinic")!;
+    expect(happy[col("Website Only?")]).toBe("Yes");
+    expect(happy[col("Package")]).toBe("");
+    expect(happy[col("Launch Date")]).toBe("May 2022");
+    expect(happy[col("Zendesk Tickets")]).toBe(3);
+    expect(happy[col("Last Help Desk Contact")]).toBe("2026-03-01");
+    expect(happy[col("What They Ask For (by ticket count)")]).toBe("Photo / image change (2); Staff or doctor update (1)");
     // Staff who filed a ticket for the client are not the client's contacts.
-    expect(row[8]).toBe("Jane <jane@happypawsvet.com> (2)");
-    expect(row[9]).toBe("Dr. Kim <kim@happypawsvet.com>");
+    expect(happy[col("Zendesk Contacts")]).toBe("Jane <jane@happypawsvet.com> (2)");
+    expect(happy[col("Basecamp Contacts")]).toBe("Dr. Kim <kim@happypawsvet.com>");
+    expect(oak[col("Package")]).toBe("5.00");
+    expect(oak[col("Strategist")]).toBe("Alex");
+    expect(oak[col("Website Only?")]).toBe("No");
+    expect(oak[col("Zendesk Tickets")]).toBe(1);
   });
 
   it("puts unmatched requesters on the Unmatched tab with an empty fix column", () => {
@@ -97,6 +105,8 @@ describe("buildReport", () => {
       tickets: 5,
       matchedTickets: 4,
       unmatchedTickets: 1,
+      clients: 2,
+      clientsWithTickets: 2,
       websiteOnlyClients: 1,
       websiteOnlyWithTickets: 1,
       uncategorized: 2,
