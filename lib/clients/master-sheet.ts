@@ -198,7 +198,7 @@ function stripParentheticals(value: string) {
   return value.replace(/\([^)]*\)/g, " ");
 }
 
-function distinctiveTokens(value: string) {
+export function distinctiveTokens(value: string) {
   const out = new Set<string>();
   for (const token of nameTokens(stripParentheticals(value))) {
     if (GENERIC.has(token)) continue;

@@ -8,8 +8,10 @@ import { emailDomain } from "@/lib/help-desk/domains";
 import { isInternalEmail, buildDomainIndex, practiceForDomain } from "@/lib/help-desk/match";
 import {
   buildReport,
+  UNMATCHED_APPROVE_HEADER,
   UNMATCHED_ASSIGN_HEADER,
   UNMATCHED_EMAIL_HEADER,
+  UNMATCHED_SUGGESTED_HEADER,
   type BasecampContact,
 } from "@/lib/help-desk/report";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -29,23 +31,40 @@ export function getHelpDeskReportSheetId() {
 type Admin = ReturnType<typeof createAdminClient>;
 
 /**
+ * What the Unmatched tab asks to be fixed: a practice name typed in by hand,
+ * or an approved ("Y") suggestion. Email → practice name.
+ */
+export function fixesFromUnmatchedTab(rows: string[][]): Map<string, string> {
+  const fixes = new Map<string, string>();
+  if (rows.length < 2) return fixes;
+  const header = rows[0]!.map((h) => h.trim());
+  const emailCol = header.indexOf(UNMATCHED_EMAIL_HEADER);
+  const assignCol = header.indexOf(UNMATCHED_ASSIGN_HEADER);
+  const suggestedCol = header.indexOf(UNMATCHED_SUGGESTED_HEADER);
+  const approveCol = header.indexOf(UNMATCHED_APPROVE_HEADER);
+  if (emailCol === -1 || assignCol === -1) return fixes;
+
+  for (const row of rows.slice(1)) {
+    const email = (row[emailCol] ?? "").trim().toLowerCase();
+    if (!email.includes("@")) continue;
+    // A name typed in by hand wins over an approved guess.
+    const typed = (row[assignCol] ?? "").trim();
+    const approved = approveCol !== -1 && /^(y|yes|x|✓|true)$/i.test((row[approveCol] ?? "").trim());
+    const suggested = suggestedCol === -1 ? "" : (row[suggestedCol] ?? "").trim();
+    const practice = typed || (approved ? suggested : "");
+    if (practice) fixes.set(email, practice);
+  }
+  return fixes;
+}
+
+/**
  * Saves whatever was typed into the Unmatched tab's last column on the
  * previous run, before that tab is overwritten.
  */
 async function saveFixesFromSheet(admin: Admin, sheetId: string, savedBy: string | null) {
   const rows = await readSheetTab(sheetId, "Unmatched");
   if (rows.length < 2) return 0;
-  const header = rows[0]!.map((h) => h.trim());
-  const emailCol = header.indexOf(UNMATCHED_EMAIL_HEADER);
-  const assignCol = header.indexOf(UNMATCHED_ASSIGN_HEADER);
-  if (emailCol === -1 || assignCol === -1) return 0;
-
-  const fixes = new Map<string, string>();
-  for (const row of rows.slice(1)) {
-    const email = (row[emailCol] ?? "").trim().toLowerCase();
-    const practice = (row[assignCol] ?? "").trim();
-    if (email.includes("@") && practice) fixes.set(email, practice);
-  }
+  const fixes = fixesFromUnmatchedTab(rows);
   if (fixes.size === 0) return 0;
   const { error } = await admin.from("help_desk_match_overrides").upsert(
     [...fixes].map(([value, practice_name]) => ({

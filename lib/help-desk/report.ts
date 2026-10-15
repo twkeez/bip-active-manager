@@ -1,8 +1,8 @@
 import type { MasterSheetRow } from "@/lib/clients/master-sheet";
 import { normalizeDomain } from "@/lib/help-desk/domains";
+import { suggestPracticeForRequester, type Confidence } from "@/lib/help-desk/suggest";
 import {
   isInternalEmail,
-  suggestPractice,
   type MatchMethod,
   type TicketMatch,
   type ZendeskOrgForMatch,
@@ -70,6 +70,8 @@ const clientStatus = (practice: MasterSheetRow) => (practice.former ? "Former" :
 
 /** Column headings the next run reads back from the Unmatched tab. */
 export const UNMATCHED_EMAIL_HEADER = "Requester email";
+export const UNMATCHED_SUGGESTED_HEADER = "Suggested Practice";
+export const UNMATCHED_APPROVE_HEADER = "Approve suggestion? (type Y)";
 export const UNMATCHED_ASSIGN_HEADER = "Assign to practice (type exact Master Sheet name, or IGNORE)";
 
 const METHOD_LABEL: Record<MatchMethod, string> = {
@@ -277,11 +279,16 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
   }
 
   // ── Unmatched: one row per person whose tickets matched nothing ─────────
+  // Each gets a loose guess with a confidence, grouped High → Medium → Low →
+  // no guess, so the sure ones can be approved in a batch.
   const unmatchedRows: Cell[][] = [[
     UNMATCHED_EMAIL_HEADER, "Requester", "Zendesk Org", "Unmatched Tickets", "Last Ticket",
-    "Sample Subjects", "URLs Mentioned", "Suggested Practice (a guess — check it)", UNMATCHED_ASSIGN_HEADER,
+    "Sample Subjects", "URLs Mentioned", UNMATCHED_SUGGESTED_HEADER, "Suggested Client Status", "Confidence",
+    "Why", UNMATCHED_APPROVE_HEADER, UNMATCHED_ASSIGN_HEADER,
   ]];
-  const unmatchedOut: { tickets: number; row: Cell[] }[] = [];
+  const confidenceOrder: Record<Confidence | "", number> = { High: 0, Medium: 1, Low: 2, "": 3 };
+  const unmatchedOut: { tickets: number; confidence: Confidence | ""; row: Cell[] }[] = [];
+  const suggestionCounts: Record<Confidence, number> = { High: 0, Medium: 0, Low: 0 };
   let unmatchedTickets = 0;
   for (const [requesterId, list] of unmatchedByRequester) {
     unmatchedTickets += list.length;
@@ -291,12 +298,21 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
     const mentioned = [...new Set(list.flatMap((t) => t.mentionedDomains))]
       .filter((d) => normalizeDomain(d))
       .slice(0, 5);
+    // Staff file tickets for many clients; a guess for them would be noise.
     const suggestion = isInternalEmail(user?.email ?? null, internalDomains)
       ? null
-      : suggestPractice(practices, { organizationName: org?.name, email: user?.email, mentionedDomains: mentioned });
+      : suggestPracticeForRequester(practices, {
+          email: user?.email,
+          requesterName: user?.name,
+          organizationName: org?.name,
+          mentionedDomains: [...new Set(list.flatMap((t) => t.mentionedDomains))],
+          subjects: list.slice(0, 30).map((t) => t.subject ?? "").filter(Boolean),
+        });
+    if (suggestion) suggestionCounts[suggestion.confidence] += 1;
     const last = list.reduce<string | null>((acc, t) => later(acc, t.createdAt), null);
     unmatchedOut.push({
       tickets: list.length,
+      confidence: suggestion?.confidence ?? "",
       row: [
         user?.email ?? "",
         user?.name ?? (requesterId ? `Zendesk user ${requesterId}` : "(no requester)"),
@@ -305,12 +321,16 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
         day(last),
         list.slice(0, 3).map((t) => t.subject ?? "").filter(Boolean).join(" | "),
         mentioned.join(", "),
-        suggestion?.practiceName ?? "",
+        suggestion?.practice.practiceName ?? "",
+        suggestion ? clientStatus(suggestion.practice) : "",
+        suggestion?.confidence ?? "",
+        suggestion?.reason ?? "",
+        "",
         (user?.email && input.overrideByEmail.get(user.email.toLowerCase())) ?? "",
       ],
     });
   }
-  unmatchedOut.sort((a, b) => b.tickets - a.tickets);
+  unmatchedOut.sort((a, b) => confidenceOrder[a.confidence] - confidenceOrder[b.confidence] || b.tickets - a.tickets);
   unmatchedRows.push(...unmatchedOut.map((u) => u.row));
 
   // ── Summary ─────────────────────────────────────────────────────────────
@@ -331,6 +351,9 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
     unmatchedTickets,
     ignoredTickets,
     unmatchedRequesters: unmatchedByRequester.size,
+    suggestedHigh: suggestionCounts.High,
+    suggestedMedium: suggestionCounts.Medium,
+    suggestedLow: suggestionCounts.Low,
     clients: currentClients.length,
     clientsWithTickets,
     websiteOnlyClients: websiteOnly.length,
@@ -348,6 +371,9 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
     ["Matched to a current client (Master tab)", `${matchedCurrentTickets} (${pct(matchedCurrentTickets)})`],
     ["Matched to a former client (Clients Who Left)", `${matchedFormerTickets} (${pct(matchedFormerTickets)}) across ${formerWithTickets.length} practices`],
     ["Unmatched (see Unmatched tab)", `${unmatchedTickets} (${pct(unmatchedTickets)}) from ${unmatchedByRequester.size} people`],
+    ["  …with a High-confidence guess", `${suggestionCounts.High} people`],
+    ["  …with a Medium-confidence guess", `${suggestionCounts.Medium} people`],
+    ["  …with a Low-confidence guess", `${suggestionCounts.Low} people`],
     ["Marked IGNORE by hand", ignoredTickets],
     ["", ""],
     ["How tickets were matched", ""],
@@ -364,7 +390,8 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
     ["", ""],
     ["Notes", ""],
     ["Website-only", "A Master Sheet row with no Package and no Strategist (the Marketing Services columns)."],
-    ["Fixing matches", `On the Unmatched tab, type the exact Master Sheet practice name (or IGNORE) in the last column, then run the report again. Fixes are remembered.`],
+    ["Fixing matches", `On the Unmatched tab, type Y in "${UNMATCHED_APPROVE_HEADER}" to accept the guess, or type the exact practice name (or IGNORE) in the last column, then write the sheet again. Fixes are remembered.`],
+    ["Confidence", "High: the email or name IS the practice's name or web address. Medium: it contains the distinctive part of the name, or a ticket subject names the practice. Low: partial or similar-name evidence — check before approving."],
     ["Basecamp contacts", "Client-side people who have posted in the practice's Basecamp project, from the app's Basecamp sync."],
     ["Former clients", 'Practices on the Master Sheet\'s "Clients Who Left" tab are matched the same way and marked Former. Only those with tickets are listed on the Clients tab. A practice on both tabs counts as current.'],
     ["Request types", `Only current clients' tickets opened since ${day(cutoff)} are categorized. Ticket counts and last contact dates cover every year.`],

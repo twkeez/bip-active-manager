@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MasterSheetRow } from "@/lib/clients/master-sheet";
 import { normalizeClientName } from "@/lib/clients/normalize-name";
-import { combinePractices, matchTickets, suggestPractice, type MatchInput, type TicketForMatch } from "@/lib/help-desk/match";
+import { combinePractices, matchTickets, type MatchInput, type TicketForMatch } from "@/lib/help-desk/match";
 
 function practice(practiceName: string, url: string | null): MasterSheetRow {
   return {
@@ -121,18 +121,6 @@ describe("matchTickets", () => {
     expect(matches.get(2)).toMatchObject({ practice: null, ignored: true });
     expect(matches.get(3)?.practice).toBeNull();
     expect(unknownOverrideNames).toEqual(["Nowhere Vet"]);
-  });
-});
-
-describe("suggestPractice", () => {
-  it("suggests by a near-identical domain", () => {
-    expect(
-      suggestPractice([happyPaws, oakCreek], { email: "frontdesk@happypawsvethospital.com" }),
-    ).toBe(happyPaws);
-  });
-
-  it("suggests nothing for a mailbox provider", () => {
-    expect(suggestPractice([happyPaws, oakCreek], { email: "someone@gmail.com" })).toBeNull();
   });
 });
 

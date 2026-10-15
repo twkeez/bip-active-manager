@@ -250,33 +250,3 @@ export function matchTickets(input: MatchInput): MatchResult {
 
   return { matches, unknownOverrideNames };
 }
-
-/**
- * A best guess for a requester nobody could match, shown on the Unmatched tab
- * to save a lookup. Only ever a suggestion — it is never applied.
- */
-export function suggestPractice(
-  practices: MasterSheetRow[],
-  hints: { organizationName?: string | null; email?: string | null; mentionedDomains?: string[] },
-): MasterSheetRow | null {
-  if (hints.organizationName) {
-    const byName = matchToMasterSheet(hints.organizationName, practices);
-    if (byName.row) return byName.row;
-    if (byName.nearest) return byName.nearest.row;
-  }
-  // "happypawsvethospital.com" vs a practice at "happypawsvet.com": one
-  // domain's name contains the other's.
-  const stems = [emailDomain(hints.email), ...(hints.mentionedDomains ?? [])]
-    .map((d) => normalizeDomain(d))
-    .filter((d): d is string => Boolean(d) && !isIgnorableDomain(d!))
-    .map((d) => d.split(".")[0]!)
-    .filter((stem) => stem.length >= 6);
-  for (const stem of stems) {
-    for (const practice of practices) {
-      const practiceStem = normalizeDomain(practice.url)?.split(".")[0];
-      if (!practiceStem || practiceStem.length < 6) continue;
-      if (stem.includes(practiceStem) || practiceStem.includes(stem)) return practice;
-    }
-  }
-  return null;
-}
