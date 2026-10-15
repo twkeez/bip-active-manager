@@ -30,8 +30,8 @@ describe("extractDomains", () => {
     expect(extractDomains(text).sort()).toEqual(["clinic-mail.net", "happypawsvet.com"]);
   });
 
-  it("skips pasted file names", () => {
-    expect(extractDomains("attached hero.jpg and menu.pdf")).toEqual([]);
+  it("skips pasted file and page names", () => {
+    expect(extractDomains("attached hero.jpg and menu.pdf, see funeral-services.html and faq.aspx")).toEqual([]);
   });
 });
 

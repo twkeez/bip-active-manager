@@ -1,5 +1,5 @@
 import type { MasterSheetRow } from "@/lib/clients/master-sheet";
-import { normalizeDomain } from "@/lib/help-desk/domains";
+import { isSystemSender, normalizeDomain } from "@/lib/help-desk/domains";
 import { suggestPracticeForRequester, type Confidence } from "@/lib/help-desk/suggest";
 import {
   isInternalEmail,
@@ -79,6 +79,7 @@ const METHOD_LABEL: Record<MatchMethod, string> = {
   "org-domain": "Zendesk org domain = URL",
   "email-domain": "Email domain = URL",
   "ticket-url": "URL in ticket",
+  "subject-name": "Practice name in subject",
   "org-name": "Zendesk org name",
   "same-requester": "Same person's other tickets",
 };
@@ -290,24 +291,34 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
   const unmatchedOut: { tickets: number; confidence: Confidence | ""; row: Cell[] }[] = [];
   const suggestionCounts: Record<Confidence, number> = { High: 0, Medium: 0, Low: 0 };
   let unmatchedTickets = 0;
+  // Staff file tickets for many clients, and voicemail robots carry calls from
+  // many practices: assigning either to one client would be wrong, so they
+  // are counted on the Summary rather than listed here.
+  let staffTickets = 0;
+  let systemTickets = 0;
   for (const [requesterId, list] of unmatchedByRequester) {
     unmatchedTickets += list.length;
     const user = requesterId ? users.get(requesterId) : undefined;
+    if (isInternalEmail(user?.email ?? null, internalDomains)) {
+      staffTickets += list.length;
+      continue;
+    }
+    if (isSystemSender(user?.email, user?.name)) {
+      systemTickets += list.length;
+      continue;
+    }
     const orgId = list.find((t) => t.organizationId)?.organizationId ?? user?.organizationId ?? null;
     const org = orgId ? organizations.get(orgId) : undefined;
     const mentioned = [...new Set(list.flatMap((t) => t.mentionedDomains))]
       .filter((d) => normalizeDomain(d))
       .slice(0, 5);
-    // Staff file tickets for many clients; a guess for them would be noise.
-    const suggestion = isInternalEmail(user?.email ?? null, internalDomains)
-      ? null
-      : suggestPracticeForRequester(practices, {
-          email: user?.email,
-          requesterName: user?.name,
-          organizationName: org?.name,
-          mentionedDomains: [...new Set(list.flatMap((t) => t.mentionedDomains))],
-          subjects: list.slice(0, 30).map((t) => t.subject ?? "").filter(Boolean),
-        });
+    const suggestion = suggestPracticeForRequester(practices, {
+      email: user?.email,
+      requesterName: user?.name,
+      organizationName: org?.name,
+      mentionedDomains: [...new Set(list.flatMap((t) => t.mentionedDomains))],
+      subjects: list.slice(0, 30).map((t) => t.subject ?? "").filter(Boolean),
+    });
     if (suggestion) suggestionCounts[suggestion.confidence] += 1;
     const last = list.reduce<string | null>((acc, t) => later(acc, t.createdAt), null);
     unmatchedOut.push({
@@ -350,7 +361,9 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
     formerClientsWithTickets: formerWithTickets.length,
     unmatchedTickets,
     ignoredTickets,
-    unmatchedRequesters: unmatchedByRequester.size,
+    unmatchedRequesters: unmatchedOut.length,
+    unmatchedStaffTickets: staffTickets,
+    unmatchedSystemTickets: systemTickets,
     suggestedHigh: suggestionCounts.High,
     suggestedMedium: suggestionCounts.Medium,
     suggestedLow: suggestionCounts.Low,
@@ -370,7 +383,10 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
     ["Zendesk tickets", tickets.length],
     ["Matched to a current client (Master tab)", `${matchedCurrentTickets} (${pct(matchedCurrentTickets)})`],
     ["Matched to a former client (Clients Who Left)", `${matchedFormerTickets} (${pct(matchedFormerTickets)}) across ${formerWithTickets.length} practices`],
-    ["Unmatched (see Unmatched tab)", `${unmatchedTickets} (${pct(unmatchedTickets)}) from ${unmatchedByRequester.size} people`],
+    ["Unmatched", `${unmatchedTickets} (${pct(unmatchedTickets)})`],
+    ["  …filed by Beyond Indigo staff (not listed on Unmatched)", staffTickets],
+    ["  …from voicemail / automated senders (not listed)", systemTickets],
+    ["  …from clients and others (Unmatched tab)", `${unmatchedTickets - staffTickets - systemTickets} from ${unmatchedOut.length} people`],
     ["  …with a High-confidence guess", `${suggestionCounts.High} people`],
     ["  …with a Medium-confidence guess", `${suggestionCounts.Medium} people`],
     ["  …with a Low-confidence guess", `${suggestionCounts.Low} people`],

@@ -4,8 +4,10 @@ import {
   domainMatches,
   emailDomain,
   isIgnorableDomain,
+  isSystemSender,
   normalizeDomain,
 } from "@/lib/help-desk/domains";
+import { compact, identifyingWords } from "@/lib/help-desk/suggest";
 
 /**
  * Decides which Master Sheet practice each Zendesk ticket belongs to.
@@ -20,8 +22,11 @@ import {
  *   2. org-domain        — the Zendesk organization's domains include the practice's URL
  *   3. email-domain      — the requester writes from @<practice URL>
  *   4. ticket-url        — the ticket text names the practice's URL
- *   5. org-name          — the Zendesk organization's name matches the practice name
- *   6. same-requester    — this person's other tickets all matched one practice
+ *   5. subject-name      — the subject contains one practice's full name, and
+ *                          that name has a word of its own ("Quitman", not
+ *                          just "Animal Hospital"). Catches staff-filed tickets.
+ *   6. org-name          — the Zendesk organization's name matches the practice name
+ *   7. same-requester    — this person's other tickets all matched one practice
  *
  * A signal that points at more than one practice (sister practices sharing a
  * domain, a ticket naming two sites) is not used: a wrong match is worse than
@@ -33,11 +38,13 @@ export type MatchMethod =
   | "org-domain"
   | "email-domain"
   | "ticket-url"
+  | "subject-name"
   | "org-name"
   | "same-requester";
 
 export type TicketForMatch = {
   id: number;
+  subject?: string | null;
   requesterId: number | null;
   organizationId: number | null;
   mentionedDomains: string[];
@@ -183,6 +190,17 @@ export function matchTickets(input: MatchInput): MatchResult {
     orgPractice.set(org.id, byName.row ? { practice: byName.row, method: "org-name" } : null);
   }
 
+  // Full names worth finding in a subject: long, and with a word of their own.
+  const subjectNames = practices
+    .map((practice) => ({ practice, name: compact(practice.practiceName) }))
+    .filter(({ practice, name }) => name.length >= 12 && identifyingWords(practice.practiceName).length > 0);
+  const practiceInSubject = (subject: string | null | undefined): MasterSheetRow | null => {
+    const text = compact(subject);
+    if (text.length < 12) return null;
+    const found = new Set(subjectNames.filter(({ name }) => text.includes(name)).map(({ practice }) => practice));
+    return found.size === 1 ? [...found][0]! : null;
+  };
+
   const matches = new Map<number, TicketMatch>();
   for (const ticket of tickets) {
     const user = ticket.requesterId ? users.get(ticket.requesterId) : undefined;
@@ -218,6 +236,12 @@ export function matchTickets(input: MatchInput): MatchResult {
       continue;
     }
 
+    const bySubject = practiceInSubject(ticket.subject);
+    if (bySubject) {
+      matches.set(ticket.id, { ticketId: ticket.id, practice: bySubject, method: "subject-name" });
+      continue;
+    }
+
     if (org) {
       matches.set(ticket.id, { ticketId: ticket.id, ...org });
       continue;
@@ -242,6 +266,7 @@ export function matchTickets(input: MatchInput): MatchResult {
     if (!ticket.requesterId || match?.practice || (match && "ignored" in match && match.ignored)) continue;
     const user = users.get(ticket.requesterId);
     if (isInternalEmail(user?.email ?? null, internalDomains)) continue;
+    if (isSystemSender(user?.email, user?.name)) continue;
     const known = practicesByRequester.get(ticket.requesterId);
     if (known?.size === 1) {
       matches.set(ticket.id, { ticketId: ticket.id, practice: [...known][0]!, method: "same-requester" });

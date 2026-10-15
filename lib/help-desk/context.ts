@@ -2,6 +2,7 @@ import { parseMasterSheetRows, type MasterSheetRow } from "@/lib/clients/master-
 import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { getInternalEmailDomains } from "@/lib/env";
 import { fetchMasterSheetRows } from "@/lib/google/master-sheet-source";
+import { isLikelyWebsite } from "@/lib/help-desk/domains";
 import {
   combinePractices,
   matchTickets,
@@ -106,7 +107,8 @@ export async function loadMatchContext(admin: Admin): Promise<MatchContext> {
     status: t.status,
     requesterId: t.requester_id,
     organizationId: t.organization_id,
-    mentionedDomains: t.mentioned_domains ?? [],
+    // Older syncs saved page names ("services.html") too; drop them here.
+    mentionedDomains: (t.mentioned_domains ?? []).filter(isLikelyWebsite),
     createdAt: t.source_created_at,
     category: t.category,
     gist: t.gist,

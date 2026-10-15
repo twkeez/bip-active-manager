@@ -151,3 +151,24 @@ describe("combinePractices", () => {
     expect(matches.get(1)?.practice).toMatchObject({ practiceName: "Bygone Animal Hospital", former: true });
   });
 });
+
+describe("matchTickets — practice name in subject", () => {
+  it("matches a staff-filed ticket whose subject names one practice", () => {
+    const quitman = practice("Quitman Animal Clinic", "quitmanvetclinic.com");
+    const generic = practice("East Side Animal Hospital", "eastsidevet.com");
+    const { matches } = matchTickets({
+      practices: [quitman, generic],
+      tickets: [
+        { ...ticket(1, 20), subject: "Quitman Animal Clinic - new staff photos" },
+        { ...ticket(2, 20), subject: "Lower East Side Animal Hospital hours" },
+      ],
+      users: [{ id: 20, name: "Anthony", email: "anthony@beyondindigo.com", role: "agent", organizationId: null }],
+      organizations: [],
+      overrides: [],
+      internalDomains: ["beyondindigo.com"],
+    });
+    expect(matches.get(1)).toMatchObject({ practice: quitman, method: "subject-name" });
+    // A name with no word of its own is never trusted from a subject.
+    expect(matches.get(2)?.practice).toBeNull();
+  });
+});
