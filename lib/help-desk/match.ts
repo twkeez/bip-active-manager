@@ -40,7 +40,9 @@ export type MatchMethod =
   | "ticket-url"
   | "subject-name"
   | "org-name"
-  | "same-requester";
+  | "same-requester"
+  /** A High-confidence loose guess for a current client, accepted automatically (see loose.ts). */
+  | "loose-high";
 
 export type TicketForMatch = {
   id: number;

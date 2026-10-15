@@ -1,4 +1,4 @@
-import { buildServiceAccountClient, getServiceAccountEmail } from "@/lib/google/master-sheet-source";
+import { buildServiceAccountClient, getMasterSheetId, getServiceAccountEmail } from "@/lib/google/master-sheet-source";
 
 /**
  * Writes tabs of a Google Sheet the service account has been shared on as an
@@ -65,7 +65,19 @@ const columnLetter = (index: number) => {
   return out;
 };
 
+/**
+ * The Master Sheet is the team's source of truth and is never written to by
+ * this app (Tom's standing rule). Every write path goes through here, so this
+ * is the one place to refuse.
+ */
+export function assertNotMasterSheet(sheetId: string) {
+  if (sheetId.trim() === getMasterSheetId().trim()) {
+    throw new Error("Refusing to write to the Master Sheet — it is read-only for this app. Point HELP_DESK_REPORT_SHEET_ID at the report sheet.");
+  }
+}
+
 export async function writeSheetTabs(sheetId: string, tabs: SheetTab[]): Promise<void> {
+  assertNotMasterSheet(sheetId);
   const client = buildServiceAccountClient([WRITE_SCOPE]);
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`;
 

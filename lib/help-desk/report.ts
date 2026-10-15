@@ -82,6 +82,7 @@ const METHOD_LABEL: Record<MatchMethod, string> = {
   "subject-name": "Practice name in subject",
   "org-name": "Zendesk org name",
   "same-requester": "Same person's other tickets",
+  "loose-high": "Loose match, High confidence (auto-approved)",
 };
 
 const day = (iso: string | null) => (iso ? iso.slice(0, 10) : "");

@@ -10,6 +10,7 @@ import {
   type ZendeskOrgForMatch,
   type ZendeskUserForMatch,
 } from "@/lib/help-desk/match";
+import { applyHighConfidenceGuesses } from "@/lib/help-desk/loose";
 import type { ReportTicket } from "@/lib/help-desk/report";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -121,6 +122,14 @@ export async function loadMatchContext(admin: Admin): Promise<MatchContext> {
     users: zendeskUsers,
     organizations: zendeskOrgs,
     overrides: overrides.map((o) => ({ requesterEmail: o.value, practiceName: o.practice_name })),
+    internalDomains,
+  });
+  applyHighConfidenceGuesses({
+    practices,
+    tickets: contextTickets,
+    matches: match.matches,
+    users: zendeskUsers,
+    organizations: zendeskOrgs,
     internalDomains,
   });
 
