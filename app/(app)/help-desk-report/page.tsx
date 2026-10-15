@@ -25,14 +25,14 @@ export default async function HelpDeskReportPage() {
   if (profile?.role !== "admin") redirect("/dashboard");
 
   const admin = createAdminClient();
-  const count = async (table: string, uncategorized = false) => {
+  const count = async (table: string, categorizedOnly = false) => {
     let query = admin.from(table).select("id", { count: "exact", head: true });
-    if (uncategorized) query = query.is("categorized_at", null);
+    if (categorizedOnly) query = query.not("categorized_at", "is", null);
     const { count: n } = await query;
     return n ?? 0;
   };
 
-  const [tickets, uncategorized, users, organizations, stateResult, runResult] = await Promise.all([
+  const [tickets, categorized, users, organizations, stateResult, runResult] = await Promise.all([
     count("zendesk_tickets"),
     count("zendesk_tickets", true),
     count("zendesk_users"),
@@ -63,7 +63,7 @@ export default async function HelpDeskReportPage() {
       anthropicConfigured={Boolean(process.env.ANTHROPIC_API_KEY)}
       serviceAccountEmail={getServiceAccountEmail() || null}
       sheetUrl={sheetUrl(getHelpDeskReportSheetId())}
-      counts={{ tickets, uncategorized, users, organizations }}
+      counts={{ tickets, categorized, users, organizations }}
       streams={streams}
       lastRun={lastRun}
     />

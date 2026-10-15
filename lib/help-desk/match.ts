@@ -82,6 +82,25 @@ export type MatchResult = {
   unknownOverrideNames: string[];
 };
 
+/**
+ * Current practices plus the "Clients Who Left" tab, marked former. A former
+ * row that is also on the current roster (same name or same website) is
+ * dropped: they came back, and their tickets belong to the current row.
+ */
+export function combinePractices(current: MasterSheetRow[], former: MasterSheetRow[]): MasterSheetRow[] {
+  const currentNames = new Set(current.map((p) => p.normalizedName));
+  const currentDomains = new Set(current.map((p) => normalizeDomain(p.url)).filter(Boolean));
+  const departed = former
+    .filter((p) => !currentNames.has(p.normalizedName))
+    .filter((p) => {
+      const domain = normalizeDomain(p.url);
+      return !domain || !currentDomains.has(domain);
+    })
+    .map((p) => ({ ...p, former: true }));
+  // Current rows first, so a name lookup that finds both prefers the current one.
+  return [...current, ...departed];
+}
+
 /** Practices by website domain. A domain shared by two practices maps to both. */
 export function buildDomainIndex(practices: MasterSheetRow[]) {
   const index = new Map<string, MasterSheetRow[]>();

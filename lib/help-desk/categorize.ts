@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
+import { loadMatchContext } from "@/lib/help-desk/context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 
@@ -8,10 +9,25 @@ import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
  * update"...) and writes a few-word gist of each, so the report can say what a
  * client keeps asking for without anyone reading thousands of tickets.
  *
+ * Only tickets that matched a *current* client and were opened in the last
+ * two years are sorted. The help desk goes back to 2013 and most of it is
+ * former clients and noise; sorting all 38,000 tickets took hours to answer a
+ * question about what current clients ask for now.
+ *
  * The list is a first cut, meant to be revised once the real mix is visible.
  * Changing it only affects tickets categorized afterwards; to re-sort old
  * ones, clear categorized_at on zendesk_tickets.
  */
+
+/** How far back "what they ask for" looks. */
+export const CATEGORIZE_YEARS = 2;
+
+/** ISO timestamp: tickets opened on or after this are categorized. */
+export function categorizeCutoff(now: Date = new Date()): string {
+  const cutoff = new Date(now);
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - CATEGORIZE_YEARS);
+  return cutoff.toISOString();
+}
 
 export const CATEGORIZE_MODEL = "claude-opus-5-5";
 /** If the main model declines a batch, the API re-runs it on this one. */
@@ -38,9 +54,9 @@ export const TICKET_CATEGORIES = [
 
 export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
 
-const BATCH_SIZE = 40;
+const BATCH_SIZE = 50;
 /** Batches sent at once. Each takes tens of seconds; several overlap. */
-const CONCURRENCY = 4;
+const CONCURRENCY = 8;
 
 const schema = {
   type: "object",
@@ -115,57 +131,64 @@ async function categorizeBatch(client: Anthropic, tickets: TicketToCategorize[])
   return (parsed?.tickets ?? []).filter((v) => asked.has(v.id));
 }
 
-export type CategorizeResult = { done: boolean; categorized: number; remaining: number };
+export type CategorizeResult = { done: boolean; categorized: number; remaining: number; inScope: number };
 
-/** Categorizes uncategorized tickets until `deadline`. Call again until `done`. */
+/**
+ * Categorizes the in-scope tickets (current clients, last two years) that are
+ * not done yet, until `deadline`. Call again until `done`.
+ */
 export async function categorizeTickets(deadline: number): Promise<CategorizeResult> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not configured.");
   }
   const admin = createAdminClient();
   const client = new Anthropic();
+
+  const context = await loadMatchContext(admin);
+  const cutoff = categorizeCutoff();
+  const inScope = context.tickets.filter((t) => {
+    const match = context.matches.get(t.id);
+    return Boolean(match?.practice && !match.practice.former && t.createdAt && t.createdAt >= cutoff);
+  });
+  // Newest first, so a partial run covers the most recent requests.
+  const pending = inScope
+    .filter((t) => !t.categorized)
+    .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))
+    .map((t) => t.id);
+
   let categorized = 0;
   // Ids a batch came back without, so one stubborn ticket cannot loop forever.
   const skipped = new Set<number>();
+  let cursor = 0;
 
   // Leave room for a round of batches to finish inside the function's limit.
-  while (Date.now() < deadline - 90_000) {
-    let query = admin
-      .from("zendesk_tickets")
-      .select("id, subject, description")
-      .is("categorized_at", null)
-      .order("id", { ascending: false })
-      .limit(BATCH_SIZE * CONCURRENCY);
-    if (skipped.size) query = query.not("id", "in", `(${[...skipped].join(",")})`);
-    const { data, error } = await query;
+  while (cursor < pending.length && Date.now() < deadline - 90_000) {
+    const ids = pending.slice(cursor, cursor + BATCH_SIZE * CONCURRENCY);
+    cursor += ids.length;
+    const { data, error } = await admin.from("zendesk_tickets").select("id, subject, description").in("id", ids);
     if (error) throw new Error(`zendesk_tickets: ${error.message}`);
-    const pending = (data ?? []) as TicketToCategorize[];
-    if (pending.length === 0) break;
+    const round = (data ?? []) as TicketToCategorize[];
 
     const batches: TicketToCategorize[][] = [];
-    for (let i = 0; i < pending.length; i += BATCH_SIZE) batches.push(pending.slice(i, i + BATCH_SIZE));
-    const results = await Promise.all(batches.map((batch) => categorizeBatch(client, batch)));
+    for (let i = 0; i < round.length; i += BATCH_SIZE) batches.push(round.slice(i, i + BATCH_SIZE));
+    const verdicts = (await Promise.all(batches.map((batch) => categorizeBatch(client, batch)))).flat();
 
-    const now = new Date().toISOString();
-    const verdicts = results.flat();
     const answered = new Set(verdicts.map((v) => v.id));
-    for (const ticket of pending) if (!answered.has(ticket.id)) skipped.add(ticket.id);
+    for (const id of ids) if (!answered.has(id)) skipped.add(id);
 
-    for (const verdict of verdicts) {
-      const { error: updateError } = await admin
-        .from("zendesk_tickets")
-        .update({ category: verdict.category, gist: verdict.gist.slice(0, 200), categorized_at: now })
-        .eq("id", verdict.id);
-      if (updateError) throw new Error(`zendesk_tickets: ${updateError.message}`);
+    // One write per round. Only these columns are sent, so the rest of each
+    // ticket row is left as it is.
+    const now = new Date().toISOString();
+    if (verdicts.length) {
+      const { error: saveError } = await admin.from("zendesk_tickets").upsert(
+        verdicts.map((v) => ({ id: v.id, category: v.category, gist: v.gist.slice(0, 200), categorized_at: now })),
+        { onConflict: "id" },
+      );
+      if (saveError) throw new Error(`zendesk_tickets: ${saveError.message}`);
     }
     categorized += verdicts.length;
   }
 
-  const { count, error } = await admin
-    .from("zendesk_tickets")
-    .select("id", { count: "exact", head: true })
-    .is("categorized_at", null);
-  if (error) throw new Error(`zendesk_tickets: ${error.message}`);
-  const remaining = count ?? 0;
-  return { done: remaining === 0 || remaining <= skipped.size, categorized, remaining };
+  const remaining = pending.length - categorized;
+  return { done: remaining <= skipped.size, categorized, remaining, inScope: inScope.length };
 }

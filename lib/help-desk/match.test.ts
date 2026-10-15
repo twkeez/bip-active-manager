@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MasterSheetRow } from "@/lib/clients/master-sheet";
 import { normalizeClientName } from "@/lib/clients/normalize-name";
-import { matchTickets, suggestPractice, type MatchInput, type TicketForMatch } from "@/lib/help-desk/match";
+import { combinePractices, matchTickets, suggestPractice, type MatchInput, type TicketForMatch } from "@/lib/help-desk/match";
 
 function practice(practiceName: string, url: string | null): MasterSheetRow {
   return {
@@ -133,5 +133,33 @@ describe("suggestPractice", () => {
 
   it("suggests nothing for a mailbox provider", () => {
     expect(suggestPractice([happyPaws, oakCreek], { email: "someone@gmail.com" })).toBeNull();
+  });
+});
+
+describe("combinePractices", () => {
+  it("marks Clients Who Left rows former, and drops ones that are current again", () => {
+    const leftForGood = practice("Bygone Animal Hospital", "bygonevet.com");
+    const cameBackByName = practice("Happy Paws Veterinary Hospital", "old-happypaws.com");
+    const cameBackByUrl = practice("Oak Creek Vet (old name)", "oakcreekvet.com");
+    const combined = combinePractices([happyPaws, oakCreek], [leftForGood, cameBackByName, cameBackByUrl]);
+    expect(combined.map((p) => [p.practiceName, Boolean(p.former)])).toEqual([
+      ["Happy Paws Veterinary Hospital", false],
+      ["Oak Creek Animal Clinic", false],
+      ["Bygone Animal Hospital", true],
+    ]);
+  });
+
+  it("matches a former client's ticket to the former practice", () => {
+    const bygone = practice("Bygone Animal Hospital", "bygonevet.com");
+    const practices = combinePractices([happyPaws], [bygone]);
+    const { matches } = matchTickets({
+      practices,
+      tickets: [ticket(1, 10)],
+      users: [{ id: 10, name: "Ex", email: "ex@bygonevet.com", role: "end-user", organizationId: null }],
+      organizations: [],
+      overrides: [],
+      internalDomains: [],
+    });
+    expect(matches.get(1)?.practice).toMatchObject({ practiceName: "Bygone Animal Hospital", former: true });
   });
 });

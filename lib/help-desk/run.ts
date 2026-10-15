@@ -1,16 +1,16 @@
-import { matchToMasterSheet, parseMasterSheetRows, type MasterSheetRow } from "@/lib/clients/master-sheet";
+import { matchToMasterSheet, type MasterSheetRow } from "@/lib/clients/master-sheet";
 import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
-import { getInternalEmailDomains, getZendeskConfig } from "@/lib/env";
-import { fetchMasterSheetRows } from "@/lib/google/master-sheet-source";
+import { getZendeskConfig } from "@/lib/env";
 import { readSheetTab, sheetUrl, writeSheetTabs } from "@/lib/google/sheets-writer";
+import { categorizeCutoff } from "@/lib/help-desk/categorize";
+import { loadMatchContext } from "@/lib/help-desk/context";
 import { emailDomain } from "@/lib/help-desk/domains";
-import { isInternalEmail, matchTickets, buildDomainIndex, practiceForDomain } from "@/lib/help-desk/match";
+import { isInternalEmail, buildDomainIndex, practiceForDomain } from "@/lib/help-desk/match";
 import {
   buildReport,
   UNMATCHED_ASSIGN_HEADER,
   UNMATCHED_EMAIL_HEADER,
   type BasecampContact,
-  type ReportTicket,
 } from "@/lib/help-desk/report";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -24,11 +24,6 @@ const DEFAULT_REPORT_SHEET_ID = "1gaFBgQBIvvhOWPg7oeP4KUa7vjKuHJhBUxg6CWCKSOk";
 
 export function getHelpDeskReportSheetId() {
   return (process.env.HELP_DESK_REPORT_SHEET_ID ?? "").trim() || DEFAULT_REPORT_SHEET_ID;
-}
-
-/** Our domains: configured ones plus Beyond Indigo's, which must never count as a client's. */
-export function helpDeskInternalDomains() {
-  return [...new Set([...getInternalEmailDomains(), "beyondindigo.com", "beyondindigopets.com"])];
 }
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -130,90 +125,27 @@ export type HelpDeskReportResult = {
 export async function buildHelpDeskReport(ranBy: string | null): Promise<HelpDeskReportResult> {
   const admin = createAdminClient();
   const sheetId = getHelpDeskReportSheetId();
-  const internalDomains = helpDeskInternalDomains();
 
-  const practices = parseMasterSheetRows(await fetchMasterSheetRows());
-  if (practices.length < 25) {
-    throw new Error(`Only ${practices.length} practices came back from the Master Sheet — that looks like a partial read, so the report was not written.`);
-  }
-
+  // Before loading the overrides, so fixes typed since the last run count.
   const fixesSaved = await saveFixesFromSheet(admin, sheetId, ranBy);
-
-  const [overrides, organizations, users, tickets] = await Promise.all([
-    fetchAllRows<{ value: string; practice_name: string }>(
-      (from, to) => admin.from("help_desk_match_overrides").select("value, practice_name").order("id").range(from, to),
-      "help_desk_match_overrides",
-    ),
-    fetchAllRows<{ id: number; name: string; domain_names: string[] | null }>(
-      (from, to) => admin.from("zendesk_organizations").select("id, name, domain_names").order("id").range(from, to),
-      "zendesk_organizations",
-    ),
-    fetchAllRows<{ id: number; name: string | null; email: string | null; role: string | null; organization_id: number | null }>(
-      (from, to) => admin.from("zendesk_users").select("id, name, email, role, organization_id").order("id").range(from, to),
-      "zendesk_users",
-    ),
-    fetchAllRows<{
-      id: number;
-      subject: string | null;
-      status: string | null;
-      requester_id: number | null;
-      organization_id: number | null;
-      mentioned_domains: string[] | null;
-      source_created_at: string | null;
-      category: string | null;
-      gist: string | null;
-    }>(
-      (from, to) =>
-        admin
-          .from("zendesk_tickets")
-          .select("id, subject, status, requester_id, organization_id, mentioned_domains, source_created_at, category, gist")
-          .order("id")
-          .range(from, to),
-      "zendesk_tickets",
-    ),
-  ]);
-  if (tickets.length === 0) {
-    throw new Error("No Zendesk tickets have been synced yet — run the Zendesk sync first.");
-  }
-
-  const zendeskUsers = users.map((u) => ({
-    id: u.id, name: u.name, email: u.email, role: u.role, organizationId: u.organization_id,
-  }));
-  const zendeskOrgs = organizations.map((o) => ({ id: o.id, name: o.name, domainNames: o.domain_names ?? [] }));
-  const reportTickets: ReportTicket[] = tickets.map((t) => ({
-    id: t.id,
-    subject: t.subject,
-    status: t.status,
-    requesterId: t.requester_id,
-    organizationId: t.organization_id,
-    mentionedDomains: t.mentioned_domains ?? [],
-    createdAt: t.source_created_at,
-    category: t.category,
-    gist: t.gist,
-  }));
-
-  const { matches, unknownOverrideNames } = matchTickets({
-    practices,
-    tickets: reportTickets,
-    users: zendeskUsers,
-    organizations: zendeskOrgs,
-    overrides: overrides.map((o) => ({ requesterEmail: o.value, practiceName: o.practice_name })),
-    internalDomains,
-  });
+  const context = await loadMatchContext(admin);
+  const { practices, internalDomains } = context;
 
   const basecamp = await loadBasecampContacts(admin, practices, internalDomains);
 
   const { tabs, summary } = buildReport({
     practices,
-    tickets: reportTickets,
-    matches,
-    users: zendeskUsers,
-    organizations: zendeskOrgs,
+    tickets: context.tickets,
+    matches: context.matches,
+    users: context.users,
+    organizations: context.organizations,
     basecampContacts: basecamp.contacts,
     internalDomains,
     zendeskHost: `${getZendeskConfig()?.subdomain ?? "beyondindigo"}.zendesk.com`,
-    unknownOverrideNames,
-    overrideByEmail: new Map(overrides.map((o) => [o.value, o.practice_name])),
+    unknownOverrideNames: context.unknownOverrideNames,
+    overrideByEmail: new Map(context.overrides.map((o) => [o.value, o.practice_name])),
+    categoryCutoff: categorizeCutoff(),
+    formerWarning: context.formerWarning,
     generatedAt: new Date(),
   });
 

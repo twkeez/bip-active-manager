@@ -29,6 +29,10 @@ export type MasterSheetRow = {
   websiteProduct?: string | null;
   /** "Launch Date", as typed in the sheet ("December 2015", "Pending", "2/7/2024"). */
   launchDate?: string | null;
+  /** "Reason for Leaving" — only on the "Clients Who Left" tab. */
+  leftReason?: string | null;
+  /** Set by the help desk report for rows from "Clients Who Left". */
+  former?: boolean;
 };
 
 export function parseCsv(text: string): string[][] {
@@ -102,6 +106,7 @@ export function parseMasterSheetRows(rows: string[][]): MasterSheetRow[] {
   const strategistCol = col("strategist");
   const websiteProductCol = col("website product");
   const launchDateCol = col("launch date");
+  const leftReasonCol = col("reason for leaving");
 
   const out: MasterSheetRow[] = [];
   const seen = new Set<string>();
@@ -121,6 +126,7 @@ export function parseMasterSheetRows(rows: string[][]): MasterSheetRow[] {
       strategist: strategistCol === -1 ? null : clean(row[strategistCol]),
       websiteProduct: websiteProductCol === -1 ? null : clean(row[websiteProductCol]),
       launchDate: launchDateCol === -1 ? null : clean(row[launchDateCol]),
+      leftReason: leftReasonCol === -1 ? null : clean(row[leftReasonCol]),
     });
   }
   return out;

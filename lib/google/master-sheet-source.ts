@@ -47,14 +47,15 @@ export function buildServiceAccountClient(scopes: string[] = [READ_ONLY_SCOPE]) 
   return new JWT({ email, key, scopes });
 }
 
-export async function fetchMasterSheetRows(): Promise<string[][]> {
+/** Reads one tab of the Master Sheet — the "Master" roster unless told otherwise. */
+export async function fetchMasterSheetRows(tab: string = getMasterSheetTab()): Promise<string[][]> {
   const sheetId = getMasterSheetId();
-  const tab = getMasterSheetTab();
   const client = buildServiceAccountClient();
 
   let data: { values?: string[][] };
   try {
-    const range = encodeURIComponent(`${tab}!A:BZ`);
+    // Quoted, because tab names like "Clients Who Left" contain spaces.
+    const range = encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A:BZ`);
     const response = await client.request<{ values?: string[][] }>({
       url: `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`,
     });

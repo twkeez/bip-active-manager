@@ -11,7 +11,7 @@ type Props = {
   anthropicConfigured: boolean;
   serviceAccountEmail: string | null;
   sheetUrl: string;
-  counts: { tickets: number; uncategorized: number; users: number; organizations: number };
+  counts: { tickets: number; categorized: number; users: number; organizations: number };
   streams: { stream: string; caught_up: boolean; last_run_at: string | null; last_error: string | null }[];
   lastRun: { ran_at: string; ran_by: string | null; summary: Record<string, number | string> } | null;
 };
@@ -57,7 +57,7 @@ export default function HelpDeskReportRunner(props: Props) {
             (paused ? ` — ${paused.stream} paused (${paused.pausedReason})` : ""),
         );
       } else if (step === "categorize") {
-        note(`Categorized ${result.categorized} this round; ${result.remaining} left.`);
+        note(`Categorized ${result.categorized} this round; ${result.remaining} of ${result.inScope} recent current-client tickets left.`);
       } else {
         const s = result.summary ?? {};
         note(
@@ -101,7 +101,9 @@ export default function HelpDeskReportRunner(props: Props) {
         <p className="mt-1 text-xs text-bip-muted">
           Zendesk tickets for every client on the Master Sheet, with their Package, Strategist
           and whether they are website-only: who writes in, what they ask for, how many tickets,
-          and when they last wrote — plus their Basecamp contacts. Tickets are matched to practices by website
+          and when they last wrote — plus their Basecamp contacts. Former clients (the &quot;Clients Who
+          Left&quot; tab) are matched too and marked Former. Request types are sorted only for current
+          clients&apos; tickets from the last two years. Tickets are matched to practices by website
           address first, then by name; anything that does not match lands on the sheet&apos;s
           Unmatched tab for you to fix.
         </p>
@@ -131,7 +133,7 @@ export default function HelpDeskReportRunner(props: Props) {
       <section className="rounded-xl border border-bip-border bg-bip-card p-4 text-xs text-bip-muted">
         <div className="grid gap-1 sm:grid-cols-2">
           <div>Tickets synced: <span className="text-bip-text">{props.counts.tickets}</span></div>
-          <div>Not yet categorized: <span className="text-bip-text">{props.counts.uncategorized}</span></div>
+          <div>Categorized so far: <span className="text-bip-text">{props.counts.categorized}</span></div>
           <div>Zendesk people: <span className="text-bip-text">{props.counts.users}</span></div>
           <div>Zendesk organizations: <span className="text-bip-text">{props.counts.organizations}</span></div>
         </div>
