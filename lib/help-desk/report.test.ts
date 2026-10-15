@@ -14,6 +14,7 @@ function practice(practiceName: string, url: string, marketing = false): MasterS
     packageValue: marketing ? "5.00" : null,
     strategist: marketing ? "Alex" : null,
     websiteProduct: "Foundation +5",
+    launchDate: "May 2022",
   };
 }
 
@@ -74,12 +75,13 @@ describe("buildReport", () => {
     expect(clients).toHaveLength(2);
     const row = clients[1]!;
     expect(row[0]).toBe("Happy Paws Vet");
-    expect(row[3]).toBe(3);
-    expect(row[4]).toBe("2026-03-01");
-    expect(row[5]).toBe("Photo / image change (2); Staff or doctor update (1)");
+    expect(row[3]).toBe("May 2022");
+    expect(row[4]).toBe(3);
+    expect(row[5]).toBe("2026-03-01");
+    expect(row[6]).toBe("Photo / image change (2); Staff or doctor update (1)");
     // Staff who filed a ticket for the client are not the client's contacts.
-    expect(row[7]).toBe("Jane <jane@happypawsvet.com> (2)");
-    expect(row[8]).toBe("Dr. Kim <kim@happypawsvet.com>");
+    expect(row[8]).toBe("Jane <jane@happypawsvet.com> (2)");
+    expect(row[9]).toBe("Dr. Kim <kim@happypawsvet.com>");
   });
 
   it("puts unmatched requesters on the Unmatched tab with an empty fix column", () => {

@@ -152,7 +152,7 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
   // ── Clients: one row per website-only practice ──────────────────────────
   const websiteOnly = practices.filter(isWebsiteOnly).sort((a, b) => a.practiceName.localeCompare(b.practiceName));
   const clientRows: Cell[][] = [[
-    "Practice Name", "URL", "Website Product", "Zendesk Tickets", "Last Help Desk Contact",
+    "Practice Name", "URL", "Website Product", "Launch Date", "Zendesk Tickets", "Last Help Desk Contact",
     "What They Ask For (by ticket count)", "Recent Requests", "Zendesk Contacts", "Basecamp Contacts", "How Tickets Were Matched",
   ]];
   let websiteOnlyWithTickets = 0;
@@ -190,6 +190,7 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
       practice.practiceName,
       practice.url ?? "",
       practice.websiteProduct ?? "",
+      practice.launchDate ?? "",
       s?.tickets.length ?? 0,
       day(s?.lastAt ?? null),
       categorySummary,

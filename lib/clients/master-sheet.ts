@@ -27,6 +27,8 @@ export type MasterSheetRow = {
   strategist: string | null;
   /** "Website Product" — read by the help desk report; not stored in master_sheet_practices. */
   websiteProduct?: string | null;
+  /** "Launch Date", as typed in the sheet ("December 2015", "Pending", "2/7/2024"). */
+  launchDate?: string | null;
 };
 
 export function parseCsv(text: string): string[][] {
@@ -99,6 +101,7 @@ export function parseMasterSheetRows(rows: string[][]): MasterSheetRow[] {
   const packageCol = col("package");
   const strategistCol = col("strategist");
   const websiteProductCol = col("website product");
+  const launchDateCol = col("launch date");
 
   const out: MasterSheetRow[] = [];
   const seen = new Set<string>();
@@ -117,6 +120,7 @@ export function parseMasterSheetRows(rows: string[][]): MasterSheetRow[] {
       packageValue: packageCol === -1 ? null : clean(row[packageCol]),
       strategist: strategistCol === -1 ? null : clean(row[strategistCol]),
       websiteProduct: websiteProductCol === -1 ? null : clean(row[websiteProductCol]),
+      launchDate: launchDateCol === -1 ? null : clean(row[launchDateCol]),
     });
   }
   return out;
