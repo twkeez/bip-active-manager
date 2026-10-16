@@ -437,6 +437,20 @@ export const GUIDE: Guide = {
       title: "Tools",
       items: [
         {
+          href: "/help-desk-report",
+          label: "Help Desk Report",
+          adminOnly: true,
+          purpose:
+            "Zendesk help-desk tickets for every client on the Master Sheet (who writes in, what they ask for, how often and when last), written to a Google Sheet.",
+          youCan: [
+            "Run everything: pull new tickets, match them to clients and write the sheet",
+            "Fix unmatched tickets on the sheet's Unmatched tab; your fixes are picked up on the next run",
+          ],
+          notes: [
+            "Ticket text is client correspondence, so it's admins only. It never writes to the Master Sheet itself.",
+          ],
+        },
+        {
           href: "/ai-planner",
           label: "AI Planner",
           adminOnly: true,
