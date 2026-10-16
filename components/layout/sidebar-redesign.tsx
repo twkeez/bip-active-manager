@@ -6,6 +6,7 @@ import {
   Bird,
   Bell,
   BookOpen,
+  CircleHelp,
   Building2,
   CalendarClock,
   CheckSquare,
@@ -216,6 +217,7 @@ export default function SidebarRedesign({
         <Section label="Coal Mines" items={COAL_MINES} role={role} appMode={appMode} />
         <Section label="Growth" items={GROWTH} role={role} appMode={appMode} />
         <Section label="Support" items={SUPPORT} role={role} appMode={appMode} />
+        <Section label="Help" items={[{ label: "Team guide", href: "/guide", icon: CircleHelp }]} role={role} appMode={appMode} />
       </nav>
 
       {/* Footer */}
