@@ -6,6 +6,7 @@ import {
   Activity,
   Bird,
   BookOpen,
+  CircleHelp,
   Building2,
   CalendarClock,
   CalendarDays,
@@ -156,6 +157,10 @@ const SEO_TOOLS: NavItem[] = [
 const UTILITIES: NavItem[] = [
   { label: "Bulk Auto-Discover", href: "/bulk-discover", icon: ScanSearch, adminOnly: true },
 ];
+
+// The team guide (lib/guide/content.ts) explains every link above; its test
+// fails when a link here has no entry there.
+const GUIDE_LINK: NavItem = { label: "Team guide", href: "/guide", icon: CircleHelp };
 
 const SALES: NavItem[] = [
   { label: "Sales Lab", href: "/sales-lab", icon: Sparkles, adminOnly: true },
@@ -358,6 +363,7 @@ export default function Sidebar({
 
       {/* User + theme */}
       <div className="border-t border-[var(--bip-border)] p-3 flex flex-col gap-1">
+        <NavLink item={GUIDE_LINK} role={role} appMode={appMode} />
         {userName && (
           <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-subtle)]">
             <User size={13} />

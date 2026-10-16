@@ -66,6 +66,10 @@ export const TEAM_PAGES = [
   // API namespace below.
   "/client-document",
 
+  // The team guide (what every sidebar link is for) and its print view.
+  "/guide",
+  "/guide-print",
+
   // Print/export views those tools open in a new tab
   "/reports-print",
   "/onboarding-report-print",
@@ -104,6 +108,8 @@ export const TEAM_API_NAMESPACES = [
   "ga4",
   "gbp",
   "google",
+  // The team guide's Word download.
+  "guide",
   "harvest",
   "local-rank",
   "onboarding",
@@ -136,7 +142,7 @@ export const TEAM_API_NAMESPACES = [
  *
  * Narrowed to Clients alone on 2026-08-28. Widen by adding routes here.
  */
-export const TEAM_NAV = ["/dashboard/clients"];
+export const TEAM_NAV = ["/dashboard/clients", "/guide"];
 
 /** Prefix match that respects path segments, so /reports doesn't match /reportsfoo. */
 function matchesPrefix(pathname: string, prefix: string): boolean {
