@@ -25,6 +25,14 @@ export type MasterSheetRow = {
   state: string | null;
   packageValue: string | null;
   strategist: string | null;
+  /** "Website Product" — read by the help desk report; not stored in master_sheet_practices. */
+  websiteProduct?: string | null;
+  /** "Launch Date", as typed in the sheet ("December 2015", "Pending", "2/7/2024"). */
+  launchDate?: string | null;
+  /** "Reason for Leaving" — only on the "Clients Who Left" tab. */
+  leftReason?: string | null;
+  /** Set by the help desk report for rows from "Clients Who Left". */
+  former?: boolean;
 };
 
 export function parseCsv(text: string): string[][] {
@@ -96,6 +104,9 @@ export function parseMasterSheetRows(rows: string[][]): MasterSheetRow[] {
   const stateCol = col("state");
   const packageCol = col("package");
   const strategistCol = col("strategist");
+  const websiteProductCol = col("website product");
+  const launchDateCol = col("launch date");
+  const leftReasonCol = col("reason for leaving");
 
   const out: MasterSheetRow[] = [];
   const seen = new Set<string>();
@@ -113,6 +124,9 @@ export function parseMasterSheetRows(rows: string[][]): MasterSheetRow[] {
       state: stateCol === -1 ? null : clean(row[stateCol]),
       packageValue: packageCol === -1 ? null : clean(row[packageCol]),
       strategist: strategistCol === -1 ? null : clean(row[strategistCol]),
+      websiteProduct: websiteProductCol === -1 ? null : clean(row[websiteProductCol]),
+      launchDate: launchDateCol === -1 ? null : clean(row[launchDateCol]),
+      leftReason: leftReasonCol === -1 ? null : clean(row[leftReasonCol]),
     });
   }
   return out;
@@ -184,7 +198,7 @@ function stripParentheticals(value: string) {
   return value.replace(/\([^)]*\)/g, " ");
 }
 
-function distinctiveTokens(value: string) {
+export function distinctiveTokens(value: string) {
   const out = new Set<string>();
   for (const token of nameTokens(stripParentheticals(value))) {
     if (GENERIC.has(token)) continue;

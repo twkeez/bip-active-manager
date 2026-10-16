@@ -25,6 +25,7 @@ import {
   SlidersHorizontal,
   Stethoscope,
   Sunrise,
+  LifeBuoy,
 } from "lucide-react";
 import type { UserRole } from "@/lib/auth/profile";
 import { isNavItemVisibleForRole, type AppMode } from "@/lib/auth/app-mode";
@@ -72,6 +73,7 @@ const GROWTH: NavItem[] = [
 ];
 
 const SUPPORT: NavItem[] = [
+  { label: "Help Desk Report", href: "/help-desk-report", icon: LifeBuoy, adminOnly: true },
   { label: "Services & Tiers", href: "/services", icon: Layers },
   { label: "Service Playbook", href: "/playbook", icon: BookOpen },
   { label: "Onboarding SOPs", href: "/onboarding-sops", icon: GraduationCap, adminOnly: true },

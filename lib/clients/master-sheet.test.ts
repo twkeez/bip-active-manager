@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  parseMasterSheetRows,
   matchToMasterSheet,
   parseMasterSheet,
   type MasterSheetRow,
@@ -153,5 +154,20 @@ describe("matchToMasterSheet", () => {
   it("never claims better than 'likely' for a fuzzy hit", () => {
     expect(matchToMasterSheet("Volunteer Vet", [row("Volunteer Veterinary Hospital")]).confidence)
       .toBe("likely");
+  });
+});
+
+describe("parseMasterSheetRows — website columns", () => {
+  it("reads Website Product and the two-line Launch Date heading as typed", () => {
+    const rows = parseMasterSheetRows([
+      ["", "Business Information", "Website"],
+      ["Practice Name", "URL", "Website Product", "Launch\nDate"],
+      ["Happy Paws Vet", "happypawsvet.com", "Foundation +5", "December 2015"],
+      ["Oak Creek Clinic", "oakcreekvet.com", "", "Pending"],
+    ]);
+    expect(rows.map((r) => [r.websiteProduct, r.launchDate])).toEqual([
+      ["Foundation +5", "December 2015"],
+      [null, "Pending"],
+    ]);
   });
 });

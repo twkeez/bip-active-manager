@@ -49,6 +49,7 @@ import {
   User,
   Wand2,
   HeartPulse,
+  LifeBuoy,
 } from "lucide-react";
 import { useState } from "react";
 import type { UserRole } from "@/lib/auth/profile";
@@ -136,6 +137,7 @@ const INBOX: NavItem[] = [
 ];
 
 const TOOLS: NavItem[] = [
+  { label: "Help Desk Report", href: "/help-desk-report", icon: LifeBuoy, adminOnly: true },
   { label: "AI Planner", href: "/ai-planner", icon: Wand2, adminOnly: true },
   { label: "Social Planner", href: "/social-planner", icon: CalendarDays },
   { label: "Wins", href: "/wins", icon: Trophy, adminOnly: true },

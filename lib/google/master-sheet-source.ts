@@ -29,7 +29,14 @@ export function getServiceAccountEmail() {
   return (process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL ?? "").trim();
 }
 
-function buildClient() {
+const READ_ONLY_SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly";
+
+/**
+ * The service account, signed in for the given scopes. Read-only unless a
+ * caller needs to write — the help desk report is the one that does, and only
+ * to its own sheet.
+ */
+export function buildServiceAccountClient(scopes: string[] = [READ_ONLY_SCOPE]) {
   const email = getServiceAccountEmail();
   const key = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
   if (!email || !key) {
@@ -37,21 +44,18 @@ function buildClient() {
       "No Google service account configured — set GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.",
     );
   }
-  return new JWT({
-    email,
-    key,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-  });
+  return new JWT({ email, key, scopes });
 }
 
-export async function fetchMasterSheetRows(): Promise<string[][]> {
+/** Reads one tab of the Master Sheet — the "Master" roster unless told otherwise. */
+export async function fetchMasterSheetRows(tab: string = getMasterSheetTab()): Promise<string[][]> {
   const sheetId = getMasterSheetId();
-  const tab = getMasterSheetTab();
-  const client = buildClient();
+  const client = buildServiceAccountClient();
 
   let data: { values?: string[][] };
   try {
-    const range = encodeURIComponent(`${tab}!A:BZ`);
+    // Quoted, because tab names like "Clients Who Left" contain spaces.
+    const range = encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A:BZ`);
     const response = await client.request<{ values?: string[][] }>({
       url: `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`,
     });
