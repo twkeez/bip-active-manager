@@ -1,4 +1,4 @@
-import type { AccountDiagnosticRaw, DiagCampaign, DiagConvAction, DiagKeyword } from "@/lib/ads/account-diagnostic-fetch";
+import type { AccountDiagnosticRaw, DiagCampaign, DiagConvAction, DiagFailure, DiagKeyword } from "@/lib/ads/account-diagnostic-fetch";
 import { buildGoogleAdsUiUrl } from "@/lib/ads/google-ads-ui-links";
 import type { GlobalAdsIssueType } from "@/lib/ads/global-optimization";
 import {
@@ -137,6 +137,8 @@ export type AccountDiagnostic = {
   qsComponents: QsComponents;
   spine: SpineRow[];
   findings: Finding[];
+  /** Checks that couldn't run: shown as such, never as "no issues". */
+  failures: DiagFailure[];
   drafts: {
     negatives: NegativeDraft[];
     wastedSpend: number;
@@ -473,7 +475,12 @@ export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
   const totalClicks = raw.campaigns.reduce((s, c) => s + c.clicks, 0);
   const accountCpa = totalConv > 0 ? round(totalCost / totalConv) : null;
 
-  const tracking = assessTracking(raw.conversionActions, totalConv, totalCost);
+  const failed = new Set(raw.failures.map((failure) => failure.section));
+  // Unread conversion actions would read as "no tracking at all": skip the
+  // verdict instead of raising a false critical.
+  const tracking = failed.has("Conversion actions")
+    ? { ok: true, severity: "ok" as const, note: "Conversion actions couldn't be read, so tracking wasn't checked.", hasCallConv: false }
+    : assessTracking(raw.conversionActions, totalConv, totalCost);
   const conversionTrust = buildConversionTrust(raw, totalClicks, totalConv, totalCost);
   const auctionInsights = buildAuctionInsights(raw);
   const qsComponents = buildQsComponents(raw);
@@ -679,6 +686,7 @@ export function diagnoseAccount(raw: AccountDiagnosticRaw): AccountDiagnostic {
     qsComponents,
     spine,
     findings,
+    failures: raw.failures,
     drafts: { negatives, wastedSpend, budgetMoves, bidMoves, deviceMoves },
   };
 }

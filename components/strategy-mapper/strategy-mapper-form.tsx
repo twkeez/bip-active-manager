@@ -14,7 +14,6 @@ import {
   websiteUrlRequiredForSiteContext,
 } from "@/lib/strategy-mapper/form-options";
 import { applyPrefill } from "@/lib/strategy-mapper/apply-prefill";
-import { STRATEGY_MAPPER_MOCK_RESEARCH_STORAGE_KEY } from "@/lib/strategy-mapper/mock-research";
 import type { ServiceTierTemplate } from "@/lib/strategy-mapper/tier-library";
 import { resolveSelectedTiers } from "@/lib/strategy-mapper/tier-resolver";
 import type {
@@ -109,16 +108,6 @@ export default function StrategyMapperForm({
   } | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STRATEGY_MAPPER_MOCK_RESEARCH_STORAGE_KEY);
-      if (stored === "true") setUseMockResearch(true);
-      if (stored === "false") setUseMockResearch(false);
-    } catch {
-      // Ignore storage errors in private browsing.
-    }
-  }, []);
 
   useEffect(() => {
     void fetch("/api/strategy-mapper/tiers")
@@ -266,13 +255,10 @@ export default function StrategyMapperForm({
     }
   }
 
+  // Not remembered between visits: placeholder research is chosen each time,
+  // on purpose, so nobody builds a report on samples by accident.
   function setUseMockResearchPersisted(value: boolean) {
     setUseMockResearch(value);
-    try {
-      localStorage.setItem(STRATEGY_MAPPER_MOCK_RESEARCH_STORAGE_KEY, String(value));
-    } catch {
-      // Ignore storage errors in private browsing.
-    }
   }
 
   function handleSubmit() {

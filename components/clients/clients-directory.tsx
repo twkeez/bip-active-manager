@@ -80,7 +80,6 @@ export function ClientsDirectory({ clients }: { clients: DirectoryClient[] }) {
   const [serviceFilters, setServiceFilters] = useState<ServiceKey[]>([]);
   const [sort, setSort] = useState<"name" | "strategist">("name");
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Derived once — widget counts come from the whole book so they never move
@@ -140,11 +139,6 @@ export function ClientsDirectory({ clients }: { clients: DirectoryClient[] }) {
     if (searchRef.current) searchRef.current.value = "";
   }
 
-  function showToast(message: string) {
-    setToast(message);
-    setTimeout(() => setToast(null), 2600);
-  }
-
   const total = clients.length;
   const widgets: Array<{ key: ClientLifecycleStatus }> = [
     { key: "active" },
@@ -175,13 +169,6 @@ export function ClientsDirectory({ clients }: { clients: DirectoryClient[] }) {
               today?
             </h1>
           </div>
-          <button
-            onClick={() => showToast("Add client — coming soon.")}
-            style={{ background: T.blue }}
-            className="rounded-full px-[18px] py-[9px] text-[13px] font-semibold text-white transition-colors hover:opacity-90"
-          >
-            + Add client
-          </button>
         </div>
 
         {/* Stat widgets */}
@@ -229,14 +216,6 @@ export function ClientsDirectory({ clients }: { clients: DirectoryClient[] }) {
             );
           })}
 
-          <button
-            onClick={() => showToast("Widget gallery — launches, tasks due, review alerts…")}
-            style={{ borderColor: "#D9D5C9", color: T.faint }}
-            className="flex-[0.8] rounded-2xl border-[1.5px] border-dashed px-[18px] py-4 text-left transition-colors hover:border-[#C9C4B5] hover:text-[#8A8678]"
-          >
-            <span className="block text-[13px] font-semibold">+ Add widget</span>
-            <span className="mt-1 block text-[11px]">Launches · Tasks due · Alerts</span>
-          </button>
         </div>
 
         {/* Toolbar */}
@@ -462,14 +441,6 @@ export function ClientsDirectory({ clients }: { clients: DirectoryClient[] }) {
         </div>
       </div>
 
-      {toast && (
-        <div
-          style={{ background: T.ink, boxShadow: "0 18px 44px rgba(20,18,10,0.16)" }}
-          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-2.5 text-[12.5px] font-semibold text-[#F5F4EF]"
-        >
-          {toast}
-        </div>
-      )}
     </div>
   );
 }
