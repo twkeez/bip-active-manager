@@ -7,7 +7,6 @@ import BrandHeader from "@/components/vet-onboarding/brand-header";
 import StrategyMapperForm from "@/components/strategy-mapper/strategy-mapper-form";
 import StrategyMapperOutput from "@/components/strategy-mapper/strategy-mapper-output";
 import StrategyMapperStaging from "@/components/strategy-mapper/strategy-mapper-staging";
-import { STRATEGY_MAPPER_MOCK_RESEARCH_STORAGE_KEY } from "@/lib/strategy-mapper/mock-research";
 import type {
   StrategyMapperFormData,
   StrategyMapperGenerateResult,
@@ -48,13 +47,6 @@ export default function StrategyMapperShell() {
       };
       if (!res.ok) {
         throw new Error(payload.error ?? "Failed to fetch research data");
-      }
-      if (payload.mockFallbackReason) {
-        try {
-          localStorage.setItem(STRATEGY_MAPPER_MOCK_RESEARCH_STORAGE_KEY, "true");
-        } catch {
-          // Ignore storage errors in private browsing.
-        }
       }
       setStaging({
         form: formData,

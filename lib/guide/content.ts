@@ -7,7 +7,7 @@ import type { Guide } from "@/lib/guide/types";
 // and anything that would otherwise surprise you.
 
 export const GUIDE: Guide = {
-  updated: "October 16, 2026",
+  updated: "October 21, 2026",
   intro: [
     "BIP Control is Beyond Indigo's home base for running client work: who our clients are, what they bought, what they're waiting on, how their marketing is performing and what we need to do next.",
     "This guide walks through the sidebar from top to bottom. Each tool says what it's for, what you can do there, and anything good to know before you rely on it.",
@@ -74,7 +74,7 @@ export const GUIDE: Guide = {
             "From a client's page, jump to their reporting, SEO, ads, social, reputation and sitemaps",
           ],
           notes: [
-            "\"+ Add client\" isn't built yet; new clients come in through Onboarding.",
+            "New clients come in through Onboarding.",
             "Onboarding research on a client's page is a dated snapshot and doesn't refresh on its own.",
           ],
         },
@@ -269,7 +269,10 @@ export const GUIDE: Guide = {
             "Fetch and edit competitor research, and run a website audit",
             "Generate the report and copy it into Google Docs",
           ],
-          notes: ["Copy the report out when you're done; don't rely on it being saved."],
+          notes: [
+            "Copy the report out when you're done; don't rely on it being saved.",
+            "If live research isn't available it says so; placeholder competitors are only used when you choose them on the form.",
+          ],
         },
         {
           href: "/vet-onboarding",
@@ -376,14 +379,21 @@ export const GUIDE: Guide = {
             "See spend, conversions and a prioritized fix list with suggested budget, bid and device changes",
             "Copy negative keywords, and draft ad copy with AI",
           ],
-          notes: ["Pulls live from Google Ads. It never changes anything in the account; you make the changes yourself."],
+          notes: [
+            "Pulls live from Google Ads. It never changes anything in the account; you make the changes yourself.",
+            "If part of the pull fails, a yellow box lists what couldn't be checked; those parts are missing, not clean.",
+          ],
         },
         {
           href: "/conversion-integrity",
           label: "Conversion Integrity",
           purpose: "Finds campaigns whose conversion tracking looks broken or inflated, across all accounts.",
-          youCan: ["See problems by severity", "Flag one for a manual tag check, or mute it", "Open the client's Ads workspace"],
-          notes: ["\"Inspect landing code\" is a simulated check, not a real scan of the site. Mute and flag aren't saved yet."],
+          youCan: [
+            "See problems by severity, with what to check for each",
+            "Flag one for a manual tag check, or mute it (saved for the whole team; Show muted brings them back)",
+            "Open the client's Ads workspace",
+          ],
+          notes: ["It reads the daily ads sync; it doesn't scan the client's website. The tag check itself happens in Google Ads or Tag Assistant."],
         },
         {
           href: "/ads-planner",
@@ -404,8 +414,12 @@ export const GUIDE: Guide = {
           href: "/ppc-defense",
           label: "PPC Defense",
           purpose: "Finds wasted spend: keywords Google says land on a poor page, and budget hogs (over 30% of spend with fewer than 2 conversions).",
-          youCan: ["Review landing-page problems and budget hogs", "Copy a task for the web team to your clipboard", "Open the client's Ads tab"],
-          notes: ["\"Convert to negative match\" only hides the row here; it changes nothing in Google Ads."],
+          youCan: [
+            "Review landing-page problems and budget hogs",
+            "Copy a task for the web team to your clipboard",
+            "Dismiss a budget hog once it's handled (saved for the team), and open the client's Ads tab",
+          ],
+          notes: ["Dismissing only hides it here; changes to keywords are made in Google Ads."],
         },
         {
           href: "/ad-spend-trends",

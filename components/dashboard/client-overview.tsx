@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   ArrowUpRight,
   BarChart3,
-  Grid2x2,
   Loader2,
   MessageSquareQuote,
   RefreshCw,
@@ -936,15 +935,6 @@ export default function ClientOverview({
             )}
           </div>
 
-          <button
-            type="button"
-            disabled
-            title="Widget gallery coming soon"
-            style={{ background: T.card, borderColor: T.border, color: T.secondary }}
-            className="inline-flex shrink-0 items-center gap-2 rounded-full border px-[15px] py-2 text-[12.5px] font-semibold opacity-60"
-          >
-            <Grid2x2 size={14} strokeWidth={1.9} /> Customize widgets
-          </button>
         </div>
 
         {/* ── Today's pulse ────────────────────────────────────── */}
@@ -1062,17 +1052,6 @@ export default function ClientOverview({
             </Widget>
           )}
 
-          <div
-            style={{ borderColor: "#D9D5C9", flex: "0 1 215px" }}
-            className="rounded-2xl border-[1.5px] border-dashed px-[18px] py-4"
-          >
-            <p style={{ color: T.faint }} className="text-[13px] font-semibold">
-              + Add widget
-            </p>
-            <p style={{ color: T.faint }} className="mt-1 text-[11px]">
-              Ads spend · Review alerts · Tasks
-            </p>
-          </div>
         </div>
 
         {/* ── Plan ─────────────────────────────────────────────── */}

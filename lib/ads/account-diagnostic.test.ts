@@ -31,7 +31,7 @@ function raw(p: Partial<AccountDiagnosticRaw>): AccountDiagnosticRaw {
     customerId: "123-456-7890",
     window: { start: "2026-06-22", end: "2026-07-21" },
     conversionActions: [], campaigns: [], prev: { cost: 0, clicks: 0, conv: 0 },
-    auction: [], searchTerms: [], keywords: [], device: [], ...p,
+    auction: [], searchTerms: [], keywords: [], device: [], failures: [], ...p,
   };
 }
 
@@ -115,5 +115,17 @@ describe("auction insights", () => {
     const d = diagnoseAccount(raw({ campaigns: [campaign({})], auction }));
     expect(d.auctionInsights.map((a) => a.domain)).toEqual(["rival-a.com", "rival-b.com"]);
     expect(d.auctionInsights[0]).toMatchObject({ impressionShare: 40, overlap: 55, outranking: 30 });
+  });
+});
+
+describe("failed checks", () => {
+  it("passes failures through and doesn't call unread conversion actions broken tracking", () => {
+    const d = diagnoseAccount(raw({
+      campaigns: [campaign({ clicks: 100, conv: 5, cost: 500 })],
+      failures: [{ section: "Conversion actions", error: "PERMISSION_DENIED" }],
+    }));
+    expect(d.failures).toHaveLength(1);
+    expect(d.findings.map((f) => f.id)).not.toContain("tracking");
+    expect(d.tracking.note).toContain("couldn't be read");
   });
 });

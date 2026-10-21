@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import AppHeaderActions from "@/components/layout/app-header-actions";
 import FocusClientBanner from "@/components/dashboard/focus-client-banner";
+import { useFindingStates } from "@/components/ads/use-finding-states";
 import type { FocusClient } from "@/lib/dashboard/focus-client";
 import PlaybookGuidancePanel, {
   PlaybookInlineTrigger,
@@ -48,17 +49,21 @@ export default function PpcDefenseRadar({
   loadError,
   focusClient = null,
 }: Props) {
-  const [resolvedHogIds, setResolvedHogIds] = useState<Set<string>>(
-    () => new Set(),
-  );
+  // Dismissing a hog is saved for the team (lib/ads/finding-states.ts). It
+  // changes nothing in Google Ads: that's done in the account itself.
+  const findingStates = useFindingStates("ppc_defense");
+  const [showDismissed, setShowDismissed] = useState(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const visibleHogs = useMemo(
     () =>
       budgetHogs
-        .filter((item) => !resolvedHogIds.has(item.id))
+        .filter((item) => showDismissed || !findingStates.has(item.id, "dismissed"))
         .filter((item) => !focusClient || item.clientId === focusClient.id),
-    [budgetHogs, resolvedHogIds, focusClient],
+    [budgetHogs, showDismissed, findingStates, focusClient],
   );
+  const dismissedHogCount = budgetHogs.filter(
+    (item) => (!focusClient || item.clientId === focusClient.id) && findingStates.has(item.id, "dismissed"),
+  ).length;
   const visibleDeficits = useMemo(
     () =>
       lpDeficits.filter(
@@ -72,10 +77,7 @@ export default function PpcDefenseRadar({
       await navigator.clipboard.writeText(payload);
       setExportMessage("Web dev assignment copied to clipboard.");
     } catch {
-      setExportMessage(
-        "Could not copy — select and copy manually from console.",
-      );
-      console.info(payload);
+      setExportMessage("Your browser blocked copying to the clipboard. Try again.");
     }
     window.setTimeout(() => setExportMessage(null), 3000);
   }
@@ -287,7 +289,7 @@ export default function PpcDefenseRadar({
                 className="inline-flex items-center gap-1.5 rounded-lg border border-bip-border bg-bip-card/40 px-4 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-card/70 disabled:opacity-50"
               >
                 
-                Export assignment to web dev team <ArrowRight size={12} />
+                Copy task for the web team <ArrowRight size={12} />
               </button>
             </div>
           </section>
@@ -313,6 +315,20 @@ export default function PpcDefenseRadar({
                 account&apos;s running click budget without producing direct
                 transactional outcomes.
               </p>
+              {findingStates.error ? (
+                <div className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                  {findingStates.error}
+                </div>
+              ) : null}
+              {dismissedHogCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDismissed((value) => !value)}
+                  className="mb-3 text-xs text-bip-muted underline-offset-2 hover:text-bip-text hover:underline"
+                >
+                  {showDismissed ? `Hide ${dismissedHogCount} dismissed` : `Show ${dismissedHogCount} dismissed`}
+                </button>
+              ) : null}
               <div className="space-y-3">
                 
                 {visibleHogs.map((item) => (
@@ -388,21 +404,20 @@ export default function PpcDefenseRadar({
                       <button
                         type="button"
                         onClick={() =>
-                          setResolvedHogIds((current) =>
-                            new Set(current).add(item.id),
-                          )
+                          void (findingStates.has(item.id, "dismissed")
+                            ? findingStates.unset(item.id, "dismissed")
+                            : findingStates.set(item.id, item.clientId, "dismissed"))
                         }
+                        title="Hide this for the team once it's handled in Google Ads. Changes nothing in Google Ads."
                         className="rounded border border-bip-border bg-bip-card/40 px-3 py-1.5 text-[11px] font-medium text-bip-muted transition hover:bg-bip-card/70"
                       >
-                        
-                        Convert to negative match
+                        {findingStates.has(item.id, "dismissed") ? "Restore" : "Handled: dismiss"}
                       </button>
                       <Link
                         href={`/dashboard/clients/${item.clientId}?tab=ads`}
                         className="rounded bg-amber-600 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-amber-500"
                       >
-                        
-                        Isolate match type
+                        Open Ads tab
                       </Link>
                     </div>
                   </div>

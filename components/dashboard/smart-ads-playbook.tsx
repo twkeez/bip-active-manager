@@ -13,6 +13,8 @@ import {
   type SmartPlaybookTask,
 } from "@/lib/ads/smart-playbook";
 import type { AdsSnapshot } from "@/lib/types/client";
+import { useFindingStates } from "@/components/ads/use-finding-states";
+import { SNOOZE_DAYS } from "@/lib/ads/finding-states";
 const panelClass =
   "rounded-xl border border-bip-border bg-bip-card/50 text-bip-text";
 const taskCardClass =
@@ -80,8 +82,10 @@ export default function SmartAdsPlaybook({
   className = "",
   embedded = false,
 }: SmartAdsPlaybookProps) {
-  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
-  const [snoozed, setSnoozed] = useState<Set<string>>(() => new Set());
+  // Ignore and Snooze are saved for the team (lib/ads/finding-states.ts);
+  // a snooze lasts SNOOZE_DAYS. Keys are per client and per kind of tip.
+  const findingStates = useFindingStates("ads_playbook");
+  const keyFor = (kind: string) => `${adsSnapshot.client_id}:${kind}`;
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const tasks = useMemo(
     () =>
@@ -94,7 +98,14 @@ export default function SmartAdsPlaybook({
     [adsSnapshot],
   );
   const visibleTasks = tasks.filter(
-    (task) => !dismissed.has(task.kind) && !snoozed.has(task.kind),
+    (task) =>
+      !findingStates.has(keyFor(task.kind), "dismissed") &&
+      !findingStates.has(keyFor(task.kind), "snoozed"),
+  );
+  const hiddenKinds = tasks.flatMap((task) =>
+    (["dismissed", "snoozed"] as const)
+      .filter((state) => findingStates.has(keyFor(task.kind), state))
+      .map((state) => ({ kind: task.kind, state })),
   );
   async function copyBudgetEmail(
     task: Extract<SmartPlaybookTask, { kind: "budget" }>,
@@ -181,7 +192,7 @@ export default function SmartAdsPlaybook({
                   <button
                     type="button"
                     onClick={() =>
-                      setDismissed((prev) => new Set(prev).add(task.kind))
+                      void findingStates.set(keyFor(task.kind), adsSnapshot.client_id, "dismissed")
                     }
                     className="flex-1 rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2 text-xs font-medium text-bip-muted transition hover:bg-bip-card/70 md:flex-initial"
                   >
@@ -243,12 +254,11 @@ export default function SmartAdsPlaybook({
                   <button
                     type="button"
                     onClick={() =>
-                      setSnoozed((prev) => new Set(prev).add(task.kind))
+                      void findingStates.set(keyFor(task.kind), adsSnapshot.client_id, "snoozed")
                     }
                     className="flex-1 rounded-lg bg-bip-card/30 px-3 py-2 text-xs font-medium text-bip-muted transition hover:bg-bip-card/50 md:flex-initial"
                   >
-                    
-                    Snooze
+                    Snooze {SNOOZE_DAYS} days
                   </button>
                 </div>
               </div>
@@ -300,6 +310,20 @@ export default function SmartAdsPlaybook({
           );
         })}
       </div>
+      {hiddenKinds.length > 0 ? (
+        <button
+          type="button"
+          onClick={() =>
+            hiddenKinds.forEach(({ kind, state }) => void findingStates.unset(keyFor(kind), state))
+          }
+          className="mt-3 text-xs text-bip-muted underline-offset-2 hover:text-bip-text hover:underline"
+        >
+          Bring back {hiddenKinds.length} hidden tip{hiddenKinds.length === 1 ? "" : "s"}
+        </button>
+      ) : null}
+      {findingStates.error ? (
+        <p className="mt-3 text-xs text-red-300">{findingStates.error}</p>
+      ) : null}
       {copyFeedback ? (
         <p className="mt-3 text-xs text-bip-accent">{copyFeedback}</p>
       ) : null}

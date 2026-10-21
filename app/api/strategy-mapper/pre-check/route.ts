@@ -97,23 +97,16 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result);
   } catch (error) {
+    // Used to fall back to placeholder competitors here and keep using them
+    // on every later run. Fake research should only ever be chosen on purpose.
     if (isAnthropicUnavailableError(error)) {
-      try {
-        return mockPreCheckResponse(form, {
-          mockFallbackReason:
-            "Anthropic credits unavailable — loaded placeholder competitors instead. Edit them on staging, or switch back to live research on the form when credits are restored.",
-        });
-      } catch (mockError) {
-        return NextResponse.json(
-          {
-            error:
-              mockError instanceof Error
-                ? mockError.message
-                : "Failed to build fallback mock research",
-          },
-          { status: 400 },
-        );
-      }
+      return NextResponse.json(
+        {
+          error:
+            "Live research isn't available right now (the AI service didn't accept the request; usually credits). Try again later, or choose Placeholder research on the form to continue with sample competitors you'll edit by hand.",
+        },
+        { status: 503 },
+      );
     }
 
     return NextResponse.json(

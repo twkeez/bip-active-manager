@@ -333,6 +333,25 @@ export default function AdsDiagnosticView({
             <StatTile label="Findings" value={String(result.findings.length)} />
           </StatTiles>
 
+          {result.failures.length > 0 && (
+            <section className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+              <p className="font-semibold text-amber-300">
+                {result.failures.length === 1 ? "One check" : `${result.failures.length} checks`} couldn&apos;t run, so
+                this diagnosis is incomplete
+              </p>
+              <ul className="mt-1.5 space-y-0.5 text-xs text-bip-muted">
+                {result.failures.map((failure) => (
+                  <li key={failure.section}>
+                    <span className="text-bip-text">{failure.section}:</span> {failure.error.slice(0, 200)}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5 text-xs text-bip-muted">
+                Anything that depends on these is missing below, not clean. Run it again, or check in Google Ads.
+              </p>
+            </section>
+          )}
+
           {/* Conversion trust — the gate before any conversion/CPA number is believed */}
           <ConversionTrustPanel trust={result.conversionTrust} />
 
@@ -350,7 +369,9 @@ export default function AdsDiagnosticView({
               ))}
               {result.findings.length === 0 && (
                 <p className="rounded-xl border border-bip-border bg-bip-card p-4 text-sm text-bip-muted">
-                  No threshold-level issues found — the account looks healthy on visibility, waste, and prominence.
+                  {result.failures.length > 0
+                    ? "No issues found in the checks that ran (see what couldn't run above)."
+                    : "No threshold-level issues found — the account looks healthy on visibility, waste, and prominence."}
                 </p>
               )}
             </div>

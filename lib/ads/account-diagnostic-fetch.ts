@@ -4,7 +4,9 @@ import type { AdsQualityBucket } from "@/lib/types/client";
 
 // Raw diagnostic pull for one Google Ads account. Percentages are stored as
 // 0–100 numbers; money as dollars (cost_micros / 1e6). Each query is isolated
-// so one unsupported field/segment can't sink the whole diagnosis.
+// so one unsupported field/segment can't sink the whole diagnosis, but a
+// failed query is recorded in `failures` rather than passed off as "nothing
+// found": an empty search-term list must not read as "no wasted spend".
 
 export type DiagCampaign = {
   id: string;
@@ -44,6 +46,16 @@ export type DiagAuction = { domain: string; IS: number | null; outranking: numbe
 export type DiagDevice = { device: string; cost: number; clicks: number; conv: number };
 export type DiagConvAction = { name: string; type: string; category: string; status: string; counting: string };
 
+export type DiagFailure = { section: DiagSection; error: string };
+export type DiagSection =
+  | "Conversion actions"
+  | "Campaigns"
+  | "Previous 30 days"
+  | "Auction insights"
+  | "Search terms"
+  | "Keywords and Quality Score"
+  | "Devices";
+
 export type AccountDiagnosticRaw = {
   customerId: string;
   window: { start: string; end: string };
@@ -54,6 +66,8 @@ export type AccountDiagnosticRaw = {
   searchTerms: DiagSearchTerm[];
   keywords: DiagKeyword[];
   device: DiagDevice[];
+  /** Sections whose query failed; their lists above are empty, not clean. */
+  failures: DiagFailure[];
 };
 
 const dollars = (micros: number) => Math.round((micros / 1e6) * 100) / 100;
@@ -73,15 +87,18 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
   const prevStart = isoDaysAgo(60);
   const { customerId, ctx } = await createSearchStreamContext(rawCustomerId);
 
-  async function q<T>(query: string, map: (r: Record<string, any>) => T | null): Promise<T[]> {
+  const failures: DiagFailure[] = [];
+  async function q<T>(section: DiagSection, query: string, map: (r: Record<string, any>) => T | null): Promise<T[]> {
     try {
       return await searchStream(ctx, query, map as never);
-    } catch {
+    } catch (error) {
+      failures.push({ section, error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
 
   const conversionActions = await q<DiagConvAction>(
+    "Conversion actions",
     `SELECT conversion_action.name, conversion_action.type, conversion_action.category, conversion_action.status, conversion_action.counting_type FROM conversion_action WHERE conversion_action.status != 'REMOVED'`,
     (r) => ({
       name: r.conversionAction?.name ?? "",
@@ -93,6 +110,7 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
   );
 
   const campaigns = await q<DiagCampaign>(
+    "Campaigns",
     `SELECT campaign.id, campaign.name, campaign.advertising_channel_type, campaign.bidding_strategy_type, campaign_budget.amount_micros,
        metrics.impressions, metrics.clicks, metrics.ctr, metrics.cost_micros, metrics.conversions, metrics.conversions_value,
        metrics.search_impression_share, metrics.search_absolute_top_impression_share, metrics.search_top_impression_share,
@@ -119,7 +137,13 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
     }),
   );
 
+  // Without campaigns there is nothing to diagnose: say so instead of
+  // reporting a $0, zero-findings account.
+  const campaignFailure = failures.find((failure) => failure.section === "Campaigns");
+  if (campaignFailure) throw new Error(`Google Ads wouldn't return this account's campaigns: ${campaignFailure.error}`);
+
   const prevRows = await q<{ cost: number; clicks: number; conv: number }>(
+    "Previous 30 days",
     `SELECT metrics.cost_micros, metrics.clicks, metrics.conversions FROM campaign WHERE segments.date BETWEEN '${prevStart}' AND '${prevEnd}' AND campaign.status='ENABLED'`,
     (r) => ({ cost: num(r.metrics?.costMicros), clicks: num(r.metrics?.clicks), conv: num(r.metrics?.conversions) }),
   );
@@ -131,6 +155,7 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
   prev.conv = Math.round(prev.conv * 10) / 10;
 
   const auction = await q<DiagAuction>(
+    "Auction insights",
     `SELECT segments.auction_insight_domain, metrics.auction_insight_search_impression_share, metrics.auction_insight_search_outranking_share, metrics.auction_insight_search_overlap_rate, metrics.auction_insight_search_position_above_rate, metrics.auction_insight_search_top_of_page_rate
      FROM campaign WHERE segments.date BETWEEN '${start}' AND '${end}' ORDER BY metrics.auction_insight_search_impression_share DESC LIMIT 40`,
     (r) => {
@@ -148,6 +173,7 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
   );
 
   const searchTerms = await q<DiagSearchTerm>(
+    "Search terms",
     `SELECT search_term_view.search_term, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions FROM search_term_view WHERE segments.date BETWEEN '${start}' AND '${end}' AND metrics.cost_micros > 0 ORDER BY metrics.cost_micros DESC LIMIT 250`,
     (r) => ({
       term: r.searchTermView?.searchTerm ?? "",
@@ -159,6 +185,7 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
   );
 
   const keywords = await q<DiagKeyword>(
+    "Keywords and Quality Score",
     `SELECT campaign.id, campaign.name, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type,
        ad_group_criterion.quality_info.quality_score, ad_group_criterion.quality_info.creative_quality_score,
        ad_group_criterion.quality_info.post_click_quality_score, ad_group_criterion.quality_info.search_predicted_ctr,
@@ -184,6 +211,7 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
   );
 
   const device = await q<DiagDevice>(
+    "Devices",
     `SELECT segments.device, metrics.cost_micros, metrics.clicks, metrics.conversions FROM campaign WHERE segments.date BETWEEN '${start}' AND '${end}'`,
     (r) => ({
       device: r.segments?.device ?? "UNKNOWN",
@@ -212,5 +240,6 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
     searchTerms,
     keywords,
     device: [...deviceTotals.values()].sort((a, b) => b.cost - a.cost),
+    failures,
   };
 }

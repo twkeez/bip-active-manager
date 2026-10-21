@@ -134,36 +134,21 @@ export function summarizeConversionIntegrity(
   };
 }
 
-export type MockTrackingValidationResult = {
-  clientId: number;
-  campaignId: string;
-  status: "suspect" | "review";
-  checkedAt: string;
-  findings: string[];
-};
-
-export function runMockTrackingValidation(input: {
-  anomaly: ConversionIntegrityAnomaly;
-}): MockTrackingValidationResult {
-  const { anomaly } = input;
-  const findings =
-    anomaly.anomalyType === "pixel_loop"
-      ? [
-          "Conversion count matches or exceeds click volume — typical of duplicate firing or page-load triggers.",
-          "Recommend Tag Assistant / GTM preview: verify conversion tag fires once per thank-you page view.",
-          "Check for conversion actions counting all site engagements instead of qualified leads.",
-        ]
-      : [
-          `Conversion rate ${anomaly.conversionRateLabel} exceeds ${IMPLAUSIBLE_CONV_RATE_THRESHOLD * 100}% benchmark with ${anomaly.clicks} clicks.`,
-          "Review confirmation URL rules and whether micro-conversions inflate primary goals.",
-          "Validate attribution window and duplicate conversion action imports.",
-        ];
-
-  return {
-    clientId: anomaly.clientId,
-    campaignId: anomaly.campaignId,
-    status: anomaly.severity === "critical" ? "suspect" : "review",
-    checkedAt: new Date().toISOString(),
-    findings,
-  };
+/**
+ * What to check for an anomaly: standing guidance by type. This was once shown
+ * as the result of an "Inspect landing code" scan that never looked at the
+ * site; it is the same advice, now labelled for what it is.
+ */
+export function whatToCheck(anomaly: Pick<ConversionIntegrityAnomaly, "anomalyType" | "conversionRateLabel" | "clicks">): string[] {
+  return anomaly.anomalyType === "pixel_loop"
+    ? [
+        "Conversions match or exceed clicks: usually a tag firing twice or on page load.",
+        "In Tag Assistant or GTM preview, confirm the conversion tag fires once per thank-you page view.",
+        "Check whether a conversion action counts every site engagement instead of qualified leads.",
+      ]
+    : [
+        `A ${anomaly.conversionRateLabel} conversion rate on ${anomaly.clicks} clicks is above the ${IMPLAUSIBLE_CONV_RATE_THRESHOLD * 100}% we'd believe.`,
+        "Review the confirmation-page rules, and whether small actions are counted as primary goals.",
+        "Check the attribution window and for duplicate imported conversion actions.",
+      ];
 }

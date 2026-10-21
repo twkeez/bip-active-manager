@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildConversionIntegrityAnomalies,
-  runMockTrackingValidation,
+  whatToCheck,
   summarizeConversionIntegrity,
 } from "@/lib/ads/conversion-integrity";
 import type { AdsSnapshot } from "@/lib/types/client";
@@ -164,29 +164,9 @@ describe("summarizeConversionIntegrity", () => {
   });
 });
 
-describe("runMockTrackingValidation", () => {
-  it("returns diagnostic findings for an anomaly", () => {
-    const anomalies = buildConversionIntegrityAnomalies({
-      clients: [{ id: 1, account_name: "A", ads_customer_id: "1234567890" }],
-      snapshots: [
-        snapshot({
-          client_id: 1,
-          campaigns: [
-            {
-              campaign_id: "c1",
-              campaign_name: "Test",
-              impressions: 100,
-              clicks: 5,
-              cost_micros: 50_000,
-              conversions: 5,
-              ctr: 0.05,
-            },
-          ],
-        }),
-      ],
-    });
-    const result = runMockTrackingValidation({ anomaly: anomalies[0]! });
-    expect(result.status).toBe("suspect");
-    expect(result.findings.length).toBeGreaterThan(0);
+describe("whatToCheck", () => {
+  it("gives guidance for each kind of anomaly", () => {
+    expect(whatToCheck({ anomalyType: "pixel_loop", conversionRateLabel: "100.0%", clicks: 5 })[0]).toContain("tag");
+    expect(whatToCheck({ anomalyType: "implausible_rate", conversionRateLabel: "60.0%", clicks: 20 })[0]).toContain("60.0%");
   });
 });

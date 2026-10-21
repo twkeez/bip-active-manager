@@ -4,24 +4,21 @@ import { useMemo, useState } from "react";
 import FocusClientBanner from "@/components/dashboard/focus-client-banner";
 import type { FocusClient } from "@/lib/dashboard/focus-client";
 import {
-  ArrowRight,
   CheckCircle2,
   ClipboardList,
   ExternalLink,
   LayoutGrid,
-  Loader2,
-  RefreshCw,
   ShieldAlert,
 } from "lucide-react";
+import { useFindingStates } from "@/components/ads/use-finding-states";
 import AppHeaderActions from "@/components/layout/app-header-actions";
 import PlaybookGuidancePanel, {
   PlaybookInlineTrigger,
 } from "@/components/dashboard/playbook-guidance-panel";
 import {
-  runMockTrackingValidation,
+  whatToCheck,
   type ConversionIntegrityAnomaly,
   type ConversionIntegritySummary,
-  type MockTrackingValidationResult,
 } from "@/lib/ads/conversion-integrity";
 import {
   CONVERSION_INTEGRITY_PLAYBOOK_SECTIONS,
@@ -50,56 +47,18 @@ export default function ConversionIntegrityRadar({
   loadError,
   focusClient = null,
 }: Props) {
-  const [mutedIds, setMutedIds] = useState<Set<string>>(() => new Set());
-  const [auditedIds, setAuditedIds] = useState<Set<string>>(() => new Set());
-  const [validationById, setValidationById] = useState<
-    Record<string, MockTrackingValidationResult>
-  >({});
-  const [runningValidationId, setRunningValidationId] = useState<string | null>(
-    null,
+  // Mute and Flag are saved for the whole team (lib/ads/finding-states.ts).
+  const findingStates = useFindingStates("conversion_integrity");
+  const [showMuted, setShowMuted] = useState(false);
+  const focused = useMemo(
+    () => anomalies.filter((row) => !focusClient || row.clientId === focusClient.id),
+    [anomalies, focusClient],
   );
+  const mutedCount = focused.filter((row) => findingStates.has(row.id, "muted")).length;
   const visibleAnomalies = useMemo(
-    () =>
-      anomalies
-        .filter((row) => !mutedIds.has(row.id))
-        .filter((row) => !focusClient || row.clientId === focusClient.id),
-    [anomalies, mutedIds, focusClient],
+    () => focused.filter((row) => showMuted || !findingStates.has(row.id, "muted")),
+    [focused, showMuted, findingStates],
   );
-  async function handleRunValidation(anomaly: ConversionIntegrityAnomaly) {
-    setRunningValidationId(anomaly.id);
-    try {
-      const response = await fetch("/api/ads/conversion-integrity/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: anomaly.clientId,
-          campaignId: anomaly.campaignId,
-          anomalyType: anomaly.anomalyType,
-          severity: anomaly.severity,
-          conversionRateLabel: anomaly.conversionRateLabel,
-          clicks: anomaly.clicks,
-        }),
-      });
-      const payload =
-        (await response.json()) as MockTrackingValidationResult & {
-          error?: string;
-        };
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Validation failed");
-      }
-      setValidationById((current) => ({ ...current, [anomaly.id]: payload }));
-    } catch {
-      setValidationById((current) => ({
-        ...current,
-        [anomaly.id]: runMockTrackingValidation({ anomaly }),
-      }));
-    } finally {
-      setRunningValidationId(null);
-    }
-  }
-  function handleFlagAudit(anomaly: ConversionIntegrityAnomaly) {
-    setAuditedIds((current) => new Set(current).add(anomaly.id));
-  }
   return (
     <div className="flex min-h-screen flex-1 flex-col bg-bip-page font-sans text-bip-text">
       
@@ -241,6 +200,20 @@ export default function ConversionIntegrityRadar({
               {visibleAnomalies.length === 1 ? "y" : "ies"}
             </span>
           </div>
+          {findingStates.error ? (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {findingStates.error}
+            </div>
+          ) : null}
+          {mutedCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowMuted((value) => !value)}
+              className="text-xs text-bip-muted underline-offset-2 hover:text-bip-text hover:underline"
+            >
+              {showMuted ? `Hide ${mutedCount} muted` : `Show ${mutedCount} muted`}
+            </button>
+          ) : null}
           {visibleAnomalies.length === 0 ? (
             <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-bip-border bg-bip-card/10 p-8 text-center text-xs text-bip-muted">
               
@@ -250,9 +223,8 @@ export default function ConversionIntegrityRadar({
             </div>
           ) : (
             visibleAnomalies.map((item) => {
-              const validation = validationById[item.id];
-              const isRunning = runningValidationId === item.id;
-              const isAudited = auditedIds.has(item.id);
+              const isAudited = findingStates.has(item.id, "flagged");
+              const isMuted = findingStates.has(item.id, "muted");
               const severityClass =
                 item.severity === "critical"
                   ? "border-red-500/20 bg-red-500/10 text-red-300"
@@ -278,9 +250,16 @@ export default function ConversionIntegrityRadar({
                         {item.accountIdLabel}
                       </span>
                       {isAudited ? (
-                        <span className="rounded border border-indigo-500/20 bg-bip-accent/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-bip-accent">
-                          
-                          Flagged for audit
+                        <span
+                          className="rounded border border-indigo-500/20 bg-bip-accent/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-bip-accent"
+                          title={findingStates.rowFor(item.id, "flagged")?.set_by ?? undefined}
+                        >
+                          Flagged for a tag check
+                        </span>
+                      ) : null}
+                      {isMuted ? (
+                        <span className="rounded border border-bip-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-bip-muted">
+                          Muted
                         </span>
                       ) : null}
                     </div>
@@ -322,14 +301,14 @@ export default function ConversionIntegrityRadar({
                         </p>
                       </div>
                     </div>
-                    {validation ? (
-                      <ul className="mt-3 space-y-1 rounded-lg border border-bip-border bg-bip-card/40 p-3 text-xs text-bip-muted">
-                        
-                        {validation.findings.map((finding) => (
-                          <li key={finding}>• {finding}</li>
+                    <details className="mt-3 rounded-lg border border-bip-border bg-bip-card/40 p-3 text-xs text-bip-muted">
+                      <summary className="cursor-pointer font-medium text-bip-text">What to check</summary>
+                      <ul className="mt-2 space-y-1">
+                        {whatToCheck(item).map((line) => (
+                          <li key={line}>• {line}</li>
                         ))}
                       </ul>
-                    ) : null}
+                    </details>
                     {conversionIntegrityToPlaybook(item.anomalyType) ? (
                       <PlaybookInlineTrigger
                         issueType={
@@ -344,59 +323,40 @@ export default function ConversionIntegrityRadar({
                       className={`mb-1 flex items-center justify-center gap-1.5 rounded border px-2 py-1 text-xs font-medium ${severityClass}`}
                     >
                       
-                      <RefreshCw
-                        size={12}
-                        className={isRunning ? "animate-spin" : ""}
-                      />
                       {item.anomalyLabel}
                     </div>
                     <div className="flex w-full gap-2">
-                      
-                      <button
-                        type="button"
-                        onClick={() => void handleRunValidation(item)}
-                        disabled={isRunning}
-                        className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-accent disabled:opacity-60"
+                      <Link
+                        href={`/dashboard/clients/${item.clientId}?tab=ads`}
+                        className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-bip-accent px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-accent"
                       >
-                        
-                        {isRunning ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <>
-                            
-                            Inspect landing code <ArrowRight size={12} />
-                          </>
-                        )}
-                      </button>
+                        Open ads workspace <ExternalLink size={12} />
+                      </Link>
                       <button
                         type="button"
-                        onClick={() => handleFlagAudit(item)}
+                        onClick={() =>
+                          void (isAudited
+                            ? findingStates.unset(item.id, "flagged")
+                            : findingStates.set(item.id, item.clientId, "flagged"))
+                        }
                         className="rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2 text-xs font-medium text-bip-text transition hover:bg-bip-card/70"
-                        title="Flag for manual tag audit"
+                        title={isAudited ? "Remove the tag-check flag" : "Flag for a manual tag check (saved for the team)"}
                       >
-                        
                         <ClipboardList size={14} />
                       </button>
                       <button
                         type="button"
                         onClick={() =>
-                          setMutedIds((current) =>
-                            new Set(current).add(item.id),
-                          )
+                          void (isMuted
+                            ? findingStates.unset(item.id, "muted")
+                            : findingStates.set(item.id, item.clientId, "muted"))
                         }
                         className="rounded-lg border border-bip-border bg-bip-card/40 px-3 py-2 text-xs font-medium text-bip-muted transition hover:bg-bip-card/70"
+                        title={isMuted ? "Show this again" : "Hide this for everyone until unmuted"}
                       >
-                        
-                        Mute
+                        {isMuted ? "Unmute" : "Mute"}
                       </button>
                     </div>
-                    <Link
-                      href={`/dashboard/clients/${item.clientId}?tab=ads`}
-                      className="inline-flex items-center justify-end gap-1 text-[10px] text-bip-muted transition hover:text-bip-text"
-                    >
-                      
-                      Open ads workspace <ExternalLink size={10} />
-                    </Link>
                   </div>
                 </div>
               );
