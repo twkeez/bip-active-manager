@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BookOpen, Check, Copy, ExternalLink, Loader2, Search, Sparkles, Stethoscope, TrendingUp } from "lucide-react";
 import type {
   AccountDiagnostic,
@@ -16,7 +17,7 @@ import { StatTile, StatTiles } from "@/components/ui/stat-tile";
 import { ToolPage } from "@/components/ui/tool-page";
 import { RSA_DESCRIPTION_MAX, RSA_HEADLINE_MAX, type RsaDraft } from "@/lib/ads/draft-rsa";
 
-type ClientOption = { name: string; customerId: string };
+type ClientOption = { name: string; customerId: string; clientId?: number };
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString()}`;
 const pctOrDash = (n: number | null) => (n == null ? "—" : `${n}%`);
@@ -235,13 +236,21 @@ function AuctionInsightsPanel({ rows }: { rows: AuctionRow[] }) {
   );
 }
 
+/**
+ * The live diagnosis. On a client's Ads audit page it is locked to that
+ * client (`lockedClient`); on /ads-diagnostic picking a client opens that
+ * client's page, and a raw customer ID is diagnosed in place.
+ */
 export default function AdsDiagnosticView({
   clients,
   initialCustomerId,
+  lockedClient,
 }: {
   clients: ClientOption[];
   initialCustomerId?: string;
+  lockedClient?: ClientOption;
 }) {
+  const router = useRouter();
   const [customerId, setCustomerId] = useState(initialCustomerId ?? "");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -283,15 +292,33 @@ export default function AdsDiagnosticView({
 
   return (
     <ToolPage
-      title="Ads Diagnostic"
+      title={lockedClient ? `Live diagnosis: ${lockedClient.name}` : "Ads Diagnostic"}
       icon={Stethoscope}
+      maxWidth={lockedClient ? "6xl" : "5xl"}
       description="Diagnose a Google Ads account on the metrics that move the needle — top-of-page presence and the budget-vs-rank split behind it — then get the specific changes to make. Trailing 30 days."
     >
+      {lockedClient ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={running}
+            onClick={() => void run(lockedClient.customerId)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            {running ? "Diagnosing…" : result ? "Run again" : "Run diagnosis"}
+          </button>
+          <span className="text-xs text-bip-muted">Live from Google Ads. Nothing is saved or changed.</span>
+        </div>
+      ) : (
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-bip-border bg-bip-card p-4">
         <select
           value=""
           onChange={(e) => {
-            if (e.target.value) {
+            const picked = clients.find((c) => c.customerId === e.target.value);
+            if (picked?.clientId) {
+              router.push(`/ads-audit/${picked.clientId}?tab=diagnosis`);
+            } else if (e.target.value) {
               setCustomerId(e.target.value);
               void run(e.target.value);
             }
@@ -320,6 +347,7 @@ export default function AdsDiagnosticView({
           {running ? "Diagnosing…" : "Run diagnosis"}
         </button>
       </div>
+      )}
 
       {error && <ErrorState message={error} />}
 

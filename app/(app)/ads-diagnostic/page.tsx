@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import AdsDiagnosticView from "@/components/ads/ads-diagnostic-view";
-import { isSyncableAdsCustomerId } from "@/lib/ads/customer-id";
+import { isSyncableAdsCustomerId, normalizeCustomerId } from "@/lib/ads/customer-id";
 import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
 import type { ClientRow } from "@/lib/types/client";
@@ -27,9 +27,14 @@ export default async function AdsDiagnosticPage({
 
   const clients = ((clientsRaw ?? []) as Pick<ClientRow, "id" | "account_name" | "ads_customer_id">[])
     .filter((c) => isSyncableAdsCustomerId(c.ads_customer_id))
-    .map((c) => ({ name: c.account_name ?? "Unnamed", customerId: c.ads_customer_id as string }));
+    .map((c) => ({ name: c.account_name ?? "Unnamed", customerId: c.ads_customer_id as string, clientId: c.id }));
 
-  const initialCustomerId = clients.some((c) => c.customerId === customerParam) ? customerParam : undefined;
+  // Old links (?customer=…) open that client's Ads audit page on its live
+  // diagnosis tab, which is where the diagnosis lives now.
+  const linked = customerParam
+    ? clients.find((c) => normalizeCustomerId(c.customerId) === normalizeCustomerId(customerParam))
+    : undefined;
+  if (linked) redirect(`/ads-audit/${linked.clientId}?tab=diagnosis`);
 
-  return <AdsDiagnosticView clients={clients} initialCustomerId={initialCustomerId} />;
+  return <AdsDiagnosticView clients={clients} initialCustomerId={customerParam || undefined} />;
 }

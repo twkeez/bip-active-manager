@@ -375,7 +375,7 @@ export const GUIDE: Guide = {
           adminOnly: true,
           purpose: "A deep check-up of one account over the last 30 days: how often ads show at the top, and whether budget or ad rank is holding them back.",
           youCan: [
-            "Pick a client and run the diagnosis",
+            "Pick a client to open their Ads audit page on the Live diagnosis tab (the Saved audit tab has the stored audit, its history and export)",
             "See spend, conversions and a prioritized fix list with suggested budget, bid and device changes",
             "Copy negative keywords, and draft ad copy with AI",
           ],
