@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import SidebarSwitch from "@/components/layout/sidebar-switch";
+import Sidebar from "@/components/layout/sidebar";
 import { getProfile } from "@/lib/auth/profile";
 import { resolveEffectiveRole, VIEW_AS_COOKIE } from "@/lib/auth/effective-role";
 import { getAppMode } from "@/lib/auth/app-mode";
@@ -34,7 +34,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <SidebarSwitch
+      <Sidebar
         role={effectiveRole}
         actualRole={actualRole}
         userName={profile?.full_name ?? ""}
