@@ -1195,7 +1195,7 @@ export default function ClientOverview({
           />
           {adsRunnable && (
             <ModuleTile
-              href={`/ads-diagnostic?customer=${encodeURIComponent(norm(client.ads_customer_id) ?? "")}`}
+              href={`/ads-audit/${client.id}?tab=diagnosis`}
               icon={Target}
               tint={T.amberTint}
               stroke={T.amber}
