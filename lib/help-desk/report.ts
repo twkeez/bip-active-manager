@@ -101,7 +101,8 @@ function person(name: string | null, email: string | null) {
 type PracticeStats = {
   tickets: ReportTicket[];
   methods: Map<MatchMethod, number>;
-  requesters: Map<number, { tickets: number; last: string | null }>;
+  /** recent = tickets since the category cutoff (the last two years). */
+  requesters: Map<number, { tickets: number; recent: number; last: string | null }>;
   lastAt: string | null;
 };
 
@@ -143,8 +144,9 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
     s.methods.set(match.method, (s.methods.get(match.method) ?? 0) + 1);
     s.lastAt = later(s.lastAt, ticket.createdAt);
     if (ticket.requesterId) {
-      const r = s.requesters.get(ticket.requesterId) ?? { tickets: 0, last: null };
+      const r = s.requesters.get(ticket.requesterId) ?? { tickets: 0, recent: 0, last: null };
       r.tickets += 1;
+      if (ticket.createdAt && ticket.createdAt >= input.categoryCutoff) r.recent += 1;
       r.last = later(r.last, ticket.createdAt);
       s.requesters.set(ticket.requesterId, r);
     }
@@ -172,7 +174,7 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
   const clientRows: Cell[][] = [[
     "Practice Name", "Client Status", "URL", "Package", "Strategist", "Website Only?", "Website Product", "Launch Date",
     "Zendesk Tickets", "Last Help Desk Contact", `What They Ask For (since ${day(cutoff)}, by ticket count)`, "Recent Requests",
-    "Zendesk Contacts", "Basecamp Contacts", "How Tickets Were Matched", "Reason for Leaving",
+    "Zendesk Contacts", `Zendesk Contacts (since ${day(cutoff)})`, "Basecamp Contacts", "How Tickets Were Matched", "Reason for Leaving",
   ]];
   let clientsWithTickets = 0;
   let websiteOnlyWithTickets = 0;
@@ -205,6 +207,13 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
     const zendeskContacts = clientRequesters(s)
       .map((r) => `${person(r.user!.name, r.user!.email)} (${r.tickets})`)
       .join("\n");
+    // The same people, only those who wrote in since the cutoff, counted over
+    // that window — who to contact today, next to the all-years history.
+    const recentZendeskContacts = clientRequesters(s)
+      .filter((r) => r.recent > 0)
+      .sort((a, b) => b.recent - a.recent)
+      .map((r) => `${person(r.user!.name, r.user!.email)} (${r.recent})`)
+      .join("\n");
     const basecampContacts = (basecampByPractice.get(practice) ?? [])
       .sort((a, b) => b.posts - a.posts)
       .map((c) => person(c.name, c.email))
@@ -228,6 +237,7 @@ export function buildReport(input: ReportInput): { tabs: Tab[]; summary: Record<
       categorySummary,
       recent,
       zendeskContacts,
+      recentZendeskContacts,
       basecampContacts,
       methods,
       practice.leftReason ?? "",

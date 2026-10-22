@@ -106,6 +106,10 @@ describe("buildReport", () => {
     expect(happy[col("What They Ask For (since 2024-10-15, by ticket count)")]).toBe("Photo / image change (2); Staff or doctor update (1)");
     // Staff who filed a ticket for the client are not the client's contacts.
     expect(happy[col("Zendesk Contacts")]).toBe("Jane <jane@happypawsvet.com> (3)");
+    // Next to it: the same people counted over the last two years only
+    // (Jane's 2020 ticket drops out).
+    expect(header[col("Zendesk Contacts") + 1]).toBe("Zendesk Contacts (since 2024-10-15)");
+    expect(happy[col("Zendesk Contacts (since 2024-10-15)")]).toBe("Jane <jane@happypawsvet.com> (2)");
     expect(happy[col("Basecamp Contacts")]).toBe("Dr. Kim <kim@happypawsvet.com>");
     expect(oak[col("Package")]).toBe("5.00");
     expect(oak[col("Strategist")]).toBe("Alex");
@@ -137,5 +141,33 @@ describe("buildReport", () => {
       uncategorized: 1,
     });
     expect(tab("Tickets")).toHaveLength(8);
+  });
+});
+
+describe("buildReport — recent Zendesk contacts", () => {
+  it("leaves out people whose tickets are all older than the cutoff", () => {
+    const { tabs } = buildReport({
+      practices: [websiteClient],
+      tickets: [ticket(1, 10, "2026-01-01T00:00:00Z", null), ticket(2, 20, "2019-05-01T00:00:00Z", null)],
+      matches: new Map<number, TicketMatch>([
+        [1, { ticketId: 1, practice: websiteClient, method: "email-domain" }],
+        [2, { ticketId: 2, practice: websiteClient, method: "email-domain" }],
+      ]),
+      users: [
+        { id: 10, name: "Now", email: "now@happypawsvet.com", role: "end-user", organizationId: null },
+        { id: 20, name: "Then", email: "then@happypawsvet.com", role: "end-user", organizationId: null },
+      ],
+      organizations: [],
+      basecampContacts: [],
+      internalDomains: ["beyondindigo.com"],
+      zendeskHost: "beyondindigo.zendesk.com",
+      unknownOverrideNames: [],
+      overrideByEmail: new Map(),
+      categoryCutoff: "2024-10-15T00:00:00.000Z",
+      generatedAt: new Date("2026-10-15T12:00:00Z"),
+    });
+    const [header, row] = tabs.find((t) => t.title === "Clients")!.rows;
+    expect(row![header!.indexOf("Zendesk Contacts")]).toBe("Now <now@happypawsvet.com> (1)\nThen <then@happypawsvet.com> (1)");
+    expect(row![header!.indexOf("Zendesk Contacts (since 2024-10-15)")]).toBe("Now <now@happypawsvet.com> (1)");
   });
 });
