@@ -9,6 +9,7 @@
     { "path": "/api/cron/social-sync", "schedule": "40 7 * * *" },
     { "path": "/api/cron/seo-sync", "schedule": "10 8 * * *" },
     { "path": "/api/cron/ga4-sync", "schedule": "40 8 * * *" },
-    { "path": "/api/cron/gbp-sync", "schedule": "10 9 * * *" }
+    { "path": "/api/cron/gbp-sync", "schedule": "10 9 * * *" },
+    { "path": "/api/cron/help-desk-report", "schedule": "20 11 * * 1" }
   ]
 }

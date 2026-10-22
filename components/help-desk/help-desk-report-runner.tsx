@@ -181,8 +181,8 @@ export default function HelpDeskReportRunner(props: Props) {
         ))}
       </div>
       <p className="text-[11px] text-bip-muted">
-        The first Zendesk sync pulls every ticket back to the start and can take several minutes —
-        keep this tab open. Later runs only fetch what changed.
+        Runs by itself every Monday morning (about 7 AM Eastern). Use these buttons for a fresh
+        copy in between — keep this tab open while it runs; it only fetches what changed.
       </p>
 
       {error && (

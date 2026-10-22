@@ -24,6 +24,8 @@ export const WATCHED_JOBS: WatchedJob[] = [
   { key: "ga4-sync", name: "Google Analytics sync", schedule: "nightly", overdueAfterHours: 26 },
   { key: "gbp-sync", name: "Business Profile sync", schedule: "nightly", overdueAfterHours: 26 },
   { key: "job-watch", name: "Job watchdog", schedule: "hourly", overdueAfterHours: 3 },
+  // Mondays 11:20 UTC (7:20 AM Eastern in summer, 6:20 AM in winter): a week plus slack.
+  { key: "help-desk-report", name: "Help Desk Report", schedule: "weekly, Monday morning", overdueAfterHours: 170 },
 ];
 
 /** Vercel stops a job at 800s at most. A run still open well after that was killed. */

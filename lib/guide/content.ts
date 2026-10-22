@@ -7,7 +7,7 @@ import type { Guide } from "@/lib/guide/types";
 // and anything that would otherwise surprise you.
 
 export const GUIDE: Guide = {
-  updated: "October 21, 2026",
+  updated: "October 22, 2026",
   intro: [
     "BIP Control is Beyond Indigo's home base for running client work: who our clients are, what they bought, what they're waiting on, how their marketing is performing and what we need to do next.",
     "This guide walks through the sidebar from top to bottom. Each tool says what it's for, what you can do there, and anything good to know before you rely on it.",
@@ -461,6 +461,7 @@ export const GUIDE: Guide = {
             "Fix unmatched tickets on the sheet's Unmatched tab; your fixes are picked up on the next run",
           ],
           notes: [
+            "Updates itself every Monday morning (about 7 AM Eastern): new tickets are pulled, sorted and written to the sheet. Run everything any time for a fresh copy.",
             "Ticket text is client correspondence, so it's admins only. It never writes to the Master Sheet itself.",
           ],
         },
