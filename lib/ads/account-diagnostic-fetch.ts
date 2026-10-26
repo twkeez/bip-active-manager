@@ -92,7 +92,12 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
     try {
       return await searchStream(ctx, query, map as never);
     } catch (error) {
-      failures.push({ section, error: error instanceof Error ? error.message : String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      // Google doesn't share auction insights with our API access (403 on
+      // every account): that's a standing limit, not a failed check, so the
+      // section is simply left out rather than flagged on every diagnosis.
+      if (section === "Auction insights" && /PERMISSION_DENIED|\(403\)/.test(message)) return [];
+      failures.push({ section, error: message });
       return [];
     }
   }
@@ -156,7 +161,7 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
 
   const auction = await q<DiagAuction>(
     "Auction insights",
-    `SELECT segments.auction_insight_domain, metrics.auction_insight_search_impression_share, metrics.auction_insight_search_outranking_share, metrics.auction_insight_search_overlap_rate, metrics.auction_insight_search_position_above_rate, metrics.auction_insight_search_top_of_page_rate
+    `SELECT segments.auction_insight_domain, metrics.auction_insight_search_impression_share, metrics.auction_insight_search_outranking_share, metrics.auction_insight_search_overlap_rate, metrics.auction_insight_search_position_above_rate
      FROM campaign WHERE segments.date BETWEEN '${start}' AND '${end}' ORDER BY metrics.auction_insight_search_impression_share DESC LIMIT 40`,
     (r) => {
       const domain = r.segments?.auctionInsightDomain?.trim();
@@ -167,7 +172,7 @@ export async function fetchAccountDiagnostic(rawCustomerId: string): Promise<Acc
         outranking: pct(r.metrics?.auctionInsightSearchOutrankingShare),
         overlap: pct(r.metrics?.auctionInsightSearchOverlapRate),
         posAbove: pct(r.metrics?.auctionInsightSearchPositionAboveRate),
-        topOfPage: pct(r.metrics?.auctionInsightSearchTopOfPageRate),
+        topOfPage: null, // Google removed this metric in API v24
       };
     },
   );

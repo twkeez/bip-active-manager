@@ -330,7 +330,6 @@ export async function runGoogleAdsSync(
         metrics.auction_insight_search_impression_share,
         metrics.auction_insight_search_overlap_rate,
         metrics.auction_insight_search_position_above_rate,
-        metrics.auction_insight_search_top_of_page_rate,
         metrics.auction_insight_search_outranking_share
       FROM campaign
       WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
