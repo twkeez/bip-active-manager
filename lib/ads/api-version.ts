@@ -10,13 +10,22 @@
  * So a configured version is not trusted blindly: anything known to be retired
  * is ignored in favour of the current one, because a stale environment variable
  * can only break the integration, never fix it.
+ *
+ * 2026-10-26: v22 started refusing requests ("Version v22 is deprecated");
+ * moved to v24 (supported until about May 2027). v24 dropped
+ * metrics.auction_insight_search_top_of_page_rate, so the queries no longer ask
+ * for it. Google's sunset dates: developers.google.com/google-ads/api/docs/sunset-dates
  */
 
 /** The version this app targets today. */
-export const CURRENT_GOOGLE_ADS_API_VERSION = "v22";
+export const CURRENT_GOOGLE_ADS_API_VERSION = "v24";
 
-/** Highest version confirmed retired (v19–v21 returned HTML 404s on 2026-09-14). */
-const HIGHEST_RETIRED_VERSION = 21;
+/**
+ * Versions at or below this are never used, even if configured: v19–v21
+ * retired 2026-09-14, v22 on 2026-10-26, and v23 is older than what the
+ * queries were last checked against (v24).
+ */
+const HIGHEST_RETIRED_VERSION = 23;
 
 export function resolveGoogleAdsApiVersion(raw: string | null | undefined): string {
   const value = (raw ?? "").trim().toLowerCase();
