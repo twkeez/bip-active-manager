@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BeyondIndigoLogo from "@/components/onboarding/beyond-indigo-logo";
 import type { Guide } from "@/lib/guide/types";
+import { HIDDEN_NAV_HREFS } from "@/lib/nav/hidden";
 
 // The team guide, branded for Beyond Indigo Pets. The same component renders
 // in the app (/guide, with links into each tool) and on the print/PDF page
@@ -78,6 +79,11 @@ export default function GuideDocument({ guide, linksAsText = false }: { guide: G
                     <Link href={item.href} className="hover:underline">
                       {item.label}
                     </Link>
+                  )}
+                  {HIDDEN_NAV_HREFS.has(item.href) && (
+                    <span className="rounded-full bg-amber-50 px-2 py-px text-[10.5px] font-semibold uppercase tracking-wide text-amber-700">
+                      Hidden for now
+                    </span>
                   )}
                   {item.adminOnly && (
                     <span className="rounded-full bg-slate-100 px-2 py-px text-[10.5px] font-semibold uppercase tracking-wide text-slate-500">
