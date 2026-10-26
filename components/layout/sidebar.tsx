@@ -55,6 +55,7 @@ import { useState } from "react";
 import type { UserRole } from "@/lib/auth/profile";
 import { isNavItemVisibleForRole, type AppMode } from "@/lib/auth/app-mode";
 import { useViewAs } from "@/components/layout/use-view-as";
+import { HIDDEN_NAV_HREFS } from "@/lib/nav/hidden";
 
 type NavItem = {
   label: string;
@@ -193,6 +194,7 @@ function NavLink({
 }) {
   const pathname = usePathname();
   if (item.adminOnly && role !== "admin") return null;
+  if (HIDDEN_NAV_HREFS.has(item.href)) return null;
   if (!isNavItemVisibleForRole(item.href, appMode, role === "admin")) return null;
   const active =
     item.href === "/dashboard"
@@ -235,7 +237,10 @@ function SectionGroup({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const visible = items.filter(
-    (i) => (!i.adminOnly || role === "admin") && isNavItemVisibleForRole(i.href, appMode, role === "admin"),
+    (i) =>
+      (!i.adminOnly || role === "admin") &&
+      !HIDDEN_NAV_HREFS.has(i.href) &&
+      isNavItemVisibleForRole(i.href, appMode, role === "admin"),
   );
   if (visible.length === 0) return null;
   return (

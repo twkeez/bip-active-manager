@@ -41,3 +41,10 @@ describe("team guide", () => {
     }
   });
 });
+
+describe("hidden sidebar links", () => {
+  it("only hides links the sidebar actually has", async () => {
+    const { HIDDEN_NAV_HREFS } = await import("@/lib/nav/hidden");
+    for (const href of HIDDEN_NAV_HREFS) expect(sidebarLinks.has(href), href).toBe(true);
+  });
+});

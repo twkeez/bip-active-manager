@@ -1,4 +1,5 @@
 import type { Guide } from "@/lib/guide/types";
+import { HIDDEN_NAV_HREFS } from "@/lib/nav/hidden";
 
 // The team guide as HTML that Word opens as an editable .doc (served as
 // application/msword, like the client document's Word export). Inline hex
@@ -43,7 +44,9 @@ export function renderGuideWord(guide: Guide): string {
     );
     if (section.intro) body.push(`<p style="font-size:12px;color:${MUTED};">${esc(section.intro)}</p>`);
     for (const item of section.items) {
-      const badge = item.adminOnly ? ` <span style="font-size:10px;color:${MUTED};">(ADMINS)</span>` : "";
+      const badge =
+        (item.adminOnly ? ` <span style="font-size:10px;color:${MUTED};">(ADMINS)</span>` : "") +
+        (HIDDEN_NAV_HREFS.has(item.href) ? ` <span style="font-size:10px;color:${MUTED};">(HIDDEN FOR NOW)</span>` : "");
       body.push(`<h3 style="color:${INDIGO};font-size:14px;margin:14px 0 2px;">${esc(item.label)}${badge}</h3>`);
       body.push(`<p style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 4px;">${esc(item.purpose)}</p>`);
       if (item.youCan.length) {
