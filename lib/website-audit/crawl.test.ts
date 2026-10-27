@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeHtml, bareDomain, summarize } from "./crawl";
+import { analyzeHtml, bareDomain, softErrorOf, summarize } from "./crawl";
 import type { CrawlPage } from "./types";
 
 const html = `<html><head><title>Dog Dental Care in Powder Springs</title>
@@ -32,7 +32,7 @@ describe("website audit crawl", () => {
     const base = analyzeHtml(html, "https://www.example.com/dental/");
     const page = (url: string, chain: CrawlPage["chain"]): CrawlPage => ({
       ...base, url, host: new URL(url).host, sitemap: "s", chain, redirectLoop: false,
-      finalUrl: chain.at(-1)!.url, finalStatus: 200, error: null, archiveType: null,
+      finalUrl: chain.at(-1)!.url, finalStatus: 200, error: null, archiveType: null, softError: null,
     });
     const s = summarize(
       [
@@ -51,5 +51,14 @@ describe("website audit crawl", () => {
     expect(s.insecureRedirects).toEqual(["https://example.com/dental/"]);
     expect(s.repeatedH1OnPage).toEqual(["https://example.com/dental/"]);
     expect(s.duplicateH1AcrossPages).toEqual([]);
+  });
+});
+
+describe("error pages served as 200", () => {
+  it("recognises dhah.org's redirect-loop page and PHP errors", () => {
+    const loop = "<pre style='background:#111'>SELF-REDIRECT LOOP DETECTED\nCurrent:  https://www.dhah.org/blog/hello-world\nBacktrace:\n#0 /var/www/x/public_html/blog/wp-includes/class-wp-hook.php:353";
+    expect(softErrorOf(loop)).toBe("redirect-loop");
+    expect(softErrorOf("<b>Fatal error</b>: Uncaught Error in /wp-content/x.php")).toBe("server-error");
+    expect(softErrorOf(html)).toBeNull();
   });
 });

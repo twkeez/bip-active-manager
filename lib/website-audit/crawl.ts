@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { extractSchemaTypes } from "@/lib/seo/schema";
-import type { CrawlPage, CrawlSummary, RedirectHop, SlashVariantCheck, TechnicalCrawl } from "@/lib/website-audit/types";
+import type { CrawlPage, CrawlSummary, RedirectHop, SlashVariantCheck, SoftError, TechnicalCrawl } from "@/lib/website-audit/types";
 
 // Section 3 of the Website, SEO & AI Search Audit: one polite pass over every
 // URL the site's sitemaps list, on both the bare and www host. Unlike the
@@ -136,6 +136,21 @@ async function scanSitemaps(hosts: string[], robotsSitemaps: string[]): Promise<
   return scan;
 }
 
+/**
+ * A page that answers 200 OK but is really an error. dhah.org (2026-10-27)
+ * answers every blog post without its trailing slash with a 200 whose body is
+ * "SELF-REDIRECT LOOP DETECTED" and a WordPress backtrace: a status-only check
+ * calls that a working page.
+ */
+export function softErrorOf(body: string): SoftError | null {
+  const head = body.slice(0, 4000);
+  if (/redirect loop detected/i.test(head)) return "redirect-loop";
+  if (/Backtrace:|(Fatal|Parse) error:|Uncaught (Exception|Error)|wp-includes\/[\w-]+\.php|There has been a critical error on this website/i.test(head)) {
+    return "server-error";
+  }
+  return null;
+}
+
 const ARCHIVE_PATTERNS: [RegExp, CrawlPage["archiveType"]][] = [
   [/\/tag\//i, "tag"],
   [/\/category\//i, "category"],
@@ -162,7 +177,7 @@ function sameUrl(a: string, b: string, ignoreTrailingSlash: boolean): boolean {
   }
 }
 
-export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "url" | "host" | "sitemap" | "chain" | "redirectLoop" | "finalUrl" | "finalStatus" | "error" | "archiveType"> {
+export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "url" | "host" | "sitemap" | "chain" | "redirectLoop" | "finalUrl" | "finalStatus" | "error" | "archiveType" | "softError"> {
   const $ = cheerio.load(html);
   const title = $("head > title").first().text().replace(/\s+/g, " ").trim() || null;
   const metaDescription = $('meta[name="description" i]').attr("content")?.replace(/\s+/g, " ").trim() || null;
@@ -233,6 +248,7 @@ async function crawlUrl(entry: { url: string; sitemap: string }): Promise<CrawlP
     hasViewport: false,
     text: "",
     navLinks: [],
+    softError: null,
   };
   if (!result.response) {
     return { ...base, ...empty, chain: result.chain, redirectLoop: result.loop, finalUrl, finalStatus, error: result.error };
@@ -243,7 +259,9 @@ async function crawlUrl(entry: { url: string; sitemap: string }): Promise<CrawlP
     return { ...base, ...empty, chain: result.chain, redirectLoop: false, finalUrl, finalStatus, error: null };
   }
   const html = await result.response.text();
-  return { ...base, ...analyzeHtml(html, finalUrl), chain: result.chain, redirectLoop: false, finalUrl, finalStatus, error: null };
+  const softError = softErrorOf(html);
+  if (softError) return { ...base, ...empty, softError, chain: result.chain, redirectLoop: false, finalUrl, finalStatus, error: null };
+  return { ...base, ...analyzeHtml(html, finalUrl), softError: null, chain: result.chain, redirectLoop: false, finalUrl, finalStatus, error: null };
 }
 
 async function exists(url: string): Promise<{ present: boolean; status: number | null; body: string }> {
@@ -265,7 +283,7 @@ function uniqueByFinalUrl(pages: CrawlPage[]): CrawlPage[] {
 export function summarize(pages: CrawlPage[], domain: string, variants: SlashVariantCheck[] = []): CrawlSummary {
   const byHost: Record<string, number> = {};
   for (const page of pages) byHost[page.host] = (byHost[page.host] ?? 0) + 1;
-  const ok = uniqueByFinalUrl(pages.filter((p) => p.finalStatus === 200));
+  const ok = uniqueByFinalUrl(pages.filter((p) => p.finalStatus === 200 && !p.softError));
   const h1Count = new Map<string, number>();
   for (const page of ok) for (const h1 of new Set(page.h1s)) h1Count.set(h1, (h1Count.get(h1) ?? 0) + 1);
   const statusCounts: Record<string, number> = {};
@@ -284,6 +302,7 @@ export function summarize(pages: CrawlPage[], domain: string, variants: SlashVar
     redirected: pages.filter((p) => p.chain.length > 1).length,
     redirectLoops: pages.filter((p) => p.redirectLoop).map((p) => p.url),
     serverErrors: pages.filter((p) => (p.finalStatus ?? 0) >= 500).map((p) => p.url),
+    softErrors: pages.filter((p) => p.softError).map((p) => p.url),
     notFound: pages.filter((p) => p.finalStatus === 404).map((p) => p.url),
     fetchErrors: pages.filter((p) => p.error && !p.redirectLoop).map((p) => `${p.url}: ${p.error}`),
     pagesOk: ok.length,
@@ -307,8 +326,9 @@ export function summarize(pages: CrawlPage[], domain: string, variants: SlashVar
     insecureRedirects: pages.filter((p) => insecureHop(p.chain)).map((p) => p.url),
     slashVariants: {
       checked: variants.length,
-      loops: variants.filter((v) => v.loop).map((v) => v.variantUrl),
-      duplicates: variants.filter((v) => v.chain.length === 1 && v.finalStatus === 200).map((v) => v.variantUrl),
+      loops: variants.filter((v) => v.loop || v.softError === "redirect-loop").map((v) => v.variantUrl),
+      broken: variants.filter((v) => v.softError === "server-error").map((v) => v.variantUrl),
+      duplicates: variants.filter((v) => v.chain.length === 1 && v.finalStatus === 200 && !v.softError).map((v) => v.variantUrl),
       insecure: variants.filter((v) => insecureHop(v.chain)).map((v) => v.variantUrl),
     },
   };
@@ -366,8 +386,16 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
       const target = variantTargets[nextVariant];
       nextVariant += 1;
       const result = await fetchWithChain(target.variantUrl);
-      await result.response?.body?.cancel().catch(() => undefined);
-      slashVariants.push({ ...target, chain: result.chain, loop: result.loop, finalStatus: result.response?.status ?? null });
+      // Read a 200's body: it may be an error message served as a success.
+      const body = result.response?.status === 200 ? await result.response.text().catch(() => "") : "";
+      if (result.response?.status !== 200) await result.response?.body?.cancel().catch(() => undefined);
+      slashVariants.push({
+        ...target,
+        chain: result.chain,
+        loop: result.loop,
+        finalStatus: result.response?.status ?? null,
+        softError: softErrorOf(body),
+      });
       await sleep(DELAY_MS);
     }
   }
