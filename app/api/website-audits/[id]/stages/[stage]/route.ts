@@ -30,11 +30,16 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
   try {
     const results = { ...audit.results };
+    const dataForSeoCost = Number(audit.dataforseo_cost_usd ?? 0);
     if ((stage as AuditStage) === "crawl") {
       // Leave a minute for saving: the route's limit is 300 seconds.
       results.technical = await crawlSite(audit.domain, 230_000);
     }
-    await setStage({ results, stage_status: { ...audit.stage_status, [stage]: { status: "done", at: now() } } });
+    await setStage({
+      results,
+      dataforseo_cost_usd: Number(dataForSeoCost.toFixed(4)),
+      stage_status: { ...audit.stage_status, [stage]: { status: "done", at: now() } },
+    });
     return NextResponse.json({ ok: true });
   } catch (stageError) {
     const message = stageError instanceof Error ? stageError.message : "The step failed.";

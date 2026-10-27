@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeHtml, bareDomain, softErrorOf, summarize } from "./crawl";
+import { analyzeHtml, bareDomain, pageKey, softErrorOf, summarize } from "./crawl";
 import type { CrawlPage } from "./types";
 
 const html = `<html><head><title>Dog Dental Care in Powder Springs</title>
@@ -60,5 +60,16 @@ describe("error pages served as 200", () => {
     expect(softErrorOf(loop)).toBe("redirect-loop");
     expect(softErrorOf("<b>Fatal error</b>: Uncaught Error in /wp-content/x.php")).toBe("server-error");
     expect(softErrorOf(html)).toBeNull();
+  });
+});
+
+describe("sitemap gaps", () => {
+  it("compares pages ignoring www and the trailing slash, and keeps only same-site page links", () => {
+    expect(pageKey("https://www.dhah.org/blog/post")).toBe(pageKey("https://dhah.org/blog/post/"));
+    const page = analyzeHtml(
+      '<a href="/blog/a/">A</a><a href="https://www.example.com/b#x">B</a><a href="https://other.com/c">C</a><a href="/img.jpg">I</a><a href="/blog/page/2/">2</a><a href="/?p=1">p</a>',
+      "https://example.com/",
+    );
+    expect(page.links).toEqual(["https://example.com/blog/a/", "https://www.example.com/b"]);
   });
 });
