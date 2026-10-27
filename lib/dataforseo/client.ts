@@ -1,3 +1,5 @@
+import { dataForSeoCost, dataForSeoEndpointName, recordApiCost } from "@/lib/api-costs/record";
+
 export const DEFAULT_LOCATION_CODE = 2840;
 export const DEFAULT_LANGUAGE_CODE = "en";
 
@@ -83,12 +85,17 @@ export function dataForSeoTaskError(apiData: unknown): string | null {
   return null;
 }
 
+/**
+ * One live DataForSEO request. Its cost is recorded on AI Spend under
+ * `feature` (default: "DataForSEO: <endpoint>"); `cost` is returned too.
+ */
 export async function postDataForSeoLive(
   url: string,
   login: string,
   password: string,
   payload: unknown[],
-): Promise<{ ok: boolean; status: number; data: unknown; error: string | null }> {
+  feature?: string,
+): Promise<{ ok: boolean; status: number; data: unknown; error: string | null; cost: number }> {
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -99,19 +106,23 @@ export async function postDataForSeoLive(
   });
 
   const data = await response.json();
+  const cost = dataForSeoCost(data);
+  const endpoint = dataForSeoEndpointName(url);
+  await recordApiCost({ feature: feature ?? `DataForSEO: ${endpoint}`, model: `dataforseo/${endpoint}`, costUsd: cost });
   if (!response.ok) {
     return {
       ok: false,
       status: response.status,
       data,
       error: "DataForSEO request failed.",
+      cost,
     };
   }
 
   const taskError = dataForSeoTaskError(data);
   if (taskError) {
-    return { ok: false, status: 502, data, error: taskError };
+    return { ok: false, status: 502, data, error: taskError, cost };
   }
 
-  return { ok: true, status: 200, data, error: null };
+  return { ok: true, status: 200, data, error: null, cost };
 }

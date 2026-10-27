@@ -56,7 +56,8 @@ type BacklinkPayload = {
 export async function fetchBacklinkSummary(
   config: { login: string; password: string },
   target: string,
-): Promise<{ ok: true; summary: BacklinkSummary } | { ok: false; error: string }> {
+  feature?: string,
+): Promise<{ ok: true; summary: BacklinkSummary; cost: number } | { ok: false; error: string; cost?: number }> {
   const domain = cleanDomain(target);
   if (!domain) return { ok: false, error: "Enter a domain to look up." };
 
@@ -65,6 +66,7 @@ export async function fetchBacklinkSummary(
     config.login,
     config.password,
     [{ target: domain, internal_list_limit: 1, backlinks_status_type: "live" }],
+    feature,
   );
   if (!res.ok) return { ok: false, error: res.error ?? "Backlink summary failed." };
 
@@ -73,6 +75,7 @@ export async function fetchBacklinkSummary(
 
   return {
     ok: true,
+    cost: res.cost,
     summary: {
       target: result.target ?? domain,
       rank: toNumber(result.rank),

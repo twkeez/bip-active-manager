@@ -6,6 +6,7 @@ import {
   placeIdKeyword,
   postDataForSeoLive,
 } from "@/lib/dataforseo/client";
+import { dataForSeoCost, recordApiCost } from "@/lib/api-costs/record";
 
 export type PlaceSnapshot = {
   placeId: string;
@@ -52,7 +53,8 @@ function toIntMap(raw: unknown): Record<string, number> {
 export async function fetchPlaceSnapshot(
   config: Config,
   placeId: string,
-): Promise<{ ok: true; snapshot: PlaceSnapshot } | { ok: false; error: string }> {
+  feature?: string,
+): Promise<{ ok: true; snapshot: PlaceSnapshot; cost: number } | { ok: false; error: string }> {
   if (!placeId.trim()) return { ok: false, error: "This client has no Google Place ID." };
 
   const res = await postDataForSeoLive(
@@ -60,6 +62,7 @@ export async function fetchPlaceSnapshot(
     config.login,
     config.password,
     [{ keyword: placeIdKeyword(placeId), location_code: 2840, language_code: "en" }],
+    feature,
   );
   if (!res.ok) return { ok: false, error: res.error ?? "Business lookup failed." };
 
@@ -78,6 +81,7 @@ export async function fetchPlaceSnapshot(
 
   return {
     ok: true,
+    cost: res.cost,
     snapshot: {
       placeId,
       title: item.title ?? null,
@@ -103,7 +107,8 @@ export async function postReviewTask(
   config: Config,
   placeId: string,
   depth = 200,
-): Promise<{ ok: true; taskId: string } | { ok: false; error: string }> {
+  feature = "Reputation: Google reviews",
+): Promise<{ ok: true; taskId: string; cost: number } | { ok: false; error: string }> {
   if (!placeId.trim()) return { ok: false, error: "This client has no Google Place ID." };
 
   const response = await fetch(DATAFORSEO_ENDPOINTS.reviewsTaskPost, {
@@ -129,6 +134,8 @@ export async function postReviewTask(
     status_message?: string;
     tasks?: Array<{ id?: string; status_code?: number; status_message?: string }>;
   };
+  const cost = dataForSeoCost(data);
+  await recordApiCost({ feature, model: "dataforseo/business_data/google/reviews", costUsd: cost });
 
   if (!response.ok || (data.status_code != null && data.status_code !== 20000)) {
     return { ok: false, error: data.status_message ?? "Could not queue the review pull." };
@@ -140,7 +147,7 @@ export async function postReviewTask(
     return { ok: false, error: task.status_message ?? "Review task was rejected." };
   }
   if (!task?.id) return { ok: false, error: "DataForSEO did not return a task id." };
-  return { ok: true, taskId: task.id };
+  return { ok: true, taskId: task.id, cost };
 }
 
 type ReviewPayload = {

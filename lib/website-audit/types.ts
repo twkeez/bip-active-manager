@@ -126,11 +126,42 @@ export type SitemapGap = {
   softError: SoftError | null;
 };
 
-export type AuditResults = {
-  technical?: TechnicalCrawl;
+/** DataForSEO's backlink summary for one domain. `rank` is DataForSEO's own 0–1000 scale, not "Domain Rating". */
+export type DomainAuthority = {
+  domain: string;
+  error: string | null;
+  rank: number | null;
+  referringDomains: number | null;
+  backlinks: number | null;
+  spamScore: number | null;
 };
 
-export const AUDIT_STAGES = ["crawl"] as const;
+export type AuthorityResults = {
+  checkedAt: string;
+  own: DomainAuthority;
+  competitors: DomainAuthority[];
+  google: {
+    placeId: string | null;
+    /** Where the listing id came from; "search" means confirm the listing name below is right. */
+    placeSource: "client record" | "search" | null;
+    listingName: string | null;
+    listingAddress: string | null;
+    rating: number | null;
+    reviewCount: number | null;
+    /** The newest reviews, without reviewer names. */
+    reviews: { rating: number | null; text: string | null; date: string | null; ownerAnswered: boolean }[];
+    reviewsError: string | null;
+  };
+  notes: string[];
+  costUsd: number;
+};
+
+export type AuditResults = {
+  technical?: TechnicalCrawl;
+  authority?: AuthorityResults;
+};
+
+export const AUDIT_STAGES = ["crawl", "authority"] as const;
 export type AuditStage = (typeof AUDIT_STAGES)[number];
 
 export type StageState = { status: "running" | "done" | "failed"; at: string; error?: string };
