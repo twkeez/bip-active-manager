@@ -156,12 +156,77 @@ export type AuthorityResults = {
   costUsd: number;
 };
 
+export type AiPlatform = "ai_overview" | "ai_mode" | "chatgpt" | "gemini" | "perplexity" | "claude";
+
+export type AiPrompt = { id: string; kind: "local" | "service" | "informational"; text: string };
+
+/** One prompt asked of one platform. */
+export type PromptRun = {
+  promptId: string;
+  platform: AiPlatform;
+  /** False when the platform gave no answer (e.g. Google showed no AI Overview). */
+  answered: boolean;
+  cited: boolean;
+  ownCitations: number;
+  ownUrls: string[];
+  /** The practice named in the answer text. */
+  mentioned: boolean;
+  citedDomains: string[];
+  answerExcerpt: string;
+  error: string | null;
+};
+
+export type PlatformSummary = {
+  platform: AiPlatform;
+  label: string;
+  model: string | null;
+  promptsPlanned: number;
+  promptsRun: number;
+  promptsAnswered: number;
+  promptsCited: number;
+  promptsMentioned: number;
+  citations: number;
+};
+
+type MentionTotals = { mentions: number; aiSearchVolume: number; byPlatform: Record<string, number>; error: string | null };
+
+/** DataForSEO's LLM Mentions database: observed answers, not our prompts. */
+export type MentionsDatabase = {
+  window: string;
+  /** Answers citing the practice's website as a source. */
+  citedAsSource: MentionTotals;
+  /** Answers naming the practice. */
+  namedInAnswers: MentionTotals;
+  examples: { platform: string; question: string; answerExcerpt: string; citedUrl: string | null; aiSearchVolume: number | null }[];
+  error: string | null;
+};
+
+export type AiVisibilityResults = {
+  ranAt: string;
+  profile: "consumer" | "economy";
+  /** Google location used for AI Overview and AI Mode. */
+  location: string;
+  prompts: AiPrompt[];
+  runs: PromptRun[];
+  /** Model (or source) used per platform, for the methodology appendix. */
+  models: Partial<Record<AiPlatform, string>>;
+  platforms: PlatformSummary[];
+  mentions: MentionsDatabase;
+  topCitedDomains: { domain: string; answers: number }[];
+  /** False while some prompt/platform pairs are still unanswered (run the step again). */
+  complete: boolean;
+  missing: number;
+  errors: string[];
+  costUsd: number;
+};
+
 export type AuditResults = {
   technical?: TechnicalCrawl;
   authority?: AuthorityResults;
+  aiVisibility?: AiVisibilityResults;
 };
 
-export const AUDIT_STAGES = ["crawl", "authority"] as const;
+export const AUDIT_STAGES = ["crawl", "authority", "ai-visibility"] as const;
 export type AuditStage = (typeof AUDIT_STAGES)[number];
 
 export type StageState = { status: "running" | "done" | "failed"; at: string; error?: string };
