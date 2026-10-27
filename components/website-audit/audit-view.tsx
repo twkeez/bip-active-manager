@@ -7,7 +7,7 @@ import { StatTile, StatTiles } from "@/components/ui/stat-tile";
 import { AUDIT_STAGES, type AuditStage, type TechnicalCrawl, type WebsiteAuditRow } from "@/lib/website-audit/types";
 
 const STAGE_LABEL: Record<AuditStage, { title: string; detail: string }> = {
-  crawl: { title: "Technical crawl", detail: "Every sitemap URL on both hosts: status, redirects, titles, H1s, canonicals, schema. Free." },
+  crawl: { title: "Technical crawl", detail: "Every sitemap URL on both hosts, plus pages the site links to but leaves out of its sitemap: status, redirects, titles, H1s, canonicals, schema. Free." },
 };
 
 type Finding = { tone: "bad" | "warn" | "good"; text: string; urls?: string[] };
@@ -61,6 +61,20 @@ function technicalFindings(t: TechnicalCrawl): Finding[] {
     list.push({ tone: "warn", text: `${s.duplicateH1AcrossPages.length} H1s are shared by more than one page.`, urls: s.duplicateH1AcrossPages.map((d) => `${d.h1} (${d.pages} pages)`) });
   if (s.missingMetaDescription) list.push({ tone: "warn", text: `${s.missingMetaDescription} pages have no meta description.` });
   if (s.thinPages) list.push({ tone: "warn", text: `${s.thinPages} content pages have under 300 words.` });
+  const gaps = (t.notInSitemap ?? []).filter((g) => g.finalStatus === 200 && !g.softError);
+  if (gaps.length)
+    list.push({
+      tone: "warn",
+      text: `${gaps.length} pages the site links to are missing from its sitemap, so Google is slower to find them.`,
+      urls: gaps.map((g) => g.url),
+    });
+  const brokenLinks = (t.notInSitemap ?? []).filter((g) => g.finalStatus !== 200 || g.softError);
+  if (brokenLinks.length)
+    list.push({
+      tone: "bad",
+      text: `${brokenLinks.length} pages the site links to don't load.`,
+      urls: brokenLinks.map((g) => `${g.url} (${g.softError ? "error page" : g.finalStatus ?? "no answer"})`),
+    });
   if (s.helloWorldInSitemap) list.push({ tone: "warn", text: "The WordPress \"Hello world\" sample post is still in the sitemap." });
   const robots = Object.values(t.robotsTxt).some(Boolean);
   const llms = Object.values(t.llmsTxt).some(Boolean);
@@ -104,6 +118,7 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
           <h1 className="text-xl font-semibold text-bip-text">{audit.practice_name}</h1>
           <p className="text-sm text-bip-muted">
             {audit.domain} · {[audit.city, audit.state].filter(Boolean).join(", ")} · started {new Date(audit.created_at).toLocaleDateString()}
+            {Number(audit.dataforseo_cost_usd) > 0 && ` · DataForSEO so far $${Number(audit.dataforseo_cost_usd).toFixed(2)}`}
           </p>
         </div>
         <div className="flex gap-2">

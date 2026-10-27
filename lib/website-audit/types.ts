@@ -38,6 +38,8 @@ export type CrawlPage = {
   /** Visible text, for the content pass. */
   text: string;
   navLinks: { text: string; href: string }[];
+  /** Links to other pages on the same site (absolute, no #fragment). */
+  links: string[];
 };
 
 export type CrawlSummary = {
@@ -110,8 +112,18 @@ export type TechnicalCrawl = {
   stoppedBecause: "done" | "time" | "limit";
   pages: CrawlPage[];
   slashVariants: SlashVariantCheck[];
+  /** Pages the site links to that its sitemap leaves out. */
+  notInSitemap: SitemapGap[];
   summary: CrawlSummary;
   ms: number;
+};
+
+export type SitemapGap = {
+  url: string;
+  /** Up to 5 pages that link to it. */
+  linkedFrom: string[];
+  finalStatus: number | null;
+  softError: SoftError | null;
 };
 
 export type AuditResults = {
@@ -135,4 +147,6 @@ export type WebsiteAuditRow = {
   competitors: string[];
   stage_status: Partial<Record<AuditStage, StageState>>;
   results: AuditResults;
+  dataforseo_cost_usd: number;
+  ai_cost_usd: number;
 };

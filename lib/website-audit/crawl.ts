@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { extractSchemaTypes } from "@/lib/seo/schema";
-import type { CrawlPage, CrawlSummary, RedirectHop, SlashVariantCheck, SoftError, TechnicalCrawl } from "@/lib/website-audit/types";
+import type { CrawlPage, CrawlSummary, RedirectHop, SitemapGap, SlashVariantCheck, SoftError, TechnicalCrawl } from "@/lib/website-audit/types";
 
 // Section 3 of the Website, SEO & AI Search Audit: one polite pass over every
 // URL the site's sitemaps list, on both the bare and www host. Unlike the
@@ -20,6 +20,19 @@ const MAX_CHILD_SITEMAPS = 50;
 const MAX_TEXT_CHARS = 12_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/** Linked-but-not-in-sitemap pages checked per crawl. */
+const MAX_SITEMAP_GAPS = 60;
+
+/** A page's identity ignoring protocol, www and the trailing slash. */
+export function pageKey(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.length > 1 ? u.pathname.replace(/\/+$/, "") : "/";
+    return `${bareDomain(u.host)}${path.toLowerCase()}${u.search}`;
+  } catch {
+    return url;
+  }
+}
 
 export function bareDomain(input: string): string {
   return input
@@ -198,6 +211,21 @@ export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "ur
   body.find("script, style, noscript, svg, template, iframe").remove();
   const text = body.text().replace(/\s+/g, " ").trim();
   const wordCount = text ? text.split(" ").length : 0;
+  const siteHost = bareDomain(new URL(finalUrl).host);
+  const links = new Set<string>();
+  $("a[href]").each((_, el) => {
+    try {
+      const u = new URL($(el).attr("href") ?? "", finalUrl);
+      if (!/^https?:$/.test(u.protocol) || bareDomain(u.host) !== siteHost) return;
+      u.hash = "";
+      if (u.search) return; // ?p=1, ?replytocom=: not pages of their own
+      if (/\.(jpe?g|png|gif|webp|svg|pdf|docx?|xlsx?|zip|mp4|mp3|css|js|xml)$/i.test(u.pathname)) return;
+      if (/\/(feed|wp-json|wp-admin|wp-content|wp-includes)(\/|$)|\/page\/\d+\/?$/i.test(u.pathname)) return;
+      links.add(u.toString());
+    } catch {
+      // Not a usable URL (mailto:, javascript:, malformed): skip it.
+    }
+  });
   const navLinks = $("nav a[href], header a[href]")
     .map((_, el) => ({ text: $(el).text().replace(/\s+/g, " ").trim(), href: $(el).attr("href") ?? "" }))
     .get()
@@ -221,6 +249,7 @@ export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "ur
     hasViewport,
     text: text.slice(0, MAX_TEXT_CHARS),
     navLinks: navLinks.slice(0, 80),
+    links: [...links].slice(0, 200),
   };
 }
 
@@ -248,6 +277,7 @@ async function crawlUrl(entry: { url: string; sitemap: string }): Promise<CrawlP
     hasViewport: false,
     text: "",
     navLinks: [],
+    links: [],
     softError: null,
   };
   if (!result.response) {
@@ -401,6 +431,41 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, variantWorker));
 
+  // Pages the site links to that the sitemap leaves out: slower for Google to
+  // find. Compared ignoring www and the trailing slash.
+  const listed = new Set(entries.map((e) => pageKey(e.url)));
+  const linkedFrom = new Map<string, Set<string>>();
+  for (const page of crawled) {
+    for (const link of page.links) {
+      if (listed.has(pageKey(link))) continue;
+      const key = pageKey(link);
+      if (!linkedFrom.has(key)) linkedFrom.set(key, new Set([link]));
+      linkedFrom.get(key)!.add(`from:${page.finalUrl}`);
+    }
+  }
+  const gapTargets = [...linkedFrom.values()].slice(0, MAX_SITEMAP_GAPS);
+  const notInSitemap: SitemapGap[] = [];
+  let nextGap = 0;
+  async function gapWorker() {
+    while (nextGap < gapTargets.length && Date.now() - started <= budgetMs) {
+      const values = [...gapTargets[nextGap]];
+      nextGap += 1;
+      const url = values[0];
+      const result = await fetchWithChain(url);
+      const ok = result.response?.status === 200;
+      const body = ok ? await result.response!.text().catch(() => "") : "";
+      if (!ok) await result.response?.body?.cancel().catch(() => undefined);
+      notInSitemap.push({
+        url,
+        linkedFrom: values.slice(1).map((v) => v.slice(5)).slice(0, 5),
+        finalStatus: result.response?.status ?? null,
+        softError: softErrorOf(body),
+      });
+      await sleep(DELAY_MS);
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, gapWorker));
+
   return {
     crawledAt: new Date().toISOString(),
     domain,
@@ -413,6 +478,7 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
     stoppedBecause,
     pages: crawled,
     slashVariants,
+    notInSitemap: notInSitemap.sort((a, b) => a.url.localeCompare(b.url)),
     summary: summarize(crawled, domain, slashVariants),
     ms: Date.now() - started,
   };
