@@ -18,6 +18,17 @@ import {
  * difference between them is how the caller was authenticated.
  */
 
+/**
+ * Threads judged per run, newest first. Before 2026-10-27 every pending thread
+ * went into one request: ~600 of them by October, whose answers overflowed the
+ * output limit, so nothing was saved and the same ~150k-token request was
+ * re-sent every 30 minutes (most of the month's AI bill). The rest wait for
+ * the next run.
+ */
+export const MAX_THREADS_PER_RUN = 40;
+/** A thread quiet for longer than this is not news; it isn't classified. */
+export const MAX_THREAD_AGE_DAYS = 21;
+
 export type ClassificationRun = {
   considered: number;
   classified: number;
@@ -79,11 +90,12 @@ export async function runThreadClassification(
    * the next pass. It costs one short classification per changed thread, and
    * roughly ten threads change on a working day.
    */
-  const pending = (rows ?? []).filter(
+  const allPending = (rows ?? []).filter(
     (r) =>
       !isInternalThread(r.thread_title) &&
       !ignoredProjectIds.has(r.basecamp_project_id ?? "") &&
       (r.thread_excerpt ?? "").trim().length > 0 &&
+      daysSince(r.occurred_at) <= MAX_THREAD_AGE_DAYS &&
       !verdictIsCurrent(r),
   );
 
@@ -96,7 +108,9 @@ export async function runThreadClassification(
     escalated: 0,
     message: "Everything already read.",
   };
-  if (pending.length === 0) return empty;
+  if (allPending.length === 0) return empty;
+  // rows are newest first, so this keeps the most recent.
+  const pending = allPending.slice(0, MAX_THREADS_PER_RUN);
 
   // Basecamp's topics feed truncates its excerpt at 100 characters, so pull the
   // real last message for the handful about to be judged. A thread that cannot
@@ -164,5 +178,8 @@ export async function runThreadClassification(
     waitingOnUs: needsReply.filter((v) => spokeLastById.get(v.recordingId) === false).length,
     waitingOnThem: needsReply.filter((v) => spokeLastById.get(v.recordingId) === true).length,
     escalated: verdicts.filter((v) => v.escalated).length,
+    ...(allPending.length > pending.length
+      ? { message: `${allPending.length - pending.length} more threads wait for the next run.` }
+      : {}),
   };
 }

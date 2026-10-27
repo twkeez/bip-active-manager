@@ -133,6 +133,14 @@ export async function classifyThreads(
   if (message.stop_reason === "refusal") {
     throw new Error("Claude declined to classify these threads.");
   }
+  // A cut-off answer can't be parsed, so nothing would be saved and the same
+  // request would be paid for again next run. Fail loudly instead.
+  if (message.stop_reason === "max_tokens") {
+    throw new Error(`The classifier's answer for ${threads.length} threads was cut off; nothing was saved.`);
+  }
+  if (!message.parsed_output) {
+    throw new Error("The classifier's answer couldn't be read; nothing was saved.");
+  }
 
   const parsed = message.parsed_output as { verdicts?: ThreadVerdict[] } | null;
   const verdicts = parsed?.verdicts ?? [];
