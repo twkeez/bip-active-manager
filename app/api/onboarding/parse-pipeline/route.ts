@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { readDocumentPayload } from "@/lib/vet-onboarding/document-input";
@@ -9,6 +8,7 @@ import {
 } from "@/lib/vet-onboarding/parse-anthropic-json";
 import { buildPipelineIntakePrompt } from "@/lib/onboarding/pipeline-intake-prompt";
 import { normalizePipelineIntake } from "@/lib/onboarding/pipeline-intake";
+import { anthropicClient } from "@/lib/ai/usage";
 
 // Upload a BIP pipeline form (PDF/DOCX/TXT) → parsed, mapped intake. Mirrors the
 // vet-onboarding parse-document path (Claude reads the doc, returns JSON).
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const anthropic = new Anthropic({ apiKey });
+  const anthropic = anthropicClient("Onboarding: read pipeline form", { apiKey });
 
   try {
     const message =

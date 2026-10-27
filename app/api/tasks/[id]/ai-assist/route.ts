@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { anthropicClient } from "@/lib/ai/usage";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type Body = { message?: string; history?: ChatMessage[] };
 
-const client = new Anthropic();
+const client = anthropicClient("My Tasks: AI assist");
 const MODEL = "claude-haiku-4-5";
 
 export async function POST(

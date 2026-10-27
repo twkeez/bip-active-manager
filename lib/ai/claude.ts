@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
+import { anthropicClient } from "@/lib/ai/usage";
 
 type TextPart = { text: string };
 type InlineDataPart = { inlineData: { mimeType: string; data: string } };
@@ -7,7 +8,7 @@ type ContentPart = TextPart | InlineDataPart;
 
 type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
-const client = new Anthropic();
+const client = anthropicClient("AI helpers (reports, summaries, audits)");
 const MODEL = "claude-haiku-4-5";
 
 function toClaudeContent(

@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildClientContext } from "@/lib/strategy-mapper/build-client-context";
@@ -13,6 +12,7 @@ import type {
   StrategyMapperPreCheckRequest,
   StrategyMapperPreCheckResult,
 } from "@/types/strategy-mapper";
+import { anthropicClient } from "@/lib/ai/usage";
 
 function mockPreCheckResponse(
   form: StrategyMapperPreCheckRequest["form"],
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const anthropic = new Anthropic({ apiKey });
+  const anthropic = anthropicClient("Strategy Mapper research", { apiKey });
 
   try {
     const { research, radius, activeServices } = await runStrategyMapperResearch(

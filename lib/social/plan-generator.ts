@@ -8,9 +8,9 @@
  * date-cadence logic (buildPostDates) in case that's wanted for a scheduling
  * assistant later; delete it once that's settled.
  */
-import Anthropic from "@anthropic-ai/sdk";
 import { getAwarenessDaysForMonth } from "./awareness-days";
 import type { SocialIdea, StandingCampaign, GeneratedPost } from "./types";
+import { anthropicClient } from "@/lib/ai/usage";
 
 const SOCIAL_PLAN_MODEL = "claude-opus-4-8";
 
@@ -138,7 +138,7 @@ Respond with a JSON array only, no other text. Each item must match exactly:
   "hashtags": "<space-separated hashtag string>"
 }`;
 
-  const client = new Anthropic({ apiKey });
+  const client = anthropicClient("Social plan generator", { apiKey });
   const response = await client.messages.create({
     model: SOCIAL_PLAN_MODEL,
     max_tokens: 8000,

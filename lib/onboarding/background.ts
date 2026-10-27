@@ -5,6 +5,7 @@ import { loadBasecampProjectsForMatch } from "@/lib/basecamp/client";
 import { normalizeClientName } from "@/lib/clients/normalize-name";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import { BACKGROUND_RULES, htmlToText, isAccessThread, redactCredentials } from "./background-safety";
+import { anthropicClient } from "@/lib/ai/usage";
 
 /**
  * Background for onboarding research, compiled from everything already known
@@ -102,7 +103,7 @@ export async function summariseBackground(
   source: string | Anthropic.Beta.BetaContentBlockParam[],
   { clientName, sourceLabel }: { clientName: string; sourceLabel: string },
 ): Promise<string> {
-  const client = new Anthropic();
+  const client = anthropicClient("Onboarding research: Basecamp background");
   const content: Anthropic.Beta.BetaContentBlockParam[] =
     typeof source === "string"
       ? [{ type: "text", text: stripLoneSurrogates(redactCredentials(source.slice(0, MAX_SOURCE_CHARS)).text) }]

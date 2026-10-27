@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { VET_ONBOARDING_MODEL } from "@/lib/vet-onboarding/anthropic-model";
@@ -12,6 +11,7 @@ import { archiveResearchVersion } from "@/lib/onboarding/research-history";
 import { isAdmin } from "@/lib/auth/require-admin";
 import { archiveRejectedResearch, loadResearchContext } from "@/lib/onboarding/research-context";
 import { checkResearchLocation, locationProblemMessage } from "@/lib/onboarding/research-location";
+import { anthropicClient } from "@/lib/ai/usage";
 
 function parseClientId(value: string) {
   const id = Number(value);
@@ -57,7 +57,7 @@ export async function POST(
   const researchContext = prepared.context;
 
   try {
-    const anthropic = new Anthropic({ apiKey });
+    const anthropic = anthropicClient("Onboarding research: competitor ads", { apiKey });
     const message = await anthropic.messages.parse({
       model: VET_ONBOARDING_MODEL,
       max_tokens: 4096,

@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,6 +13,7 @@ import { collectIndexedUrls, formatLlmsFullTxt, formatLlmsTxt } from "@/lib/llms
 import { buildLlmsTxtCurationPrompt } from "@/lib/llms-txt/prompts";
 import type { LlmsTxtCuration, LlmsTxtGenerateResult } from "@/lib/llms-txt/types";
 import { domainFromWebsite, normalizeWebsite } from "@/lib/llms-txt/website";
+import { anthropicClient } from "@/lib/ai/usage";
 
 type GenerateRequestBody = {
   clientId?: number;
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     );
 
     const inventory = buildCurationInput(previewPages);
-    const anthropic = new Anthropic({ apiKey });
+    const anthropic = anthropicClient("llms.txt", { apiKey });
 
     const curationMessage = await anthropic.messages.parse({
       model: VET_ONBOARDING_MODEL,

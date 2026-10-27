@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import {
   AI_PLANNER_MODEL,
@@ -17,6 +16,7 @@ import {
 } from "@/lib/ai-planner/plan";
 import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
+import { anthropicClient } from "@/lib/ai/usage";
 
 export const maxDuration = 300;
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const anthropic = new Anthropic({ apiKey });
+  const anthropic = anthropicClient("AI Planner", { apiKey });
 
   try {
     if (body.action === "brainstorm") {

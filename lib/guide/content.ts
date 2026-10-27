@@ -206,6 +206,16 @@ export const GUIDE: Guide = {
           ],
         },
         {
+          href: "/ai-spend",
+          label: "AI Spend",
+          adminOnly: true,
+          purpose: "What BIP Control's AI features cost this month, by feature, from every Claude call the app makes.",
+          youCan: ["See this month's total and the last 14 days", "See which feature, model and how many calls and web searches each cost"],
+          notes: [
+            "Estimated from Anthropic's list prices; the Anthropic Console bill is the final word. Recording started October 27, 2026.",
+          ],
+        },
+        {
           href: "/basecamp-projects",
           label: "Project Wiring",
           adminOnly: true,
