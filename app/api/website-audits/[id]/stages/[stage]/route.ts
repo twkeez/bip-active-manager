@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkAiVisibility } from "@/lib/website-audit/ai-visibility";
 import { checkAuthority } from "@/lib/website-audit/authority";
 import { crawlSite } from "@/lib/website-audit/crawl";
 import { requireAuditAdmin } from "@/lib/website-audit/access";
@@ -50,6 +51,17 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         knownPlaceId,
       });
       dataForSeoCost += results.authority.costUsd;
+    } else if ((stage as AuditStage) === "ai-visibility") {
+      // An unfinished run is picked up where it stopped (only unanswered
+      // prompts are asked); a finished one starts again from scratch.
+      const resume = results.aiVisibility && !results.aiVisibility.complete ? results.aiVisibility : undefined;
+      results.aiVisibility = await checkAiVisibility(
+        { domain: audit.domain, practiceName: audit.practice_name, city: audit.city, state: audit.state },
+        results.technical,
+        resume,
+        { budgetMs: 230_000 },
+      );
+      dataForSeoCost += results.aiVisibility.costUsd - (resume?.costUsd ?? 0);
     }
     await setStage({
       results,

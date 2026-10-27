@@ -4,12 +4,17 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Download, Loader2, Play } from "lucide-react";
 import { StatTile, StatTiles } from "@/components/ui/stat-tile";
-import { AUDIT_STAGES, type AuditStage, type AuthorityResults, type TechnicalCrawl, type WebsiteAuditRow } from "@/lib/website-audit/types";
+import { AI_PLATFORMS, PLATFORM_LABEL } from "@/lib/website-audit/platforms";
+import { AUDIT_STAGES, type AiVisibilityResults, type AuditStage, type AuthorityResults, type TechnicalCrawl, type WebsiteAuditRow } from "@/lib/website-audit/types";
 
 const STAGE_LABEL: Record<AuditStage, { title: string; detail: string }> = {
   authority: {
     title: "Authority & reviews",
     detail: "Backlinks and DataForSEO rank for the site and any competitors; the Google listing's rating, review count and 20 newest reviews. A few cents; up to 3 minutes.",
+  },
+  "ai-visibility": {
+    title: "AI visibility",
+    detail: "Asks ChatGPT, Gemini, Perplexity, Claude, Google AI Overview and AI Mode about 25 local, service and pet-care questions, and checks DataForSEO's database of observed AI answers. About $1.50–3; up to 4 minutes, and run again if it says answers are missing.",
   },
   crawl: { title: "Technical crawl", detail: "Every sitemap URL on both hosts, plus pages the site links to but leaves out of its sitemap: status, redirects, titles, H1s, canonicals, schema. Free." },
 };
@@ -153,6 +158,113 @@ function AuthorityPanel({ a }: { a: AuthorityResults }) {
   );
 }
 
+function AiVisibilityPanel({ v }: { v: AiVisibilityResults }) {
+  const m = v.mentions;
+  const runFor = (promptId: string, platform: string) => v.runs.find((r) => r.promptId === promptId && r.platform === platform && !r.error);
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold text-bip-text">AI visibility</h2>
+      {!v.complete && (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-200">
+          {v.missing} answers are still missing{v.errors.length ? ` (${v.errors.join("; ")})` : ""}. Run this step again to fill them in; answers already in are kept.
+        </p>
+      )}
+      <div className="rounded-xl border border-bip-border bg-bip-card">
+        <p className="border-b border-bip-border px-4 py-2 text-xs text-bip-muted">
+          <span className="font-semibold text-bip-text">Our prompt set:</span> {v.prompts.length} questions asked on{" "}
+          {new Date(v.ranAt).toLocaleDateString()}, Google results for {v.location}.
+        </p>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-bip-border text-left text-[11px] uppercase tracking-wide text-bip-muted">
+              <th className="px-4 py-2">Platform</th>
+              <th className="px-4 py-2">Model</th>
+              <th className="px-4 py-2 text-right">Answered</th>
+              <th className="px-4 py-2 text-right">Cited the site</th>
+              <th className="px-4 py-2 text-right">Named the practice</th>
+            </tr>
+          </thead>
+          <tbody>
+            {v.platforms.map((p) => (
+              <tr key={p.platform} className="border-b border-bip-border/60 last:border-0">
+                <td className="px-4 py-2 text-bip-text">{p.label}</td>
+                <td className="px-4 py-2 text-xs text-bip-muted">{p.model ?? "—"}</td>
+                <td className="px-4 py-2 text-right tabular-nums">{p.promptsAnswered} of {p.promptsRun}</td>
+                <td className="px-4 py-2 text-right tabular-nums">{p.promptsCited} of {p.promptsRun}</td>
+                <td className="px-4 py-2 text-right tabular-nums">{p.promptsMentioned} of {p.promptsRun}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="rounded-xl border border-bip-border bg-bip-card p-4 text-sm">
+        <p className="text-xs text-bip-muted">
+          <span className="font-semibold text-bip-text">Observed in AI answers</span> ({m.window}). A different measurement from the prompt set above: don&apos;t add them together.
+        </p>
+        {m.error ? (
+          <p className="mt-1 text-xs text-red-300">{m.error}</p>
+        ) : (
+          <p className="mt-1 text-bip-text">
+            Website cited as a source in {m.citedAsSource.mentions} answers (AI search volume {m.citedAsSource.aiSearchVolume.toLocaleString()}); practice
+            named in {m.namedInAnswers.mentions} answers.
+          </p>
+        )}
+        {m.examples.length > 0 && (
+          <details className="mt-2 text-xs">
+            <summary className="cursor-pointer text-bip-muted">Questions where the site was cited ({m.examples.length})</summary>
+            <ul className="mt-1 space-y-1">
+              {m.examples.map((e, i) => (
+                <li key={i} className="text-bip-text">
+                  {e.question} <span className="text-bip-muted">· {e.platform === "google" ? "AI Overview" : e.platform}{e.aiSearchVolume ? ` · ${e.aiSearchVolume}/mo` : ""}{e.citedUrl ? ` · ${e.citedUrl.split("#")[0]}` : ""}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+      {v.topCitedDomains.length > 0 && (
+        <p className="text-xs text-bip-muted">
+          Other sites AI cited most: {v.topCitedDomains.slice(0, 10).map((d) => `${d.domain} (${d.answers})`).join(", ")}
+        </p>
+      )}
+      <details className="rounded-xl border border-bip-border bg-bip-card">
+        <summary className="cursor-pointer p-4 text-sm font-semibold text-bip-text">Every prompt ({v.prompts.length})</summary>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-xs">
+            <thead>
+              <tr className="border-y border-bip-border text-left text-bip-muted">
+                <th className="px-3 py-2">Prompt</th>
+                {AI_PLATFORMS.map((p) => (
+                  <th key={p} className="px-2 py-2 text-center">{PLATFORM_LABEL[p].replace("Google ", "")}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {v.prompts.map((prompt) => (
+                <tr key={prompt.id} className="border-b border-bip-border/50">
+                  <td className="px-3 py-1.5 text-bip-text">
+                    {prompt.text} <span className="text-bip-muted">({prompt.kind})</span>
+                  </td>
+                  {AI_PLATFORMS.map((p) => {
+                    const r = runFor(prompt.id, p);
+                    const mark = !r ? "…" : !r.answered ? "–" : r.cited && r.mentioned ? "cited + named" : r.cited ? "cited" : r.mentioned ? "named" : "no";
+                    return (
+                      <td key={p} title={r?.answerExcerpt ?? ""} className={`px-2 py-1.5 text-center ${r?.cited || r?.mentioned ? "text-emerald-300" : "text-bip-muted"}`}>
+                        {mark}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="px-3 py-2 text-[11px] text-bip-muted">– no answer shown (e.g. Google showed no AI Overview) · … not asked yet · hover a cell for the start of the answer</p>
+        </div>
+      </details>
+    </section>
+  );
+}
+
 const toneClass = { bad: "border-red-500/30 bg-red-500/5", warn: "border-amber-500/30 bg-amber-500/5", good: "border-emerald-500/30 bg-emerald-500/5" };
 
 export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) {
@@ -231,6 +343,7 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
         {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
       </section>
 
+      {audit.results.aiVisibility && <AiVisibilityPanel v={audit.results.aiVisibility} />}
       {audit.results.authority && <AuthorityPanel a={audit.results.authority} />}
 
       {t && (

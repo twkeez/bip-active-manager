@@ -1,0 +1,28 @@
+{
+  "_about": "The prompts the AI visibility step asks every platform, edited here without touching code. Placeholders: {city}, {state} (full name), {st} (two letters), {practice}, {service}. Service prompts repeat for each service the site has a page for (up to maxServices). The methodology appendix lists the exact prompts that ran.",
+  "maxServices": 8,
+  "local": [
+    "veterinarian near {city}",
+    "best vet in {city} {st}",
+    "emergency vet {city} {st}",
+    "animal hospital near {city} {state}",
+    "affordable vet in {city}",
+    "vet accepting new patients in {city} {st}",
+    "best cat vet near {city}"
+  ],
+  "service": [
+    "{service} near {city} {st}"
+  ],
+  "informational": [
+    "why is my dog limping",
+    "how often does my dog need a dental cleaning",
+    "is a pet wellness plan worth it",
+    "what vaccines does my puppy need",
+    "why is my cat itching so much",
+    "when should I take my dog to the emergency vet",
+    "how much does it cost to spay a dog",
+    "what should I expect at my pet's first vet visit",
+    "how do I know if my dog has allergies",
+    "how often should my senior dog see a vet"
+  ]
+}

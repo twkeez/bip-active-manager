@@ -566,7 +566,8 @@ export const GUIDE: Guide = {
             "Download the page-by-page crawl as a spreadsheet, or the whole audit as JSON",
           ],
           notes: [
-            "Built in steps: the technical crawl (free) and authority & reviews (a few cents) are live; AI visibility, content, score and the report follow. Paid calls are logged on AI Spend.",
+            "Built in steps: technical crawl (free), authority & reviews (a few cents) and AI visibility (about $1.50–3) are live; content, score and the report follow. Paid calls are logged on AI Spend.",
+            "AI visibility shows two separate measurements: our fixed prompt set asked today, and DataForSEO's database of AI answers observed over about 90 days. The prompts are edited in lib/website-audit/config/prompts.json.",
           ],
         },
         {

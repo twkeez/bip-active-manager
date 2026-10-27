@@ -1,0 +1,15 @@
+{
+  "_about": "Which model answers for each AI platform. 'consumer' is the default and reflects what a pet owner sees: ChatGPT and Gemini are read from the consumer apps (DataForSEO LLM Scraper); Claude and Perplexity have no scraper, so their default consumer model is asked with web search on. 'economy' is the cheaper option. Google AI Overview and AI Mode are always read from Google's own results.",
+  "consumer": {
+    "chatgpt": { "method": "scraper" },
+    "gemini": { "method": "scraper" },
+    "claude": { "method": "api", "model": "claude-sonnet-5-5" },
+    "perplexity": { "method": "api", "model": "sonar" }
+  },
+  "economy": {
+    "chatgpt": { "method": "api", "model": "gpt-5.4-mini" },
+    "gemini": { "method": "api", "model": "gemini-3.5-flash-lite" },
+    "claude": { "method": "api", "model": "claude-haiku-5-5" },
+    "perplexity": { "method": "api", "model": "sonar" }
+  }
+}
