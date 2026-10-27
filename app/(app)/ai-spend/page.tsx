@@ -39,7 +39,7 @@ export default async function AiSpendPage() {
     <ToolPage
       title="AI Spend"
       icon={Coins}
-      description="What each AI feature costs, from every Claude call BIP Control makes. Estimated from Anthropic's list prices; the Anthropic Console bill is the final word."
+      description="What each AI and data feature costs: every Claude call (estimated from list prices) and, since October 28, every DataForSEO call (as DataForSEO reports it). The Anthropic Console and DataForSEO bills are the final word."
     >
       {error && (
         <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">

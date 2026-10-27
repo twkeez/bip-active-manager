@@ -4,9 +4,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Download, Loader2, Play } from "lucide-react";
 import { StatTile, StatTiles } from "@/components/ui/stat-tile";
-import { AUDIT_STAGES, type AuditStage, type TechnicalCrawl, type WebsiteAuditRow } from "@/lib/website-audit/types";
+import { AUDIT_STAGES, type AuditStage, type AuthorityResults, type TechnicalCrawl, type WebsiteAuditRow } from "@/lib/website-audit/types";
 
 const STAGE_LABEL: Record<AuditStage, { title: string; detail: string }> = {
+  authority: {
+    title: "Authority & reviews",
+    detail: "Backlinks and DataForSEO rank for the site and any competitors; the Google listing's rating, review count and 20 newest reviews. A few cents; up to 3 minutes.",
+  },
   crawl: { title: "Technical crawl", detail: "Every sitemap URL on both hosts, plus pages the site links to but leaves out of its sitemap: status, redirects, titles, H1s, canonicals, schema. Free." },
 };
 
@@ -83,6 +87,70 @@ function technicalFindings(t: TechnicalCrawl): Finding[] {
   if (s.noViewport) list.push({ tone: "warn", text: `${s.noViewport} pages lack a mobile viewport tag.` });
   if (t.stoppedBecause !== "done") list.push({ tone: "warn", text: `The crawl stopped early (${t.stoppedBecause === "time" ? "time limit" : "500-URL limit"}); results are partial.` });
   return list;
+}
+
+const num = (n: number | null) => (n == null ? "—" : n.toLocaleString());
+
+function AuthorityPanel({ a }: { a: AuthorityResults }) {
+  const g = a.google;
+  const rows = [a.own, ...a.competitors];
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold text-bip-text">Authority &amp; reviews</h2>
+      <div className="overflow-x-auto rounded-xl border border-bip-border bg-bip-card">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead>
+            <tr className="border-b border-bip-border text-left text-[11px] uppercase tracking-wide text-bip-muted">
+              <th className="px-4 py-2">Website</th>
+              <th className="px-4 py-2 text-right">DataForSEO rank (0–1000)</th>
+              <th className="px-4 py-2 text-right">Referring domains</th>
+              <th className="px-4 py-2 text-right">Backlinks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.domain} className="border-b border-bip-border/60 last:border-0">
+                <td className="px-4 py-2 text-bip-text">
+                  {r.domain} {i === 0 && <span className="text-xs text-bip-muted">(this practice)</span>}
+                  {r.error && <span className="block text-xs text-red-300">{r.error}</span>}
+                </td>
+                <td className="px-4 py-2 text-right tabular-nums">{num(r.rank)}</td>
+                <td className="px-4 py-2 text-right tabular-nums">{num(r.referringDomains)}</td>
+                <td className="px-4 py-2 text-right tabular-nums">{num(r.backlinks)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="rounded-xl border border-bip-border bg-bip-card p-4 text-sm">
+        <p className="font-semibold text-bip-text">
+          Google: {g.rating != null ? `${g.rating.toFixed(1)}★` : "no rating"} from {num(g.reviewCount)} reviews
+        </p>
+        <p className="text-xs text-bip-muted">
+          {g.listingName ? `Listing: ${g.listingName}${g.listingAddress ? `, ${g.listingAddress}` : ""}` : "No listing details."}
+          {g.placeSource === "search" && " · Found by searching the practice name and town: check it's the right listing."}
+        </p>
+        {g.reviewsError && <p className="mt-1 text-xs text-amber-300">{g.reviewsError}</p>}
+        {g.reviews.length > 0 && (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs text-bip-muted">The {g.reviews.length} newest reviews</summary>
+            <ul className="mt-2 space-y-2">
+              {g.reviews.map((r, i) => (
+                <li key={i} className="text-xs text-bip-text">
+                  <span className="text-bip-muted">
+                    {r.rating ?? "?"}★ · {r.date ? new Date(r.date).toLocaleDateString() : "undated"}
+                    {r.ownerAnswered ? " · practice replied" : ""}
+                  </span>
+                  <span className="block">{r.text || "(rating only, no text)"}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+      {a.notes.length > 0 && <p className="text-xs text-amber-300">{a.notes.join(" ")}</p>}
+    </section>
+  );
 }
 
 const toneClass = { bad: "border-red-500/30 bg-red-500/5", warn: "border-amber-500/30 bg-amber-500/5", good: "border-emerald-500/30 bg-emerald-500/5" };
@@ -162,6 +230,8 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
         })}
         {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
       </section>
+
+      {audit.results.authority && <AuthorityPanel a={audit.results.authority} />}
 
       {t && (
         <>

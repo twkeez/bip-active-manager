@@ -566,7 +566,7 @@ export const GUIDE: Guide = {
             "Download the page-by-page crawl as a spreadsheet, or the whole audit as JSON",
           ],
           notes: [
-            "Built in steps: the technical crawl is live (free); authority, AI visibility, content, score and the report follow. Later steps spend on DataForSEO and Claude, logged on AI Spend.",
+            "Built in steps: the technical crawl (free) and authority & reviews (a few cents) are live; AI visibility, content, score and the report follow. Paid calls are logged on AI Spend.",
           ],
         },
         {
