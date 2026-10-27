@@ -3,6 +3,9 @@
 
 export type RedirectHop = { url: string; status: number };
 
+/** "redirect-loop": the site's own "SELF-REDIRECT LOOP DETECTED" page; "server-error": a PHP error or backtrace. */
+export type SoftError = "redirect-loop" | "server-error";
+
 export type CrawlPage = {
   /** As listed in the sitemap. */
   url: string;
@@ -15,6 +18,8 @@ export type CrawlPage = {
   finalStatus: number | null;
   error: string | null;
   archiveType: "tag" | "category" | "author" | null;
+  /** Answered 200 but the page is a server error message (see crawl.ts softErrorOf). */
+  softError: SoftError | null;
   title: string | null;
   titleLength: number;
   metaDescription: string | null;
@@ -46,6 +51,8 @@ export type CrawlSummary = {
   redirected: number;
   redirectLoops: string[];
   serverErrors: string[];
+  /** Answer 200 OK but show an error message instead of the page. */
+  softErrors: string[];
   notFound: string[];
   fetchErrors: string[];
   pagesOk: number;
@@ -72,14 +79,24 @@ export type CrawlSummary = {
   /** The same page with the trailing slash added or removed. */
   slashVariants: {
     checked: number;
+    /** A redirect loop, or a 200 whose page is the site's redirect-loop error. */
     loops: string[];
-    /** Answers 200 at both addresses: two copies of one page. */
+    /** A 200 whose page is some other server error. */
+    broken: string[];
+    /** Answers 200 with the real page at both addresses: two copies of one page. */
     duplicates: string[];
     insecure: string[];
   };
 };
 
-export type SlashVariantCheck = { pageUrl: string; variantUrl: string; chain: RedirectHop[]; loop: boolean; finalStatus: number | null };
+export type SlashVariantCheck = {
+  pageUrl: string;
+  variantUrl: string;
+  chain: RedirectHop[];
+  loop: boolean;
+  finalStatus: number | null;
+  softError: SoftError | null;
+};
 
 export type TechnicalCrawl = {
   crawledAt: string;

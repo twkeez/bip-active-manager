@@ -24,16 +24,20 @@ function technicalFindings(t: TechnicalCrawl): Finding[] {
   if (s.tagPages + s.categoryPages + s.authorPages > 0)
     list.push({ tone: "warn", text: `${s.tagPages} tag, ${s.categoryPages} category and ${s.authorPages} author archive pages are in the sitemap.` });
   if (s.serverErrors.length) list.push({ tone: "bad", text: `${s.serverErrors.length} URLs return a server error.`, urls: s.serverErrors });
+  if (s.softErrors?.length)
+    list.push({ tone: "bad", text: `${s.softErrors.length} sitemap URLs answer "200 OK" but show an error message instead of the page.`, urls: s.softErrors });
   if (s.notFound.length) list.push({ tone: "bad", text: `${s.notFound.length} URLs return 404.`, urls: s.notFound });
   if (s.redirectLoops.length) list.push({ tone: "bad", text: `${s.redirectLoops.length} URLs are stuck in a redirect loop.`, urls: s.redirectLoops });
   if (s.slashVariants.loops.length)
-    list.push({ tone: "bad", text: `${s.slashVariants.loops.length} pages loop when the trailing slash is added or removed.`, urls: s.slashVariants.loops });
+    list.push({ tone: "bad", text: `${s.slashVariants.loops.length} pages break when the trailing slash is removed or added: the site shows its own "redirect loop detected" error, served as "200 OK", so status-only checkers miss it.`, urls: s.slashVariants.loops });
   if (s.insecureRedirects.length || s.slashVariants.insecure.length)
     list.push({
       tone: "bad",
       text: "Some redirects send visitors from https to insecure http.",
       urls: [...s.insecureRedirects, ...s.slashVariants.insecure],
     });
+  if (s.slashVariants.broken?.length)
+    list.push({ tone: "bad", text: `${s.slashVariants.broken.length} pages show a server error when the trailing slash is changed.`, urls: s.slashVariants.broken });
   if (s.slashVariants.duplicates.length)
     list.push({
       tone: "warn",
