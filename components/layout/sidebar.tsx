@@ -153,6 +153,7 @@ const SEO_TOOLS: NavItem[] = [
   { label: "Sitemaps", href: "/sitemaps", icon: Map },
   { label: "SEO Ops", href: "/seo-ops", icon: ClipboardCheck },
   { label: "Site Audit", href: "/site-audit", icon: Globe },
+  { label: "Website & AI Audit", href: "/website-audits", icon: ScanSearch, adminOnly: true },
   { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
   { label: "Backlinks", href: "/backlinks", icon: Link2 },
   { label: "Reputation", href: "/reputation", icon: MessageSquareQuote },

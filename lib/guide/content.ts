@@ -555,6 +555,21 @@ export const GUIDE: Guide = {
           notes: ["Opened from a client's page, it fills in their website. It takes a few minutes."],
         },
         {
+          href: "/website-audits",
+          label: "Website & AI Audit",
+          adminOnly: true,
+          purpose:
+            "A full audit of any client's or prospect's website, delivered as a branded Beyond Indigo report: technical crawl, outside authority, how AI search sees the practice, content and trust signals, and a citability score.",
+          youCan: [
+            "Start an audit for a client, or any prospect's website",
+            "Run each step and see its findings, each traced to the URLs behind it",
+            "Download the page-by-page crawl as a spreadsheet, or the whole audit as JSON",
+          ],
+          notes: [
+            "Built in steps: the technical crawl is live (free); authority, AI visibility, content, score and the report follow. Later steps spend on DataForSEO and Claude, logged on AI Spend.",
+          ],
+        },
+        {
           href: "/local-rank",
           label: "Local Grid Rank",
           purpose: "How a practice ranks in Google's local map results across a 5×5 grid around it.",
