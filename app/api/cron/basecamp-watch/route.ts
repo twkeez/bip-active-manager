@@ -84,6 +84,9 @@ async function handle(request: Request) {
     // Report the partial success rather than throwing all of it away.
     result.ok = false;
     result.classificationError = e instanceof Error ? e.message : "Classification failed";
+    // Lead the run's summary with it: it used to sit behind the sync's wiring
+    // warnings, where a month of failed (and billed) runs went unnoticed.
+    result.error = `Reply check failed: ${result.classificationError}${result.error ? ` · ${result.error}` : ""}`;
   }
 
   result.ms = Date.now() - startedAt;
