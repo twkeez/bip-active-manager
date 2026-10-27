@@ -9,7 +9,7 @@ import {
   Megaphone,
   RefreshCw,
 } from "lucide-react";
-import { buildAuditMarkdownExport } from "@/lib/ads/audit-narrative";
+import { buildAuditMarkdownExport } from "@/lib/ads/audit-markdown";
 import { formatCostMicros } from "@/lib/ads/quality-score";
 import type { AdsAuditReport, AdsAuditSnapshot } from "@/lib/types/client";
 type Props = { clientId: number; clientName: string };
