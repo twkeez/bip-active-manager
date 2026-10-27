@@ -3,6 +3,7 @@ import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { loadMatchContext } from "@/lib/help-desk/context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
+import { anthropicClient } from "@/lib/ai/usage";
 
 /**
  * Sorts help desk tickets into request types ("photo change", "staff
@@ -29,9 +30,9 @@ export function categorizeCutoff(now: Date = new Date()): string {
   return cutoff.toISOString();
 }
 
-export const CATEGORIZE_MODEL = "claude-opus-5-5";
-/** If the main model declines a batch, the API re-runs it on this one. */
-const FALLBACK_MODEL = "claude-opus-4-8";
+// Haiku since 2026-10-27 (was Opus 5.5, with an Opus 4.8 fallback): sorting
+// into a fixed list of 16 labels is a small-model job, at ~1/40th the price.
+export const CATEGORIZE_MODEL = "claude-haiku-5-5";
 
 export const TICKET_CATEGORIES = [
   "Photo / image change",
@@ -113,11 +114,9 @@ ${items}`;
 }
 
 async function categorizeBatch(client: Anthropic, tickets: TicketToCategorize[]): Promise<Verdict[]> {
-  const message = await client.beta.messages.parse({
+  const message = await client.messages.parse({
     model: CATEGORIZE_MODEL,
-    max_tokens: 8000,
-    betas: ["server-side-fallback-2026-06-01"],
-    fallbacks: [{ model: FALLBACK_MODEL }],
+    max_tokens: 16000,
     // Sorting into a fixed list does not need deep thought.
     output_config: { effort: "low", format: outputFormat },
     messages: [{ role: "user", content: stripLoneSurrogates(buildCategorizePrompt(tickets)) }],
@@ -142,7 +141,7 @@ export async function categorizeTickets(deadline: number): Promise<CategorizeRes
     throw new Error("ANTHROPIC_API_KEY is not configured.");
   }
   const admin = createAdminClient();
-  const client = new Anthropic();
+  const client = anthropicClient("Help Desk ticket sorting");
 
   const context = await loadMatchContext(admin);
   const cutoff = categorizeCutoff();

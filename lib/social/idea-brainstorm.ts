@@ -1,7 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { CAMPAIGN_TYPE_KEYS } from "./campaign-types";
 import type { StandingCampaign } from "./types";
+import { anthropicClient } from "@/lib/ai/usage";
 
 // Fresh, practice-specific post concepts for the calendar builder's idea board.
 // Complements the shared idea repository — these are invented per practice.
@@ -85,7 +85,7 @@ Rules:
 - Range from safe-and-sweet to a couple of playful swings.
 ${exclude.length ? `- Do NOT repeat these concepts already on the board:\n${exclude.map((t) => `  • ${t}`).join("\n")}` : ""}`;
 
-  const client = new Anthropic({ apiKey });
+  const client = anthropicClient("Social idea brainstorm", { apiKey });
   const message = await client.messages.parse({
     model: IDEA_MODEL,
     max_tokens: 4096,

@@ -1,9 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { buildUrlAdsPlanPrompt, urlAdsPlanOutputFormat, type UrlAdsPlan } from "@/lib/ads/url-ads-plan";
 import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
 import { VET_ONBOARDING_MODEL } from "@/lib/vet-onboarding/anthropic-model";
+import { anthropicClient } from "@/lib/ai/usage";
 
 function normalizeUrl(raw: string): string | null {
   const t = raw.trim();
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     .filter(Boolean);
 
   try {
-    const anthropic = new Anthropic({ apiKey });
+    const anthropic = anthropicClient("Ads Planner", { apiKey });
     const message = await anthropic.messages.parse({
       model: VET_ONBOARDING_MODEL,
       max_tokens: 4096,

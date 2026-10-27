@@ -1,10 +1,10 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { isSyncableAdsCustomerId, normalizeCustomerId } from "@/lib/ads/customer-id";
 import { buildRsaPrompt, clampRsa, rsaDraftOutputFormat, type RsaDraft } from "@/lib/ads/draft-rsa";
 import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
 import { VET_ONBOARDING_MODEL } from "@/lib/vet-onboarding/anthropic-model";
+import { anthropicClient } from "@/lib/ai/usage";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   try {
-    const anthropic = new Anthropic({ apiKey });
+    const anthropic = anthropicClient("Ads Diagnostic: draft ads", { apiKey });
     const message = await anthropic.messages.parse({
       model: VET_ONBOARDING_MODEL,
       max_tokens: 2048,

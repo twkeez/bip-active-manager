@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { readDocumentPayload } from "@/lib/vet-onboarding/document-input";
@@ -13,6 +12,7 @@ import {
   parseAnthropicMessageJson,
 } from "@/lib/vet-onboarding/parse-anthropic-json";
 import type { ClientFormData } from "@/types/onboarding";
+import { anthropicClient } from "@/lib/ai/usage";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const anthropic = new Anthropic({ apiKey });
+  const anthropic = anthropicClient("Vet Onboarding: read document", { apiKey });
 
   try {
     const message =

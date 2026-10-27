@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { buildDiscoveryPrompt } from "@/lib/prompt";
 import { VET_ONBOARDING_MODEL } from "@/lib/vet-onboarding/anthropic-model";
 import { discoveryReportOutputFormat } from "@/lib/vet-onboarding/discovery-json-schema";
@@ -8,6 +7,7 @@ import type {
   DiscoveryReport,
   OnboardingPlan,
 } from "@/types/onboarding";
+import { anthropicClient } from "@/lib/ai/usage";
 
 export const runtime = "nodejs";
 
@@ -16,7 +16,7 @@ function getAnthropicClient() {
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
-  return new Anthropic({ apiKey });
+  return anthropicClient("Vet discovery report", { apiKey });
 }
 
 export async function POST(request: Request) {

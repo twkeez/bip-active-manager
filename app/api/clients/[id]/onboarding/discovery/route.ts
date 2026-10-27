@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth/require-admin";
@@ -11,6 +10,7 @@ import { archiveResearchVersion } from "@/lib/onboarding/research-history";
 import { archiveRejectedResearch, loadResearchContext } from "@/lib/onboarding/research-context";
 import { checkResearchLocation, locationProblemMessage } from "@/lib/onboarding/research-location";
 import type { ClientFormData, LocalResearch } from "@/types/onboarding";
+import { anthropicClient } from "@/lib/ai/usage";
 
 function parseClientId(value: string) {
   const id = Number(value);
@@ -91,7 +91,7 @@ export async function POST(
   };
 
   try {
-    const anthropic = new Anthropic({ apiKey });
+    const anthropic = anthropicClient("Onboarding research: discovery", { apiKey });
     const researchMessage = await anthropic.messages.parse({
       model: VET_ONBOARDING_MODEL,
       max_tokens: 4096,

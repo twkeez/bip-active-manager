@@ -7,6 +7,7 @@ import {
   Bird,
   BookOpen,
   CircleHelp,
+  Coins,
   Building2,
   CalendarClock,
   CalendarDays,
@@ -128,6 +129,7 @@ const ONBOARDING: NavItem[] = [
 const COAL_MINES: NavItem[] = [
   { label: "Coal Mines", href: "/coal-mines", icon: Bird, adminOnly: true },
   { label: "Data health", href: "/data-health", icon: HeartPulse, adminOnly: true },
+  { label: "AI Spend", href: "/ai-spend", icon: Coins, adminOnly: true },
   { label: "Project Wiring", href: "/basecamp-projects", icon: Link2, adminOnly: true },
 ];
 

@@ -1,7 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { CONTENT_PILLARS } from "./taxonomy";
 import type { StandingCampaign } from "./types";
+import { anthropicClient } from "@/lib/ai/usage";
 
 // Drafts the four export-sheet fields for posts that are ALREADY on the
 // calendar. Placement stays manual — nothing here decides dates, topics, or how
@@ -130,7 +130,7 @@ export async function draftPosts(params: {
   const { apiKey, ...promptParams } = params;
   if (promptParams.posts.length === 0) return [];
 
-  const client = new Anthropic({ apiKey });
+  const client = anthropicClient("Social post writing", { apiKey });
   // One request for the whole batch rather than a call per post.
   const message = await client.messages.parse({
     model: POST_MODEL,

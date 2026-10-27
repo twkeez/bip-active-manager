@@ -1,6 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
+import { anthropicClient } from "@/lib/ai/usage";
 
 /**
  * Decides whether the last message in a Basecamp thread actually leaves
@@ -15,7 +15,9 @@ import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
  * can make once a day for a few cents.
  */
 
-export const CLASSIFIER_MODEL = "claude-opus-5";
+// Haiku since 2026-10-27 (was Opus 5): picking one of a few labels per thread
+// doesn't need the biggest model, and this runs every 30 minutes.
+export const CLASSIFIER_MODEL = "claude-haiku-5-5";
 
 export type ReplyNeed = "needs_reply" | "fyi" | "closed" | "unclear";
 
@@ -117,17 +119,18 @@ export async function classifyThreads(
 ): Promise<ThreadVerdict[]> {
   if (threads.length === 0) return [];
 
-  const client = new Anthropic();
+  const client = anthropicClient("Basecamp reply check");
   const message = await client.messages.parse({
     model: CLASSIFIER_MODEL,
-    max_tokens: 8000,
+    // Thinking counts toward this; 40 short verdicts need far less.
+    max_tokens: 16000,
     messages: [
       {
         role: "user",
         content: stripLoneSurrogates(buildClassifyPrompt(threads)),
       },
     ],
-    output_config: { format: threadVerdictOutputFormat },
+    output_config: { effort: "low", format: threadVerdictOutputFormat },
   });
 
   if (message.stop_reason === "refusal") {

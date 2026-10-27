@@ -1,6 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
+import { anthropicClient } from "@/lib/ai/usage";
 
 /**
  * Turning "tell me when X" into a canary.
@@ -125,7 +125,7 @@ export async function draftCanary(
   instruction: string,
   catalogue: string,
 ): Promise<CanaryDraft> {
-  const client = new Anthropic();
+  const client = anthropicClient("Coal Mines canary builder");
   // Streamed rather than awaited whole: at this budget a single response can
   // run long enough to bump the request timeout, and the stream keeps hold of
   // the partial message so a failure can say why it failed.

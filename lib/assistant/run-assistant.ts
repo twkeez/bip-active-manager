@@ -8,6 +8,7 @@ import { loadSchemaCatalogue } from "@/lib/coal-mines/schema-catalogue";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import { loadOpenTasks, renderDayContext, type DayContext } from "./day-context";
 import { parseTaskChange, TaskChangeError, type TaskChange } from "./task-changes";
+import { anthropicClient } from "@/lib/ai/usage";
 
 /**
  * The assistant's conversation loop.
@@ -375,7 +376,7 @@ export async function runAssistant(
    */
   onEvent: (event: AssistantEvent) => void = () => {},
 ): Promise<AssistantResult> {
-  const client = new Anthropic();
+  const client = anthropicClient("Assistant");
   const catalogue = await loadSchemaCatalogue(deps.admin);
   const messages = buildMessages(history, context ? renderDayContext(context) : null);
   const trace: TraceEntry[] = [];

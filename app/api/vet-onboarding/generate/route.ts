@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { buildPrompt, buildResearchPrompt } from "@/lib/prompt";
 import { VET_ONBOARDING_MODEL } from "@/lib/vet-onboarding/anthropic-model";
@@ -9,6 +8,7 @@ import type {
   LocalResearch,
   OnboardingPlan,
 } from "@/types/onboarding";
+import { anthropicClient } from "@/lib/ai/usage";
 
 export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const anthropic = new Anthropic({ apiKey });
+  const anthropic = anthropicClient("Vet Onboarding: plan", { apiKey });
 
   try {
     const researchMessage = await anthropic.messages.parse({

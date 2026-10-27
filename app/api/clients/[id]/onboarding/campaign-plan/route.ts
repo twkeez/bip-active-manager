@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { loadOnboardingBackground } from "@/lib/onboarding/background";
 import { createClient } from "@/lib/supabase/server";
@@ -10,6 +9,7 @@ import {
 } from "@/lib/onboarding/campaign-plan";
 import type { ClientRow } from "@/lib/types/client";
 import { archiveResearchVersion } from "@/lib/onboarding/research-history";
+import { anthropicClient } from "@/lib/ai/usage";
 
 function parseClientId(value: string) {
   const id = Number(value);
@@ -75,7 +75,7 @@ export async function POST(
     : [];
 
   try {
-    const anthropic = new Anthropic({ apiKey });
+    const anthropic = anthropicClient("Onboarding research: campaign plan", { apiKey });
     const message = await anthropic.messages.parse({
       model: VET_ONBOARDING_MODEL,
       max_tokens: 4096,
