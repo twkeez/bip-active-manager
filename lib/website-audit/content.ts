@@ -83,16 +83,22 @@ const pageSchema = {
     pricesShown: { type: "array", items: { type: "string" } },
     accreditations: { type: "array", items: { type: "string" } },
     hasFaq: { type: "boolean" },
+    // The API rejects type: ["object", "null"]; a nullable object has to be anyOf.
     blog: {
-      type: ["object", "null"],
-      properties: {
-        questionHeading: { type: "boolean" },
-        authorNamed: nullableString,
-        dateShown: nullableString,
-        linksToServicePage: { type: "boolean" },
-      },
-      required: ["questionHeading", "authorNamed", "dateShown", "linksToServicePage"],
-      additionalProperties: false,
+      anyOf: [
+        {
+          type: "object",
+          properties: {
+            questionHeading: { type: "boolean" },
+            authorNamed: nullableString,
+            dateShown: nullableString,
+            linksToServicePage: { type: "boolean" },
+          },
+          required: ["questionHeading", "authorNamed", "dateShown", "linksToServicePage"],
+          additionalProperties: false,
+        },
+        { type: "null" },
+      ],
     },
     typos: {
       type: "array",
@@ -267,7 +273,9 @@ async function readPage(page: CrawlPage, practice: Practice, serviceUrls: string
     spend.usd += priceOf(PAGE_MODEL, message.usage);
     if (message.stop_reason === "max_tokens" || !message.parsed_output) throw new Error("Claude's answer for this page was cut off or unreadable.");
     const parsed = message.parsed_output as Omit<PageContent, "url" | "pageType" | "currentH1" | "error">;
-    return { ...base, ...parsed, blog: type === "blog_post" ? parsed.blog : null, error: null };
+    // Claude occasionally "corrects" a word to itself; those aren't typos.
+    const typos = parsed.typos.filter((t) => t.text.trim().toLowerCase() !== t.suggestion.trim().toLowerCase());
+    return { ...base, ...parsed, typos, blog: type === "blog_post" ? parsed.blog : null, error: null };
   } catch (error) {
     return {
       ...base,
