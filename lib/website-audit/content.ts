@@ -177,6 +177,7 @@ const siteSchema = {
         properties: {
           rank: { type: "number" },
           fix: { type: "string" },
+          steps: { type: "array", items: { type: "string" } },
           whyItMatters: { type: "string" },
           area: { type: "string", enum: ["technical", "content", "trust", "ai_visibility", "reputation", "conversion"] },
           evidence: {
@@ -184,7 +185,7 @@ const siteSchema = {
             items: { type: "object", properties: { source: { type: "string" }, quote: { type: "string" } }, required: ["source", "quote"], additionalProperties: false },
           },
         },
-        required: ["rank", "fix", "whyItMatters", "area", "evidence"],
+        required: ["rank", "fix", "steps", "whyItMatters", "area", "evidence"],
         additionalProperties: false,
       },
     },
@@ -247,10 +248,12 @@ function siteFacts(results: AuditResults, pages: PageContent[], servicePages: st
  * is written for a practice owner, not a web developer.
  */
 export const FIX_STYLE = `Write each fix for a busy practice owner who knows nothing about websites:
-- Start with a verb and say exactly what to do, about the actual pages or services involved. One fix is one job. At most two short sentences.
-- If a web developer has to do it, say "Ask your web developer to …".
+- "fix" is the goal in one short sentence, starting with a verb (e.g. "Get your blog quoted when pet owners ask AI everyday questions").
+- "steps" is 1 to 4 concrete actions that achieve it, in order. Each starts with a verb, names the actual pages, services or wording involved, and says who does it: "You:" for things the practice does itself (replying to reviews, asking a vet to sign posts, deciding hours wording) or "Your web developer:" for changes to the website. Someone should be able to follow a step without asking what it means.
+- If a step uses an unavoidable term, explain it in the step, e.g. "add a short text file that tells AI tools what your practice is and which pages matter most (it's called llms.txt and goes at dhah.org/llms.txt)".
 - No jargon. Never use: H1, canonical, schema, structured data, sitemap, redirect, crawl, SEO, URL, meta description, index, slug, trailing slash, 404. Describe the thing instead ("the main headline on each page", "the list of pages you give Google", "send the old address to the new page", "page not found"). If the owner will need the technical name to pass on, put it in brackets after the plain words, e.g. "a short guide file for AI tools (llms.txt)".
-- "whyItMatters" is one short sentence about what the practice gains or loses: new clients, phone calls, trust, being recommended by Google or AI. Not about how search engines work.`;
+- "whyItMatters" is one short sentence about what the practice gains or loses: new clients, phone calls, trust, being recommended by Google or AI. Not about how search engines work.
+- Evidence: when the source is a page or a review, "quote" is the exact words from it. When the source is a data point from the audit, "quote" is a plain sentence a practice owner understands, with the number, e.g. "Google's AI summary appeared for 13 of our 24 questions and never mentioned you." Never a bare value like "false" or "cited: 0".`;
 
 function sitePrompt(practice: Practice, facts: string): string {
   return `You are writing the strategy section of a website, SEO and AI-search audit for ${practice.practiceName} (${[practice.city, practice.state].filter(Boolean).join(", ")}; ${practice.domain}), a veterinary practice. The reader is the practice owner: plain English, no jargon.
@@ -262,7 +265,7 @@ Write:
 2. positioningLine: one sentence the practice could use to describe itself.
 3. homepageH1: a homepage H1 in the pattern "{what} {for whom} in {city}".
 4. fixes: a prioritized fix list, most impact first (rank 1 = do first), 6 to 10 items. ${FIX_STYLE}
-   Each fix cites its evidence (a page URL or a data point from the JSON, e.g. "technical.blogPostsBreakWithoutTrailingSlash: 10"). area is technical, content, trust, ai_visibility, reputation or conversion.
+   Each fix cites its evidence: source is a page URL, "review N", or the JSON field it comes from (e.g. "technical.linksThatDontLoad"). area is technical, content, trust, ai_visibility, reputation or conversion.
 5. servicesWithoutPage: services named somewhere on the site that have no page of their own (compare pages[].servicesNamed with servicePages).
 6. menuItemsGoingNowhere: menu items whose link doesn't lead to a working page (use the menu links in pages and technical.linksThatDontLoad).
 7. hoursContradictions: places where pages state different hours. Empty if they agree.

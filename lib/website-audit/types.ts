@@ -252,7 +252,11 @@ export type SiteContent = {
   differentiators: { title: string; detail: string; evidence: Evidence[] }[];
   positioningLine: string;
   homepageH1: string;
-  fixes: { rank: number; fix: string; whyItMatters: string; evidence: Evidence[]; area: string }[];
+  /**
+   * fix: the goal in one sentence. steps: what to do and who does it (audits
+   * before 2026-10-28 have none). Evidence on a data point is a plain sentence.
+   */
+  fixes: { rank: number; fix: string; steps?: string[]; whyItMatters: string; evidence: Evidence[]; area: string }[];
   servicesWithoutPage: string[];
   menuItemsGoingNowhere: string[];
   hoursContradictions: string[];

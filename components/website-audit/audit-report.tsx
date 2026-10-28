@@ -90,13 +90,24 @@ function Sources({ items, label = "Found on" }: { items: string[]; label?: strin
   );
 }
 
+/** Words quoted from a page or a review get quotation marks; a finding from our own checks reads as a plain sentence. */
+const isQuoted = (source: string) => isUrl(source) || /^review\s+\d+/i.test(source);
+
 function EvidenceList({ items }: { items: Evidence[] }) {
   if (!items.length) return null;
   return (
     <ul className="mt-1 space-y-0.5 text-[11px] leading-relaxed text-slate-500">
       {items.map((e, i) => (
         <li key={i} title={isUrl(e.source) ? undefined : e.source}>
-          <span className="font-medium text-slate-600">{isUrl(e.source) ? shortUrl(e.source) : sourceLabel(e.source)}</span>: “{e.quote}”
+          {isQuoted(e.source) ? (
+            <>
+              <span className="font-medium text-slate-600">{isUrl(e.source) ? shortUrl(e.source) : sourceLabel(e.source)}</span> says: “{e.quote}”
+            </>
+          ) : (
+            <>
+              {e.quote} <span className="text-slate-400">({sourceLabel(e.source)})</span>
+            </>
+          )}
         </li>
       ))}
     </ul>
@@ -788,26 +799,45 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
       )}
 
       {fixes.length > 0 && (
-        <Section n={num()} title="Your action plan" intro="Everything we recommend, most important first. Each item says why it matters and what it's based on.">
-          <ol className="space-y-3">
+        <Section
+          n={num()}
+          title="Your action plan"
+          intro="Everything we recommend, most important first. Each item says what to do and who does it, why it matters, and what we found that led to it."
+        >
+          <div className="space-y-3">
             {fixes.map((f) => (
-              <li key={f.rank} className="flex gap-3 rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
+              <div key={f.rank} className="flex gap-3 rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
                 <span
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
                   style={{ background: f.rank <= 3 ? PINK : INDIGO }}
                 >
                   {f.rank}
                 </span>
-                <div className="min-w-0">
-                  <p className="text-sm text-slate-800">{f.fix}</p>
-                  <p className="mt-1 text-[13px] text-slate-600">
-                    <span className="font-medium">Why it matters:</span> {f.whyItMatters}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-900">{f.fix}</p>
+                  {f.steps && f.steps.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">What to do</p>
+                      <ol className="mt-0.5 list-decimal space-y-1 pl-5 text-[13px] leading-snug text-slate-700">
+                        {f.steps.map((step) => (
+                          <li key={step}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                  <p className="mt-2 text-[13px] text-slate-600">
+                    <span className="font-semibold text-slate-700">Why it matters:</span> {f.whyItMatters}
                   </p>
-                  <EvidenceList items={f.evidence} />
+                  {f.evidence.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">What we found</p>
+                      <EvidenceList items={f.evidence} />
+                    </div>
+                  )}
                 </div>
-              </li>
+              </div>
             ))}
-          </ol>
+          </div>
         </Section>
       )}
 
