@@ -1,3 +1,4 @@
+import { isListingPage } from "@/lib/website-audit/archive";
 import type { TechnicalCrawl } from "@/lib/website-audit/types";
 
 // Shared by the audit screen and the printed report (no server imports here).
@@ -59,7 +60,8 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
     list.push({ tone: "warn", text: `${s.duplicateH1AcrossPages.length} main headlines are used on more than one page, so the pages look alike to Google.`, urls: s.duplicateH1AcrossPages.map((d) => `${d.h1} (${d.pages} pages)`) });
   if (s.missingMetaDescription) list.push({ tone: "warn", text: `${pages(s.missingMetaDescription)} ${s.missingMetaDescription === 1 ? "has" : "have"} no summary for Google to show under the link in search results (meta description).` });
   if (s.thinPages) list.push({ tone: "warn", text: `${pages(s.thinPages)} ${s.thinPages === 1 ? "has" : "have"} under 300 words, which is usually too little for Google or AI to treat them as a good answer.` });
-  const gaps = (t.notInSitemap ?? []).filter((g) => g.finalStatus === 200 && !g.softError);
+  // Listing pages (tags, months) are left out on purpose; audits before 2026-10-28 still have them.
+  const gaps = (t.notInSitemap ?? []).filter((g) => g.finalStatus === 200 && !g.softError && !isListingPage(g.url));
   if (gaps.length)
     list.push({
       tone: "warn",

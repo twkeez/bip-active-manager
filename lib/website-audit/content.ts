@@ -1,6 +1,7 @@
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { anthropicClient, costOf } from "@/lib/ai/usage";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
+import { isListingPage } from "@/lib/website-audit/archive";
 import type {
   AuditResults,
   CrawlPage,
@@ -218,7 +219,7 @@ function siteFacts(results: AuditResults, pages: PageContent[], servicePages: st
         homepageH1Repeated: t.repeatedH1OnPage,
         missingMetaDescriptions: t.missingMetaDescription,
         helloWorldPostInSitemap: t.helloWorldInSitemap,
-        linkedPagesMissingFromSitemap: (results.technical?.notInSitemap ?? []).filter((g) => g.finalStatus === 200 && !g.softError).map((g) => g.url),
+        linkedPagesMissingFromSitemap: (results.technical?.notInSitemap ?? []).filter((g) => g.finalStatus === 200 && !g.softError && !isListingPage(g.url)).map((g) => g.url),
         linksThatDontLoad: brokenMenu,
         llmsTxt: Object.values(results.technical?.llmsTxt ?? {}).some(Boolean),
       },
