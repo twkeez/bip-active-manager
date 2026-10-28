@@ -283,6 +283,13 @@ function ContentPanel({ c }: { c: ContentResults }) {
                 {f.rank}. {f.fix}
               </span>{" "}
               <span className="text-xs text-bip-muted">({f.area.replace("_", " ")})</span>
+              {f.steps && f.steps.length > 0 && (
+                <ol className="mt-0.5 list-decimal pl-5 text-bip-text">
+                  {f.steps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              )}
               <p className="text-bip-muted">{f.whyItMatters}</p>
               <Evidence items={f.evidence} />
             </li>
