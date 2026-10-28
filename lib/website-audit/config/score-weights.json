@@ -1,0 +1,23 @@
+{
+  "_about": "Citability score weights (0-100 total) and bands, editable without touching code. Each part's rules are in lib/website-audit/score.ts. 2026-10-28: outside authority split into reviews 12 and domain rank 8 (Tom).",
+  "version": "2026-10-28",
+  "weights": {
+    "reviews": 12,
+    "domainRank": 8,
+    "technical": 20,
+    "structuredData": 15,
+    "doctors": 15,
+    "services": 10,
+    "blog": 10,
+    "faq": 5,
+    "accreditations": 5
+  },
+  "domainRankFullMarks": 250,
+  "reviewCountFullMarks": 500,
+  "bands": [
+    { "min": 80, "label": "Strong" },
+    { "min": 65, "label": "Established" },
+    { "min": 45, "label": "Developing" },
+    { "min": 0, "label": "Limited" }
+  ]
+}
