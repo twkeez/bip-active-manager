@@ -7,7 +7,7 @@ import type { Guide } from "@/lib/guide/types";
 // and anything that would otherwise surprise you.
 
 export const GUIDE: Guide = {
-  updated: "October 22, 2026",
+  updated: "October 28, 2026",
   intro: [
     "BIP Control is Beyond Indigo's home base for running client work: who our clients are, what they bought, what they're waiting on, how their marketing is performing and what we need to do next.",
     "This guide walks through the sidebar from top to bottom. Each tool says what it's for, what you can do there, and anything good to know before you rely on it.",
@@ -563,10 +563,12 @@ export const GUIDE: Guide = {
           youCan: [
             "Start an audit for a client, or any prospect's website",
             "Run each step and see its findings, each traced to the URLs behind it",
+            "Open the branded report (Report (PDF)) and save it as a PDF to send: summary, AI visibility by platform, trust signals, technical findings, ranked fixes, and a methodology appendix with the exact questions asked",
+            "Re-run a domain later: the report adds a \"last run\" column so you can show what moved",
             "Download the page-by-page crawl as a spreadsheet, or the whole audit as JSON",
           ],
           notes: [
-            "Steps: technical crawl (free), authority & reviews (a few cents), AI visibility (about $1.50–3), and content, trust signals & the citability score (about 40¢ in Claude). The branded report follows. Paid calls are logged on AI Spend. Score weights are in lib/website-audit/config/score-weights.json.",
+            "Steps: technical crawl (free), authority & reviews (a few cents), AI visibility (about $1.50–3), and content, trust signals & the citability score (about 25–40¢ in Claude). The report button appears once the score exists. Paid calls are logged on AI Spend. Score weights are in lib/website-audit/config/score-weights.json.",
             "AI visibility shows two separate measurements: our fixed prompt set asked today, and DataForSEO's database of AI answers observed over about 90 days. The prompts are edited in lib/website-audit/config/prompts.json.",
           ],
         },
