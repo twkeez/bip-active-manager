@@ -5,7 +5,16 @@ import { useState } from "react";
 import { ArrowLeft, Download, Loader2, Play } from "lucide-react";
 import { StatTile, StatTiles } from "@/components/ui/stat-tile";
 import { AI_PLATFORMS, PLATFORM_LABEL } from "@/lib/website-audit/platforms";
-import { AUDIT_STAGES, type AiVisibilityResults, type AuditStage, type AuthorityResults, type TechnicalCrawl, type WebsiteAuditRow } from "@/lib/website-audit/types";
+import {
+  AUDIT_STAGES,
+  type AiVisibilityResults,
+  type AuditStage,
+  type AuthorityResults,
+  type CitabilityScore,
+  type ContentResults,
+  type TechnicalCrawl,
+  type WebsiteAuditRow,
+} from "@/lib/website-audit/types";
 
 const STAGE_LABEL: Record<AuditStage, { title: string; detail: string }> = {
   authority: {
@@ -15,6 +24,10 @@ const STAGE_LABEL: Record<AuditStage, { title: string; detail: string }> = {
   "ai-visibility": {
     title: "AI visibility",
     detail: "Asks ChatGPT, Gemini, Perplexity, Claude, Google AI Overview and AI Mode about 25 local, service and pet-care questions, and checks DataForSEO's database of observed AI answers. About $1.50–3; up to 4 minutes, and run again if it says answers are missing.",
+  },
+  content: {
+    title: "Content, trust signals & score",
+    detail: "Claude reads every real page (doctors, services, hours, booking, prices, accreditations, FAQs, blog posts, typos, a recommended H1), then writes the differentiators, positioning and ranked fix list from the whole audit. Then the citability score. About 40¢; up to 3 minutes. Run after the other steps.",
   },
   crawl: { title: "Technical crawl", detail: "Every sitemap URL on both hosts, plus pages the site links to but leaves out of its sitemap: status, redirects, titles, H1s, canonicals, schema. Free." },
 };
@@ -265,6 +278,148 @@ function AiVisibilityPanel({ v }: { v: AiVisibilityResults }) {
   );
 }
 
+function ScorePanel({ s }: { s: CitabilityScore }) {
+  return (
+    <section className="space-y-2 rounded-xl border border-bip-border bg-bip-card p-4">
+      <div className="flex items-baseline gap-3">
+        <p className="text-3xl font-bold text-bip-text">{s.total}</p>
+        <p className="text-sm text-bip-muted">/ 100 citability · {s.band}</p>
+      </div>
+      <p className="text-xs text-bip-muted">
+        How ready the website is to be cited: worked out from the crawl, authority and content results, not by AI. Bands: Limited 0–44, Developing 45–64, Established 65–79, Strong 80–100.
+      </p>
+      <div className="space-y-1.5">
+        {s.subScores.map((p) => (
+          <details key={p.key} className="rounded-lg border border-bip-border/60 px-3 py-2 text-sm">
+            <summary className="flex cursor-pointer justify-between gap-3 text-bip-text">
+              <span>{p.label}</span>
+              <span className="tabular-nums text-bip-muted">
+                {p.points} / {p.weight}
+              </span>
+            </summary>
+            <ul className="mt-1 space-y-0.5 text-xs text-bip-muted">
+              {p.details.map((d) => (
+                <li key={d}>{d}</li>
+              ))}
+            </ul>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Evidence({ items }: { items: { source: string; quote: string }[] }) {
+  if (!items.length) return null;
+  return (
+    <ul className="mt-1 space-y-0.5 text-[11px] text-bip-muted">
+      {items.map((e, i) => (
+        <li key={i}>
+          <span className="break-all">{e.source}</span>: “{e.quote}”
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ContentPanel({ c }: { c: ContentResults }) {
+  const site = c.site;
+  const doctors = new Map<string, string>();
+  for (const p of c.pages) for (const d of p.doctors) if (!doctors.has(d.name)) doctors.set(d.name, `${d.credentials ?? "no credentials shown"}${d.hasBio ? ", has a bio" : ""}${d.school ? `, ${d.school}${d.year ? ` ${d.year}` : ""}` : ""}`);
+  const typos = c.pages.flatMap((p) => p.typos.map((t) => ({ ...t, url: p.url })));
+  const accreditations = [...new Set(c.pages.flatMap((p) => p.accreditations))];
+  const prices = [...new Set(c.pages.flatMap((p) => p.pricesShown))];
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold text-bip-text">Content &amp; messaging</h2>
+      <div className="rounded-xl border border-bip-border bg-bip-card p-4 text-sm">
+        <p className="text-xs uppercase tracking-wide text-bip-muted">Proposed positioning</p>
+        <p className="mt-1 text-bip-text">{site.positioningLine}</p>
+        <p className="mt-3 text-xs uppercase tracking-wide text-bip-muted">Proposed homepage H1</p>
+        <p className="mt-1 font-semibold text-bip-text">{site.homepageH1}</p>
+      </div>
+      <div className="rounded-xl border border-bip-border bg-bip-card p-4 text-sm">
+        <p className="font-semibold text-bip-text">What to lead with</p>
+        <ul className="mt-2 space-y-2">
+          {site.differentiators.map((d) => (
+            <li key={d.title}>
+              <span className="font-medium text-bip-text">{d.title}.</span> <span className="text-bip-muted">{d.detail}</span>
+              <Evidence items={d.evidence} />
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="rounded-xl border border-bip-border bg-bip-card p-4 text-sm">
+        <p className="font-semibold text-bip-text">What to fix, in order</p>
+        <ol className="mt-2 space-y-2">
+          {site.fixes.map((f) => (
+            <li key={f.rank}>
+              <span className="font-medium text-bip-text">
+                {f.rank}. {f.fix}
+              </span>{" "}
+              <span className="text-xs text-bip-muted">({f.area.replace("_", " ")})</span>
+              <p className="text-bip-muted">{f.whyItMatters}</p>
+              <Evidence items={f.evidence} />
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-bip-border bg-bip-card p-4 text-xs">
+          <p className="text-sm font-semibold text-bip-text">Doctors ({doctors.size})</p>
+          <ul className="mt-1 space-y-0.5 text-bip-muted">
+            {[...doctors.entries()].map(([name, note]) => (
+              <li key={name}>
+                <span className="text-bip-text">{name}</span>: {note}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="rounded-xl border border-bip-border bg-bip-card p-4 text-xs text-bip-muted">
+          <p className="text-sm font-semibold text-bip-text">Services &amp; trust</p>
+          <p className="mt-1">Named without a page: {site.servicesWithoutPage.join(", ") || "none"}</p>
+          <p>Menu items going nowhere: {site.menuItemsGoingNowhere.join(", ") || "none"}</p>
+          <p>Hours that disagree: {site.hoursContradictions.join("; ") || "none"}</p>
+          <p>Accreditations shown: {accreditations.join(", ") || "none"}</p>
+          <p>Prices shown: {prices.join("; ") || "none"}</p>
+        </div>
+      </div>
+      {typos.length > 0 && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs">
+          <p className="text-sm font-semibold text-bip-text">Typos ({typos.length})</p>
+          <ul className="mt-1 space-y-0.5 text-bip-muted">
+            {typos.map((t, i) => (
+              <li key={i}>
+                “{t.text}” → “{t.suggestion}” ({t.where}, <span className="break-all">{t.url}</span>)
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <details className="rounded-xl border border-bip-border bg-bip-card">
+        <summary className="cursor-pointer p-4 text-sm font-semibold text-bip-text">Current vs recommended H1, every page ({c.pages.length})</summary>
+        <table className="w-full text-xs">
+          <tbody>
+            {c.pages.map((p) => (
+              <tr key={p.url} className="border-t border-bip-border/50 align-top">
+                <td className="max-w-[240px] break-all px-3 py-1.5 text-bip-muted">{new URL(p.url).pathname}</td>
+                <td className="px-3 py-1.5 text-bip-muted">{p.currentH1 ?? "(none)"}</td>
+                <td className="px-3 py-1.5 text-bip-text">
+                  {p.recommendedH1}
+                  {p.secondaryLine && <span className="block text-bip-muted">{p.secondaryLine}</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
+      <p className="text-[11px] text-bip-muted">
+        Pages read by {c.pageModel}; strategy by {c.siteModel}; {new Date(c.ranAt).toLocaleString()}.
+      </p>
+    </section>
+  );
+}
+
 const toneClass = { bad: "border-red-500/30 bg-red-500/5", warn: "border-amber-500/30 bg-amber-500/5", good: "border-emerald-500/30 bg-emerald-500/5" };
 
 export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) {
@@ -299,6 +454,7 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
           <p className="text-sm text-bip-muted">
             {audit.domain} · {[audit.city, audit.state].filter(Boolean).join(", ")} · started {new Date(audit.created_at).toLocaleDateString()}
             {Number(audit.dataforseo_cost_usd) > 0 && ` · DataForSEO so far $${Number(audit.dataforseo_cost_usd).toFixed(2)}`}
+            {Number(audit.ai_cost_usd) > 0 && ` · Claude $${Number(audit.ai_cost_usd).toFixed(2)}`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -343,6 +499,8 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
         {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
       </section>
 
+      {audit.results.score && <ScorePanel s={audit.results.score} />}
+      {audit.results.content && <ContentPanel c={audit.results.content} />}
       {audit.results.aiVisibility && <AiVisibilityPanel v={audit.results.aiVisibility} />}
       {audit.results.authority && <AuthorityPanel a={audit.results.authority} />}
 

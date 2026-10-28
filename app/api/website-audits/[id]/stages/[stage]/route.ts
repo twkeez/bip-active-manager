@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { checkAiVisibility } from "@/lib/website-audit/ai-visibility";
 import { checkAuthority } from "@/lib/website-audit/authority";
+import { analyzeContent } from "@/lib/website-audit/content";
+import { computeScore } from "@/lib/website-audit/score";
 import { crawlSite } from "@/lib/website-audit/crawl";
 import { requireAuditAdmin } from "@/lib/website-audit/access";
 import { AUDIT_STAGES, type AuditStage, type WebsiteAuditRow } from "@/lib/website-audit/types";
@@ -33,6 +35,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   try {
     const results = { ...audit.results };
     let dataForSeoCost = Number(audit.dataforseo_cost_usd ?? 0);
+    let aiCost = Number(audit.ai_cost_usd ?? 0);
     if ((stage as AuditStage) === "crawl") {
       // Leave a minute for saving: the route's limit is 300 seconds.
       results.technical = await crawlSite(audit.domain, 230_000);
@@ -62,10 +65,20 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         { budgetMs: 230_000 },
       );
       dataForSeoCost += results.aiVisibility.costUsd - (resume?.costUsd ?? 0);
+    } else if ((stage as AuditStage) === "content") {
+      results.content = await analyzeContent(
+        { practiceName: audit.practice_name, city: audit.city, state: audit.state, domain: audit.domain },
+        results,
+      );
+      aiCost += results.content.costUsd;
     }
+    // The score is plain arithmetic over the other sections: refresh it after any step once content exists.
+    if (results.content) results.score = computeScore(results);
     await setStage({
       results,
       dataforseo_cost_usd: Number(dataForSeoCost.toFixed(4)),
+      ai_cost_usd: Number(aiCost.toFixed(4)),
+      score: results.score?.total ?? null,
       stage_status: { ...audit.stage_status, [stage]: { status: "done", at: now() } },
     });
     return NextResponse.json({ ok: true });

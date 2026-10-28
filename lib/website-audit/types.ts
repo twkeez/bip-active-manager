@@ -220,13 +220,80 @@ export type AiVisibilityResults = {
   costUsd: number;
 };
 
+export type PageType = "home" | "service" | "team" | "about" | "blog_post" | "other";
+
+/** What Claude read on one page (Section 4). Every item is as written on that page. */
+export type PageContent = {
+  url: string;
+  pageType: PageType;
+  doctors: { name: string; credentials: string | null; hasBio: boolean; school: string | null; year: string | null }[];
+  servicesNamed: string[];
+  hours: string | null;
+  booking: string | null;
+  emergencyReferral: string | null;
+  paymentInfo: string | null;
+  pricesShown: string[];
+  accreditations: string[];
+  hasFaq: boolean;
+  /** Blog posts only. */
+  blog: { questionHeading: boolean; authorNamed: string | null; dateShown: string | null; linksToServicePage: boolean } | null;
+  typos: { text: string; suggestion: string; where: string }[];
+  currentH1: string | null;
+  recommendedH1: string;
+  /** An existing tagline kept as a line under the new H1. */
+  secondaryLine: string | null;
+  error: string | null;
+};
+
+/** Each claim cites what supports it: a page URL or a review. */
+export type Evidence = { source: string; quote: string };
+
+export type SiteContent = {
+  differentiators: { title: string; detail: string; evidence: Evidence[] }[];
+  positioningLine: string;
+  homepageH1: string;
+  fixes: { rank: number; fix: string; whyItMatters: string; evidence: Evidence[]; area: string }[];
+  servicesWithoutPage: string[];
+  menuItemsGoingNowhere: string[];
+  hoursContradictions: string[];
+  error: string | null;
+};
+
+export type ContentResults = {
+  ranAt: string;
+  pageModel: string;
+  siteModel: string;
+  pages: PageContent[];
+  site: SiteContent;
+  costUsd: number;
+};
+
+export type SubScore = {
+  key: string;
+  label: string;
+  weight: number;
+  points: number;
+  /** What earned or lost points, in plain English, each traceable to the results. */
+  details: string[];
+};
+
+export type CitabilityScore = {
+  computedAt: string;
+  total: number;
+  band: string;
+  subScores: SubScore[];
+  weightsVersion: string;
+};
+
 export type AuditResults = {
   technical?: TechnicalCrawl;
   authority?: AuthorityResults;
   aiVisibility?: AiVisibilityResults;
+  content?: ContentResults;
+  score?: CitabilityScore;
 };
 
-export const AUDIT_STAGES = ["crawl", "authority", "ai-visibility"] as const;
+export const AUDIT_STAGES = ["crawl", "authority", "ai-visibility", "content"] as const;
 export type AuditStage = (typeof AUDIT_STAGES)[number];
 
 export type StageState = { status: "running" | "done" | "failed"; at: string; error?: string };
@@ -245,4 +312,5 @@ export type WebsiteAuditRow = {
   results: AuditResults;
   dataforseo_cost_usd: number;
   ai_cost_usd: number;
+  score: number | null;
 };
