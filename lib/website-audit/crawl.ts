@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { extractSchemaTypes } from "@/lib/seo/schema";
+import { archiveTypeOf, isListingPage } from "@/lib/website-audit/archive";
 import type { CrawlPage, CrawlSummary, RedirectHop, SitemapGap, SlashVariantCheck, SoftError, TechnicalCrawl } from "@/lib/website-audit/types";
 
 // Section 3 of the Website, SEO & AI Search Audit: one polite pass over every
@@ -161,17 +162,6 @@ export function softErrorOf(body: string): SoftError | null {
   if (/Backtrace:|(Fatal|Parse) error:|Uncaught (Exception|Error)|wp-includes\/[\w-]+\.php|There has been a critical error on this website/i.test(head)) {
     return "server-error";
   }
-  return null;
-}
-
-const ARCHIVE_PATTERNS: [RegExp, CrawlPage["archiveType"]][] = [
-  [/\/tag\//i, "tag"],
-  [/\/category\//i, "category"],
-  [/\/author\//i, "author"],
-];
-
-function archiveTypeOf(url: string): CrawlPage["archiveType"] {
-  for (const [pattern, type] of ARCHIVE_PATTERNS) if (pattern.test(new URL(url).pathname)) return type;
   return null;
 }
 
@@ -432,12 +422,13 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
   await Promise.all(Array.from({ length: CONCURRENCY }, variantWorker));
 
   // Pages the site links to that the sitemap leaves out: slower for Google to
-  // find. Compared ignoring www and the trailing slash.
+  // find. Compared ignoring www and the trailing slash. Tag, date and other
+  // listing pages are skipped: they shouldn't be in a sitemap anyway.
   const listed = new Set(entries.map((e) => pageKey(e.url)));
   const linkedFrom = new Map<string, Set<string>>();
   for (const page of crawled) {
     for (const link of page.links) {
-      if (listed.has(pageKey(link))) continue;
+      if (listed.has(pageKey(link)) || isListingPage(link)) continue;
       const key = pageKey(link);
       if (!linkedFrom.has(key)) linkedFrom.set(key, new Set([link]));
       linkedFrom.get(key)!.add(`from:${page.finalUrl}`);

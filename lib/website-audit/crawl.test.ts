@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isListingPage } from "./archive";
 import { analyzeHtml, bareDomain, pageKey, softErrorOf, summarize } from "./crawl";
 import type { CrawlPage } from "./types";
 
@@ -71,5 +72,21 @@ describe("sitemap gaps", () => {
       "https://example.com/",
     );
     expect(page.links).toEqual(["https://example.com/blog/a/", "https://www.example.com/b"]);
+  });
+});
+
+describe("isListingPage", () => {
+  it("spots WordPress listing pages, not posts", () => {
+    for (const url of [
+      "https://www.dhah.org/blog/2024/11/",
+      "https://www.dhah.org/blog/2025/",
+      "https://www.dhah.org/blog/tag/dental-care/",
+      "https://www.dhah.org/blog/category/news-events/",
+      "https://www.dhah.org/blog/page/2/",
+      "https://www.dhah.org/feed/",
+    ])
+      expect(isListingPage(url)).toBe(true);
+    for (const url of ["https://www.dhah.org/blog/skin-allergies-that-dont-respond-to-treatment/", "https://www.dhah.org/services/surgery.html", "https://www.dhah.org/"])
+      expect(isListingPage(url)).toBe(false);
   });
 });

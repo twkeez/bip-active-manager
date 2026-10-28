@@ -1,3 +1,4 @@
+import { isListingPage } from "@/lib/website-audit/archive";
 import type { AuditResults } from "@/lib/website-audit/types";
 
 // "Today vs. last run": the numbers the report compares between two runs of the
@@ -65,7 +66,7 @@ export function technicalMetrics(results: AuditResults): Metric[] {
     m("insecure", "Redirects to insecure http", s.insecureRedirects.length + s.slashVariants.insecure.length, false),
     m("missingMeta", "Pages with no meta description", s.missingMetaDescription, false),
     m("thin", "Content pages under 300 words", s.thinPages, false),
-    m("notInSitemap", "Linked pages missing from the sitemap", (t.notInSitemap ?? []).filter((g) => g.finalStatus === 200 && !g.softError).length, false),
+    m("notInSitemap", "Linked pages missing from the sitemap", (t.notInSitemap ?? []).filter((g) => g.finalStatus === 200 && !g.softError && !isListingPage(g.url)).length, false),
     m("helloWorld", "Sample \"Hello world\" post in the sitemap (1 = yes)", s.helloWorldInSitemap ? 1 : 0, false),
     m("llmsTxt", "llms.txt present (1 = yes)", Object.values(t.llmsTxt).some(Boolean) ? 1 : 0, true),
   ];
