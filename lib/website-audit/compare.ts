@@ -28,8 +28,8 @@ export function headlineMetrics(results: AuditResults): Metric[] {
   const ai = aiAnswersWithPractice(results);
   const g = results.authority?.google;
   return [
-    { key: "score", label: "Citability score", value: results.score?.total ?? null, format: "points", higherIsBetter: true },
-    { key: "aiShare", label: "AI answers naming or citing the practice", value: ai && ai.answered ? ai.hits / ai.answered : null, format: "percent", higherIsBetter: true },
+    { key: "score", label: "Your score", value: results.score?.total ?? null, format: "points", higherIsBetter: true },
+    { key: "aiShare", label: "AI answers that included you", value: ai && ai.answered ? ai.hits / ai.answered : null, format: "percent", higherIsBetter: true },
     { key: "rating", label: "Google rating", value: g?.rating ?? null, format: "rating", higherIsBetter: true },
     { key: "reviews", label: "Google reviews", value: g?.reviewCount ?? null, format: "number", higherIsBetter: true },
   ];
@@ -41,8 +41,8 @@ export function scoreMetrics(results: AuditResults): Metric[] {
 
 export function platformMetrics(results: AuditResults): Metric[] {
   return (results.aiVisibility?.platforms ?? []).flatMap((p) => [
-    { key: `ai.${p.platform}.cited`, label: `${p.label}: prompts citing the site`, value: p.promptsCited, format: "number", higherIsBetter: true },
-    { key: `ai.${p.platform}.named`, label: `${p.label}: prompts naming the practice`, value: p.promptsMentioned, format: "number", higherIsBetter: true },
+    { key: `ai.${p.platform}.cited`, label: `${p.label}: linked to your website`, value: p.promptsCited, format: "number", higherIsBetter: true },
+    { key: `ai.${p.platform}.named`, label: `${p.label}: mentioned you`, value: p.promptsMentioned, format: "number", higherIsBetter: true },
   ]);
 }
 

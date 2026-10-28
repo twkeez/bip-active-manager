@@ -274,7 +274,7 @@ async function readPage(page: CrawlPage, practice: Practice, serviceUrls: string
     if (message.stop_reason === "max_tokens" || !message.parsed_output) throw new Error("Claude's answer for this page was cut off or unreadable.");
     const parsed = message.parsed_output as Omit<PageContent, "url" | "pageType" | "currentH1" | "error">;
     // Claude occasionally "corrects" a word to itself; those aren't typos.
-    const typos = parsed.typos.filter((t) => t.text.trim().toLowerCase() !== t.suggestion.trim().toLowerCase());
+    const typos = parsed.typos.filter((t) => t.text.trim().toLowerCase() !== t.suggestion.trim().toLowerCase() && !/no typo|placeholder/i.test(t.suggestion));
     return { ...base, ...parsed, typos, blog: type === "blog_post" ? parsed.blog : null, error: null };
   } catch (error) {
     return {
