@@ -13,13 +13,15 @@ import {
 } from "@/lib/website-audit/compare";
 import { technicalFindings } from "@/lib/website-audit/findings";
 import { PLATFORM_LABEL } from "@/lib/website-audit/platforms";
-import type { AuditResults, Evidence, PageContent, WebsiteAuditRow } from "@/lib/website-audit/types";
+import type { AiPlatform, AuditResults, Evidence, PageContent, WebsiteAuditRow } from "@/lib/website-audit/types";
 
 // The branded Website, SEO & AI Search Audit report (printed to PDF from
-// /website-audit-print/[id]). Page order follows Tom's spec. Every finding
-// shows the URL or the field of the audit JSON it comes from, and a re-run of
-// the same domain adds a "last run" column. Fixed brand colours, like the
-// team guide and the client documents.
+// /website-audit-print/[id]), written for the practice owner, not for us:
+// plain words, "you" and "your". Page order follows Tom's spec. Every finding
+// shows the page it comes from, or names the part of the audit behind it (the
+// exact JSON field is kept in a tooltip), and a re-run of the same domain adds
+// a "last run" column. Fixed brand colours, like the team guide and the client
+// documents.
 
 const INDIGO = "#3350a2";
 const PURPLE = "#603894";
@@ -30,6 +32,15 @@ const URL_LIMIT = 8;
 
 export type PreviousRun = { id: number; created_at: string; results: AuditResults };
 
+const PLATFORM_PLAIN: Record<AiPlatform, string> = {
+  ai_overview: "The AI summary at the top of a normal Google search",
+  ai_mode: "Google's chat-style search",
+  chatgpt: "AI assistant (OpenAI)",
+  gemini: "AI assistant (Google)",
+  perplexity: "AI search engine",
+  claude: "AI assistant (Anthropic)",
+};
+
 const dateOf = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—";
 
@@ -39,6 +50,20 @@ const isUrl = (s: string) => /^https?:\/\//.test(s);
 const clip = (s: string, max = 180) => (s.length > max ? `${s.slice(0, max).replace(/[,;\s]+\S*$/, "")}…` : s);
 /** DataForSEO writes locations as "Powder Springs,Georgia,United States". */
 const place = (s: string) => s.replace(/,\s*/g, ", ");
+
+/** A field of the audit JSON, in words a client can follow ("review 6" → "Google review 6"). */
+function sourceLabel(source: string): string {
+  const review = source.match(/^review\s+(\d+)/i);
+  if (review) return `Google review ${review[1]}`;
+  if (/^aiVisibility\.mentions/.test(source)) return "AI answers recorded over 90 days";
+  if (/^aiVisibility/.test(source)) return "Our AI question test";
+  if (/^authority\.google/.test(source)) return "Your Google Business Profile";
+  if (/^authority/.test(source)) return "Links from other websites";
+  if (/^technical/.test(source)) return "Our scan of your website";
+  if (/^score/.test(source)) return "Score breakdown";
+  if (/^content/.test(source)) return "Our reading of your pages";
+  return source;
+}
 
 function Section({ n, title, intro, children, newPage = true }: { n: string; title: string; intro?: string; children: ReactNode; newPage?: boolean }) {
   return (
@@ -53,13 +78,14 @@ function Section({ n, title, intro, children, newPage = true }: { n: string; tit
   );
 }
 
-function Sources({ items }: { items: string[] }) {
+function Sources({ items, label = "Found on" }: { items: string[]; label?: string }) {
   if (!items.length) return null;
-  const shown = items.slice(0, URL_LIMIT);
+  const shown = distinct(items.map((s) => (isUrl(s) ? s : sourceLabel(s)))).slice(0, URL_LIMIT);
+  const rest = items.length - shown.length;
   return (
-    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-      Source: {shown.map((s) => (isUrl(s) ? shortUrl(s) : s)).join(" · ")}
-      {items.length > shown.length && ` · and ${items.length - shown.length} more (crawl CSV)`}
+    <p className="mt-1 text-[11px] leading-relaxed text-slate-500" title={items.filter((s) => !isUrl(s)).join(", ") || undefined}>
+      {label}: {shown.map((s) => (isUrl(s) ? shortUrl(s) : s)).join(" · ")}
+      {rest > 0 && ` · and ${rest} more`}
     </p>
   );
 }
@@ -69,8 +95,8 @@ function EvidenceList({ items }: { items: Evidence[] }) {
   return (
     <ul className="mt-1 space-y-0.5 text-[11px] leading-relaxed text-slate-500">
       {items.map((e, i) => (
-        <li key={i}>
-          <span className="font-medium text-slate-600">{isUrl(e.source) ? shortUrl(e.source) : e.source}</span>: “{e.quote}”
+        <li key={i} title={isUrl(e.source) ? undefined : e.source}>
+          <span className="font-medium text-slate-600">{isUrl(e.source) ? shortUrl(e.source) : sourceLabel(e.source)}</span>: “{e.quote}”
         </li>
       ))}
     </ul>
@@ -89,33 +115,30 @@ function ChangeCell({ m }: { m: MetricComparison }) {
   );
 }
 
-/** A metrics table; the last-run columns appear only when there is a last run. */
-function MetricTable({ rows, lastDate, source }: { rows: MetricComparison[]; lastDate: string | null; source?: string }) {
+/** A metrics table; the last-time columns appear only when there was an earlier audit. */
+function MetricTable({ rows, lastDate, heading = "What we measured" }: { rows: MetricComparison[]; lastDate: string | null; heading?: string }) {
   if (!rows.length) return null;
   return (
-    <div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-            <th className="py-1.5 font-semibold">Measure</th>
-            <th className="py-1.5 pl-3 text-right font-semibold">Today</th>
-            {lastDate && <th className="py-1.5 pl-3 text-right font-semibold">Last run ({lastDate})</th>}
-            {lastDate && <th className="py-1.5 pl-3 text-right font-semibold">Change</th>}
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+          <th className="py-1.5 font-semibold">{heading}</th>
+          <th className="py-1.5 pl-3 text-right font-semibold">Today</th>
+          {lastDate && <th className="py-1.5 pl-3 text-right font-semibold">Last time ({lastDate})</th>}
+          {lastDate && <th className="py-1.5 pl-3 text-right font-semibold">Change</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((m) => (
+          <tr key={m.key} className="border-b border-slate-100" style={{ breakInside: "avoid" }}>
+            <td className="py-1.5 text-slate-700">{m.label}</td>
+            <td className="py-1.5 pl-3 text-right font-medium text-slate-900">{formatMetric(m.value, m.format)}</td>
+            {lastDate && <td className="py-1.5 pl-3 text-right text-slate-600">{formatMetric(m.last, m.format)}</td>}
+            {lastDate && <ChangeCell m={m} />}
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((m) => (
-            <tr key={m.key} className="border-b border-slate-100" style={{ breakInside: "avoid" }}>
-              <td className="py-1.5 text-slate-700">{m.label}</td>
-              <td className="py-1.5 pl-3 text-right font-medium text-slate-900">{formatMetric(m.value, m.format)}</td>
-              {lastDate && <td className="py-1.5 pl-3 text-right text-slate-600">{formatMetric(m.last, m.format)}</td>}
-              {lastDate && <ChangeCell m={m} />}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {source && <Sources items={[source]} />}
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -135,8 +158,18 @@ function Check({ ok, label, detail, sources }: { ok: boolean | null; label: stri
 }
 
 const yesNo = (v: boolean) => (v ? "Yes" : "No");
+/** The score's detail lines start with ✓ / ✗ / ◐ marks; the summary reads better without them. */
+const unmarked = (s: string) => s.replace(/^[✓✗◐]\s*/, "");
+/** What a few pages say, without repeating every page's wording. */
+const firstFew = (items: (string | null)[], count = 2) =>
+  distinct(items.filter(Boolean) as string[])
+    .slice(0, count)
+    .map((x) => clip(x, 160))
+    .join(" / ");
 const pagesWith = (pages: PageContent[], test: (p: PageContent) => boolean) => pages.filter(test).map((p) => p.url);
-const distinct = <T,>(items: T[]) => [...new Set(items)];
+function distinct<T>(items: T[]): T[] {
+  return [...new Set(items)];
+}
 
 export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRow; previous: PreviousRun | null }) {
   const r = audit.results;
@@ -150,6 +183,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   const lastDate = previous ? dateOf(previous.created_at) : null;
   const prev = previous?.results ?? null;
   const location = [audit.city, audit.state].filter(Boolean).join(", ");
+  const town = audit.city ?? "your area";
 
   const headline = compareMetrics(headlineMetrics(r), prev ? headlineMetrics(prev) : null);
   const byKey = new Map(headline.map((m) => [m.key, m]));
@@ -162,7 +196,9 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   const parts = s?.subScores ?? [];
   const working = parts.filter((p) => p.points / p.weight >= 0.8);
   const holding = parts.filter((p) => p.points / p.weight < 0.5);
-  const informationalRuns = v?.runs.filter((run) => run.answered && v.prompts.find((p) => p.id === run.promptId)?.kind === "informational") ?? [];
+  const kindOf = (promptId: string) => v?.prompts.find((p) => p.id === promptId)?.kind;
+  const answeredOfKind = (kind: string) => v?.runs.filter((run) => run.answered && kindOf(run.promptId) === kind) ?? [];
+  const informationalRuns = answeredOfKind("informational");
   const informationalHits = informationalRuns.filter((run) => run.cited || run.mentioned).length;
 
   // Doctors, merged across pages by name.
@@ -184,7 +220,8 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   const blogPosts = pages.filter((p) => p.pageType === "blog_post" && p.blog);
   const crawlByUrl = new Map((t?.pages ?? []).map((p) => [p.finalUrl, p]));
   const servicePages = pages.filter((p) => p.pageType === "service");
-  const typos = pages.flatMap((p) => p.typos.map((ty) => ({ ...ty, url: p.url })));
+  // Claude sometimes files a "no typo here" note as a typo; those aren't findings.
+  const typos = pages.flatMap((p) => p.typos.filter((ty) => !/no typo|placeholder/i.test(ty.suggestion)).map((ty) => ({ ...ty, url: p.url })));
   const uniqueTypos = [...new Map(typos.map((ty) => [`${ty.text}→${ty.suggestion}`, ty])).values()];
   const reviews = a?.google.reviews ?? [];
   const answeredReviews = reviews.filter((rv) => rv.ownerAnswered).length;
@@ -196,7 +233,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
 
   return (
     <article className="mx-auto max-w-3xl space-y-8 text-slate-700">
-      {/* 01 Cover */}
+      {/* Cover */}
       <header className="overflow-hidden rounded-3xl px-8 py-9 text-white" style={{ background: GRADIENT, breakInside: "avoid" }}>
         <BeyondIndigoLogo className="h-8 w-auto" />
         <p className="mt-10 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">Website, SEO & AI Search Audit</p>
@@ -209,20 +246,20 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         </p>
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: "Citability score", value: s ? String(s.total) : "—", sub: s ? `${s.band} · out of 100` : "Not scored yet", m: byKey.get("score") },
+            { label: "Your score", value: s ? String(s.total) : "—", sub: s ? `out of 100 · ${s.band}` : "Not scored yet", m: byKey.get("score") },
             {
-              label: "AI answers with the practice",
+              label: "AI recommends you",
               value: formatMetric(byKey.get("aiShare")?.value ?? null, "percent"),
-              sub: ai ? `${ai.hits} of ${ai.answered} answers, ${v?.platforms.length ?? 0} platforms` : "Not run",
+              sub: ai ? `of the time (${ai.hits} of ${ai.answered} AI answers)` : "Not checked",
               m: byKey.get("aiShare"),
             },
             {
               label: "Google rating",
               value: formatMetric(a?.google.rating ?? null, "rating"),
-              sub: a?.google.reviewCount != null ? `${a.google.reviewCount.toLocaleString("en-US")} reviews` : "No listing found",
+              sub: a?.google.reviewCount != null ? `from ${a.google.reviewCount.toLocaleString("en-US")} reviews` : "No listing found",
               m: byKey.get("rating"),
             },
-            { label: "Problems in the crawl", value: t ? String(problems.length) : "—", sub: t ? `${t.summary.uniquePages} pages checked` : "Not run", m: undefined },
+            { label: "Website problems", value: t ? String(problems.length) : "—", sub: t ? `that need fixing, across ${t.summary.uniquePages} pages` : "Not checked", m: undefined },
           ].map((tile) => (
             <div key={tile.label} className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.12)" }}>
               <p className="text-[11px] font-medium uppercase tracking-wide text-white/75">{tile.label}</p>
@@ -230,57 +267,60 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 {tile.value}
               </p>
               <p className="text-xs text-white/80">{tile.sub}</p>
-              {tile.m?.last != null && (
-                <p className="mt-1 text-[11px] text-white/80">
-                  Last run {formatMetric(tile.m.last, tile.m.format)}
-                </p>
-              )}
+              {tile.m?.last != null && <p className="mt-1 text-[11px] text-white/80">Last time: {formatMetric(tile.m.last, tile.m.format)}</p>}
             </div>
           ))}
         </div>
         <p className="mt-6 text-xs text-white/70">Prepared by Beyond Indigo Pets · beyondindigopets.com</p>
       </header>
 
-      <Section n={num()} title="Executive summary" newPage={false} intro="The short version: what's helping, what's holding the site back, and the three changes that matter most.">
+      <Section n={num()} title="The short version" newPage={false} intro="What's helping you, what's holding you back, and the three things to do first.">
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
-            <p className="text-sm font-semibold text-emerald-700">Working</p>
+            <p className="text-sm font-semibold text-emerald-700">What's working</p>
             <ul className="mt-2 space-y-2 text-[13px] leading-snug">
               {working.map((p) => (
                 <li key={p.key}>
-                  <span className="font-medium text-slate-800">{p.label}</span> ({p.points} of {p.weight}). {p.details[0]}
+                  <span className="font-medium text-slate-800">{p.label}.</span> {unmarked(p.details[0])}
                 </li>
               ))}
+              {v && ai && ai.hits > 0 && (
+                <li>
+                  <span className="font-medium text-slate-800">Local searches.</span> When people ask AI for a vet in {town}, you come up in{" "}
+                  {answeredOfKind("local").filter((run) => run.cited || run.mentioned).length} of {answeredOfKind("local").length} answers.
+                </li>
+              )}
               {(c?.site.differentiators ?? []).slice(0, 2).map((d) => (
                 <li key={d.title}>
-                  <span className="font-medium text-slate-800">{d.title}.</span> See section on differentiators.
+                  <span className="font-medium text-slate-800">{d.title}.</span> Your reviews and website back this up.
                 </li>
               ))}
             </ul>
           </div>
           <div className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
-            <p className="text-sm font-semibold text-red-700">Holding it back</p>
+            <p className="text-sm font-semibold text-red-700">What's holding you back</p>
             <ul className="mt-2 space-y-2 text-[13px] leading-snug">
-              {holding.map((p) => (
-                <li key={p.key}>
-                  <span className="font-medium text-slate-800">{p.label}</span> ({p.points} of {p.weight}). {clip(p.details[p.details.length - 1])}
-                </li>
-              ))}
               {v && informationalRuns.length > 0 && informationalHits === 0 && (
                 <li>
-                  <span className="font-medium text-slate-800">General pet-care questions.</span> AI answered {informationalRuns.length} of these and never named or cited the practice.
+                  <span className="font-medium text-slate-800">Everyday pet questions.</span> When people ask AI things like &quot;why is my dog limping?&quot;, it never
+                  mentions you. It quotes other websites instead.
                 </li>
               )}
+              {holding.map((p) => (
+                <li key={p.key}>
+                  <span className="font-medium text-slate-800">{p.label}.</span> {clip(unmarked(p.details[p.details.length - 1]))}
+                </li>
+              ))}
               {problems.length > 0 && (
                 <li>
-                  <span className="font-medium text-slate-800">Technical problems.</span> {problems.length} found in the crawl (see technical findings).
+                  <span className="font-medium text-slate-800">Website problems.</span> We found {problems.length} that need fixing (see &quot;Website health&quot;).
                 </li>
               )}
             </ul>
           </div>
           <div className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
             <p className="text-sm font-semibold" style={{ color: INDIGO }}>
-              What to change first
+              What to do first
             </p>
             <ol className="mt-2 list-decimal space-y-2 pl-4 text-[13px] leading-snug">
               {fixes.slice(0, 3).map((f) => (
@@ -291,40 +331,36 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         </div>
       </Section>
 
-      <Section
-        n={num()}
-        title="How to read the two scores"
-        intro="This report uses two different numbers, and they answer different questions. Keep them apart."
-      >
+      <Section n={num()} title="Your two numbers, explained" intro="This report gives you two numbers. They measure different things, so it helps to keep them apart.">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-2xl bg-slate-50 p-4" style={{ breakInside: "avoid" }}>
             <p className="text-sm font-semibold" style={{ color: INDIGO }}>
-              Citability score ({s?.total ?? "—"} / 100)
+              Your score: {s?.total ?? "—"} out of 100
             </p>
             <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-              How easy the website makes it for Google and AI tools to understand, trust and quote the practice. It is worked out with fixed arithmetic from what we
-              found on the site and around it (reviews, outside links, technical basics, structured data, doctors, services, blog, FAQs, accreditations). No AI
-              judgement goes into the number. This is the score the practice controls.
+              Think of this as a home inspection. It checks how well your website is built for Google and AI tools to read, trust and recommend. We add up points
+              for things like your reviews, your doctors&apos; bios, your service pages and the technical set-up. The same website always gets the same score: no
+              guesswork. <strong>This is the number you can improve directly</strong>, by making the changes in this report.
             </p>
             <p className="mt-2 text-xs text-slate-500">
-              Bands: {weightsConfig.bands.map((b, i, all) => `${b.label} ${b.min}${i === 0 ? "–100" : `–${all[i - 1].min - 1}`}`).join(" · ")}
+              {weightsConfig.bands.map((b, i, all) => `${b.label}: ${b.min}${i === 0 ? "–100" : `–${all[i - 1].min - 1}`}`).join(" · ")}
             </p>
           </div>
           <div className="rounded-2xl bg-slate-50 p-4" style={{ breakInside: "avoid" }}>
             <p className="text-sm font-semibold" style={{ color: INDIGO }}>
-              AI visibility ({formatMetric(byKey.get("aiShare")?.value ?? null, "percent")} of answers)
+              AI recommends you {formatMetric(byKey.get("aiShare")?.value ?? null, "percent")} of the time
             </p>
             <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-              What AI search actually says today. We asked {v?.prompts.length ?? "a set of"} questions pet owners ask on six AI platforms and counted the answers that
-              name the practice or link to its site. It moves with the citability score over time, but also with each platform&apos;s own changes, so a single run is a
-              snapshot, not a grade.
+              Think of this as a test drive. We asked six AI tools the questions a pet owner near you might ask, and counted how often the answer mentioned you or
+              linked to your website. AI answers change from day to day, so treat this as a snapshot. A better score tends to lift this number over the following
+              months.
             </p>
           </div>
         </div>
         {s && (
           <>
-            <p className="pt-2 text-sm font-semibold text-slate-800">What makes up the citability score</p>
-            <MetricTable rows={compareMetrics(scoreMetrics(r), prev ? scoreMetrics(prev) : null)} lastDate={lastDate} source="score.subScores" />
+            <p className="pt-2 text-sm font-semibold text-slate-800">Where your {s.total} points come from</p>
+            <MetricTable rows={compareMetrics(scoreMetrics(r), prev ? scoreMetrics(prev) : null)} lastDate={lastDate} heading="Area (points available)" />
             <ul className="space-y-2">
               {s.subScores.map((p) => (
                 <li key={p.key} className="text-xs text-slate-600" style={{ breakInside: "avoid" }}>
@@ -339,16 +375,28 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
       {v && (
         <Section
           n={num()}
-          title="AI visibility by platform"
-          intro={`We asked ${v.prompts.length} questions on each platform on ${dateOf(v.ranAt)}, with Google set to ${place(v.location)}. "Cited" means the answer linked to ${audit.domain}; "named" means the answer mentioned the practice by name.`}
+          title="How AI search sees you"
+          intro={`More and more pet owners ask AI tools instead of scrolling through search results. On ${dateOf(v.ranAt)} we asked six of them the same ${v.prompts.length} questions, as if we were a pet owner in ${place(v.location)}. The full list of questions is at the end of this report.`}
         >
+          <div className="grid gap-3 sm:grid-cols-2" style={{ breakInside: "avoid" }}>
+            <div className="rounded-xl bg-slate-50 p-3 text-[13px]">
+              <p className="font-semibold text-slate-800">&quot;Mentioned you&quot;</p>
+              <p className="text-slate-600">The answer said your practice&apos;s name, for example in a list of recommended vets.</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3 text-[13px]">
+              <p className="font-semibold text-slate-800">&quot;Linked to your website&quot;</p>
+              <p className="text-slate-600">
+                The AI used your website as a source and linked to it. This is the stronger result: the AI is treating your site as a trusted reference.
+              </p>
+            </div>
+          </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-                <th className="py-1.5 font-semibold">Platform</th>
-                <th className="py-1.5 pl-3 text-right font-semibold">Answered</th>
-                <th className="py-1.5 pl-3 text-right font-semibold">Cited the site</th>
-                <th className="py-1.5 pl-3 text-right font-semibold">Named the practice</th>
+                <th className="py-1.5 font-semibold">AI tool</th>
+                <th className="py-1.5 pl-3 text-right font-semibold">Questions it answered</th>
+                <th className="py-1.5 pl-3 text-right font-semibold">Linked to your website</th>
+                <th className="py-1.5 pl-3 text-right font-semibold">Mentioned you</th>
               </tr>
             </thead>
             <tbody>
@@ -356,7 +404,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 <tr key={p.platform} className="border-b border-slate-100" style={{ breakInside: "avoid" }}>
                   <td className="py-1.5">
                     <span className="text-slate-800">{p.label}</span>
-                    {p.model && <span className="block text-[11px] text-slate-500">{place(p.model)}</span>}
+                    <span className="block text-[11px] text-slate-500">{PLATFORM_PLAIN[p.platform]}</span>
                   </td>
                   <td className="py-1.5 pl-3 text-right">
                     {p.promptsAnswered} of {p.promptsRun}
@@ -367,105 +415,142 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               ))}
             </tbody>
           </table>
-          <Sources items={["aiVisibility.platforms", "aiVisibility.runs"]} />
-          {prev?.aiVisibility && (
-            <MetricTable rows={compareMetrics(platformMetrics(r), platformMetrics(prev))} lastDate={lastDate} />
+          {v.platforms.some((p) => p.platform === "ai_overview" && p.promptsAnswered < p.promptsRun) && (
+            <p className="text-xs text-slate-500">Google only shows its AI summary for some searches, so it answered fewer questions than the others.</p>
           )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            {(["local", "service", "informational"] as const).map((kind) => {
-              const ids = new Set(v.prompts.filter((p) => p.kind === kind).map((p) => p.id));
-              const runs = v.runs.filter((run) => ids.has(run.promptId) && run.answered);
+          <Sources items={["aiVisibility.platforms"]} label="Source" />
+          {prev?.aiVisibility && <MetricTable rows={compareMetrics(platformMetrics(r), platformMetrics(prev))} lastDate={lastDate} />}
+          <p className="pt-1 text-sm font-semibold text-slate-800">By type of question</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {(
+              [
+                ["local", "Looking for a vet", `e.g. "best vet in ${town}"`],
+                ["service", "Looking for a service", `e.g. "dog dental cleaning near ${town}"`],
+                ["informational", "Everyday pet questions", 'e.g. "why is my dog limping"'],
+              ] as const
+            ).map(([kind, title, example]) => {
+              const runs = answeredOfKind(kind);
               const hits = runs.filter((run) => run.cited || run.mentioned).length;
               return (
                 <div key={kind} className="rounded-xl bg-slate-50 p-3 text-[13px]" style={{ breakInside: "avoid" }}>
-                  <p className="font-semibold text-slate-800">
-                    {kind === "local" ? "Local searches" : kind === "service" ? "Service searches" : "General pet-care questions"}
+                  <p className="font-semibold text-slate-800">{title}</p>
+                  <p className="text-[11px] text-slate-500">{example}</p>
+                  <p className="mt-1 text-2xl font-semibold" style={{ color: hits ? INDIGO : "#b91c1c", fontFamily: "var(--font-heading)" }}>
+                    {hits} of {runs.length}
                   </p>
-                  <p className="text-slate-600">
-                    The practice appeared in {hits} of {runs.length} answers ({ids.size} questions).
-                  </p>
+                  <p className="text-slate-600">answers included you</p>
                 </div>
               );
             })}
-            {v.topCitedDomains.length > 0 && (
-              <div className="rounded-xl bg-slate-50 p-3 text-[13px]" style={{ breakInside: "avoid" }}>
-                <p className="font-semibold text-slate-800">Sites AI cites most in these answers</p>
-                <p className="text-slate-600">
-                  {v.topCitedDomains
-                    .slice(0, 6)
-                    .map((d) => `${d.domain} (${d.answers})`)
-                    .join(", ")}
-                </p>
-              </div>
-            )}
           </div>
+          {informationalRuns.length > 0 && (
+            <p className="text-[13px] leading-relaxed text-slate-600">
+              {informationalHits === 0
+                ? "Why the everyday questions matter: pet owners ask these long before they choose a vet. Whoever gives the helpful answer earns their trust first. Right now AI gives that answer using other websites."
+                : "Pet owners ask everyday questions long before they choose a vet, so being the answer there earns trust early."}
+            </p>
+          )}
+          {v.topCitedDomains.length > 0 && (
+            <div className="rounded-xl border border-slate-200 p-3 text-[13px]" style={{ breakInside: "avoid" }}>
+              <p className="font-semibold text-slate-800">Websites AI linked to most often in these answers</p>
+              <p className="text-slate-600">
+                {v.topCitedDomains
+                  .slice(0, 6)
+                  .map((d) => `${d.domain} (${d.answers} answers)`)
+                  .join(", ")}
+                .
+              </p>
+            </div>
+          )}
           <div className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
-            <p className="text-sm font-semibold text-slate-800">A separate measurement: what AI has said over time</p>
+            <p className="text-sm font-semibold text-slate-800">A second, separate check: what AI has said about you lately</p>
             <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-              DataForSEO keeps a database of AI answers it has observed ({v.mentions.window}). These are not our questions, so the numbers below are not comparable with
-              the table above and are not added to it.
+              Our data provider, DataForSEO, records millions of real AI answers. We looked up the ones from about the last 90 days that mention you. These came from
+              questions real people asked, not our test questions, so we keep these numbers separate and don&apos;t add them to the table above.
             </p>
             {v.mentions.error ? (
-              <p className="mt-2 text-xs text-red-700">The database couldn&apos;t be read: {v.mentions.error}</p>
+              <p className="mt-2 text-xs text-red-700">We couldn&apos;t check this today: {v.mentions.error}</p>
             ) : (
               <p className="mt-2 text-[13px] text-slate-700">
-                Answers linking to the site: <strong>{v.mentions.citedAsSource.mentions}</strong>
+                Answers that linked to your website: <strong>{v.mentions.citedAsSource.mentions}</strong>
                 {Object.keys(v.mentions.citedAsSource.byPlatform).length > 0 &&
                   ` (${Object.entries(v.mentions.citedAsSource.byPlatform)
-                    .map(([k, n]) => `${k} ${n}`)
+                    .map(([k, count]) => `${k.charAt(0).toUpperCase()}${k.slice(1)}: ${count}`)
                     .join(", ")})`}
-                {" · "}Answers naming the practice: <strong>{v.mentions.namedInAnswers.mentions}</strong>
+                {" · "}Answers that mentioned you by name: <strong>{v.mentions.namedInAnswers.mentions}</strong>
               </p>
             )}
-            <Sources items={["aiVisibility.mentions"]} />
+            <Sources items={["aiVisibility.mentions"]} label="Source" />
           </div>
         </Section>
       )}
 
       {(c || a) && (
-        <Section n={num()} title="Trust-signal checklist" intro="What a pet owner, Google or an AI tool can check to decide whether to trust the practice.">
+        <Section n={num()} title="Trust signals" intro="The things a pet owner (and Google, and AI tools) look for when deciding whether to trust a practice.">
           <ul>
             <Check
               ok={a?.google.rating != null ? a.google.rating >= 4.5 : null}
-              label="Strong Google rating"
-              detail={a?.google.rating != null ? `${a.google.rating}★ from ${a.google.reviewCount ?? "?"} reviews (${a.google.listingName ?? "Google listing"})` : "No rating found."}
+              label="A strong Google rating"
+              detail={a?.google.rating != null ? `${a.google.rating}★ from ${a.google.reviewCount ?? "?"} reviews.` : "We couldn't find your Google rating."}
               sources={["authority.google"]}
             />
             {reviews.length > 0 && (
               <Check
                 ok={answeredReviews / reviews.length >= 0.5}
-                label="Replies to reviews"
-                detail={`The practice replied to ${answeredReviews} of the ${reviews.length} newest reviews.`}
+                label="You reply to reviews"
+                detail={`You replied to ${answeredReviews} of your ${reviews.length} most recent reviews.`}
                 sources={["authority.google.reviews"]}
               />
             )}
             <Check
               ok={doctors.size > 0}
-              label="Doctors named on the site"
-              detail={`${doctors.size} named; ${[...doctors.values()].filter((d) => d.hasBio).length} with a bio, ${[...doctors.values()].filter((d) => d.credentials).length} with credentials.`}
+              label="Your doctors are named"
+              detail={`${doctors.size} named; ${[...doctors.values()].filter((d) => d.hasBio).length} with a bio, ${[...doctors.values()].filter((d) => d.credentials).length} with their qualifications.`}
               sources={distinct([...doctors.values()].flatMap((d) => d.urls))}
             />
             <Check
               ok={pages.some((p) => p.accreditations.length)}
-              label="Accreditations shown (AAHA, Fear Free, Cat Friendly, AAFP)"
-              detail={distinct(pages.flatMap((p) => p.accreditations)).join(", ") || "None found on any page."}
+              label="Accreditations shown (such as AAHA, Fear Free, Cat Friendly)"
+              detail={distinct(pages.flatMap((p) => p.accreditations)).join(", ") || "None shown on any page. If you hold any, show them: pet owners and AI tools both look for them."}
               sources={pagesWith(pages, (p) => p.accreditations.length > 0)}
             />
-            <Check ok={pages.some((p) => p.hours)} label="Hours shown" sources={pagesWith(pages, (p) => Boolean(p.hours))} />
-            <Check ok={pages.some((p) => p.booking)} label="How to book is clear" detail={distinct(pages.map((p) => p.booking).filter(Boolean) as string[]).slice(0, 2).join(" / ")} sources={pagesWith(pages, (p) => Boolean(p.booking))} />
+            <Check ok={pages.some((p) => p.hours)} label="Opening hours shown" sources={pagesWith(pages, (p) => Boolean(p.hours))} />
+            <Check
+              ok={pages.some((p) => p.booking)}
+              label="Clear how to book"
+              detail={firstFew(pages.map((p) => p.booking), 1)}
+              sources={pagesWith(pages, (p) => Boolean(p.booking))}
+            />
             <Check
               ok={pages.some((p) => p.emergencyReferral)}
-              label="Emergency referral stated"
-              detail={distinct(pages.map((p) => p.emergencyReferral).filter(Boolean) as string[]).slice(0, 2).join(" / ")}
+              label="Says where to go in an emergency"
+              detail={firstFew(pages.map((p) => p.emergencyReferral), 1)}
               sources={pagesWith(pages, (p) => Boolean(p.emergencyReferral))}
             />
-            <Check ok={pages.some((p) => p.paymentInfo)} label="Payment information" sources={pagesWith(pages, (p) => Boolean(p.paymentInfo))} />
-            <Check ok={pages.some((p) => p.pricesShown.length)} label="Any prices shown" detail={distinct(pages.flatMap((p) => p.pricesShown)).slice(0, 4).join(" · ")} sources={pagesWith(pages, (p) => p.pricesShown.length > 0)} />
-            <Check ok={pages.some((p) => p.hasFaq)} label="FAQ content" sources={pagesWith(pages, (p) => p.hasFaq)} />
+            <Check ok={pages.some((p) => p.paymentInfo)} label="Payment options explained" sources={pagesWith(pages, (p) => Boolean(p.paymentInfo))} />
+            <Check
+              ok={pages.some((p) => p.pricesShown.length)}
+              label="Some prices shown"
+              detail={distinct(pages.flatMap((p) => p.pricesShown))
+                .slice(0, 4)
+                .join(" · ")}
+              sources={pagesWith(pages, (p) => p.pricesShown.length > 0)}
+            />
+            <Check ok={pages.some((p) => p.hasFaq)} label="Answers to common questions (FAQ)" sources={pagesWith(pages, (p) => p.hasFaq)} />
             {t && (
               <>
-                <Check ok={types.has("VeterinaryCare") || types.has("LocalBusiness") || types.has("AnimalHospital")} label="Practice structured data (LocalBusiness / VeterinaryCare)" sources={["technical.summary.schemaTypes"]} />
-                <Check ok={types.has("Person")} label="Doctor structured data (Person)" sources={["technical.summary.schemaTypes"]} />
+                <Check
+                  ok={types.has("VeterinaryCare") || types.has("LocalBusiness") || types.has("AnimalHospital")}
+                  label="Google can tell you're a veterinary practice"
+                  detail="Hidden labels on your pages (called structured data) tell Google and AI tools your name, address, hours and that you're a vet."
+                  sources={["technical.summary.schemaTypes"]}
+                />
+                <Check
+                  ok={types.has("Person")}
+                  label="Google can tell who your doctors are"
+                  detail="The same kind of hidden label, for each doctor."
+                  sources={["technical.summary.schemaTypes"]}
+                />
               </>
             )}
           </ul>
@@ -475,55 +560,58 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
       {c && (
         <Section
           n={num()}
-          title="Blog findings"
-          intro="AI tools quote blog posts that answer one question clearly, carry a named author and date, and point to the service that solves the problem."
+          title="Your blog"
+          intro="AI tools love to quote blog posts that answer one clear question, show which vet wrote them and when, and point readers to the service that helps."
         >
           {blogPosts.length === 0 ? (
-            <p className="text-sm text-slate-600">No blog posts were found in the sitemap.</p>
+            <p className="text-sm text-slate-600">We didn&apos;t find any blog posts.</p>
           ) : (
-            <>
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-500">
-                    <th className="py-1.5 font-semibold">Post</th>
-                    <th className="py-1.5 pl-2 font-semibold">Question heading</th>
-                    <th className="py-1.5 pl-2 font-semibold">Author</th>
-                    <th className="py-1.5 pl-2 font-semibold">Date</th>
-                    <th className="py-1.5 pl-2 font-semibold">Links to a service</th>
-                    <th className="py-1.5 pl-2 font-semibold">Article schema</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {blogPosts.map((p) => {
-                    const crawl = crawlByUrl.get(p.url);
-                    return (
-                      <tr key={p.url} className="border-b border-slate-100 align-top" style={{ breakInside: "avoid" }}>
-                        <td className="py-1.5 pr-2 text-slate-700">
-                          {p.currentH1 ?? "(no H1)"}
-                          <span className="block text-[10px] text-slate-500">{shortUrl(p.url)}</span>
-                        </td>
-                        <td className="py-1.5 pl-2">{yesNo(Boolean(p.blog?.questionHeading))}</td>
-                        <td className="py-1.5 pl-2">{p.blog?.authorNamed ?? "No"}</td>
-                        <td className="py-1.5 pl-2">{p.blog?.dateShown ?? "No"}</td>
-                        <td className="py-1.5 pl-2">{yesNo(Boolean(p.blog?.linksToServicePage))}</td>
-                        <td className="py-1.5 pl-2">{yesNo(Boolean(crawl?.schemaTypes.some((x) => /Article|BlogPosting/.test(x))))}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {t?.summary.slashVariants.loops.some((u) => /blog/i.test(u)) && (
-                <p className="text-[13px] text-red-700">
-                  Some blog posts break when the trailing slash is removed (see technical findings).
-                </p>
-              )}
-            </>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-500">
+                  <th className="py-1.5 font-semibold">Post</th>
+                  <th className="py-1.5 pl-2 font-semibold">Headline asks a question</th>
+                  <th className="py-1.5 pl-2 font-semibold">Written by</th>
+                  <th className="py-1.5 pl-2 font-semibold">Date shown</th>
+                  <th className="py-1.5 pl-2 font-semibold">Links to a service</th>
+                  <th className="py-1.5 pl-2 font-semibold">Labelled as an article for Google</th>
+                </tr>
+              </thead>
+              <tbody>
+                {blogPosts.map((p) => {
+                  const crawl = crawlByUrl.get(p.url);
+                  return (
+                    <tr key={p.url} className="border-b border-slate-100 align-top" style={{ breakInside: "avoid" }}>
+                      <td className="py-1.5 pr-2 text-slate-700">
+                        {p.currentH1 ?? "(no headline)"}
+                        <span className="block text-[10px] text-slate-500">{shortUrl(p.url)}</span>
+                      </td>
+                      <td className="py-1.5 pl-2">{yesNo(Boolean(p.blog?.questionHeading))}</td>
+                      <td className="py-1.5 pl-2">{p.blog?.authorNamed ?? "No one named"}</td>
+                      <td className="py-1.5 pl-2">{p.blog?.dateShown ?? "No"}</td>
+                      <td className="py-1.5 pl-2">{yesNo(Boolean(p.blog?.linksToServicePage))}</td>
+                      <td className="py-1.5 pl-2">{yesNo(Boolean(crawl?.schemaTypes.some((x) => /Article|BlogPosting/.test(x))))}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          {blogPosts.some((p) => p.blog?.authorNamed && !/^dr\.?\s|dvm/i.test(p.blog.authorNamed)) && (
+            <p className="text-[13px] text-slate-600">
+              Tip: posts signed by the practice rather than a named vet carry less weight. A real doctor&apos;s name (with &quot;DVM&quot;) tells readers and AI the advice
+              comes from an expert.
+            </p>
           )}
         </Section>
       )}
 
       {t && (
-        <Section n={num()} title="Technical findings" intro={`From our crawl of every sitemap URL on ${dateOf(t.crawledAt)}. The crawl spreadsheet has every page.`}>
+        <Section
+          n={num()}
+          title="Website health"
+          intro={`Things visitors rarely notice but Google and AI tools do. We checked every page you list for Google on ${dateOf(t.crawledAt)}. Red items need fixing; amber items are worth tidying up; green is fine. Your web developer will know what to do with each one.`}
+        >
           <ul className="space-y-2">
             {findings.map((f) => (
               <li
@@ -532,7 +620,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 style={{ borderColor: f.tone === "bad" ? "#dc2626" : f.tone === "warn" ? "#d97706" : "#059669", breakInside: "avoid" }}
               >
                 <p className="text-[13px] text-slate-800">{f.text}</p>
-                {f.urls && <Sources items={f.urls} />}
+                {f.urls && <Sources items={f.urls} label="Pages" />}
               </li>
             ))}
           </ul>
@@ -540,18 +628,18 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
       )}
 
       {c && (
-        <Section n={num()} title="Doctors & services">
-          <p className="text-sm font-semibold text-slate-800">Doctors</p>
+        <Section n={num()} title="Your doctors and services" intro="Pet owners choose a vet as much as a practice, and AI tools recommend practices whose services they can clearly see.">
+          <p className="text-sm font-semibold text-slate-800">Your doctors</p>
           {doctors.size === 0 ? (
-            <p className="text-sm text-slate-600">No doctors are named on any page we read.</p>
+            <p className="text-sm text-slate-600">We couldn&apos;t find any doctors named on your website.</p>
           ) : (
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-500">
-                  <th className="py-1.5 font-semibold">Name as written</th>
-                  <th className="py-1.5 pl-2 font-semibold">Credentials</th>
+                  <th className="py-1.5 font-semibold">Name, as written</th>
+                  <th className="py-1.5 pl-2 font-semibold">Qualifications</th>
                   <th className="py-1.5 pl-2 font-semibold">Bio</th>
-                  <th className="py-1.5 pl-2 font-semibold">School / year</th>
+                  <th className="py-1.5 pl-2 font-semibold">Where they trained</th>
                   <th className="py-1.5 pl-2 font-semibold">Found on</th>
                 </tr>
               </thead>
@@ -568,6 +656,11 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               </tbody>
             </table>
           )}
+          {doctors.size > 0 && (
+            <p className="text-[13px] text-slate-600">
+              A page of their own for each doctor helps people searching for a vet by name, and lets AI tools describe your team accurately.
+            </p>
+          )}
           <p className="pt-3 text-sm font-semibold text-slate-800">Services with their own page ({servicePages.length})</p>
           <ul className="grid gap-x-4 text-[13px] sm:grid-cols-2">
             {servicePages.map((p) => (
@@ -579,29 +672,36 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
           {c.site.servicesWithoutPage.length > 0 && (
             <div className="rounded-xl border-l-4 bg-slate-50 px-3 py-2" style={{ borderColor: "#d97706", breakInside: "avoid" }}>
               <p className="text-[13px] text-slate-800">
-                Named on the site but without a page of their own: {c.site.servicesWithoutPage.join(", ")}.
+                <strong>Mentioned on your site but with no page of their own:</strong> {c.site.servicesWithoutPage.join(", ")}.
               </p>
-              <Sources items={pagesWith(pages, (p) => p.servicesNamed.length > 0)} />
+              <p className="mt-1 text-xs text-slate-600">
+                When someone asks AI for &quot;{c.site.servicesWithoutPage[0].toLowerCase()} near {town}&quot;, a dedicated page is what gets you recommended.
+              </p>
             </div>
           )}
           {c.site.menuItemsGoingNowhere.length > 0 && (
             <div className="rounded-xl border-l-4 bg-slate-50 px-3 py-2" style={{ borderColor: "#dc2626", breakInside: "avoid" }}>
-              <p className="text-[13px] text-slate-800">Menu items that lead nowhere: {c.site.menuItemsGoingNowhere.join(", ")}.</p>
+              <p className="text-[13px] font-medium text-slate-800">Menu items and links that don&apos;t lead anywhere</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[12px] text-slate-700">
+                {c.site.menuItemsGoingNowhere.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
             </div>
           )}
         </Section>
       )}
 
       {c && (
-        <Section n={num()} title="Conversion & clarity" intro="Can a new client quickly tell when you're open, how to book, what to do in an emergency and how to pay?">
+        <Section n={num()} title="Is it easy to become a client?" intro="Can a new pet owner quickly see when you're open, how to book, what to do in an emergency and how to pay?">
           <ul>
             {(() => {
               const hours = distinct(pages.map((p) => p.hours).filter(Boolean) as string[]);
               return (
                 <Check
                   ok={hours.length > 0 && c.site.hoursContradictions.length === 0}
-                  label={hours.length === 0 ? "Hours aren't on the site" : c.site.hoursContradictions.length ? "Hours disagree between pages" : "Hours are consistent"}
-                  detail={[...c.site.hoursContradictions, ...hours.slice(0, 2)].join(" / ")}
+                  label={hours.length === 0 ? "Your hours aren't on the website" : c.site.hoursContradictions.length ? "Your hours don't match from page to page" : "Your hours are clear and consistent"}
+                  detail={[...c.site.hoursContradictions, ...hours.slice(0, 1)].join(" / ")}
                   sources={pagesWith(pages, (p) => Boolean(p.hours))}
                 />
               );
@@ -609,27 +709,27 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             <Check
               ok={pages.some((p) => p.booking)}
               label="Booking"
-              detail={distinct(pages.map((p) => p.booking).filter(Boolean) as string[]).join(" / ") || "No booking method stated."}
+              detail={firstFew(pages.map((p) => p.booking)) || "We couldn't find how to book."}
               sources={pagesWith(pages, (p) => Boolean(p.booking))}
             />
             <Check
               ok={pages.some((p) => p.emergencyReferral)}
               label="Emergencies"
-              detail={distinct(pages.map((p) => p.emergencyReferral).filter(Boolean) as string[]).join(" / ") || "No emergency referral stated."}
+              detail={firstFew(pages.map((p) => p.emergencyReferral), 1) || "We couldn't find where to go in an emergency."}
               sources={pagesWith(pages, (p) => Boolean(p.emergencyReferral))}
             />
             <Check
               ok={pages.some((p) => p.paymentInfo)}
               label="Payment"
-              detail={distinct(pages.map((p) => p.paymentInfo).filter(Boolean) as string[]).join(" / ") || "No payment information."}
+              detail={firstFew(pages.map((p) => p.paymentInfo)) || "We couldn't find any payment information."}
               sources={pagesWith(pages, (p) => Boolean(p.paymentInfo))}
             />
             <Check
               ok={uniqueTypos.length === 0}
-              label={uniqueTypos.length ? `${uniqueTypos.length} spelling mistakes in addresses, titles, menus or text` : "No spelling mistakes found"}
+              label={uniqueTypos.length ? `${uniqueTypos.length} spelling mistakes to fix` : "No spelling mistakes found"}
               detail={uniqueTypos
                 .slice(0, 10)
-                .map((ty) => `"${ty.text}" → "${ty.suggestion}" (${ty.where})`)
+                .map((ty) => `"${ty.text}" should be "${ty.suggestion}" (${ty.where === "url" ? "in the page address" : `in the ${ty.where}`})`)
                 .join(" · ")}
               sources={distinct(uniqueTypos.map((ty) => ty.url))}
             />
@@ -638,7 +738,11 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
       )}
 
       {c && c.site.differentiators.length > 0 && (
-        <Section n={num()} title="Differentiators to lead with" intro="Strengths the site or the practice's reviews already show, which most competitors can't claim. Each one cites where it comes from.">
+        <Section
+          n={num()}
+          title="What makes you different"
+          intro="Strengths your website or your Google reviews already show, which most practices nearby can't claim. Lead with these. Under each one is where it comes from."
+        >
           <div className="space-y-3">
             {c.site.differentiators.map((d) => (
               <div key={d.title} className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
@@ -650,37 +754,41 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               </div>
             ))}
           </div>
-          <p className="text-[11px] text-slate-500">&quot;Review N&quot; is the Nth newest Google review at the time of the audit (authority.google.reviews).</p>
+          <p className="text-[11px] text-slate-500">&quot;Google review 6&quot; means your 6th most recent Google review when we ran this audit.</p>
         </Section>
       )}
 
       {c && (
-        <Section n={num()} title="Messaging" intro="A positioning line and homepage headline built from the differentiators above.">
+        <Section n={num()} title="How to say it" intro="A one-sentence description of your practice, and a homepage headline, built from the strengths above.">
           <div className="rounded-2xl p-5 text-white" style={{ background: GRADIENT, breakInside: "avoid" }}>
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/75">Positioning line</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-white/75">Your practice in one sentence</p>
             <p className="mt-1 text-lg leading-snug" style={{ fontFamily: "var(--font-heading)" }}>
               {c.site.positioningLine}
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl bg-slate-50 p-4" style={{ breakInside: "avoid" }}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Homepage H1 today</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your homepage headline today</p>
               <p className="mt-1 text-sm text-slate-800">{homepage?.currentH1 ?? t?.pages.find((p) => p.finalStatus === 200)?.h1s[0] ?? "(none)"}</p>
               {homepage && <Sources items={[homepage.url]} />}
             </div>
             <div className="rounded-2xl bg-slate-50 p-4" style={{ breakInside: "avoid" }}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recommended homepage H1</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Suggested headline</p>
               <p className="mt-1 text-sm font-medium" style={{ color: INDIGO }}>
                 {c.site.homepageH1}
               </p>
-              {homepage?.secondaryLine && <p className="text-xs text-slate-600">Keep as a line beneath: {homepage.secondaryLine}</p>}
+              {homepage?.secondaryLine && <p className="text-xs text-slate-600">Keep underneath it: {homepage.secondaryLine}</p>}
             </div>
           </div>
+          <p className="text-[13px] text-slate-600">
+            A good headline says what you do, for whom, and where. That&apos;s exactly what Google and AI tools look for when matching you to someone searching
+            nearby.
+          </p>
         </Section>
       )}
 
       {fixes.length > 0 && (
-        <Section n={num()} title="Prioritized fix list" intro="Ranked by impact on new clients. Each fix says why it matters and what it's based on.">
+        <Section n={num()} title="Your action plan" intro="Everything we recommend, most important first. Each item says why it matters and what it's based on.">
           <ol className="space-y-3">
             {fixes.map((f) => (
               <li key={f.rank} className="flex gap-3 rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
@@ -704,13 +812,17 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
       )}
 
       {c && (
-        <Section n="Appendix A" title="Current vs recommended H1, page by page" intro="The H1 is the main headline on a page. The pattern we recommend: what, for whom, in which town.">
+        <Section
+          n="Appendix A"
+          title="Suggested headline for every page"
+          intro="Each page's main headline (the big text at the top) is one of the first things Google and AI read. We suggest a headline for every page that says what it is, who it's for, and where."
+        >
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-500">
                 <th className="py-1.5 font-semibold">Page</th>
-                <th className="py-1.5 pl-2 font-semibold">Today</th>
-                <th className="py-1.5 pl-2 font-semibold">Recommended</th>
+                <th className="py-1.5 pl-2 font-semibold">Headline today</th>
+                <th className="py-1.5 pl-2 font-semibold">Suggested headline</th>
               </tr>
             </thead>
             <tbody>
@@ -720,7 +832,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                   <td className="py-1.5 pl-2 text-slate-700">{p.currentH1 ?? "(none)"}</td>
                   <td className="py-1.5 pl-2 text-slate-900">
                     {p.recommendedH1}
-                    {p.secondaryLine && <span className="block text-[10px] text-slate-500">Below it: {p.secondaryLine}</span>}
+                    {p.secondaryLine && <span className="block text-[10px] text-slate-500">Keep underneath: {p.secondaryLine}</span>}
                   </td>
                 </tr>
               ))}
@@ -730,12 +842,19 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
       )}
 
       {t && (
-        <Section n="Appendix B" title="Technical signals" intro={`Crawled ${dateOf(t.crawledAt)}. Sitemaps read: ${t.sitemapsRead.map(shortUrl).join(", ") || "none"}.`}>
-          <MetricTable rows={compareMetrics(technicalMetrics(r), prev?.technical ? technicalMetrics(prev) : null)} lastDate={prev?.technical ? lastDate : null} source="technical.summary" />
-          <p className="pt-2 text-[13px] text-slate-600">
-            Sitemap URLs by host: {Object.entries(t.summary.byHost).map(([host, count]) => `${host} ${count}`).join(", ")}. Structured data types found:{" "}
-            {t.summary.schemaTypes.join(", ") || "none"}. robots.txt: {Object.values(t.robotsTxt).some(Boolean) ? "present" : "missing"}. llms.txt:{" "}
-            {Object.values(t.llmsTxt).some(Boolean) ? "present" : "missing"}.
+        <Section
+          n="Appendix B"
+          title="Technical details for your web developer"
+          intro={`The raw numbers behind "Website health", checked ${dateOf(t.crawledAt)}. You don't need to read this page; pass it to whoever looks after your website.`}
+        >
+          <MetricTable rows={compareMetrics(technicalMetrics(r), prev?.technical ? technicalMetrics(prev) : null)} lastDate={prev?.technical ? lastDate : null} />
+          <p className="pt-2 text-[12px] text-slate-600">
+            Sitemaps read: {t.sitemapsRead.map(shortUrl).join(", ") || "none"}. Sitemap URLs by host:{" "}
+            {Object.entries(t.summary.byHost)
+              .map(([host, count]) => `${host} ${count}`)
+              .join(", ")}
+            . Structured data types: {t.summary.schemaTypes.join(", ") || "none"}. robots.txt: {Object.values(t.robotsTxt).some(Boolean) ? "present" : "missing"}.
+            llms.txt: {Object.values(t.llmsTxt).some(Boolean) ? "present" : "missing"}.
           </p>
           <table className="w-full text-[10px]">
             <thead>
@@ -767,66 +886,73 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         </Section>
       )}
 
-      <Section n="Appendix C" title="Methodology">
-        <dl className="grid gap-x-4 gap-y-1 text-[13px] sm:grid-cols-[12rem_1fr]">
-          <dt className="font-medium text-slate-800">Run dates</dt>
+      <Section n="Appendix C" title="How we did this audit">
+        <dl className="grid gap-x-4 gap-y-2 text-[13px] sm:grid-cols-[11rem_1fr]">
+          <dt className="font-medium text-slate-800">When</dt>
           <dd>
-            Crawl {dateOf(t?.crawledAt)} · Authority & reviews {dateOf(a?.checkedAt)} · AI visibility {dateOf(v?.ranAt)} · Content {dateOf(c?.ranAt)} · Score{" "}
-            {dateOf(s?.computedAt)}
+            Website scan {dateOf(t?.crawledAt)} · Reviews and links {dateOf(a?.checkedAt)} · AI questions {dateOf(v?.ranAt)} · Page reading {dateOf(c?.ranAt)} ·
+            Score {dateOf(s?.computedAt)}
           </dd>
           {lastDate && (
             <>
               <dt className="font-medium text-slate-800">Compared with</dt>
-              <dd>The audit of the same domain run on {lastDate}.</dd>
+              <dd>Our previous audit of your website, on {lastDate}.</dd>
             </>
           )}
-          <dt className="font-medium text-slate-800">Technical crawl</dt>
+          <dt className="font-medium text-slate-800">Your website</dt>
           <dd>
-            Our own crawler, at most 3 requests at a time. Every URL in the sitemaps on both the www and bare host, every redirect followed one hop at a time, each
-            page also requested with the trailing slash added or removed, and pages the site links to but its sitemap leaves out.
+            Our own software visited every page you list for Google, plus pages your site links to that the list leaves out, slowly and politely so your site wasn&apos;t
+            affected. It recorded what each page shows and what it tells search engines behind the scenes.
           </dd>
-          <dt className="font-medium text-slate-800">Authority & reviews</dt>
+          <dt className="font-medium text-slate-800">Reviews and links</dt>
           <dd>
-            DataForSEO Backlinks (its own 0–1000 rank, not Moz or Ahrefs &quot;Domain Rating&quot;) and Google Business data via DataForSEO: rating, review count and the{" "}
-            {reviews.length} newest reviews, read without reviewer names.
+            Your Google rating, review count and {reviews.length} most recent reviews (we never record reviewers&apos; names). Links from other websites are measured
+            on DataForSEO&apos;s 0–1000 scale, which is not the same scale as other tools&apos; &quot;Domain Rating&quot;.
           </dd>
           {v && (
             <>
-              <dt className="font-medium text-slate-800">AI platforms and models</dt>
+              <dt className="font-medium text-slate-800">AI tools asked</dt>
               <dd>
-                {v.platforms.map((p) => `${PLATFORM_LABEL[p.platform]}: ${v.models[p.platform] ?? p.model ?? "as served"}`).join(" · ")}. Google results located to{" "}
-                {place(v.location)}. Settings: {v.profile === "consumer" ? "the models consumers use" : "lower-cost models"}.
+                {v.platforms.map((p) => `${PLATFORM_LABEL[p.platform]} (${place(v.models[p.platform] ?? p.model ?? "as served")})`).join(" · ")}. Google searches were
+                set to {place(v.location)}. {v.profile === "consumer" ? "We used the same versions the public uses." : "We used lower-cost versions of these tools."}
               </dd>
-              <dt className="font-medium text-slate-800">Observed answers</dt>
-              <dd>DataForSEO LLM Mentions, {v.mentions.window}. Reported separately from our questions.</dd>
+              <dt className="font-medium text-slate-800">AI answers over time</dt>
+              <dd>DataForSEO&apos;s record of real AI answers from about the last 90 days (US, English). Kept separate from our own questions.</dd>
             </>
           )}
           {c && (
             <>
-              <dt className="font-medium text-slate-800">Content reading</dt>
+              <dt className="font-medium text-slate-800">Reading your pages</dt>
               <dd>
-                {c.pages.length} pages read by {c.pageModel}; differentiators, messaging and fixes written by {c.siteModel} from the whole audit and the reviews, each
-                required to cite its source.
+                {c.pages.length} pages were read by an AI model ({c.pageModel}) to note doctors, services, hours, booking, prices and more. A second model ({c.siteModel})
+                wrote the strengths, headline and action plan from everything we found. It had to back up every point with a page or a review, and we list them
+                under each point.
               </dd>
             </>
           )}
-          <dt className="font-medium text-slate-800">Citability score</dt>
+          <dt className="font-medium text-slate-800">Your score</dt>
           <dd>
-            Fixed arithmetic, weights version {s?.weightsVersion ?? weightsConfig.version}:{" "}
+            Fixed arithmetic, never AI judgement, so the same website always gets the same score. Points available:{" "}
             {Object.entries(weightsConfig.weights)
               .map(([k, w]) => `${s?.subScores.find((p) => p.key === k)?.label ?? k} ${w}`)
               .join(", ")}
-            .
+            . (Scoring version {s?.weightsVersion ?? weightsConfig.version}.)
           </dd>
-          <dt className="font-medium text-slate-800">Not measured</dt>
-          <dd>Whether Google has indexed each page: that needs the practice&apos;s own Search Console access.</dd>
+          <dt className="font-medium text-slate-800">Not included</dt>
+          <dd>Whether Google has added each page to its index. Only your own Google Search Console account can show that reliably.</dd>
         </dl>
         {v && (
           <div className="pt-2">
-            <p className="text-sm font-semibold text-slate-800">The exact questions asked ({v.prompts.length})</p>
-            {(["local", "service", "informational"] as const).map((kind) => (
+            <p className="text-sm font-semibold text-slate-800">Every question we asked ({v.prompts.length})</p>
+            {(
+              [
+                ["local", "Looking for a vet"],
+                ["service", "Looking for a service"],
+                ["informational", "Everyday pet questions"],
+              ] as const
+            ).map(([kind, title]) => (
               <div key={kind} className="mt-2" style={{ breakInside: "avoid" }}>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{kind === "local" ? "Local" : kind === "service" ? "Services" : "General pet care"}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
                 <ol className="list-decimal pl-5 text-[12px] text-slate-700">
                   {v.prompts
                     .filter((p) => p.kind === kind)
