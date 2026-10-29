@@ -93,6 +93,7 @@ Core daily tools first, then client-facing output, then the rest.
 ## Log
 
 - 2026-10-29: Tracker started from the inventory; recommendations approved.
+- 2026-10-29: 2.1: 21 sites verified through Tag Manager (admin-only connection at /search-console-access) and synced. 32 fail only because the Tag Manager <noscript> code isn't first after <body> (25 sit below a skip link, likely one template; 7 lack it): web fix, then re-run. 16 need the practice to add Tom.
 - 2026-10-29: Nightly Search Console sync skips website-only clients (143 of the 212 failures).
 - 2026-10-29: 2.1 started: Search Console access list built (routes: re-verify 7, Analytics 5, Tag Manager 165, ask to be added 35).
 - 2026-10-29: 1.1 done: 8 tools cut. All 8 were already hidden, so the visible sidebar is unchanged (42 links for admins); the app is down from 53 tools to 45.
