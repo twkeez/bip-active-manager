@@ -26,6 +26,7 @@ import {
   readStoredClientListHref,
 } from "@/lib/clients/client-list-view-state";
 import { norm } from "@/lib/clients/service-active";
+import { searchConsoleNote, searchConsoleNotConnected } from "@/lib/seo/search-console-access";
 import { clientPlanSummary } from "@/lib/services/client-plan";
 import ClientPlanEditor from "@/components/dashboard/client-plan-editor";
 import ClientExpectationsNote from "@/components/dashboard/client-expectations-note";
@@ -451,6 +452,8 @@ type SyncJob = {
   endpoint: string;
   requiredField: string | null;
   lastSyncedAt: string | null;
+  /** Why it can't sync (e.g. Search Console not connected), shown instead of "synced …". */
+  note?: string | null;
 };
 
 function IdRow({ label, value }: { label: string; value: string | null }) {
@@ -605,9 +608,13 @@ function ConnectionsDrawer({
                   <p style={{ color: T.ink }} className="text-[12.5px] font-semibold">
                     {job.label}
                   </p>
-                  <p style={{ color: T.faint }} className="text-[11px]">
-                    {configured ? synced : `Needs ${job.requiredField}`}
-                  </p>
+                  {configured && job.note && status !== "done" ? (
+                    <p className="text-[11px] text-amber-700">{job.note}</p>
+                  ) : (
+                    <p style={{ color: T.faint }} className="text-[11px]">
+                      {configured ? synced : `Needs ${job.requiredField}`}
+                    </p>
+                  )}
                   {errors[job.label] && (
                     <p className="mt-0.5 text-[10.5px] text-red-500">
                       {errors[job.label]}
@@ -730,7 +737,10 @@ export default function ClientOverview({
     client.ads_customer_id,
     client.basecamp_project_id,
   ];
-  const connectionsOk = connectionFields.filter((v) => Boolean(norm(v))).length;
+  // A Search Console address on file isn't a connection if Google refuses us
+  // access to it. Website-only clients aren't synced, so they aren't flagged.
+  const gscNotConnected = !client.is_website_only && searchConsoleNotConnected(data.gscSnapshot);
+  const connectionsOk = connectionFields.filter((v) => Boolean(norm(v))).length - (gscNotConnected && norm(client.sc_url) ? 1 : 0);
   const connectionsTotal = connectionFields.length;
 
   // Last report
@@ -744,7 +754,8 @@ export default function ClientOverview({
       label: "Search Console",
       endpoint: "/api/seo/search-console/sync",
       requiredField: "sc_url",
-      lastSyncedAt: data.gscSnapshot?.created_at ?? null,
+      lastSyncedAt: data.gscSnapshot?.run_status === "failed" ? null : (data.gscSnapshot?.created_at ?? null),
+      note: client.is_website_only ? null : searchConsoleNote(data.gscSnapshot),
     },
     {
       label: "GA4",
@@ -998,6 +1009,9 @@ export default function ClientOverview({
               <Dot color={connectionsOk === connectionsTotal ? T.green : T.amber} />
               {connectionsOk} of {connectionsTotal} connected
             </p>
+            {gscNotConnected && (
+              <p className="mt-1.5 text-[11.5px] font-semibold text-amber-700">Search Console not connected</p>
+            )}
             <p
               style={{ color: T.primary }}
               className="mt-1.5 text-[11.5px] font-semibold"
