@@ -1,4 +1,5 @@
 import ExportBlocked from "@/components/data-integrity/export-blocked";
+import { searchConsoleNote } from "@/lib/seo/search-console-access";
 import { withIntegrityScope } from "@/lib/data-integrity/server";
 import { notFound, redirect } from "next/navigation";
 import ClientReportWorkspace from "@/components/reports/client-report-workspace";
@@ -41,7 +42,8 @@ export default async function ReportClientPage({
   const draft: ReportDraft | null = draftRow ?? null;
 
   const syncTimestamps = {
-    gsc: workspace.gscSnapshot?.updated_at ?? null,
+    // A failed sync isn't a sync: show "never" and the not-connected note instead.
+    gsc: workspace.gscSnapshot?.run_status === "failed" ? null : (workspace.gscSnapshot?.updated_at ?? null),
     ads: workspace.adsSnapshot?.updated_at ?? null,
     ga4: workspace.ga4Snapshot?.updated_at ?? null,
     social: workspace.socialDailySnapshots[0]?.created_at ?? null,
@@ -60,6 +62,7 @@ export default async function ReportClientPage({
         initialDraft={draft}
         initialKeywords={managedKeywords}
         syncTimestamps={syncTimestamps}
+        syncNotes={{ gsc: searchConsoleNote(workspace.gscSnapshot) }}
         backHref={backHref}
       />
     </>

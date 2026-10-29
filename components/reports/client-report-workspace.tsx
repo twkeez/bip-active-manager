@@ -36,6 +36,8 @@ type Props = {
   initialDraft: ReportDraft | null;
   initialKeywords: ManagedKeyword[];
   syncTimestamps: SyncTimestamps;
+  /** Why a channel can't be synced (e.g. Search Console not connected), shown under it. */
+  syncNotes?: Partial<Record<keyof SyncTimestamps, string | null>>;
   backHref?: string | null;
 };
 
@@ -66,6 +68,7 @@ export default function ClientReportWorkspace({
   initialDraft,
   initialKeywords,
   syncTimestamps,
+  syncNotes = {},
   backHref,
 }: Props) {
   const router = useRouter();
@@ -344,6 +347,7 @@ export default function ClientReportWorkspace({
           {activeTab === "sync" && (
             <SyncPanel
               syncTimestamps={syncTimestamps}
+              syncNotes={syncNotes}
               syncing={syncing}
               syncErrors={syncErrors}
               onSync={syncChannel}
@@ -405,11 +409,13 @@ export default function ClientReportWorkspace({
 
 function SyncPanel({
   syncTimestamps,
+  syncNotes,
   syncing,
   syncErrors,
   onSync,
 }: {
   syncTimestamps: SyncTimestamps;
+  syncNotes: Partial<Record<keyof SyncTimestamps, string | null>>;
   syncing: Record<string, boolean>;
   syncErrors: Record<string, string>;
   onSync: (ch: "gsc" | "ads" | "ga4" | "social" | "gbp") => void;
@@ -464,6 +470,9 @@ function SyncPanel({
                 Sync
               </button>
             </div>
+            {syncNotes[ch.id] && !error && (
+              <p className="mt-2 rounded bg-amber-50 px-2 py-1 text-[10px] text-amber-800">{syncNotes[ch.id]}</p>
+            )}
             {error && (
               <p className="mt-2 rounded bg-red-50 px-2 py-1 text-[10px] text-red-600">
                 {error}
