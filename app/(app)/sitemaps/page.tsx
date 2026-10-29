@@ -11,6 +11,7 @@ type ClientRow = {
   account_name: string;
   website: string | null;
   marketing_strategist: string | null;
+  is_website_only: boolean | null;
 };
 
 type GscSitemapRow = {
@@ -42,7 +43,7 @@ export default async function SitemapsPage() {
   const [clientsResult, snapshotsResult, gscResult, latestGscRuns] = await Promise.all([
     supabase
       .from("clients")
-      .select("id, account_name, website, marketing_strategist")
+      .select("id, account_name, website, marketing_strategist, is_website_only")
       .not("website", "is", null)
       .neq("website", "")
       .order("account_name", { ascending: true })
@@ -118,7 +119,8 @@ export default async function SitemapsPage() {
     client,
     snapshot: snapshotByClient.get(client.id) ?? null,
     gsc: gscByClient.get(client.id) ?? null,
-    gscNotConnected: notConnected.has(client.id),
+    // Website-only clients aren't synced or chased for Search Console (Tom, 2026-10-29).
+    gscNotConnected: !client.is_website_only && notConnected.has(client.id),
   }));
 
   return <SitemapsManager rows={rows} />;
