@@ -11,9 +11,10 @@ import {
   technicalMetrics,
   type MetricComparison,
 } from "@/lib/website-audit/compare";
+import { SIDE_SERVICES, standing } from "@/lib/website-audit/competitors";
 import { technicalFindings } from "@/lib/website-audit/findings";
 import { PLATFORM_LABEL } from "@/lib/website-audit/platforms";
-import type { AiPlatform, AuditResults, Evidence, PageContent, WebsiteAuditRow } from "@/lib/website-audit/types";
+import type { AiPlatform, AuditResults, CompetitorListing, CompetitorResults, Evidence, PageContent, ServiceComparison, WebsiteAuditRow } from "@/lib/website-audit/types";
 
 // The branded Website, SEO & AI Search Audit report (printed to PDF from
 // /website-audit-print/[id]), written for the practice owner, not for us:
@@ -58,6 +59,7 @@ function sourceLabel(source: string): string {
   if (/^aiVisibility\.mentions/.test(source)) return "AI answers recorded over 90 days";
   if (/^aiVisibility/.test(source)) return "Our AI question test";
   if (/^authority\.google/.test(source)) return "Your Google Business Profile";
+  if (/^competitors/.test(source)) return "Google Maps search near you";
   if (/^authority/.test(source)) return "Links from other websites";
   if (/^technical/.test(source)) return "Our scan of your website";
   if (/^score/.test(source)) return "Score breakdown";
@@ -168,6 +170,101 @@ function Check({ ok, label, detail, sources }: { ok: boolean | null; label: stri
   );
 }
 
+
+const stars = (n: number | null) => (n == null ? "—" : `${n.toFixed(1)}★`);
+const count = (n: number | null) => (n == null ? "—" : n.toLocaleString("en-US"));
+/** "1 of 8" / "all 8" / "none of the 8" */
+const ofThem = (n: number, total: number) => (n === total ? `all ${total}` : n === 0 ? `none of the ${total}` : `${n} of ${total}`);
+
+/** One sentence placing the practice among the listings, from the counts alone. */
+function standingLine(you: CompetitorResults["you"], listings: CompetitorListing[], noun: string): string | null {
+  const st = standing(you, listings);
+  if (!st.count || you.rating == null) return null;
+  const higher = st.higherRatingThan ?? 0;
+  const lower = st.lowerRatingThan ?? 0;
+  const tied = st.count - higher - lower;
+  const rating =
+    lower === 0 && tied === 0
+      ? `Your ${stars(you.rating)} is higher than all ${st.count} ${noun} below`
+      : lower === 0
+        ? `No one below beats your ${stars(you.rating)}: it's higher than ${higher} of the ${st.count} ${noun} and level with ${tied}`
+        : `Your ${stars(you.rating)} is higher than ${ofThem(higher, st.count)} ${noun} below${tied ? `, level with ${tied}` : ""} and lower than ${lower}`;
+  const reviews = you.reviewCount != null && st.moreReviewsThan != null ? `, and you have more reviews than ${ofThem(st.moreReviewsThan, st.count)}` : "";
+  const typical = st.medianRating != null ? ` A typical one has ${stars(st.medianRating)} from ${count(st.medianReviews == null ? null : Math.round(st.medianReviews))} reviews.` : "";
+  return `${rating}${reviews}.${typical}`;
+}
+
+function CompetitorTable({ you, listings, yourLabel }: { you: CompetitorResults["you"]; listings: CompetitorListing[]; yourLabel: string }) {
+  const rows: (CompetitorListing & { main?: boolean })[] = [
+    { name: you.name ?? "You", domain: null, category: yourLabel, rating: you.rating, reviewCount: you.reviewCount, miles: null, position: 0, isYou: true, main: true },
+    ...listings,
+  ];
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+          <th className="py-1.5 font-semibold">Business</th>
+          <th className="py-1.5 pl-3 text-right font-semibold">Distance</th>
+          <th className="py-1.5 pl-3 text-right font-semibold">Rating</th>
+          <th className="py-1.5 pl-3 text-right font-semibold">Reviews</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((l, i) => (
+          <tr key={i} className="border-b border-slate-100" style={{ breakInside: "avoid", background: l.isYou ? "#eef2ff" : undefined }}>
+            <td className="py-1.5 pr-2 text-slate-800">
+              <span className={l.isYou ? "font-semibold" : undefined}>{l.name}</span>
+              {l.isYou && !l.main && <span className="text-xs text-slate-500"> (yours)</span>}
+              {l.category && <span className="block text-[11px] text-slate-500">{l.category}</span>}
+            </td>
+            <td className="py-1.5 pl-3 text-right text-slate-600">{l.main ? "—" : l.miles != null ? `${l.miles} mi` : "—"}</td>
+            <td className="py-1.5 pl-3 text-right font-medium text-slate-900">{stars(l.rating)}</td>
+            <td className="py-1.5 pl-3 text-right text-slate-700">{count(l.reviewCount)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function SideServiceBlock({ comp, you }: { comp: ServiceComparison; you: CompetitorResults["you"] }) {
+  const def = SIDE_SERVICES[comp.service as keyof typeof SIDE_SERVICES];
+  const service = comp.label.toLowerCase();
+  const listedForIt = you.categories.some((cat) => def.category.test(cat));
+  const others = comp.listings.filter((l) => !l.isYou);
+  const line = standingLine(you, comp.listings, "businesses");
+  return (
+    <div className="space-y-2 rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
+      <p className="text-sm font-semibold text-slate-800">{comp.label}: you vs. businesses that only do {service}</p>
+      <p className="text-xs leading-relaxed text-slate-600">
+        You offer {service}, so you compete with businesses that do nothing else. When a pet owner near you searches Google Maps for “{comp.search}”,{" "}
+        {comp.yourPosition
+          ? `you show up at number ${comp.yourPosition}.`
+          : "you don't show up in the first 20 results, even searching from your own address."}{" "}
+        Keep in mind: your Google rating covers your whole practice, while theirs is about {service} alone.
+      </p>
+      {comp.error ? (
+        <p className="text-xs text-red-700">We couldn&apos;t complete this search: {comp.error}</p>
+      ) : others.length === 0 ? (
+        <p className="text-xs text-slate-600">We found no businesses near you that only do {service}.</p>
+      ) : (
+        <>
+          {line && <p className="text-sm text-slate-700">{line}</p>}
+          <CompetitorTable you={you} listings={comp.listings} yourLabel="Your practice (one rating for everything you do)" />
+        </>
+      )}
+      {!comp.yourPosition && (
+        <p className="text-xs leading-relaxed text-slate-600">
+          <span className="font-semibold text-slate-700">To show up: </span>
+          {listedForIt ? "" : `add “${def.googleCategory}” as an extra category on your Google listing, `}
+          give {service} its own page on your website, and ask {service} clients for a Google review that mentions it.
+        </p>
+      )}
+      <Sources items={comp.offeredBecause} label="We know you offer it from" />
+    </div>
+  );
+}
+
 const yesNo = (v: boolean) => (v ? "Yes" : "No");
 /** The score's detail lines start with ✓ / ✗ / ◐ marks; the summary reads better without them. */
 const unmarked = (s: string) => s.replace(/^[✓✗◐]\s*/, "");
@@ -189,6 +286,9 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   const v = r.aiVisibility;
   const c = r.content;
   const s = r.score;
+  const comp = r.competitors;
+  const vets = comp?.comparisons.find((x) => x.service === "vet");
+  const sideServices = comp?.comparisons.filter((x) => x.service !== "vet") ?? [];
   const pages = c?.pages.filter((p) => !p.error) ?? [];
   const runDate = dateOf(s?.computedAt ?? c?.ranAt ?? audit.created_at);
   const lastDate = previous ? dateOf(previous.created_at) : null;
@@ -568,6 +668,35 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         </Section>
       )}
 
+      {comp && (
+        <Section
+          n={num()}
+          title="Your reviews vs. the competition"
+          intro="When a pet owner looks you up on Google Maps, these are the businesses they see next to you. Star rating and number of reviews are the first two things they compare."
+        >
+          {vets && (
+            <div className="space-y-2" style={{ breakInside: "avoid" }}>
+              <p className="text-sm font-semibold text-slate-800">Other vets near you</p>
+              {vets.error ? (
+                <p className="text-xs text-red-700">We couldn&apos;t complete this search: {vets.error}</p>
+              ) : vets.listings.length === 0 ? (
+                <p className="text-xs text-slate-600">We found no other vets near you on Google Maps.</p>
+              ) : (
+                <>
+                  {standingLine(comp.you, vets.listings, "vets") && <p className="text-sm text-slate-700">{standingLine(comp.you, vets.listings, "vets")}</p>}
+                  <CompetitorTable you={comp.you} listings={vets.listings} yourLabel="Your practice" />
+                  <p className="text-[11px] text-slate-500">The first {vets.listings.length} vets Google Maps shows for “{vets.search}” near your address, in Google&apos;s order.</p>
+                </>
+              )}
+            </div>
+          )}
+          {sideServices.map((x) => (
+            <SideServiceBlock key={x.service} comp={x} you={comp.you} />
+          ))}
+          {comp.notes.length > 0 && <p className="text-xs text-red-700">{comp.notes.join(" ")}</p>}
+        </Section>
+      )}
+
       {c && (
         <Section
           n={num()}
@@ -939,6 +1068,16 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             Your Google rating, review count and {reviews.length} most recent reviews (we never record reviewers&apos; names). Links from other websites are measured
             on DataForSEO&apos;s 0–1000 scale, which is not the same scale as other tools&apos; &quot;Domain Rating&quot;.
           </dd>
+          {comp && (
+            <>
+              <dt className="font-medium text-slate-800">Competitors</dt>
+              <dd>
+                Google Maps searches made from your listing&apos;s location on {dateOf(comp.ranAt)}: the results a pet owner near you sees, with ads left out.
+                Ratings and review counts are as Google showed them that day. We count you as offering {sideServices.length ? sideServices.map((x) => x.label.toLowerCase()).join(", ") : "a side service such as grooming or boarding"} when
+                your Google listing, website menu or service pages say so.
+              </dd>
+            </>
+          )}
           {v && (
             <>
               <dt className="font-medium text-slate-800">AI tools asked</dt>
