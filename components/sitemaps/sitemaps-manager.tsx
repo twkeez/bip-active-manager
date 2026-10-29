@@ -4,6 +4,16 @@ import { useState, useMemo, useTransition } from "react";
 import { RefreshCw, ExternalLink, Search, X } from "lucide-react";
 import type { SitemapRow } from "@/app/(app)/sitemaps/page";
 import type { SitemapSnapshot } from "@/lib/types/client";
+import { SEARCH_CONSOLE_ACCOUNT } from "@/lib/seo/search-console-access";
+
+/** Search Console columns for a site we have no access to. */
+function NotConnected() {
+  return (
+    <span className="text-[var(--warning-fg)]" title={`Search Console isn't connected for this site. Add ${SEARCH_CONSOLE_ACCOUNT} as a user on it in Search Console.`}>
+      Not connected
+    </span>
+  );
+}
 
 // ─── Status ──────────────────────────────────────────────────────────────────
 
@@ -243,7 +253,7 @@ export default function SitemapsManager({ rows }: { rows: SitemapRow[] }) {
             </thead>
             <tbody>
               {filtered.map((row) => {
-                const { client, snapshot, gsc } = row;
+                const { client, snapshot, gsc, gscNotConnected } = row;
                 const status = getStatus(snapshot);
                 const state = syncState[client.id] ?? "idle";
                 const syncing = state === "syncing";
@@ -346,6 +356,8 @@ export default function SitemapsManager({ rows }: { rows: SitemapRow[] }) {
                             </span>
                           )}
                         </span>
+                      ) : gscNotConnected ? (
+                        <NotConnected />
                       ) : (
                         <span className="text-[var(--text-subtle)]">—</span>
                       )}
@@ -362,6 +374,8 @@ export default function SitemapsManager({ rows }: { rows: SitemapRow[] }) {
                             </span>
                           )}
                         </span>
+                      ) : gscNotConnected ? (
+                        <NotConnected />
                       ) : (
                         <span className="text-[var(--text-subtle)]">—</span>
                       )}

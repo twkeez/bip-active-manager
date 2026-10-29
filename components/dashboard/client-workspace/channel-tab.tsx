@@ -5,6 +5,7 @@ import AdsChannelPanel from "@/components/dashboard/ads-channel-panel";
 import KpiSummaryGrid from "@/components/dashboard/kpi-summary-grid";
 import AuditInspector from "@/components/site-audit/audit-inspector";
 import { buildSmartAdsPlaybook } from "@/lib/ads/smart-playbook";
+import { searchConsoleNote, searchConsoleNotConnected } from "@/lib/seo/search-console-access";
 import {
   buildAdsKpiSummary,
   buildSeoKpiSummary,
@@ -316,9 +317,11 @@ export default function ChannelOverview({
           crawlSnapshot?.updated_at
             ? `Crawl: ${formatDateTime(crawlSnapshot.updated_at)}`
             : "Crawl: not run",
-          gscSnapshot?.updated_at
-            ? `Search Console: ${formatDateTime(gscSnapshot.updated_at)}`
-            : "Search Console: not synced",
+          searchConsoleNotConnected(gscSnapshot)
+            ? "Search Console: not connected"
+            : gscSnapshot?.updated_at
+              ? `Search Console: ${formatDateTime(gscSnapshot.updated_at)}`
+              : "Search Console: not synced",
         ]
       : channel === "sitemaps"
         ? [
@@ -738,13 +741,17 @@ export default function ChannelOverview({
               Sync Search Console
             </button>
           </div>
-          {gscSnapshot && (
+          {gscSnapshot && searchConsoleNote(gscSnapshot) ? (
+            <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+              {searchConsoleNote(gscSnapshot)} Last tried {formatDateTime(gscSnapshot.updated_at)}.
+            </p>
+          ) : gscSnapshot ? (
             <p className="mt-2 text-[11px] text-bip-muted">
               
               Last sync {formatDateTime(gscSnapshot.updated_at)} •
               {gscSnapshot.start_date} to {gscSnapshot.end_date}
             </p>
-          )}
+          ) : null}
           {!gscLoading && gscPageMetrics.length > 0 && (
             <p className="mt-2 text-[11px] text-bip-muted">
               

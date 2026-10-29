@@ -1,4 +1,5 @@
 import { fetchLatestSnapshotsByClient } from "@/lib/dashboard/snapshot-queries";
+import { searchConsoleNotConnected } from "@/lib/seo/search-console-access";
 import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -27,6 +28,8 @@ export type SitemapRow = {
   client: ClientRow;
   snapshot: SitemapSnapshot | null;
   gsc: GscSitemapRow | null;
+  /** The newest Search Console sync failed because we have no access to the site. */
+  gscNotConnected: boolean;
 };
 
 export default async function SitemapsPage() {
@@ -36,7 +39,7 @@ export default async function SitemapsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [clientsResult, snapshotsResult, gscResult] = await Promise.all([
+  const [clientsResult, snapshotsResult, gscResult, latestGscRuns] = await Promise.all([
     supabase
       .from("clients")
       .select("id, account_name, website, marketing_strategist")
@@ -81,7 +84,16 @@ export default async function SitemapsPage() {
       );
       return { data, error: null };
     }),
+
+    // The newest sync attempt per client, failed ones included, to tell
+    // "not connected" apart from "no sitemap submitted".
+    fetchLatestSnapshotsByClient<{ client_id: number; run_status: string; error_message: string | null }>(
+      supabase,
+      "client_gsc_snapshots",
+      "id, client_id, run_status, error_message, created_at",
+    ),
   ]);
+  const notConnected = new Set(latestGscRuns.filter((run) => searchConsoleNotConnected(run)).map((run) => run.client_id));
 
   const clients = clientsResult.data ?? [];
 
@@ -106,6 +118,7 @@ export default async function SitemapsPage() {
     client,
     snapshot: snapshotByClient.get(client.id) ?? null,
     gsc: gscByClient.get(client.id) ?? null,
+    gscNotConnected: notConnected.has(client.id),
   }));
 
   return <SitemapsManager rows={rows} />;
