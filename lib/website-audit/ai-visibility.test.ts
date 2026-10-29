@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildPrompts, citedUrls, isMentioned, nameVariants, summarizePlatforms } from "./ai-visibility";
-import type { PromptRun } from "./types";
+import { buildPrompts, citedUrls, isMentioned, nameVariants, servicesFromCrawl, summarizePlatforms } from "./ai-visibility";
+import type { PromptRun, TechnicalCrawl } from "./types";
 
 const practice = { domain: "dhah.org", practiceName: "Dallas Highway Animal Hospital", city: "Powder Springs", state: "GA" };
 
@@ -40,5 +40,19 @@ describe("AI visibility", () => {
     const claude = s.find((p) => p.platform === "claude")!;
     expect(claude).toMatchObject({ promptsRun: 2, promptsCited: 1, promptsMentioned: 1, citations: 2, model: "claude-sonnet-5-5" });
     expect(s.find((p) => p.platform === "gemini")!.promptsRun).toBe(0);
+  });
+});
+
+describe("servicesFromCrawl", () => {
+  const page = (url: string, title: string) => ({ finalUrl: url, title, finalStatus: 200, softError: null }) as TechnicalCrawl["pages"][number];
+  it("reads services from /services/ and /veterinary-services/ folders", () => {
+    const crawl = {
+      pages: [
+        page("https://www.edgewatervet.com/veterinary-services/dental-care.html", "State-of-the-Art Pet Dental Care | Edgewater Animal Hospital"),
+        page("https://www.edgewatervet.com/veterinary-services", "Veterinary Services | Edgewater Animal Hospital"),
+        page("https://www.dhah.org/services/opthalmology.html", "Pet Eye Care in Powder Springs, GA | DHAH"),
+      ],
+    } as TechnicalCrawl;
+    expect(servicesFromCrawl(crawl)).toEqual(["state-of-the-art pet dental care", "pet eye care"]);
   });
 });

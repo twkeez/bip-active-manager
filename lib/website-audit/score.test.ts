@@ -27,5 +27,10 @@ describe("citability score", () => {
     expect([t("/"), t("/services/surgery.html"), t("/staff/"), t("/about/"), t("/blog/why-is-my-dog-limping/"), t("/blog/tag/x/"), t("/faqs/")]).toEqual([
       "home", "service", "team", "about", "blog_post", "other", "other",
     ]);
+    // Edgewater: services under /veterinary-services/, articles at the top level labelled as blog posts.
+    expect(t("/veterinary-services/dental-care.html")).toBe("service");
+    expect(t("/veterinary-services")).toBe("other");
+    expect(pageTypeOf({ finalUrl: "https://www.example.com/fungal-skin-infections-in-dogs", schemaTypes: ["BlogPosting"] })).toBe("blog_post");
+    expect(pageTypeOf({ finalUrl: "https://www.example.com/faqs", schemaTypes: ["FAQPage"] })).toBe("other");
   });
 });

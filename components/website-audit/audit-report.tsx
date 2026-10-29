@@ -12,6 +12,7 @@ import {
   type MetricComparison,
 } from "@/lib/website-audit/compare";
 import { SIDE_SERVICES, standing } from "@/lib/website-audit/competitors";
+import { doctorKeys } from "@/lib/website-audit/doctors";
 import { technicalFindings } from "@/lib/website-audit/findings";
 import { PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import { realTypos } from "@/lib/website-audit/typos";
@@ -328,9 +329,10 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
 
   // Doctors, merged across pages by name.
   const doctors = new Map<string, { name: string; credentials: string | null; hasBio: boolean; school: string | null; year: string | null; urls: string[] }>();
+  const doctorOf = doctorKeys(pages.flatMap((p) => p.doctors.map((d) => d.name)));
   for (const p of pages)
     for (const d of p.doctors) {
-      const key = d.name.toLowerCase().replace(/^dr\.?\s+/, "").replace(/,.*$/, "").trim();
+      const key = doctorOf(d.name);
       const was = doctors.get(key);
       doctors.set(key, {
         name: was && was.name.length >= d.name.length ? was.name : d.name,
@@ -602,7 +604,10 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                   ` (${Object.entries(v.mentions.citedAsSource.byPlatform)
                     .map(([k, count]) => `${k.charAt(0).toUpperCase()}${k.slice(1)}: ${count}`)
                     .join(", ")})`}
-                {" · "}Answers that mentioned you by name: <strong>{v.mentions.namedInAnswers.mentions}</strong>
+                {" · "}Answers that named a practice called &ldquo;{audit.practice_name}&rdquo;: <strong>{v.mentions.namedInAnswers.mentions}</strong>
+                <span className="block text-xs text-slate-500">
+                  This counts the name anywhere in the US, so it can include other practices with the same name. Links to your website are the reliable measure.
+                </span>
               </p>
             )}
             <Sources items={["aiVisibility.mentions"]} label="Source" />

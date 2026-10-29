@@ -1,4 +1,5 @@
 import weightsConfig from "@/lib/website-audit/config/score-weights.json";
+import { doctorKeys } from "@/lib/website-audit/doctors";
 import type { AuditResults, CitabilityScore, SubScore } from "@/lib/website-audit/types";
 
 // Section 5: the citability score, worked out from the crawl, authority and
@@ -73,9 +74,10 @@ export function computeScore(results: AuditResults, config = weightsConfig): Cit
   // Doctors, read from the content pass.
   const pages = results.content?.pages ?? [];
   const doctors = new Map<string, { credentials: boolean; bio: boolean }>();
+  const doctorOf = doctorKeys(pages.flatMap((p) => p.doctors.map((d) => d.name)));
   for (const p of pages)
     for (const d of p.doctors) {
-      const key = d.name.toLowerCase().replace(/^dr\.?\s+/, "").replace(/,.*$/, "").trim();
+      const key = doctorOf(d.name);
       const was = doctors.get(key) ?? { credentials: false, bio: false };
       doctors.set(key, { credentials: was.credentials || Boolean(d.credentials), bio: was.bio || d.hasBio });
     }
