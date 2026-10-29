@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildGoogleAuthorizationUrl, generateOAuthState } from "@/lib/google/oauth";
+import { VERIFICATION_FLOW_COOKIE } from "@/lib/google/verification-connection";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -22,5 +23,7 @@ export async function GET(request: Request) {
     path: "/",
     maxAge: 10 * 60,
   });
+  // A leftover cookie from an abandoned site-verification connect would send this one to the wrong place.
+  redirect.cookies.delete(VERIFICATION_FLOW_COOKIE);
   return redirect;
 }
