@@ -7,6 +7,7 @@ import { runCanaries } from "@/lib/coal-mines/canaries";
 import { loadRoutineViews } from "@/lib/routines/load";
 import { loadBriefableClients } from "@/lib/briefing/load";
 import CoalMinesWorkspace from "@/components/coal-mines/coal-mines-workspace";
+import { loadDataHealth } from "@/lib/data-integrity/load-health";
 
 // Coal Mines: everything that watches, in one place. Routines run on a
 // schedule and keep a history; canaries are evaluated here, on load. The admin
@@ -24,11 +25,12 @@ export default async function CoalMinesPage() {
   if (profile?.role !== "admin") redirect("/dashboard");
 
   const admin = createAdminClient();
-  const [canaries, { routines, error }, clients] = await Promise.all([
+  const [canaries, { routines, error }, clients, health] = await Promise.all([
     runCanaries(supabase, new Date(), admin),
     loadRoutineViews(admin),
     // For the client picker on routines that watch a chosen list.
     loadBriefableClients(admin),
+    loadDataHealth(supabase, admin),
   ]);
 
   return (
@@ -40,6 +42,7 @@ export default async function CoalMinesPage() {
         routines={routines}
         routinesError={error}
         clients={clients}
+        health={health}
         checkedAt={new Date().toISOString()}
       />
     </Suspense>

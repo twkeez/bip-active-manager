@@ -186,23 +186,16 @@ export const GUIDE: Guide = {
           label: "Coal Mines",
           adminOnly: true,
           purpose:
-            "Everything that keeps watch, in one place. Routines run on a schedule and keep a history; canaries are checks that run each time you open the page.",
+            "Everything that keeps watch, in one place: data health (scheduled syncs, broken logins and incomplete reads), routines that run on a schedule and keep a history, and canaries that run each time you open the page.",
           youCan: [
+            "See how each scheduled sync last ran, which logins are broken, and any read that came back cut short; mark cut-short reads resolved",
             "Pick a routine or canary and see what it found",
             "Run a routine now, change its settings, and choose which clients it watches",
             "Mark a flagged thread done when it was handled outside Basecamp",
           ],
-          notes: ["Canaries only report; they never change anything. Setting changes apply from the next run."],
-        },
-        {
-          href: "/data-health",
-          label: "Data health",
-          adminOnly: true,
-          purpose:
-            "Anything that means our data may be incomplete: a scheduled job that failed or didn't run, a login that stopped working, or a read that came back cut short.",
-          youCan: ["See how each job last ran, and which logins are broken", "Mark warnings resolved"],
           notes: [
-            "Each problem is emailed once. While a cut-short read is unresolved, client report and briefing exports are blocked so nothing goes out incomplete.",
+            "Canaries only report; they never change anything. Setting changes apply from the next run.",
+            "Each data problem is emailed once. While a cut-short read is unresolved, client report and briefing exports are blocked so nothing goes out incomplete.",
           ],
         },
         {

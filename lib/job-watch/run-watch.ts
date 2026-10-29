@@ -62,7 +62,7 @@ function problemEmail(problems: JobProblem[]): { subject: string; body: string }
       "",
       ...problems.map((problem) => `- ${problem.message}`),
       "",
-      `Details: ${APP_URL}/coal-mines`,
+      `Details: ${APP_URL}/coal-mines?item=health`,
       "",
       "You get one email per problem. It will not repeat every hour.",
     ].join("\n"),
@@ -115,7 +115,7 @@ function dailyEmail(
       "Each job:",
       ...statusLines.map((line) => `- ${line}`),
       "",
-      `Details: ${APP_URL}/coal-mines`,
+      `Details: ${APP_URL}/coal-mines?item=health`,
       "",
       "This email comes every morning. If one ever does not arrive, the watchdog itself has stopped. That is the alarm.",
     ].join("\n"),
@@ -152,7 +152,7 @@ export async function runJobWatch(admin: SupabaseClient, now: Date = new Date())
       kind: "data_warning" as const,
       message: `Data may be incomplete. ${warning.detail} Seen ${warning.occurrences} time${
         warning.occurrences === 1 ? "" : "s"
-      }, last ${new Date(warning.last_seen_at).toLocaleString("en-US", { timeZone: "America/New_York" })} ET. Details: ${APP_URL}/data-health`,
+      }, last ${new Date(warning.last_seen_at).toLocaleString("en-US", { timeZone: "America/New_York" })} ET. Details: ${APP_URL}/coal-mines?item=health`,
     })),
   ];
 

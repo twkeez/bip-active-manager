@@ -20,7 +20,7 @@ export default function DataWarningBanner({
   return (
     <div
       role="alert"
-      className="flex items-start gap-2 border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-100"
+      className="flex items-start gap-2 border-b border-[var(--warning)] bg-[var(--warning-bg)] px-4 py-2 text-sm text-[var(--warning-fg)]"
     >
       <AlertTriangle size={16} className="mt-0.5 shrink-0" />
       <p>
@@ -29,8 +29,8 @@ export default function DataWarningBanner({
         from {warnings.length === 1 ? "it" : "them"} may be missing data. A client report or briefing built on
         cut-short data refuses to export.{" "}
         {showLink && (
-          <Link href="/data-health" className="font-medium underline">
-            See Data health
+          <Link href="/coal-mines?item=health" className="font-medium underline">
+            See data health
           </Link>
         )}
       </p>
