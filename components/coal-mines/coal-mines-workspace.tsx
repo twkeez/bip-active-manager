@@ -90,7 +90,9 @@ function ago(iso: string | null): string {
 function healthSummary(health: DataHealth, now: Date): { tone: Tone; headline: string } {
   const { rows, loginProblems, error } = health.jobs;
   if (error || health.warningsError) return { tone: "error", headline: "Couldn't be checked" };
-  const failed = rows.filter((row) => row.lastRun?.status === "failed" || row.problems.length > 0).length;
+  // By each job's latest run: older alerts the watchdog still holds (say, from
+  // before a fix) are listed under the job but don't make it "failing".
+  const failed = rows.filter((row) => row.lastRun?.status === "failed").length;
   const partial = rows.filter((row) => row.lastRun?.status === "partial").length;
   const cutShort = health.warnings.filter((warning) => isActiveWarning(warning, now)).length;
   const parts = [
