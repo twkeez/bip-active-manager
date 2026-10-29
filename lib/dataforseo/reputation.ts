@@ -19,6 +19,11 @@ export type PlaceSnapshot = {
   address: string | null;
   city: string | null;
   region: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  /** Google's main category ("Veterinarian") and the extra ones ("Pet groomer"). */
+  category: string | null;
+  additionalCategories: string[];
 };
 
 export type ReviewRecord = {
@@ -75,6 +80,10 @@ export async function fetchPlaceSnapshot(
         place_topics?: unknown;
         address?: string;
         address_info?: { city?: string | null; region?: string | null };
+        latitude?: number | null;
+        longitude?: number | null;
+        category?: string | null;
+        additional_categories?: string[] | null;
       }
     | null;
   if (!item) return { ok: false, error: "Google returned no business profile for this place ID." };
@@ -93,6 +102,10 @@ export async function fetchPlaceSnapshot(
       address: item.address ?? null,
       city: item.address_info?.city ?? null,
       region: item.address_info?.region ?? null,
+      latitude: typeof item.latitude === "number" ? item.latitude : null,
+      longitude: typeof item.longitude === "number" ? item.longitude : null,
+      category: item.category ?? null,
+      additionalCategories: item.additional_categories ?? [],
     },
   };
 }

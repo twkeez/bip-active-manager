@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkAiVisibility } from "@/lib/website-audit/ai-visibility";
 import { checkAuthority } from "@/lib/website-audit/authority";
+import { checkCompetitors } from "@/lib/website-audit/competitors";
 import { analyzeContent } from "@/lib/website-audit/content";
 import { computeScore } from "@/lib/website-audit/score";
 import { crawlSite } from "@/lib/website-audit/crawl";
@@ -54,6 +55,9 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         knownPlaceId,
       });
       dataForSeoCost += results.authority.costUsd;
+    } else if ((stage as AuditStage) === "competitors") {
+      results.competitors = await checkCompetitors({ domain: audit.domain }, results);
+      dataForSeoCost += results.competitors.costUsd;
     } else if ((stage as AuditStage) === "ai-visibility") {
       // An unfinished run is picked up where it stopped (only unanswered
       // prompts are asked); a finished one starts again from scratch.

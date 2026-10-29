@@ -156,6 +156,48 @@ export type AuthorityResults = {
   costUsd: number;
 };
 
+export type SideService = "grooming" | "boarding" | "daycare" | "training";
+
+/** One business on Google Maps near the practice. */
+export type CompetitorListing = {
+  name: string;
+  domain: string | null;
+  category: string | null;
+  rating: number | null;
+  reviewCount: number | null;
+  /** Straight-line miles from the practice. */
+  miles: number | null;
+  /** Position in Google's list for the search. */
+  position: number;
+  /** One of the practice's own listings (e.g. a separate grooming listing). */
+  isYou: boolean;
+};
+
+/** The practice against the businesses a pet owner sees on one Google Maps search near it. */
+export type ServiceComparison = {
+  service: "vet" | SideService;
+  label: string;
+  search: string;
+  /** Why we think the practice offers this side service: where the word appears. Empty for "vet". */
+  offeredBecause: string[];
+  /** The practice's first listing in the results, when it shows up at all. */
+  yourPosition: number | null;
+  /** Other vets for "vet"; businesses dedicated to the service otherwise. */
+  listings: CompetitorListing[];
+  /** Results that were vets (side services only): they offer it too but aren't dedicated. */
+  vetsInResults: number;
+  error: string | null;
+};
+
+export type CompetitorResults = {
+  ranAt: string;
+  /** The practice's own Google listing: where the searches were made from. */
+  you: { name: string | null; rating: number | null; reviewCount: number | null; categories: string[]; latitude: number; longitude: number };
+  comparisons: ServiceComparison[];
+  notes: string[];
+  costUsd: number;
+};
+
 export type AiPlatform = "ai_overview" | "ai_mode" | "chatgpt" | "gemini" | "perplexity" | "claude";
 
 export type AiPrompt = { id: string; kind: "local" | "service" | "informational"; text: string };
@@ -292,12 +334,13 @@ export type CitabilityScore = {
 export type AuditResults = {
   technical?: TechnicalCrawl;
   authority?: AuthorityResults;
+  competitors?: CompetitorResults;
   aiVisibility?: AiVisibilityResults;
   content?: ContentResults;
   score?: CitabilityScore;
 };
 
-export const AUDIT_STAGES = ["crawl", "authority", "ai-visibility", "content"] as const;
+export const AUDIT_STAGES = ["crawl", "authority", "competitors", "ai-visibility", "content"] as const;
 export type AuditStage = (typeof AUDIT_STAGES)[number];
 
 export type StageState = { status: "running" | "done" | "failed"; at: string; error?: string };

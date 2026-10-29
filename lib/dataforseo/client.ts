@@ -15,6 +15,8 @@ export const DATAFORSEO_ENDPOINTS = {
   // "Invalid Path"). Callers filter the organic items for type === "local_pack".
   localPackAdvanced:
     "https://api.dataforseo.com/v3/serp/google/organic/live/advanced",
+  // Google Maps results near a point: businesses with rating, review count and category.
+  mapsAdvanced: "https://api.dataforseo.com/v3/serp/google/maps/live/advanced",
   competitorsDomain:
     "https://api.dataforseo.com/v3/dataforseo_labs/google/competitors_domain/live",
   myBusinessInfo:

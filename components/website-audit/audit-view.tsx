@@ -12,6 +12,7 @@ import {
   type AuditStage,
   type AuthorityResults,
   type CitabilityScore,
+  type CompetitorResults,
   type ContentResults,
   type WebsiteAuditRow,
 } from "@/lib/website-audit/types";
@@ -20,6 +21,10 @@ const STAGE_LABEL: Record<AuditStage, { title: string; detail: string }> = {
   authority: {
     title: "Authority & reviews",
     detail: "Backlinks and DataForSEO rank for the site and any competitors; the Google listing's rating, review count and 20 newest reviews. A few cents; up to 3 minutes.",
+  },
+  competitors: {
+    title: "Reviews vs. competitors",
+    detail: "Google Maps searches from the practice's listing: nearby vets, plus dedicated groomers, boarders, daycares or trainers for any of those the practice offers. Ratings and review counts side by side. About 1¢; seconds. Run after Authority & reviews.",
   },
   "ai-visibility": {
     title: "AI visibility",
@@ -33,6 +38,53 @@ const STAGE_LABEL: Record<AuditStage, { title: string; detail: string }> = {
 };
 
 const num = (n: number | null) => (n == null ? "—" : n.toLocaleString());
+
+function CompetitorsPanel({ c }: { c: CompetitorResults }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold text-bip-text">Reviews vs. competitors</h2>
+      <p className="text-xs text-bip-muted">
+        This practice: {c.you.rating != null ? `${c.you.rating.toFixed(1)}★` : "no rating"} from {num(c.you.reviewCount)} reviews · Google categories:{" "}
+        {c.you.categories.join(", ") || "none"}
+      </p>
+      {c.comparisons.map((comp) => (
+        <div key={comp.service} className="overflow-x-auto rounded-xl border border-bip-border bg-bip-card">
+          <p className="px-4 pt-3 text-sm font-semibold text-bip-text">
+            {comp.label} <span className="font-normal text-bip-muted">· Google Maps search “{comp.search}”</span>
+          </p>
+          {comp.offeredBecause.length > 0 && <p className="px-4 text-xs text-bip-muted">Offered because: {comp.offeredBecause.join(" · ")}</p>}
+          {comp.service !== "vet" && (
+            <p className="px-4 text-xs text-bip-muted">
+              {comp.yourPosition ? `This practice shows up #${comp.yourPosition}.` : "This practice isn't in the top 20."} {comp.vetsInResults} other vets in the results.
+            </p>
+          )}
+          {comp.error && <p className="px-4 text-xs text-red-300">{comp.error}</p>}
+          <table className="mt-2 w-full min-w-[520px] text-sm">
+            <tbody>
+              {comp.listings.map((l) => (
+                <tr key={`${l.position}-${l.name}`} className="border-t border-bip-border/60">
+                  <td className="px-4 py-1.5 text-bip-text">
+                    {l.name} {l.isYou && <span className="text-xs text-bip-muted">(this practice)</span>}
+                    <span className="block text-xs text-bip-muted">{[l.category, l.domain].filter(Boolean).join(" · ")}</span>
+                  </td>
+                  <td className="px-4 py-1.5 text-right tabular-nums">{l.miles != null ? `${l.miles} mi` : "—"}</td>
+                  <td className="px-4 py-1.5 text-right tabular-nums">{l.rating != null ? `${l.rating.toFixed(1)}★` : "—"}</td>
+                  <td className="px-4 py-1.5 text-right tabular-nums">{num(l.reviewCount)}</td>
+                </tr>
+              ))}
+              {comp.listings.length === 0 && !comp.error && (
+                <tr className="border-t border-bip-border/60">
+                  <td className="px-4 py-1.5 text-xs text-bip-muted">No matching businesses nearby.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ))}
+      {c.notes.length > 0 && <p className="text-xs text-amber-300">{c.notes.join(" ")}</p>}
+    </section>
+  );
+}
 
 function AuthorityPanel({ a }: { a: AuthorityResults }) {
   const g = a.google;
@@ -444,6 +496,7 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
       {audit.results.score && <ScorePanel s={audit.results.score} />}
       {audit.results.content && <ContentPanel c={audit.results.content} />}
       {audit.results.aiVisibility && <AiVisibilityPanel v={audit.results.aiVisibility} />}
+      {audit.results.competitors && <CompetitorsPanel c={audit.results.competitors} />}
       {audit.results.authority && <AuthorityPanel a={audit.results.authority} />}
 
       {t && (
