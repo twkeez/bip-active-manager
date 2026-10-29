@@ -143,6 +143,12 @@
   --accent-hover: var(--pink-600);
   --accent-soft:  var(--pink-50);
 
+  /* Status colours: the dark theme's pale text is unreadable on light backgrounds. */
+  --success-bg: #e7f4ee;  --success-fg: #14633f;
+  --warning-bg: #fbf0db;  --warning-fg: #855208;
+  --danger-bg:  #fbe7e8;  --danger-fg:  #8f2129;
+  --info-bg:    #eef1f9;  --info-fg:    #23376e;
+
   --shadow-sm: 0 1px 2px rgba(20, 31, 62, 0.06);
   --shadow-md: 0 4px 14px rgba(20, 31, 62, 0.08);
   --shadow-lg: 0 12px 32px rgba(20, 31, 62, 0.12);
