@@ -2,6 +2,7 @@ import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { anthropicClient, costOf } from "@/lib/ai/usage";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import { isListingPage } from "@/lib/website-audit/archive";
+import { standing } from "@/lib/website-audit/competitors";
 import type {
   AuditResults,
   CrawlPage,
@@ -198,6 +199,26 @@ const siteSchema = {
   additionalProperties: false,
 } as const;
 
+/** The Google Maps comparison, with the counts worked out so the plan doesn't have to. */
+function competitorFacts(results: AuditResults) {
+  const c = results.competitors;
+  if (!c) return undefined;
+  const row = (l: { name: string; miles: number | null; rating: number | null; reviewCount: number | null }) => ({ name: l.name, miles: l.miles, rating: l.rating, reviews: l.reviewCount });
+  return {
+    you: { rating: c.you.rating, reviews: c.you.reviewCount, googleCategories: c.you.categories },
+    comparisons: c.comparisons
+      .filter((x) => !x.error)
+      .map((x) => ({
+        source: `competitors.${x.service}`,
+        service: x.service === "vet" ? "veterinary care (other vets nearby)" : `${x.label.toLowerCase()} (businesses that do only this)`,
+        mapsSearch: x.search,
+        ...(x.service === "vet" ? {} : { youShowUpAt: x.yourPosition ?? "not in the first 20 results", whyWeThinkYouOfferIt: x.offeredBecause }),
+        businesses: x.listings.filter((l) => !l.isYou).map(row),
+        yourStanding: standing(c.you, x.listings),
+      })),
+  };
+}
+
 /** The other sections, condensed for the site-level pass. */
 function siteFacts(results: AuditResults, pages: PageContent[], servicePages: string[]): string {
   const t = results.technical?.summary;
@@ -236,6 +257,7 @@ function siteFacts(results: AuditResults, pages: PageContent[], servicePages: st
         citedForInformationalQuestions: v.runs.some((r) => r.cited && v.prompts.find((p) => p.id === r.promptId)?.kind === "informational"),
         sitesAiCitesInstead: v.topCitedDomains.slice(0, 8),
       },
+      competitors: competitorFacts(results),
       pages: pages.map(({ error, ...p }) => p),
       googleReviews: (a?.google.reviews ?? []).map((r, i) => ({ id: `review ${i + 1}`, rating: r.rating, date: r.date?.slice(0, 10), text: r.text })),
     },
@@ -259,7 +281,7 @@ export const FIX_STYLE = `Write each fix for a busy practice owner who knows not
 function sitePrompt(practice: Practice, facts: string): string {
   return `You are writing the strategy section of a website, SEO and AI-search audit for ${practice.practiceName} (${[practice.city, practice.state].filter(Boolean).join(", ")}; ${practice.domain}), a veterinary practice. The reader is the practice owner: plain English, no jargon.
 
-Below is everything the audit found, as JSON: technical crawl results, authority, AI visibility, what was read on each page, and the 20 newest Google reviews.
+Below is everything the audit found, as JSON: technical crawl results, authority, how its reviews compare with nearby competitors, AI visibility, what was read on each page, and the 20 newest Google reviews.
 
 Write:
 1. differentiators: 4 to 6 things the website should lead with. Each must be supported by something written on the site or said in a review. For each, give evidence: source is the page URL, or "review N"; quote is the exact words. Do not invent anything the evidence doesn't show.
@@ -267,6 +289,7 @@ Write:
 3. homepageH1: a homepage H1 in the pattern "{what} {for whom} in {city}".
 4. fixes: a prioritized fix list, most impact first (rank 1 = do first), 6 to 10 items. ${FIX_STYLE}
    Each fix cites its evidence: source is a page URL, "review N", or the JSON field it comes from (e.g. "technical.linksThatDontLoad"). area is technical, content, trust, ai_visibility, reputation or conversion.
+   competitors compares the practice's Google rating and review count with the other vets near it and, for side services it offers (grooming, boarding, daycare, training), with businesses that do only that. When the practice trails nearby competitors on rating or number of reviews, or doesn't show up on Google Maps for a side service it offers, include a fix for it (area reputation), citing the comparison's source (e.g. "competitors.vet") with a sentence that names the numbers. Its one rating covers everything it does while a groomer's covers only grooming, so never say a side-service business is "better rated" without that caveat. If the practice leads on both, don't invent a fix; you may mention the lead in whyItMatters of a review-related fix.
 5. servicesWithoutPage: services named somewhere on the site that have no page of their own (compare pages[].servicesNamed with servicePages).
 6. menuItemsGoingNowhere: menu items whose link doesn't lead to a working page (use the menu links in pages and technical.linksThatDontLoad).
 7. hoursContradictions: places where pages state different hours. Empty if they agree.
@@ -327,6 +350,18 @@ export async function analyzeContent(practice: Practice, results: AuditResults):
     throw new Error(`Claude couldn't read ${failed.length} of ${pages.length} pages (${failed[0].error?.slice(0, 160)}). Nothing was saved; run the step again.`);
   }
 
+  const site = await analyzeSite(practice, results, pages, servicePages, spend);
+  return { ranAt: new Date().toISOString(), pageModel: PAGE_MODEL, siteModel: SITE_MODEL, pages, site, costUsd: Number(spend.usd.toFixed(4)) };
+}
+
+/** The site-level pass on its own: strengths, positioning and the action plan, from pages already read. */
+export async function analyzeSite(
+  practice: Practice,
+  results: AuditResults,
+  pages: PageContent[],
+  servicePages: string[],
+  spend: { usd: number },
+): Promise<SiteContent> {
   let site: SiteContent;
   try {
     const message = await anthropicClient("Website audit: content (site)").messages.parse({
@@ -346,6 +381,5 @@ export async function analyzeContent(practice: Practice, results: AuditResults):
   }
   if (site.error) throw new Error(`The site-level pass failed (${site.error.slice(0, 160)}). Nothing was saved; run the step again.`);
   site.fixes.sort((a, b) => a.rank - b.rank);
-
-  return { ranAt: new Date().toISOString(), pageModel: PAGE_MODEL, siteModel: SITE_MODEL, pages, site, costUsd: Number(spend.usd.toFixed(4)) };
+  return site;
 }
