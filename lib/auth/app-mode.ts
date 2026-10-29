@@ -79,9 +79,8 @@ export const TEAM_PAGES = [
  * Pages the team app serves at exactly this path and no deeper.
  *
  * /services shows the tier catalogue, and /services?clientId= a single client's
- * plan — both wanted. Its children are not: /services/library is a file store of
- * internal reference material and /services/partnership is admin-authored, so a
- * prefix match would hand over more than intended.
+ * plan — both wanted. Its children are not: /services/partnership is
+ * admin-authored, so a prefix match would hand over more than intended.
  */
 export const TEAM_EXACT_PAGES = ["/services"];
 

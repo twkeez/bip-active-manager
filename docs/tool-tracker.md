@@ -26,7 +26,7 @@ version is updated, so nothing is lost and it can come back.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 1.1 | Cut: Inbox, Strategy Mapper, Vet Onboarding, Onboarding SOPs, Reference Library, Report Template, SEO Ops, Backlinks | todo | All but one already hidden; tables kept |
+| 1.1 | Cut: Inbox, Strategy Mapper, Vet Onboarding, Onboarding SOPs, Reference Library, Report Template, SEO Ops, Backlinks | done | Pages, page-only code and their API routes removed Oct 29; database tables and shared code kept. The client page's "SEO Ops" tab is separate and stays (review it under 3.1) |
 | 1.2 | Merge Data health into Coal Mines | todo | |
 | 1.3 | Merge Follow-ups into Response Report (tab) | todo | |
 | 1.4 | Merge AI Planner into Assistant | todo | |
@@ -93,3 +93,4 @@ Core daily tools first, then client-facing output, then the rest.
 ## Log
 
 - 2026-10-29: Tracker started from the inventory; recommendations approved.
+- 2026-10-29: 1.1 done: 8 tools cut. All 8 were already hidden, so the visible sidebar is unchanged (42 links for admins); the app is down from 53 tools to 45.

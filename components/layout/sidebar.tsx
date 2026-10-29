@@ -13,21 +13,17 @@ import {
   CalendarDays,
   CheckSquare,
   ChevronDown,
-  ClipboardCheck,
   ClipboardList,
-  Compass,
   BarChart3,
   Crown,
   Eye,
   EyeOff,
   FileDown,
   FileText,
-  FolderOpen,
   Gauge,
   Globe,
   GraduationCap,
   Handshake,
-  Inbox,
   Layers,
   ListChecks,
   Link2,
@@ -43,7 +39,6 @@ import {
   ShieldCheck,
   Sparkles,
   Sunrise,
-  Stethoscope,
   Target,
   TrendingUp,
   Trophy,
@@ -95,14 +90,12 @@ const ILLUMINARE: NavItem[] = [
 const SERVICES: NavItem[] = [
   { label: "Services & Tiers", href: "/services", icon: Layers },
   { label: "Service Playbook", href: "/playbook", icon: BookOpen },
-  { label: "Onboarding SOPs", href: "/onboarding-sops", icon: GraduationCap },
   { label: "Client Expectations", href: "/client-expectations", icon: CalendarClock },
   // The master kickoff message. It lives with the other wording we keep rather
   // than with the onboarding tools that use it.
   { label: "Onboarding Basecamp Message", href: "/onboarding-settings", icon: MessageSquare, adminOnly: true },
   { label: "Best Practices", href: "/best-practices", icon: Sparkles },
   { label: "Partnership & Boundaries", href: "/services/partnership", icon: Handshake },
-  { label: "Reference Library", href: "/services/library", icon: FolderOpen },
 ];
 
 const ADS: NavItem[] = [
@@ -117,13 +110,6 @@ const ADS: NavItem[] = [
   { label: "Ads Accounts", href: "/ads-accounts", icon: Link2, adminOnly: true },
 ];
 
-// Supporting onboarding tools + config, gathered from Sales and Tools where they
-// were mis-filed. The main Onboarding queue/wizard stays in Primary.
-const ONBOARDING: NavItem[] = [
-  { label: "Strategy Mapper", href: "/onboarding-strategy-mapper", icon: Compass, adminOnly: true },
-  { label: "Vet Onboarding", href: "/vet-onboarding", icon: Stethoscope, adminOnly: true },
-];
-
 // Canaries that watch for drift nobody goes looking for. Sits directly under
 // Primary because it is a "check this first" surface, not a tool you go to.
 const COAL_MINES: NavItem[] = [
@@ -133,29 +119,20 @@ const COAL_MINES: NavItem[] = [
   { label: "Project Wiring", href: "/basecamp-projects", icon: Link2, adminOnly: true },
 ];
 
-// Gmail triage, lifted out of My Tasks so it has room to grow into a real
-// inbox (threaded conversations, flagged mail on the dashboard).
-const INBOX: NavItem[] = [
-  { label: "Inbox", href: "/inbox", icon: Inbox },
-];
-
 const TOOLS: NavItem[] = [
   { label: "Help Desk Report", href: "/help-desk-report", icon: LifeBuoy, adminOnly: true },
   { label: "AI Planner", href: "/ai-planner", icon: Wand2, adminOnly: true },
   { label: "Social Planner", href: "/social-planner", icon: CalendarDays },
   { label: "Wins", href: "/wins", icon: Trophy, adminOnly: true },
-  { label: "Report Template", href: "/reports/template", icon: FileText, adminOnly: true },
   { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
 ];
 
 const SEO_TOOLS: NavItem[] = [
   { label: "SEO Audits", href: "/seo-audits", icon: ClipboardList },
   { label: "Sitemaps", href: "/sitemaps", icon: Map },
-  { label: "SEO Ops", href: "/seo-ops", icon: ClipboardCheck },
   { label: "Site Audit", href: "/site-audit", icon: Globe },
   { label: "Website & AI Audit", href: "/website-audits", icon: ScanSearch, adminOnly: true },
   { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
-  { label: "Backlinks", href: "/backlinks", icon: Link2 },
   { label: "Reputation", href: "/reputation", icon: MessageSquareQuote },
   { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
 ];
@@ -336,15 +313,7 @@ export default function Sidebar({
 
             <div className="border-t border-[var(--bip-border)]" />
 
-            <SectionGroup label="Inbox" items={INBOX} role={role} appMode={appMode} />
-
-            <div className="border-t border-[var(--bip-border)]" />
-
             <SectionGroup label="Illuminare" items={ILLUMINARE} role={role} appMode={appMode} accentColor={ILLUMINARE_ACCENT} />
-
-            <div className="border-t border-[var(--bip-border)]" />
-
-            <SectionGroup label="Onboarding" items={ONBOARDING} role={role} appMode={appMode} />
 
             <div className="border-t border-[var(--bip-border)]" />
 
