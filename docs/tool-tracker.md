@@ -41,7 +41,7 @@ version is updated, so nothing is lost and it can come back.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 2.1 | Search Console access: 212 of 255 clients blocked | todo | Blocks Sitemaps, Client Snapshot, SEO numbers. Needs Google access from Tom's side |
+| 2.1 | Search Console access: 212 of 244 client sites blocked | doing | Nightly sync reads as tom@beyondindigo.com (the service account is on 0 sites). Per-site list sent to Tom Oct 29 (kept out of the repo: client names). 54 SEO clients first; 143 are website-only |
 | 2.2 | Google reviews refresh failing nightly for 29 clients since Sep 28 | todo | Quota, or switch to DataForSEO |
 | 2.3 | Duplicate Basecamp project wiring | todo | Done inside the Connections page |
 | 2.4 | Claude credits: stop a run-out from breaking jobs again | todo | Check the Nov 2 Help Desk run |
@@ -93,4 +93,5 @@ Core daily tools first, then client-facing output, then the rest.
 ## Log
 
 - 2026-10-29: Tracker started from the inventory; recommendations approved.
+- 2026-10-29: 2.1 started: Search Console access list built (routes: re-verify 7, Analytics 5, Tag Manager 165, ask to be added 35).
 - 2026-10-29: 1.1 done: 8 tools cut. All 8 were already hidden, so the visible sidebar is unchanged (42 links for admins); the app is down from 53 tools to 45.
