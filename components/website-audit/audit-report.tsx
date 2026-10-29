@@ -14,6 +14,7 @@ import {
 import { SIDE_SERVICES, standing } from "@/lib/website-audit/competitors";
 import { technicalFindings } from "@/lib/website-audit/findings";
 import { PLATFORM_LABEL } from "@/lib/website-audit/platforms";
+import { realTypos } from "@/lib/website-audit/typos";
 import type { AiPlatform, AuditResults, CompetitorListing, CompetitorResults, Evidence, PageContent, ServiceComparison, WebsiteAuditRow } from "@/lib/website-audit/types";
 
 // The branded Website, SEO & AI Search Audit report (printed to PDF from
@@ -51,6 +52,19 @@ const isUrl = (s: string) => /^https?:\/\//.test(s);
 const clip = (s: string, max = 180) => (s.length > max ? `${s.slice(0, max).replace(/[,;\s]+\S*$/, "")}…` : s);
 /** DataForSEO writes locations as "Powder Springs,Georgia,United States". */
 const place = (s: string) => s.replace(/,\s*/g, ", ");
+
+/**
+ * Where each AI tool searched from, as ai-visibility.ts sends it: only
+ * Google's two take a town; the scrapers and Perplexity take a country, and
+ * Claude (and the economy API calls) take none.
+ */
+function aiLocationNote(v: { location: string; profile: "consumer" | "economy" }): string {
+  const elsewhere =
+    v.profile === "consumer"
+      ? "ChatGPT, Gemini and Perplexity can only be set to the United States, and Claude has no location setting"
+      : "Perplexity can only be set to the United States, and ChatGPT, Gemini and Claude have no location setting";
+  return `Google's AI Overview and AI Mode searched from ${place(v.location)}. ${elsewhere}, so those four only know where you are when the question names your town.`;
+}
 
 /** A field of the audit JSON, in words a client can follow ("review 6" → "Google review 6"). */
 function sourceLabel(source: string): string {
@@ -331,8 +345,8 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   const blogPosts = pages.filter((p) => p.pageType === "blog_post" && p.blog);
   const crawlByUrl = new Map((t?.pages ?? []).map((p) => [p.finalUrl, p]));
   const servicePages = pages.filter((p) => p.pageType === "service");
-  // Claude sometimes files a "no typo here" note as a typo; those aren't findings.
-  const typos = pages.flatMap((p) => p.typos.filter((ty) => !/no typo|placeholder/i.test(ty.suggestion)).map((ty) => ({ ...ty, url: p.url })));
+  // Claude files notes and rewrites as typos too; saved audits still have them.
+  const typos = pages.flatMap((p) => realTypos(p.typos).map((ty) => ({ ...ty, url: p.url })));
   const uniqueTypos = [...new Map(typos.map((ty) => [`${ty.text}→${ty.suggestion}`, ty])).values()];
   const reviews = a?.google.reviews ?? [];
   const answeredReviews = reviews.filter((rv) => rv.ownerAnswered).length;
@@ -487,7 +501,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         <Section
           n={num()}
           title="How AI search sees you"
-          intro={`More and more pet owners ask AI tools instead of scrolling through search results. On ${dateOf(v.ranAt)} we asked six of them the same ${v.prompts.length} questions, as if we were a pet owner in ${place(v.location)}. The full list of questions is at the end of this report.`}
+          intro={`More and more pet owners ask AI tools instead of scrolling through search results. On ${dateOf(v.ranAt)} we asked six of them the same ${v.prompts.length} questions. ${aiLocationNote(v)} The full list of questions is at the end of this report.`}
         >
           <div className="grid gap-3 sm:grid-cols-2" style={{ breakInside: "avoid" }}>
             <div className="rounded-xl bg-slate-50 p-3 text-[13px]">
@@ -1082,8 +1096,10 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             <>
               <dt className="font-medium text-slate-800">AI tools asked</dt>
               <dd>
-                {v.platforms.map((p) => `${PLATFORM_LABEL[p.platform]} (${place(v.models[p.platform] ?? p.model ?? "as served")})`).join(" · ")}. Google searches were
-                set to {place(v.location)}. {v.profile === "consumer" ? "We used the same versions the public uses." : "We used lower-cost versions of these tools."}
+                {v.platforms.map((p) => `${PLATFORM_LABEL[p.platform]} (${place(v.models[p.platform] ?? p.model ?? "as served")})`).join(" · ")}. {aiLocationNote(v)}{" "}
+                {v.profile === "consumer"
+                  ? "ChatGPT and Gemini were read from their public apps; Claude and Perplexity were asked through their developer versions with web search on."
+                  : "We used lower-cost developer versions of these tools, with web search on."}
               </dd>
               <dt className="font-medium text-slate-800">AI answers over time</dt>
               <dd>DataForSEO&apos;s record of real AI answers from about the last 90 days (US, English). Kept separate from our own questions.</dd>

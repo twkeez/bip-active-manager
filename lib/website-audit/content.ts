@@ -3,6 +3,7 @@ import { anthropicClient, costOf } from "@/lib/ai/usage";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import { isListingPage } from "@/lib/website-audit/archive";
 import { standing } from "@/lib/website-audit/competitors";
+import { realTypos } from "@/lib/website-audit/typos";
 import type {
   AuditResults,
   CrawlPage,
@@ -311,8 +312,8 @@ async function readPage(page: CrawlPage, practice: Practice, serviceUrls: string
     spend.usd += priceOf(PAGE_MODEL, message.usage);
     if (message.stop_reason === "max_tokens" || !message.parsed_output) throw new Error("Claude's answer for this page was cut off or unreadable.");
     const parsed = message.parsed_output as Omit<PageContent, "url" | "pageType" | "currentH1" | "error">;
-    // Claude occasionally "corrects" a word to itself; those aren't typos.
-    const typos = parsed.typos.filter((t) => t.text.trim().toLowerCase() !== t.suggestion.trim().toLowerCase() && !/no typo|placeholder/i.test(t.suggestion));
+    // Claude files notes and rewrites as typos too; keep only real corrections.
+    const typos = realTypos(parsed.typos);
     return { ...base, ...parsed, typos, blog: type === "blog_post" ? parsed.blog : null, error: null };
   } catch (error) {
     return {
