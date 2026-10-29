@@ -40,6 +40,7 @@ type ClientRow = {
   ga4_id?: string | null;
   google_place_id?: string | null;
   orm?: string | null;
+  is_website_only?: boolean | null;
 };
 
 const present = (value: string | null | undefined) => Boolean((value ?? "").trim());
@@ -123,9 +124,11 @@ async function runSyncAll({
 export function runSearchConsoleSyncAll(admin: SupabaseClient, startedAt = Date.now()) {
   return runSyncAll({
     admin,
-    columns: "id, account_name, sc_url, website",
+    columns: "id, account_name, sc_url, website, is_website_only",
     snapshotTable: "client_gsc_snapshots",
-    eligible: (client) => present(client.sc_url) || present(client.website),
+    // Website-only clients get no marketing reporting, so their Search Console
+    // isn't read (Tom, 2026-10-29). The client page's Sync button still works.
+    eligible: (client) => !client.is_website_only && (present(client.sc_url) || present(client.website)),
     batchSize: 4,
     sync: async (client) => {
       const result = await syncClientSearchConsole(admin, client.id, client);
