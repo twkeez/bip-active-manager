@@ -1,15 +1,7 @@
 import { redirect } from "next/navigation";
-import FollowupsView from "@/components/followups/followups-view";
-import { loadFollowups } from "@/lib/followups/load";
-import { createClient } from "@/lib/supabase/server";
 
-export default async function FollowupsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { open, done, loadError } = await loadFollowups(supabase);
-  return <FollowupsView open={open} done={done} loadError={loadError} />;
+// Follow-ups are now a tab of the Response Report (2026-10-29). Kept so links
+// in emails already sent still land in the right place.
+export default function FollowupsPage() {
+  redirect("/response-report?tab=followups");
 }

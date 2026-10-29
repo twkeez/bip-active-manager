@@ -28,7 +28,7 @@ version is updated, so nothing is lost and it can come back.
 |---|------|--------|-------|
 | 1.1 | Cut: Inbox, Strategy Mapper, Vet Onboarding, Onboarding SOPs, Reference Library, Report Template, SEO Ops, Backlinks | done | Pages, page-only code and their API routes removed Oct 29; database tables and shared code kept. The client page's "SEO Ops" tab is separate and stays (review it under 3.1) |
 | 1.2 | Merge Data health into Coal Mines | done | Oct 29: "Data health" item at the top of Coal Mines (opens first when a job is failing); /data-health redirects; alert emails and the banner link there; banner made readable in light theme |
-| 1.3 | Merge Follow-ups into Response Report (tab) | todo | |
+| 1.3 | Merge Follow-ups into Response Report (tab) | done | Oct 29: Projects / Follow-ups tabs (Follow-ups admin-only); /follow-ups redirects; email and routine links updated |
 | 1.4 | Merge AI Planner into Assistant | todo | |
 | 1.5 | One Ads page: Ads Health with Conversion Integrity, Global Ads Optimization, PPC Defense, Ad Cost Trends as tabs | todo | |
 | 1.6 | Ad Calls onto each client's page | todo | |
@@ -93,6 +93,7 @@ Core daily tools first, then client-facing output, then the rest.
 ## Log
 
 - 2026-10-29: Tracker started from the inventory; recommendations approved.
+- 2026-10-29: 1.3 done: Follow-ups is a tab of the Response Report.
 - 2026-10-29: 1.2 done: Data health merged into Coal Mines.
 - 2026-10-29: "Search Console isn't connected" note (lib/seo/search-console-access.ts) on the client SEO tab, the client report's sync panel and Sitemaps, wherever the latest sync failed for lack of access.
 - 2026-10-29: 2.1: 21 sites verified through Tag Manager (admin-only connection at /search-console-access) and synced. 32 fail only because the Tag Manager <noscript> code isn't first after <body> (25 sit below a skip link, likely one template; 7 lack it): web fix, then re-run. 16 need the practice to add Tom.

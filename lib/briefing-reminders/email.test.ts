@@ -20,7 +20,7 @@ describe("reminderEmail", () => {
     expect(body).toContain("calls from ads were up 20%");
     expect(body).toContain("For you, not the client:");
     expect(body).toContain("https://basecamp.com/2175055/projects/123");
-    expect(body).toContain("/follow-ups");
+    expect(body).toContain("/response-report?tab=followups");
   });
 
   it("suggests a personal check-in when there is no draft, and labels Low Contact", () => {

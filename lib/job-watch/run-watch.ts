@@ -96,7 +96,7 @@ function dailyEmail(
               f.renudged_at ? " (reminder sent)" : ""
             }`,
         ),
-        `See them all: ${APP_URL}/follow-ups`,
+        `See them all: ${APP_URL}/response-report?tab=followups`,
       ]
     : [];
   return {

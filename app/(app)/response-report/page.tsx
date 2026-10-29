@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
+import ResponseReportTabs from "@/components/basecamp/response-report-tabs";
 import ResponseReportView from "@/components/basecamp/response-report-view";
+import FollowupsView from "@/components/followups/followups-view";
+import { getProfile, isAdmin } from "@/lib/auth/profile";
+import { loadFollowups } from "@/lib/followups/load";
 import { STATUS_FILTERS, type StatusFilter } from "@/lib/basecamp/response-report";
 import { loadResponseReport } from "@/lib/basecamp/load-response-report";
 import type { FollowupRow } from "@/lib/followups/followups";
@@ -9,13 +13,24 @@ import { createClient } from "@/lib/supabase/server";
 export default async function ResponseReportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; tab?: string }>;
 }) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  // Follow-ups (formerly their own page) are a tab here, for admins.
+  const { status, tab } = await searchParams;
+  const admin = isAdmin(await getProfile(supabase));
+  const followups = admin ? await loadFollowups(supabase) : null;
+  const tabs = followups ? (
+    <ResponseReportTabs active={tab === "followups" ? "followups" : "projects"} openFollowups={followups.open.length} />
+  ) : null;
+  if (followups && tab === "followups") {
+    return <FollowupsView open={followups.open} done={followups.done} loadError={followups.loadError} tabs={tabs} />;
+  }
 
   const [{ rows, ignored, lastSyncedAt, loadError }, staffResult, followupResult] = await Promise.all([
     loadResponseReport(supabase),
@@ -26,7 +41,6 @@ export default async function ResponseReportPage({
     supabase.from("strategist_followups").select("*").eq("state", "open").eq("kind", "note"),
   ]);
 
-  const { status } = await searchParams;
   const initialStatus = STATUS_FILTERS.includes(status as StatusFilter) ? (status as StatusFilter) : null;
 
   const staff = ((staffResult.data ?? []) as { full_name: string | null; email: string | null }[])
@@ -43,6 +57,7 @@ export default async function ResponseReportPage({
       lastSyncedAt={lastSyncedAt}
       loadError={loadError}
       initialStatus={initialStatus}
+      tabs={tabs}
     />
   );
 }
