@@ -85,20 +85,13 @@ export const GUIDE: Guide = {
           youCan: [
             "Switch between Waiting on us, Waiting on client, No activity and All",
             "Sort, search and filter by who replied last",
-            "Notify a strategist by email (it then appears on Follow-ups)",
+            "Notify a strategist by email (it then appears on the Follow-ups tab)",
             "Dismiss a project, stop tracking it with a reason, or restore it",
+            "Admins: on the Follow-ups tab, see what you've asked strategists to do, mark items done, and reopen anything finished in the last 30 days",
           ],
-          notes: ["Data comes from the Basecamp sync (the last sync time is shown) and goes back about 180 days."],
-        },
-        {
-          href: "/follow-ups",
-          label: "Follow-ups",
-          adminOnly: true,
-          purpose: "Keeps the things you've asked strategists to do until they're done.",
-          youCan: ["See open reminders and your own notes", "Mark items done, and reopen anything finished in the last 30 days"],
           notes: [
-            "Notes are created from the Response Report and close themselves when the person replies in that Basecamp thread.",
-            "Overdue items get one reminder email, then appear in the morning email until they're closed.",
+            "Data comes from the Basecamp sync (the last sync time is shown) and goes back about 180 days.",
+            "Follow-ups close themselves when the person replies in that Basecamp thread. Overdue ones get one reminder email, then appear in the morning email until they're closed.",
           ],
         },
         {

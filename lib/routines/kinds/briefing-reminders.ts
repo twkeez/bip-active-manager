@@ -72,7 +72,7 @@ export async function runBriefingReminders(
     group: "Reminders sent",
     label: reminder.accountName,
     meta: `to ${reminder.to.map((t) => t.name).join(" & ")}`,
-    href: "/follow-ups",
+    href: "/response-report?tab=followups",
   }));
   const label = run.slot === "first" ? "first-Monday" : "third-Monday";
   return {

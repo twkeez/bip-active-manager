@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -136,7 +137,10 @@ export default function ResponseReportView({
   lastSyncedAt,
   loadError,
   initialStatus,
+  tabs,
 }: {
+  /** Projects | Follow-ups, for admins. */
+  tabs?: ReactNode;
   /** From ?status= in the address; the page opens on "Waiting on us" otherwise. */
   initialStatus?: StatusFilter | null;
   rows: ResponseReportRow[];
@@ -397,7 +401,7 @@ export default function ResponseReportView({
           )}
           {followup && (
             <Link
-              href="/follow-ups"
+              href="/response-report?tab=followups"
               title={`Follow-up sent to ${followup.recipient_email}`}
               className={`mt-1 block w-fit max-w-full truncate rounded-full px-2 py-0.5 text-[11px] font-medium ${
                 isOverdue(followup, now) ? "bg-red-500/15 text-red-200" : "bg-sky-500/15 text-sky-100"
@@ -490,6 +494,7 @@ export default function ResponseReportView({
       maxWidth="6xl"
       description={`Every Basecamp project with who spoke last, when we last replied and who replied, and when the client last reached out. ${summary.total} projects · last sync ${fmtSync(lastSyncedAt)}.`}
     >
+      {tabs}
       {loadError ? (
         <ErrorState message={loadError} />
       ) : (
@@ -513,7 +518,7 @@ export default function ResponseReportView({
           {notice && (
             <p className="text-sm text-emerald-400">
               {notice}{" "}
-              <Link href="/follow-ups" className="underline">
+              <Link href="/response-report?tab=followups" className="underline">
                 See follow-ups
               </Link>
             </p>

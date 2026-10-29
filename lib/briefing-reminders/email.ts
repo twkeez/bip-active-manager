@@ -64,7 +64,7 @@ export function reminderEmail(input: ReminderEmailInput): { subject: string; bod
     input.basecampProjectId
       ? `Basecamp project: https://basecamp.com/2175055/projects/${input.basecampProjectId}`
       : "No Basecamp project is linked for this client in the app.",
-    `Once the update is posted, mark it complete: ${APP_URL}/follow-ups`,
+    `Once the update is posted, mark it complete: ${APP_URL}/response-report?tab=followups`,
   );
   return {
     subject: `Client update due: ${input.accountName}${input.cadence === "monthly" ? " (Low Contact)" : ""}`,

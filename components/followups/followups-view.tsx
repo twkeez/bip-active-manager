@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -37,7 +38,10 @@ export default function FollowupsView({
   open,
   done,
   loadError,
+  tabs,
 }: {
+  /** The Response Report's tab bar, when shown as its Follow-ups tab. */
+  tabs?: ReactNode;
   open: FollowupRow[];
   done: FollowupRow[];
   loadError: string | null;
@@ -171,6 +175,7 @@ export default function FollowupsView({
       maxWidth="5xl"
       description="What you've asked strategists to do, kept until it's done. Overdue items get one reminder email and appear in your morning email every day until they close."
     >
+      {tabs}
       {loadError ? (
         <ErrorState message={loadError} />
       ) : (

@@ -125,7 +125,7 @@ export function followupEmailBody(
       ...(followup.basecamp_project_id
         ? [`Basecamp project: https://basecamp.com/2175055/projects/${followup.basecamp_project_id}`]
         : []),
-      "Follow-ups: https://bip-active-manager.vercel.app/follow-ups",
+      "Follow-ups: https://bip-active-manager.vercel.app/response-report?tab=followups",
     ].join("\n");
   }
   return [
