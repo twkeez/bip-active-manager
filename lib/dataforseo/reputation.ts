@@ -17,6 +17,8 @@ export type PlaceSnapshot = {
   // Google's own auto-extracted review topics with mention counts.
   placeTopics: Record<string, number>;
   address: string | null;
+  /** The website the listing links to. */
+  website: string | null;
   city: string | null;
   region: string | null;
   latitude: number | null;
@@ -79,6 +81,8 @@ export async function fetchPlaceSnapshot(
         rating_distribution?: unknown;
         place_topics?: unknown;
         address?: string;
+        url?: string | null;
+        domain?: string | null;
         address_info?: { city?: string | null; region?: string | null };
         latitude?: number | null;
         longitude?: number | null;
@@ -100,6 +104,7 @@ export async function fetchPlaceSnapshot(
       ratingDistribution: toIntMap(item.rating_distribution),
       placeTopics: toIntMap(item.place_topics),
       address: item.address ?? null,
+      website: item.url ?? item.domain ?? null,
       city: item.address_info?.city ?? null,
       region: item.address_info?.region ?? null,
       latitude: typeof item.latitude === "number" ? item.latitude : null,

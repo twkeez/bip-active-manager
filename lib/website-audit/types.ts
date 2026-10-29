@@ -146,6 +146,8 @@ export type AuthorityResults = {
     placeSource: "client record" | "search" | null;
     listingName: string | null;
     listingAddress: string | null;
+    /** The website the listing links to (audits before 2026-10-29 don't have it). */
+    listingWebsite?: string | null;
     rating: number | null;
     reviewCount: number | null;
     /** The newest reviews, without reviewer names. */

@@ -481,6 +481,7 @@ export const GUIDE: Guide = {
             "Steps: technical crawl (free), authority & reviews (a few cents), reviews vs. competitors (about 1¢), AI visibility (about $1.50–3), and content, trust signals & the citability score (about 25–40¢ in Claude). The report button appears once the score exists. Paid calls are logged on AI Spend. Score weights are in lib/website-audit/config/score-weights.json.",
             "Reviews vs. competitors searches Google Maps from the practice's own listing, so run it after authority & reviews. A side service counts as offered when it's on the Google listing's categories, the website menu, a non-blog page address or a service page; blog posts don't count.",
             "AI visibility shows two separate measurements: our fixed prompt set asked today, and DataForSEO's database of AI answers observed over about 90 days. The prompts are edited in lib/website-audit/config/prompts.json.",
+            "A red \"may be mixing up different practices\" warning means the Google listing links to another website, the listing is in another state, or the home page names another state. The website and listing come from the client record: correct it, then start a new audit. The report won't open the print dialog by itself while the warning stands.",
           ],
         },
         {
