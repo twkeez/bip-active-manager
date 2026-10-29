@@ -94,6 +94,7 @@ export async function checkAuthority(audit: {
       cost += snapshot.cost;
       google.listingName = snapshot.snapshot.title;
       google.listingAddress = snapshot.snapshot.address;
+      google.listingWebsite = snapshot.snapshot.website;
       google.rating = snapshot.snapshot.rating;
       google.reviewCount = snapshot.snapshot.votesCount;
     } else {

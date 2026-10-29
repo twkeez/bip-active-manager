@@ -6,6 +6,7 @@ import { ArrowLeft, Download, FileText, Loader2, Play } from "lucide-react";
 import { StatTile, StatTiles } from "@/components/ui/stat-tile";
 import { technicalFindings } from "@/lib/website-audit/findings";
 import { AI_PLATFORMS, PLATFORM_LABEL } from "@/lib/website-audit/platforms";
+import { practiceMatchProblems } from "@/lib/website-audit/practice-match";
 import {
   AUDIT_STAGES,
   type AiVisibilityResults,
@@ -411,6 +412,7 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
   const [running, setRunning] = useState<AuditStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const t = audit.results.technical;
+  const mismatch = practiceMatchProblems(audit, audit.results);
 
   async function run(stage: AuditStage) {
     setRunning(stage);
@@ -462,6 +464,20 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
           )}
         </div>
       </header>
+
+      {mismatch.length > 0 && (
+        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm">
+          <p className="font-semibold text-bip-text">This audit may be mixing up different practices</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-bip-text">
+            {mismatch.map((m) => (
+              <li key={m.what}>{m.detail}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-bip-muted">
+            The website, Google listing and town come from the client record. Correct whichever is wrong there, then start a new audit: don&apos;t send this one.
+          </p>
+        </div>
+      )}
 
       <section className="space-y-2">
         {AUDIT_STAGES.map((stage) => {

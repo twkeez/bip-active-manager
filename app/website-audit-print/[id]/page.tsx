@@ -4,6 +4,7 @@ import ReportPrintShell from "@/components/website-audit/report-print-shell";
 import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { practiceMatchProblems } from "@/lib/website-audit/practice-match";
 import type { WebsiteAuditRow } from "@/lib/website-audit/types";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,10 @@ export default async function WebsiteAuditPrintPage({ params }: { params: Promis
   const previous = (earlier?.[0] as PreviousRun | undefined) ?? null;
 
   return (
-    <ReportPrintShell title={`${audit.practice_name} · Website, SEO & AI Search Audit · Beyond Indigo Pets`}>
+    <ReportPrintShell
+      title={`${audit.practice_name} · Website, SEO & AI Search Audit · Beyond Indigo Pets`}
+      warnings={practiceMatchProblems(audit, audit.results).map((p) => p.detail)}
+    >
       <AuditReport audit={audit} previous={previous} />
     </ReportPrintShell>
   );
