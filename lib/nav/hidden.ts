@@ -4,6 +4,5 @@
 // marks these as hidden.
 export const HIDDEN_NAV_HREFS = new Set<string>([
   "/illuminare",
-  "/data-health",
   "/sales-lab",
 ]);

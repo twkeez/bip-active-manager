@@ -10,6 +10,7 @@ import {
   CircleAlert,
   Clock,
   ExternalLink,
+  HeartPulse,
   Loader2,
   Pause,
   Play,
@@ -19,6 +20,9 @@ import {
 import type { Canary, CanaryStatus } from "@/lib/coal-mines/canaries";
 import type { RoutineView } from "@/lib/routines/load";
 import type { RoutineFinding, RoutineStatus } from "@/lib/routines/types";
+import DataHealthView from "@/components/data-integrity/data-health-view";
+import type { DataHealth } from "@/lib/data-integrity/load-health";
+import { isActiveWarning } from "@/lib/data-integrity/warnings";
 import CanaryBody from "./canary-body";
 
 /**
@@ -80,6 +84,23 @@ function ago(iso: string | null): string {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
+}
+
+/** Data health in one dot and one line: failures and broken logins first, then partial runs and cut-short reads. */
+function healthSummary(health: DataHealth, now: Date): { tone: Tone; headline: string } {
+  const { rows, loginProblems, error } = health.jobs;
+  if (error || health.warningsError) return { tone: "error", headline: "Couldn't be checked" };
+  const failed = rows.filter((row) => row.lastRun?.status === "failed" || row.problems.length > 0).length;
+  const partial = rows.filter((row) => row.lastRun?.status === "partial").length;
+  const cutShort = health.warnings.filter((warning) => isActiveWarning(warning, now)).length;
+  const parts = [
+    loginProblems.length && `${loginProblems.length} broken login${loginProblems.length === 1 ? "" : "s"}`,
+    failed && `${failed} job${failed === 1 ? "" : "s"} failing`,
+    partial && `${partial} partly worked`,
+    cutShort && `${cutShort} cut-short read${cutShort === 1 ? "" : "s"}`,
+  ].filter(Boolean) as string[];
+  if (!parts.length) return { tone: "ok", headline: `All ${rows.length} jobs worked` };
+  return { tone: loginProblems.length || failed ? "error" : "attention", headline: parts.join(" · ") };
 }
 
 // ---------------------------------------------------------------------------
@@ -434,13 +455,14 @@ function RoutineInfo({
 // The workspace
 // ---------------------------------------------------------------------------
 
-type Selection = { type: "routine"; routine: RoutineView } | { type: "canary"; canary: Canary };
+type Selection = { type: "health" } | { type: "routine"; routine: RoutineView } | { type: "canary"; canary: Canary };
 
 export default function CoalMinesWorkspace({
   canaries,
   routines,
   routinesError,
   clients,
+  health,
   checkedAt,
 }: {
   canaries: Canary[];
@@ -448,6 +470,8 @@ export default function CoalMinesWorkspace({
   routinesError: string | null;
   /** For routines that watch a chosen list of clients. */
   clients: Array<{ id: number; account_name: string }>;
+  /** Scheduled jobs, broken logins and cut-short reads (formerly the Data health page). */
+  health: DataHealth;
   checkedAt: string;
 }) {
   const router = useRouter();
@@ -456,7 +480,9 @@ export default function CoalMinesWorkspace({
 
   // Default to whatever most needs a look, so opening the page answers
   // "anything wrong?" without a click.
+  const healthState = useMemo(() => healthSummary(health, new Date(checkedAt)), [health, checkedAt]);
   const defaultKey = useMemo(() => {
+    if (healthState.tone === "error") return "health";
     const routine = routines.find((item) => item.runs[0]?.status === "attention" || item.runs[0]?.status === "error");
     if (routine) return `routine:${routine.key}`;
     const canary =
@@ -464,11 +490,12 @@ export default function CoalMinesWorkspace({
     if (canary) return `canary:${canary.key}`;
     if (routines[0]) return `routine:${routines[0].key}`;
     return canaries[0] ? `canary:${canaries[0].key}` : null;
-  }, [canaries, routines]);
+  }, [canaries, routines, healthState]);
 
   const selectedKey = params.get("item") ?? defaultKey;
   const selection: Selection | null = useMemo(() => {
     if (!selectedKey) return null;
+    if (selectedKey === "health") return { type: "health" };
     const [type, ...rest] = selectedKey.split(":");
     const key = rest.join(":");
     if (type === "routine") {
@@ -505,6 +532,20 @@ export default function CoalMinesWorkspace({
         <p className="mt-0.5 px-1 text-[11px] text-bip-muted">
           {noisy === 0 ? "All canaries quiet." : `${noisy} of ${canaries.length} canaries want attention.`}
         </p>
+
+        <p className="mt-4 flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
+          <HeartPulse className="h-3 w-3" /> Data health
+        </p>
+        <p className="px-1 text-[10.5px] text-bip-muted">Syncs, logins and incomplete reads.</p>
+        <div className="mt-1 space-y-0.5">
+          <ListItem
+            selected={selection?.type === "health"}
+            tone={healthState.tone}
+            title="Scheduled jobs & data"
+            subtitle={healthState.headline}
+            onSelect={() => select("health")}
+          />
+        </div>
 
         <p className="mt-4 flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-bip-muted">
           <Repeat className="h-3 w-3" /> Routines
@@ -564,6 +605,12 @@ export default function CoalMinesWorkspace({
       >
         {!selection ? (
           <p className="text-sm text-bip-muted">Pick a routine or canary on the left.</p>
+        ) : selection.type === "health" ? (
+          <>
+            <h2 className="text-lg font-semibold text-bip-text">Scheduled jobs &amp; data</h2>
+            <p className="mt-1 mb-4 text-sm text-bip-muted">{healthState.headline}</p>
+            <DataHealthView health={health} />
+          </>
         ) : selection.type === "routine" ? (
           (() => {
             const routine = selection.routine;
@@ -627,7 +674,24 @@ export default function CoalMinesWorkspace({
 
       {/* ------------------------------------------------------------------ */}
       <aside className="rounded-xl border border-bip-border bg-bip-card p-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto">
-        {!selection ? null : selection.type === "routine" ? (
+        {!selection ? null : selection.type === "health" ? (
+          <div className="space-y-5">
+            <section>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Watches</p>
+              <p className="mt-1 text-sm leading-relaxed text-bip-text">
+                Anything that means some data may be incomplete: a scheduled job that failed, partly failed or didn&apos;t run, a login that
+                stopped working, or a database read cut short at its 1,000-row limit.
+              </p>
+            </section>
+            <section>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-bip-muted">Tells you</p>
+              <p className="mt-1 text-sm leading-relaxed text-bip-text">
+                Each problem is emailed to you once. Cut-short reads also show as a banner, and block client report and briefing exports
+                while active.
+              </p>
+            </section>
+          </div>
+        ) : selection.type === "routine" ? (
           <RoutineInfo
             key={`${selection.routine.key}-${selection.routine.updated_at}`}
             routine={selection.routine}

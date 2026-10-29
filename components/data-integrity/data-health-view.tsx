@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { HeartPulse } from "lucide-react";
 import JobHealthSection from "@/components/data-integrity/job-health-section";
 import { ErrorState } from "@/components/ui/feedback";
-import { ToolPage } from "@/components/ui/tool-page";
+import type { DataHealth } from "@/lib/data-integrity/load-health";
 import { ACTIVE_WARNING_DAYS, isActiveWarning, type DataWarning } from "@/lib/data-integrity/warnings";
-import type { JobHealthRow } from "@/lib/job-watch/job-health";
 
 function when(value: string | null): string {
   if (!value) return "—";
@@ -15,19 +13,12 @@ function when(value: string | null): string {
 }
 
 /**
- * Data health: how every scheduled job last went, any broken login, and every
- * warning that some data may be incomplete (reads cut short at the database's
- * 1000-row limit).
+ * Data health (the Data health item in Coal Mines): how every scheduled job
+ * last went, any broken login, and every warning that some data may be
+ * incomplete (reads cut short at the database's 1000-row limit).
  */
-export default function DataHealthView({
-  warnings,
-  jobs,
-  loadError,
-}: {
-  warnings: DataWarning[];
-  jobs: { rows: JobHealthRow[]; loginProblems: string[]; error: string | null };
-  loadError: string | null;
-}) {
+export default function DataHealthView({ health }: { health: DataHealth }) {
+  const { warnings, jobs, warningsError: loadError } = health;
   const router = useRouter();
   const [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,12 +70,7 @@ export default function DataHealthView({
   );
 
   return (
-    <ToolPage
-      title="Data health"
-      icon={HeartPulse}
-      maxWidth="5xl"
-      description="Anything that means some data may be incomplete: a scheduled job that failed, partly failed or did not run, a login that stopped working, or a database read cut short at its 1,000-row limit. Each is emailed to you once. Cut-short reads also show as a banner and block client report and briefing exports while active."
-    >
+    <div className="space-y-6">
       {jobs.error ? <ErrorState message={`Could not load job health: ${jobs.error}`} /> : <JobHealthSection rows={jobs.rows} loginProblems={jobs.loginProblems} />}
       {loadError ? (
         <ErrorState message={loadError} />
@@ -113,6 +99,6 @@ export default function DataHealthView({
           )}
         </>
       )}
-    </ToolPage>
+    </div>
   );
 }
