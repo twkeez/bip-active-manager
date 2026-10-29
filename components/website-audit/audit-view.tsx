@@ -7,6 +7,7 @@ import { StatTile, StatTiles } from "@/components/ui/stat-tile";
 import { technicalFindings } from "@/lib/website-audit/findings";
 import { AI_PLATFORMS, PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import { practiceMatchProblems } from "@/lib/website-audit/practice-match";
+import { realTypos } from "@/lib/website-audit/typos";
 import {
   AUDIT_STAGES,
   type AiVisibilityResults,
@@ -304,7 +305,7 @@ function ContentPanel({ c }: { c: ContentResults }) {
   const site = c.site;
   const doctors = new Map<string, string>();
   for (const p of c.pages) for (const d of p.doctors) if (!doctors.has(d.name)) doctors.set(d.name, `${d.credentials ?? "no credentials shown"}${d.hasBio ? ", has a bio" : ""}${d.school ? `, ${d.school}${d.year ? ` ${d.year}` : ""}` : ""}`);
-  const typos = c.pages.flatMap((p) => p.typos.map((t) => ({ ...t, url: p.url })));
+  const typos = c.pages.flatMap((p) => realTypos(p.typos).map((t) => ({ ...t, url: p.url })));
   const accreditations = [...new Set(c.pages.flatMap((p) => p.accreditations))];
   const prices = [...new Set(c.pages.flatMap((p) => p.pricesShown))];
   return (
