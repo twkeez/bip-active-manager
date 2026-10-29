@@ -41,7 +41,7 @@ export default function ReportPrintShell({ title, warnings = [], children }: { t
               <li key={w}>{w}</li>
             ))}
           </ul>
-          <p className="mt-1 text-xs">Correct the client record, then start a new audit.</p>
+          <p className="mt-1 text-xs">Running the steps again won&apos;t fix it. Correct the client record if needed, then start a new audit.</p>
         </div>
       )}
       <div className="no-print mx-auto flex max-w-3xl items-center justify-between gap-4 px-8 pt-4">
