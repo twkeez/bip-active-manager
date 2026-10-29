@@ -233,22 +233,6 @@ export const GUIDE: Guide = {
       ],
     },
     {
-      title: "Inbox",
-      items: [
-        {
-          href: "/inbox",
-          label: "Inbox",
-          purpose: "Triage your Gmail without leaving BIP Control.",
-          youCan: [
-            "Connect Gmail and sync new or recent mail",
-            "Have Claude score how important each message is",
-            "Archive, delete, flag, turn a message into a task, or open it in Gmail",
-          ],
-          notes: ["You only see your own mail. It can't send email; replies happen in Gmail."],
-        },
-      ],
-    },
-    {
       title: "Illuminare",
       intro: "A second, fully separate client portfolio with its own Basecamp account.",
       items: [
@@ -262,39 +246,6 @@ export const GUIDE: Guide = {
             "Connect Illuminare's Basecamp account and match its projects to clients",
           ],
           notes: ["Uses a different Basecamp login from Beyond Indigo's. Without it, the communication-based health ratings don't work."],
-        },
-      ],
-    },
-    {
-      title: "Onboarding",
-      intro: "Older planning tools for new and prospective practices. Day-to-day onboarding happens on the Onboarding page at the top.",
-      items: [
-        {
-          href: "/onboarding-strategy-mapper",
-          label: "Strategy Mapper",
-          adminOnly: true,
-          purpose: "Builds a client-facing onboarding strategy report for a new or prospective practice: market audit, keyword list and launch roadmap.",
-          youCan: [
-            "Fill in practice details and optionally upload a sales file or logo",
-            "Fetch and edit competitor research, and run a website audit",
-            "Generate the report and copy it into Google Docs",
-          ],
-          notes: [
-            "Copy the report out when you're done; don't rely on it being saved.",
-            "If live research isn't available it says so; placeholder competitors are only used when you choose them on the form.",
-          ],
-        },
-        {
-          href: "/vet-onboarding",
-          label: "Vet Onboarding",
-          adminOnly: true,
-          purpose: "An intake form for a new vet client that produces an AI onboarding plan.",
-          youCan: [
-            "Complete the three-step form, or upload a PDF, Word or text file to fill it in",
-            "Switch the plan between Client View and Strategy View",
-            "Run a Full Discovery questionnaire for a deeper report",
-          ],
-          notes: ["Start Over clears everything, and plans aren't saved. Some client-facing figures in the plan are illustrative, so check them before sharing."],
         },
       ],
     },
@@ -316,13 +267,6 @@ export const GUIDE: Guide = {
           label: "Service Playbook",
           purpose: "Best practices, deliverables and guidelines, by service and tier.",
           youCan: ["Browse by service and expand items", "Admins can add, edit and delete items"],
-        },
-        {
-          href: "/onboarding-sops",
-          label: "Onboarding SOPs",
-          purpose: "The step-by-step instructions for each onboarding step.",
-          youCan: ["Read or edit each step's SOP"],
-          notes: ["Changes apply right away to new clients and anyone currently onboarding."],
         },
         {
           href: "/client-expectations",
@@ -359,12 +303,6 @@ export const GUIDE: Guide = {
           label: "Partnership & Boundaries",
           purpose: "How we partner at each level, our on-demand rates, and the lines to hold when clients ask for more.",
           youCan: ["Read it", "Admins can edit it"],
-        },
-        {
-          href: "/services/library",
-          label: "Reference Library",
-          purpose: "Documents, templates and links strategists need, such as brand guides and tier breakdowns.",
-          youCan: ["Browse by category and open items", "Admins can add a link or upload a file"],
         },
       ],
     },
@@ -503,14 +441,6 @@ export const GUIDE: Guide = {
           notes: ["Posts leave client names out unless you tick the option."],
         },
         {
-          href: "/reports/template",
-          label: "Report Template",
-          adminOnly: true,
-          purpose: "The master layout for client performance reports: which sections and metrics appear.",
-          youCan: ["Preview with sample data", "Unlock with the template password and show or hide sections", "Download a sample PDF"],
-          notes: ["Saved changes become the default for every client's report."],
-        },
-        {
           href: "/reports/doc-to-pdf",
           label: "Doc → PDF",
           purpose: "Turns any document into a Beyond Indigo Pets branded PDF.",
@@ -539,13 +469,6 @@ export const GUIDE: Guide = {
           purpose: "The health of every client website's sitemap: last update, page count, stale pages, and Search Console submitted vs. indexed.",
           youCan: ["Search and filter clients", "Re-check a client's sitemap now"],
           notes: ["Search Console numbers refresh daily; the sitemap itself is only checked when someone clicks Check."],
-        },
-        {
-          href: "/seo-ops",
-          label: "SEO Ops",
-          purpose: "The weekly and monthly SEO checklist across all SEO clients.",
-          youCan: ["See each client's completion and top blocker", "Show just your clients", "Open a client's SEO Ops tab to work the checklist"],
-          notes: ["Some items tick themselves from Search Console and ranking data; others are manual."],
         },
         {
           href: "/site-audit",
@@ -580,13 +503,6 @@ export const GUIDE: Guide = {
           purpose: "How a practice ranks in Google's local map results across a 5×5 grid around it.",
           youCan: ["Pick a client, up to 3 keywords and a radius", "See the heat map, average rank, top-3 share and nearby competitors", "Look at past scans"],
           notes: ["Needs the client's Google Place ID. Every scan runs live searches."],
-        },
-        {
-          href: "/backlinks",
-          label: "Backlinks",
-          purpose: "Who links to a client's website: referring domains, backlinks, spam score and domain rank.",
-          youCan: ["Look up a domain", "Review linking domains with anchor text and dates"],
-          notes: ["Each lookup costs about 5¢ and results aren't saved. Open it from a client's page to look up that client."],
         },
         {
           href: "/reputation",

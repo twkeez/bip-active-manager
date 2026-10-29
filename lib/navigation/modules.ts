@@ -1,8 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Building2,
-  ClipboardCheck,
-  Compass,
   FileText,
   Flame,
   Globe,
@@ -11,7 +9,6 @@ import {
   Megaphone,
   ShieldAlert,
   Sparkles,
-  Stethoscope,
 } from "lucide-react";
 
 export type AppModule = {
@@ -43,25 +40,6 @@ export const APP_MODULES: AppModule[] = [
     accent: "border-indigo-500/30 hover:border-indigo-400/50",
     iconClass: "text-indigo-400",
     featured: true,
-  },
-  {
-    id: "vet-onboarding",
-    label: "Vet Onboarding Plan",
-    description: "AI-generated 30/60/90 marketing onboarding plans for new veterinary clients.",
-    href: "/vet-onboarding",
-    icon: Stethoscope,
-    accent: "border-teal-500/30 hover:border-teal-400/50",
-    iconClass: "text-teal-400",
-  },
-  {
-    id: "strategy-mapper",
-    label: "Onboarding Research and Strategy Mapper",
-    description:
-      "Local competitive audit, service-specific strategy, and soft-upsell opportunities for sales proposals.",
-    href: "/onboarding-strategy-mapper",
-    icon: Compass,
-    accent: "border-cyan-500/30 hover:border-cyan-400/50",
-    iconClass: "text-cyan-400",
   },
   {
     id: "sales-lab",
@@ -98,15 +76,6 @@ export const APP_MODULES: AppModule[] = [
     icon: ShieldAlert,
     accent: "border-rose-500/30 hover:border-rose-400/50",
     iconClass: "text-rose-400",
-  },
-  {
-    id: "seo-ops",
-    label: "SEO Ops",
-    description: "Weekly and monthly SEO strategist checklist across SEO clients.",
-    href: "/seo-ops",
-    icon: ClipboardCheck,
-    accent: "border-emerald-500/30 hover:border-emerald-400/50",
-    iconClass: "text-emerald-400",
   },
   {
     id: "site-audit",
@@ -152,7 +121,7 @@ export const MODULE_GROUPS: ModuleGroup[] = [
     label: "Client Work",
     borderClass: "border-l-blue-500/50",
     labelClass: "text-blue-400/70",
-    moduleIds: ["clients", "vet-onboarding", "strategy-mapper", "sales-lab"],
+    moduleIds: ["clients", "sales-lab"],
   },
   {
     id: "ads-performance",
@@ -166,7 +135,7 @@ export const MODULE_GROUPS: ModuleGroup[] = [
     label: "SEO & Discovery",
     borderClass: "border-l-emerald-500/50",
     labelClass: "text-emerald-400/70",
-    moduleIds: ["seo-ops", "site-audit", "local-rank", "llms-txt"],
+    moduleIds: ["site-audit", "local-rank", "llms-txt"],
   },
 ];
 
