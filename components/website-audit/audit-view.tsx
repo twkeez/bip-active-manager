@@ -474,7 +474,9 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
             ))}
           </ul>
           <p className="mt-2 text-xs text-bip-muted">
-            The website, Google listing and town come from the client record. Correct whichever is wrong there, then start a new audit: don&apos;t send this one.
+            Running the steps again won&apos;t fix it: this audit always checks {audit.domain}. Correct the client record if it&apos;s wrong, then start a
+            new audit from the <Link href="/website-audits" className="underline">Website &amp; AI Audit</Link> page, which fills in the client&apos;s current
+            website, town and listing. Don&apos;t send this one.
           </p>
         </div>
       )}
