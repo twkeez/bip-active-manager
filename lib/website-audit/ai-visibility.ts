@@ -1,6 +1,7 @@
 import { DATAFORSEO_ENDPOINTS, postDataForSeoLive } from "@/lib/dataforseo/client";
 import { getDataForSeoConfig } from "@/lib/env";
 import { US_STATES } from "@/lib/onboarding/research-location";
+import { SERVICE_PATH } from "@/lib/website-audit/page-paths";
 import { bareDomain } from "@/lib/website-audit/crawl";
 import { AI_PLATFORMS, PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import platformConfig from "@/lib/website-audit/config/platforms.json";
@@ -57,14 +58,14 @@ export function servicesFromCrawl(crawl: TechnicalCrawl | undefined): string[] {
   for (const page of crawl.pages) {
     if (page.finalStatus !== 200 || page.softError) continue;
     const path = new URL(page.finalUrl).pathname;
-    const match = /\/services?\/([^/]+?)(?:\.html?)?\/?$/i.exec(path);
+    const match = SERVICE_PATH.exec(path);
     if (!match) continue;
     const fromTitle = page.title?.split(/\s[|–—-]\s/)[0]?.trim();
-    const fromSlug = match[1].replace(/[-_]+/g, " ").trim();
+    const fromSlug = match[3].replace(/[-_]+/g, " ").trim();
     // "Pet Wellness in Power Springs, GA" → "pet wellness": the prompts add the town themselves.
     const cleanTitle = fromTitle?.replace(/\s+(in|near|at|for)\s+[^,]+(,\s*[a-z]{2})?$/i, "").trim();
     const name = (cleanTitle && cleanTitle.length <= 40 ? cleanTitle : fromSlug).toLowerCase();
-    const key = match[1].toLowerCase();
+    const key = match[3].toLowerCase();
     if (!seen.has(key) && name) seen.set(key, name);
   }
   return [...seen.values()];

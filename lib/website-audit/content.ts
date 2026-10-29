@@ -3,6 +3,7 @@ import { anthropicClient, costOf } from "@/lib/ai/usage";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import { isListingPage } from "@/lib/website-audit/archive";
 import { standing } from "@/lib/website-audit/competitors";
+import { ARTICLE_SCHEMA, SERVICE_PATH } from "@/lib/website-audit/page-paths";
 import { realTypos } from "@/lib/website-audit/typos";
 import type {
   AuditResults,
@@ -34,13 +35,14 @@ const priceOf = (model: string, usage: Usage) =>
     webSearches: 0,
   });
 
-export function pageTypeOf(page: Pick<CrawlPage, "finalUrl">): PageType {
+export function pageTypeOf(page: Pick<CrawlPage, "finalUrl"> & { schemaTypes?: string[] }): PageType {
   const path = new URL(page.finalUrl).pathname.toLowerCase();
   if (path === "/" || path === "") return "home";
-  if (/\/(services?|treatments?)\/./.test(path)) return "service";
+  if (SERVICE_PATH.test(path)) return "service";
   if (/(staff|team|doctors?|veterinarians|\/dr-)/.test(path)) return "team";
   if (/\/about/.test(path)) return "about";
   if (/^\/blog\/(?!tag\/|category\/|author\/|page\/|\d{4}\/)[^/]+\/?$/.test(path)) return "blog_post";
+  if ((page.schemaTypes ?? []).some((t) => ARTICLE_SCHEMA.test(t))) return "blog_post";
   return "other";
 }
 
