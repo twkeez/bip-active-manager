@@ -5,6 +5,7 @@ import { verifyAccessToken } from "@/lib/mcp-oauth/server";
 import { registerPoobahTools } from "@/lib/poobah/mcp-tools";
 import { EMAIL_COVERAGE_NOTE, POOBAH_NAME } from "@/lib/poobah/types";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { registerTaskTools } from "@/lib/tasks/mcp-tools";
 
 /**
  * The Claude connector (MCP) for Poobah Client Watch. Every request needs a
@@ -15,10 +16,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 60;
 
-const mcp = createMcpHandler((server) => registerPoobahTools(server), {
-  serverInfo: { name: "bip-poobah-client-watch", version: "1.0.0" },
-  instructions: `${POOBAH_NAME}: Tom's notebook of closely watched clients at Beyond Indigo. Each watched client has a current status, open items, a dated running log and account basics. Use list_watched_clients first to find ids. Nothing can be deleted; every change is recorded as made by Claude for the signed-in person. ${EMAIL_COVERAGE_NOTE} When a status or summary relies on email, say that other team members' email was not checked.`,
-});
+const mcp = createMcpHandler(
+  (server) => {
+    registerPoobahTools(server);
+    registerTaskTools(server);
+  },
+  {
+    serverInfo: { name: "bip-poobah-client-watch", version: "1.1.0" },
+    instructions: `${POOBAH_NAME}: Tom's notebook of closely watched clients at Beyond Indigo. Each watched client has a current status, open items, a dated running log and account basics. Use list_watched_clients first to find ids. Nothing can be deleted; every change is recorded as made by Claude for the signed-in person. ${EMAIL_COVERAGE_NOTE} When a status or summary relies on email, say that other team members' email was not checked. The same connector also holds the signed-in person's own to-do list and projects from BIP Control (My Tasks and Projects): list_my_tasks, add_task, update_task, complete_task, list_projects, get_project. Use these when they ask what's on their plate, what's due, or to add, change or finish a to-do. Watched-client open items and My Tasks are separate lists; say which one you used.`,
+  },
+);
 
 const handler = withMcpAuth(
   mcp,
