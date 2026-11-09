@@ -13,7 +13,7 @@ import {
 } from "@/lib/website-audit/compare";
 import { SIDE_SERVICES, standing } from "@/lib/website-audit/competitors";
 import { doctorKeys } from "@/lib/website-audit/doctors";
-import { technicalFindings } from "@/lib/website-audit/findings";
+import { technicalFindings, type FindingDetail } from "@/lib/website-audit/findings";
 import { PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import { realTypos } from "@/lib/website-audit/typos";
 import type { AiPlatform, AuditResults, CompetitorListing, CompetitorResults, Evidence, PageContent, ServiceComparison, WebsiteAuditRow } from "@/lib/website-audit/types";
@@ -95,15 +95,89 @@ function Section({ n, title, intro, children, newPage = true }: { n: string; tit
   );
 }
 
+/** A web address as a link that still works in the saved PDF; shown without "https://". */
+function UrlLink({ url }: { url: string }) {
+  return (
+    <a href={url} className="break-all text-indigo-700 underline decoration-indigo-200 underline-offset-2">
+      {shortUrl(url)}
+    </a>
+  );
+}
+
+/** Text with any web addresses in it made into links. */
+function LinkedText({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s)"]+)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (!isUrl(part)) return part;
+        const trailing = /[.,;:]$/.test(part) ? part.slice(-1) : "";
+        return (
+          <span key={i}>
+            <UrlLink url={trailing ? part.slice(0, -1) : part} />
+            {trailing}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 function Sources({ items, label = "Found on" }: { items: string[]; label?: string }) {
   if (!items.length) return null;
   const shown = distinct(items.map((s) => (isUrl(s) ? s : sourceLabel(s)))).slice(0, URL_LIMIT);
   const rest = items.length - shown.length;
   return (
     <p className="mt-1 text-[11px] leading-relaxed text-slate-500" title={items.filter((s) => !isUrl(s)).join(", ") || undefined}>
-      {label}: {shown.map((s) => (isUrl(s) ? shortUrl(s) : s)).join(" · ")}
+      {label}:{" "}
+      {shown.map((s, i) => (
+        <span key={s}>
+          {i > 0 && " · "}
+          {isUrl(s) ? <UrlLink url={s} /> : s}
+        </span>
+      ))}
       {rest > 0 && ` · and ${rest} more`}
     </p>
+  );
+}
+
+/** Every place an issue shows up: the page as a link, what's wrong there, the specifics, and the pages linking to it. */
+function FindingDetails({ details }: { details: FindingDetail[] }) {
+  if (!details.length) return null;
+  return (
+    <ul className="mt-1.5 space-y-1 border-t border-slate-200 pt-1.5 text-[11px] leading-relaxed text-slate-600">
+      {details.map((d, i) => (
+        <li key={i} style={{ breakInside: "avoid" }}>
+          {d.url ? <UrlLink url={d.url} /> : <span className="font-medium text-slate-700">{d.label}</span>}
+          {d.note && (
+            <span className="text-slate-500">
+              {" "}
+              · <LinkedText text={d.note} />
+            </span>
+          )}
+          {d.items && d.items.length > 0 && (
+            <ol className="ml-4 list-decimal text-slate-500">
+              {d.items.map((item, j) => (
+                <li key={j}>
+                  <LinkedText text={item} />
+                </li>
+              ))}
+            </ol>
+          )}
+          {d.linkedFrom && d.linkedFrom.length > 0 && (
+            <p className="ml-4 text-slate-500">
+              Linked from:{" "}
+              {d.linkedFrom.map((u, j) => (
+                <span key={u}>
+                  {j > 0 && " · "}
+                  <UrlLink url={u} />
+                </span>
+              ))}
+            </p>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -170,9 +244,9 @@ function MetricTable({ rows, lastDate, heading = "What we measured" }: { rows: M
   );
 }
 
-function Check({ ok, label, detail, sources }: { ok: boolean | null; label: string; detail?: string; sources?: string[] }) {
+function Check({ ok, label, detail, sources, details }: { ok: boolean | null; label: string; detail?: string; sources?: string[]; details?: FindingDetail[] }) {
   return (
-    <li className="flex gap-3 border-b border-slate-100 py-2" style={{ breakInside: "avoid" }}>
+    <li className="flex gap-3 border-b border-slate-100 py-2" style={{ breakInside: (details?.length ?? 0) > 6 ? "auto" : "avoid" }}>
       <span className="mt-0.5 w-4 shrink-0 text-center font-semibold" style={{ color: ok == null ? "#94a3b8" : ok ? "#047857" : "#b91c1c" }}>
         {ok == null ? "–" : ok ? "✓" : "✗"}
       </span>
@@ -180,6 +254,7 @@ function Check({ ok, label, detail, sources }: { ok: boolean | null; label: stri
         <p className="text-sm text-slate-800">{label}</p>
         {detail && <p className="text-xs text-slate-600">{detail}</p>}
         {sources && <Sources items={sources} />}
+        {details && <FindingDetails details={details} />}
       </div>
     </li>
   );
@@ -350,6 +425,16 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   // Claude files notes and rewrites as typos too; saved audits still have them.
   const typos = pages.flatMap((p) => realTypos(p.typos).map((ty) => ({ ...ty, url: p.url })));
   const uniqueTypos = [...new Map(typos.map((ty) => [`${ty.text}→${ty.suggestion}`, ty])).values()];
+  // Each mistake once, with every page it's on: a menu typo is on every page.
+  const typoDetails: FindingDetail[] = uniqueTypos.map((ty) => {
+    const on = distinct(typos.filter((x) => x.text === ty.text && x.suggestion === ty.suggestion).map((x) => x.url));
+    const where = ty.where === "url" ? "in the page address" : `in the ${ty.where}`;
+    const fix = `"${ty.text}" should be "${ty.suggestion}"`;
+    if (on.length === 1) return { url: on[0], note: `${fix} (${where})` };
+    // The same menu on every page: one fix in the menu, not a page list.
+    if (ty.where === "menu" && on.length >= 5) return { label: fix, note: `in the website menu, so it shows on ${on.length} pages; fix it once in the menu` };
+    return { label: fix, note: `${where}, on ${on.length} pages`, items: on };
+  });
   const reviews = a?.google.reviews ?? [];
   const answeredReviews = reviews.filter((rv) => rv.ownerAnswered).length;
   const types = new Set(t?.summary.schemaTypes ?? []);
@@ -776,10 +861,11 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               <li
                 key={f.text}
                 className="rounded-xl border-l-4 bg-slate-50 px-3 py-2"
-                style={{ borderColor: f.tone === "bad" ? "#dc2626" : f.tone === "warn" ? "#d97706" : "#059669", breakInside: "avoid" }}
+                // A long list may run onto the next page; a short item stays together.
+                style={{ borderColor: f.tone === "bad" ? "#dc2626" : f.tone === "warn" ? "#d97706" : "#059669", breakInside: (f.details?.length ?? 0) > 6 ? "auto" : "avoid" }}
               >
-                <p className="text-[13px] text-slate-800">{f.text}</p>
-                {f.urls && <Sources items={f.urls} label="Pages" />}
+                <p className="text-[13px] text-slate-800" style={{ breakAfter: "avoid" }}>{f.text}</p>
+                {f.details && <FindingDetails details={f.details} />}
               </li>
             ))}
           </ul>
@@ -886,11 +972,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             <Check
               ok={uniqueTypos.length === 0}
               label={uniqueTypos.length ? `${uniqueTypos.length} spelling mistakes to fix` : "No spelling mistakes found"}
-              detail={uniqueTypos
-                .slice(0, 10)
-                .map((ty) => `"${ty.text}" should be "${ty.suggestion}" (${ty.where === "url" ? "in the page address" : `in the ${ty.where}`})`)
-                .join(" · ")}
-              sources={distinct(uniqueTypos.map((ty) => ty.url))}
+              details={typoDetails}
             />
           </ul>
         </Section>
