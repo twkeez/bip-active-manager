@@ -532,13 +532,26 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
             {technicalFindings(t).map((f) => (
               <div key={f.text} className={`rounded-lg border p-3 text-sm text-bip-text ${toneClass[f.tone]}`}>
                 {f.text}
-                {f.urls && f.urls.length > 0 && (
+                {f.details && f.details.length > 0 && (
                   <details className="mt-1 text-xs text-bip-muted">
-                    <summary className="cursor-pointer">Which ones ({f.urls.length})</summary>
-                    <ul className="mt-1 space-y-0.5">
-                      {f.urls.map((u) => (
-                        <li key={u} className="break-all">
-                          {u}
+                    <summary className="cursor-pointer">Which ones ({f.details.length})</summary>
+                    <ul className="mt-1 space-y-1">
+                      {f.details.map((d, i) => (
+                        <li key={i} className="break-all">
+                          {d.url ? (
+                            <a href={d.url} target="_blank" rel="noreferrer" className="text-bip-text underline">
+                              {d.url}
+                            </a>
+                          ) : (
+                            <span className="text-bip-text">{d.label}</span>
+                          )}
+                          {d.note && ` · ${d.note}`}
+                          {d.items?.map((item) => (
+                            <span key={item} className="block pl-4">
+                              {item}
+                            </span>
+                          ))}
+                          {d.linkedFrom && d.linkedFrom.length > 0 && <span className="block pl-4">Linked from: {d.linkedFrom.join(" · ")}</span>}
                         </li>
                       ))}
                     </ul>
