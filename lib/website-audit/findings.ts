@@ -1,5 +1,5 @@
 import { isListingPage } from "@/lib/website-audit/archive";
-import type { CrawlPage, RedirectHop, TechnicalCrawl } from "@/lib/website-audit/types";
+import type { CrawlPage, LinkAnchor, RedirectHop, TechnicalCrawl } from "@/lib/website-audit/types";
 
 // Shared by the audit screen and the printed report (no server imports here).
 
@@ -35,6 +35,20 @@ function linkIndex(pages: CrawlPage[]): (url: string) => string[] {
   return (url) => [...(from.get(pageKey(url)) ?? [])].sort();
 }
 
+const AREA: Record<LinkAnchor["area"], string> = { menu: "in the menu", footer: "in the footer", body: "in the page text" };
+
+/** "gbj.com/vote" written without https:// opens as a page on the practice's own site. */
+const missingScheme = (href: string) => !/^(https?:|\/|#|\.|mailto:|tel:)/i.test(href) && /^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(href);
+
+/** 'the "Vote here" link in the page text' */
+export function describeAnchor(a: LinkAnchor): string {
+  return `${a.text ? `the "${a.text}" link` : "a link with no words (an image or icon)"} ${AREA[a.area]}`;
+}
+
+/** Why the link breaks, when it's how it was written. */
+const hrefFault = (a: LinkAnchor) =>
+  missingScheme(a.href) ? ` It's written as "${a.href}", without https://, so browsers open it as a page on your own site.` : "";
+
 const hops = (chain: RedirectHop[]) => chain.map((hop) => `${hop.url} (${hop.status})`);
 
 /** The same pages the crawl summary counts: loaded fine, once per final address. */
@@ -51,17 +65,31 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
   const s = t.summary;
   const ok = okPages(t.pages);
   const linkIndexOf = linkIndex(t.pages);
+  const byFinal = new Map(t.pages.map((p) => [p.finalUrl, p]));
+  /** How one page links to an address (crawls since 2026-11-09 keep this for bad links). */
+  const anchorsTo = (page: string, url: string) => (byFinal.get(page)?.anchors ?? []).filter((a) => pageKey(a.url) === pageKey(url));
   // A link on (nearly) every page is in the menu or footer: say so instead of listing them all.
   const siteWide = (from: string[]) => ok.length >= 5 && from.length >= Math.ceil(ok.length * 0.8);
   const linkedFrom = (url: string) => linkIndexOf(url);
-  const linkedNote = (from: string[]) => (siteWide(from) ? ` · Linked from ${from.length} pages, so it's in the menu or footer` : "");
-  const linkedList = (from: string[]) => (siteWide(from) ? undefined : from);
+  const linkedNote = (url: string, from: string[]) => {
+    if (!siteWide(from)) return "";
+    const a = from.flatMap((page) => anchorsTo(page, url))[0];
+    return ` · Linked from ${from.length} pages${a ? `: ${describeAnchor(a)}` : ", so it's in the menu or footer"}`;
+  };
+  /** Each linking page, with the link's words and place when the crawl kept them. */
+  const linkedList = (url: string, from: string[]) =>
+    siteWide(from)
+      ? undefined
+      : from.map((page) => {
+          const a = anchorsTo(page, url);
+          return a.length ? `${page} (${a.map(describeAnchor).join("; ")})` : page;
+        });
   const byUrl = new Map(t.pages.map((p) => [p.url, p]));
   /** A sitemap address that fails: its status, the sitemap listing it, and who links to it. */
   const failing = (url: string, note: string): FindingDetail => ({
     url,
-    note: `${note}. Listed in your sitemap${byUrl.get(url)?.sitemap ? ` (${byUrl.get(url)!.sitemap})` : ""}${linkedNote(linkedFrom(url))}`,
-    linkedFrom: linkedList(linkedFrom(url)),
+    note: `${note}. Listed in your sitemap${byUrl.get(url)?.sitemap ? ` (${byUrl.get(url)!.sitemap})` : ""}${linkedNote(url, linkedFrom(url))}`,
+    linkedFrom: linkedList(url, linkedFrom(url)),
   });
   /** A page's other spelling (with or without the final "/") and where it went. */
   const variant = (v: TechnicalCrawl["slashVariants"][number]): FindingDetail => ({ url: v.variantUrl, note: `The other spelling of ${v.pageUrl}`, items: hops(v.chain) });
@@ -89,7 +117,7 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
       tone: "bad",
       text: "Some old links send visitors to the insecure (http) version of your site before the secure one. Browsers can warn visitors, and Google prefers sites that are secure throughout.",
       details: [
-        ...s.insecureRedirects.map((u) => ({ url: u, note: `Passes through http on the way${linkedNote(linkedFrom(u))}`, items: hops(byUrl.get(u)?.chain ?? []), linkedFrom: linkedList(linkedFrom(u)) })),
+        ...s.insecureRedirects.map((u) => ({ url: u, note: `Passes through http on the way${linkedNote(u, linkedFrom(u))}`, items: hops(byUrl.get(u)?.chain ?? []), linkedFrom: linkedList(u, linkedFrom(u)) })),
         ...t.slashVariants.filter((v) => s.slashVariants.insecure.includes(v.variantUrl)).map(variant),
       ],
     });
@@ -165,7 +193,7 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
       text: `${gaps.length} pages your site links to are missing from your sitemap, so Google is slower to find them.`,
       details: gaps.map((g) => {
         const from = linkedFrom(g.url).length ? linkedFrom(g.url) : g.linkedFrom;
-        return { url: g.url, note: `Not in your sitemap${linkedNote(from)}`, linkedFrom: linkedList(from) };
+        return { url: g.url, note: `Not in your sitemap${linkedNote(g.url, from)}`, linkedFrom: linkedList(g.url, from) };
       }),
     });
   const brokenLinks = (t.notInSitemap ?? []).filter((g) => g.finalStatus !== 200 || g.softError);
@@ -179,12 +207,22 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
         for (const g of brokenLinks) {
           const status = g.softError ? "shows an error page" : g.finalStatus === 404 ? "is \"page not found\" (404)" : g.finalStatus ? `fails (${g.finalStatus})` : "doesn't answer";
           const on = linkedFrom(g.url).length ? linkedFrom(g.url) : g.linkedFrom;
-          const where = siteWide(on) ? [`Your menu or footer (on ${on.length} pages)`] : on;
-          for (const page of where) byPage.set(page, [...(byPage.get(page) ?? []), `${g.url}, which ${status}`]);
+          if (siteWide(on)) {
+            const a = on.flatMap((page) => anchorsTo(page, g.url))[0];
+            const label = `On ${on.length} pages (${a ? a.area === "footer" ? "the footer" : "the menu" : "the menu or footer"})`;
+            const what = a ? describeAnchor(a) : "a link";
+            byPage.set(label, [...(byPage.get(label) ?? []), `${what.charAt(0).toUpperCase()}${what.slice(1)} goes to ${g.url}, which ${status}.${a ? hrefFault(a) : ""}`]);
+            continue;
+          }
+          for (const page of on) {
+            const how = anchorsTo(page, g.url);
+            const what = how.length ? how.map(describeAnchor).join("; ") : "a link";
+            byPage.set(page, [...(byPage.get(page) ?? []), `${what.charAt(0).toUpperCase()}${what.slice(1)} goes to ${g.url}, which ${status}.${how.map(hrefFault).join("")}`]);
+          }
         }
         return [...byPage.entries()].map(([page, bad]): FindingDetail => {
           const at = page.startsWith("http") ? { url: page } : { label: page };
-          return bad.length === 1 ? { ...at, note: `Has a link to ${bad[0]}` } : { ...at, note: `Has ${bad.length} links that don't work:`, items: bad };
+          return bad.length === 1 ? { ...at, note: bad[0] } : { ...at, note: `${bad.length} links that don't work:`, items: bad };
         });
       })(),
     });

@@ -170,7 +170,7 @@ function FindingDetails({ details }: { details: FindingDetail[] }) {
               {d.linkedFrom.map((u, j) => (
                 <span key={u}>
                   {j > 0 && " · "}
-                  <UrlLink url={u} />
+                  <LinkedText text={u} />
                 </span>
               ))}
             </p>

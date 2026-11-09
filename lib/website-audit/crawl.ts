@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import { extractSchemaTypes } from "@/lib/seo/schema";
 import { archiveTypeOf, isListingPage } from "@/lib/website-audit/archive";
-import type { CrawlPage, CrawlSummary, RedirectHop, SitemapGap, SlashVariantCheck, SoftError, TechnicalCrawl } from "@/lib/website-audit/types";
+import type { CrawlPage, CrawlSummary, LinkAnchor, RedirectHop, SitemapGap, SlashVariantCheck, SoftError, TechnicalCrawl } from "@/lib/website-audit/types";
 
 // Section 3 of the Website, SEO & AI Search Audit: one polite pass over every
 // URL the site's sitemaps list, on both the bare and www host. Unlike the
@@ -203,15 +203,23 @@ export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "ur
   const wordCount = text ? text.split(" ").length : 0;
   const siteHost = bareDomain(new URL(finalUrl).host);
   const links = new Set<string>();
+  const anchors = new Map<string, LinkAnchor>();
   $("a[href]").each((_, el) => {
     try {
-      const u = new URL($(el).attr("href") ?? "", finalUrl);
+      const href = $(el).attr("href") ?? "";
+      const u = new URL(href, finalUrl);
       if (!/^https?:$/.test(u.protocol) || bareDomain(u.host) !== siteHost) return;
       u.hash = "";
       if (u.search) return; // ?p=1, ?replytocom=: not pages of their own
       if (/\.(jpe?g|png|gif|webp|svg|pdf|docx?|xlsx?|zip|mp4|mp3|css|js|xml)$/i.test(u.pathname)) return;
       if (/\/(feed|wp-json|wp-admin|wp-content|wp-includes)(\/|$)|\/page\/\d+\/?$/i.test(u.pathname)) return;
       links.add(u.toString());
+      // Its words (or its image's alt text) and where it sits, so a bad one can be found on the page.
+      const $el = $(el);
+      const text = ($el.text().replace(/\s+/g, " ").trim() || $el.attr("aria-label") || $el.find("img[alt]").attr("alt") || "").trim().slice(0, 80);
+      const area: LinkAnchor["area"] = $el.closest("footer").length ? "footer" : $el.closest("nav, header").length ? "menu" : "body";
+      const key = `${u.toString()}|${text}|${area}`;
+      if (!anchors.has(key)) anchors.set(key, { url: u.toString(), href: href.trim(), text, area });
     } catch {
       // Not a usable URL (mailto:, javascript:, malformed): skip it.
     }
@@ -240,6 +248,8 @@ export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "ur
     text: text.slice(0, MAX_TEXT_CHARS),
     navLinks: navLinks.slice(0, 80),
     links: [...links].slice(0, 200),
+    // Pruned to the links that turn out bad once the whole crawl is done.
+    anchors: [...anchors.values()].slice(0, 400),
   };
 }
 
@@ -456,6 +466,20 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, gapWorker));
+
+  // Keep how each page links to a bad address (missing, failing, looping or
+  // passing through http), and nothing else: the rest would only bloat the audit.
+  const bad = new Set(
+    [
+      ...crawled.filter((p) => p.finalStatus !== 200 || p.softError || p.redirectLoop || insecureHop(p.chain)).map((p) => p.url),
+      ...notInSitemap.filter((g) => g.finalStatus !== 200 || g.softError).map((g) => g.url),
+    ].map(pageKey),
+  );
+  for (const page of crawled) {
+    const kept = (page.anchors ?? []).filter((a) => bad.has(pageKey(a.url)));
+    if (kept.length) page.anchors = kept;
+    else delete page.anchors;
+  }
 
   return {
     crawledAt: new Date().toISOString(),

@@ -40,7 +40,15 @@ export type CrawlPage = {
   navLinks: { text: string; href: string }[];
   /** Links to other pages on the same site (absolute, no #fragment). */
   links: string[];
+  /**
+   * How this page links to addresses that turned out to fail or redirect badly:
+   * the link's words, the address as written, and where on the page it sits.
+   * Only those links are kept (crawls before 2026-11-09 have none).
+   */
+  anchors?: LinkAnchor[];
 };
+
+export type LinkAnchor = { url: string; href: string; text: string; area: "menu" | "footer" | "body" };
 
 export type CrawlSummary = {
   domain: string;

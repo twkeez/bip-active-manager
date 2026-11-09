@@ -90,3 +90,18 @@ describe("isListingPage", () => {
       expect(isListingPage(url)).toBe(false);
   });
 });
+
+describe("link anchors", () => {
+  it("records each link's words, how it's written and where it sits", () => {
+    const html = `<html><body><header><nav><a href="/staff">Our Team</a></nav></header>
+      <main><p><a href="gbj.com/vote">Vote here</a> <a href="/services/"><img src="x.png" alt="Services"></a></p></main>
+      <footer><a href="/privacy">Privacy</a></footer></body></html>`;
+    const page = analyzeHtml(html, "https://www.example.com/blog/award/");
+    expect(page.anchors).toEqual([
+      { url: "https://www.example.com/staff", href: "/staff", text: "Our Team", area: "menu" },
+      { url: "https://www.example.com/blog/award/gbj.com/vote", href: "gbj.com/vote", text: "Vote here", area: "body" },
+      { url: "https://www.example.com/services/", href: "/services/", text: "Services", area: "body" },
+      { url: "https://www.example.com/privacy", href: "/privacy", text: "Privacy", area: "footer" },
+    ]);
+  });
+});
