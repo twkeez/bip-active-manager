@@ -532,6 +532,7 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
             {technicalFindings(t).map((f) => (
               <div key={f.text} className={`rounded-lg border p-3 text-sm text-bip-text ${toneClass[f.tone]}`}>
                 {f.text}
+                {f.fix && <p className="mt-1 text-xs text-bip-muted">How to fix: {f.fix}</p>}
                 {f.details && f.details.length > 0 && (
                   <details className="mt-1 text-xs text-bip-muted">
                     <summary className="cursor-pointer">Which ones ({f.details.length})</summary>

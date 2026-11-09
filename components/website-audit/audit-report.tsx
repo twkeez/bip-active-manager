@@ -854,7 +854,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         <Section
           n={num()}
           title="Website health"
-          intro={`Things visitors rarely notice but Google and AI tools do. We checked every page you list for Google on ${dateOf(t.crawledAt)}. Red items need fixing; amber items are worth tidying up; green is fine. Your web developer will know what to do with each one.`}
+          intro={`Things visitors rarely notice but Google and AI tools do. We checked every page you list for Google on ${dateOf(t.crawledAt)}. Red items need fixing; amber items are worth tidying up; green is fine. Each one says how to fix it and lists every page affected, so your web developer can go straight to it.`}
         >
           <ul className="space-y-2">
             {findings.map((f) => (
@@ -865,6 +865,11 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 style={{ borderColor: f.tone === "bad" ? "#dc2626" : f.tone === "warn" ? "#d97706" : "#059669", breakInside: (f.details?.length ?? 0) > 6 ? "auto" : "avoid" }}
               >
                 <p className="text-[13px] text-slate-800" style={{ breakAfter: "avoid" }}>{f.text}</p>
+                {f.fix && (
+                  <p className="mt-0.5 text-[12px] text-slate-600" style={{ breakAfter: "avoid" }}>
+                    <span className="font-semibold text-slate-700">How to fix:</span> {f.fix}
+                  </p>
+                )}
                 {f.details && <FindingDetails details={f.details} />}
               </li>
             ))}
