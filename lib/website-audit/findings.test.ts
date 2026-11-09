@@ -46,7 +46,7 @@ describe("finding details", () => {
   it("leads a broken link with the page it sits on", () => {
     const post = page("/blog/award/", { links: ["https://www.vet.com/blog/award/gbj.com/vote"] });
     const t = crawl([post, page("/")], [{ url: "https://www.vet.com/blog/award/gbj.com/vote", linkedFrom: [post.url], finalStatus: 404, softError: null }]);
-    expect(find(t, "lead to pages that don't load").details).toEqual([
+    expect(find(t, "doesn't load").details).toEqual([
       { url: "https://www.vet.com/blog/award/", note: 'A link goes to https://www.vet.com/blog/award/gbj.com/vote, which is "page not found" (404).' },
     ]);
   });
@@ -55,7 +55,7 @@ describe("finding details", () => {
     const target = "https://www.vet.com/blog/award/gbj.com/vote";
     const post = page("/blog/award/", { links: [target], anchors: [{ url: target, href: "gbj.com/vote", text: "Vote here", area: "body" }] });
     const t = crawl([post, page("/")], [{ url: target, linkedFrom: [post.url], finalStatus: 404, softError: null }]);
-    expect(find(t, "lead to pages that don't load").details![0].note).toBe(
+    expect(find(t, "doesn't load").details![0].note).toBe(
       `The "Vote here" link in the page text goes to ${target}, which is "page not found" (404). It's written as "gbj.com/vote", without https://, so browsers open it as a page on your own site.`,
     );
   });
@@ -70,8 +70,54 @@ describe("finding details", () => {
 
   it("lists who links to a page missing from the site, with the sitemap that lists it", () => {
     const t = crawl([page("/gone", { finalStatus: 404 }), page("/", { links: ["https://vet.com/gone/"] })]);
-    const d = find(t, "pages are missing").details![0];
+    const d = find(t, "missing (\"page not found\")").details![0];
     expect(d.note).toContain("Listed in your sitemap (https://www.vet.com/sitemap.xml)");
     expect(d.linkedFrom).toEqual(["https://www.vet.com/"]);
+  });
+
+  it("puts red first, says how to fix each problem, and gets 1 vs many right", () => {
+    const post = page("/blog/a/", { links: ["https://www.vet.com/gone"] });
+    const t = crawl([page("/"), post], [{ url: "https://www.vet.com/gone", linkedFrom: [post.url], finalStatus: 404, softError: null }]);
+    const all = technicalFindings(t);
+    expect(all[0].tone).toBe("bad");
+    expect(all[0].text).toBe("1 link on your site leads to a page that doesn't load.");
+    expect(all[0].fix).toContain("Change each link");
+    expect(all.filter((f) => f.tone !== "good").every((f) => f.fix)).toBe(true);
+  });
+
+  it("collapses many addresses missing the final \"/\" that go via http into one entry", () => {
+    const variants = ["about", "faqs", "staff"].map((p) => ({
+      pageUrl: `https://www.vet.com/${p}/`,
+      variantUrl: `https://www.vet.com/${p}`,
+      chain: [
+        { url: `https://www.vet.com/${p}`, status: 301 },
+        { url: `http://www.vet.com/${p}/`, status: 301 },
+        { url: `https://www.vet.com/${p}/`, status: 200 },
+      ],
+    }));
+    const t = crawl([page("/")]);
+    t.slashVariants = variants as TechnicalCrawl["slashVariants"];
+    t.summary.slashVariants = { ...t.summary.slashVariants, insecure: variants.map((v) => v.variantUrl) };
+    const d = find(t, "insecure (http)").details!;
+    expect(d).toHaveLength(1);
+    expect(d[0].label).toBe('3 addresses typed without the final "/"');
+    expect(d[0].items).toEqual(variants.map((v) => v.variantUrl));
+  });
+
+  it("shortens a long linked-from list and spots a sitemap that isn't adding blog posts", () => {
+    const posts = ["a", "b", "c", "d", "e", "f"].map((p) => page(`/blog/${p}/`, { links: ["https://www.vet.com/blog/new/", "https://www.vet.com/blog/newer/"] }));
+    const others = ["/", "/x", "/y", "/z", "/w", "/v"].map((p) => page(p));
+    const gap = (u: string) => ({ url: u, linkedFrom: [], finalStatus: 200, softError: null });
+    const t = crawl([...posts, ...others], [gap("https://www.vet.com/blog/new/"), gap("https://www.vet.com/blog/newer/")]);
+    const f = find(t, "missing from your sitemap");
+    expect(f.fix).toContain("all blog posts");
+    expect(f.details![0].linkedFrom).toHaveLength(4);
+    expect(f.details![0].linkedFrom![3]).toBe("and 3 more pages");
+  });
+
+  it("calls a live Hello world post a leftover, not a sitemap gap", () => {
+    const t = crawl([page("/")], [{ url: "https://www.vet.com/blog/hello-world/", linkedFrom: [], finalStatus: 200, softError: null }]);
+    expect(technicalFindings(t).some((f) => f.text.includes("missing from your sitemap"))).toBe(false);
+    expect(find(t, "Hello world").text).toBe('The "Hello world!" sample post that comes with WordPress is still on the site.');
   });
 });
