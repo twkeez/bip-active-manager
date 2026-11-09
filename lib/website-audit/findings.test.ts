@@ -47,8 +47,17 @@ describe("finding details", () => {
     const post = page("/blog/award/", { links: ["https://www.vet.com/blog/award/gbj.com/vote"] });
     const t = crawl([post, page("/")], [{ url: "https://www.vet.com/blog/award/gbj.com/vote", linkedFrom: [post.url], finalStatus: 404, softError: null }]);
     expect(find(t, "lead to pages that don't load").details).toEqual([
-      { url: "https://www.vet.com/blog/award/", note: 'Has a link to https://www.vet.com/blog/award/gbj.com/vote, which is "page not found" (404)' },
+      { url: "https://www.vet.com/blog/award/", note: 'A link goes to https://www.vet.com/blog/award/gbj.com/vote, which is "page not found" (404).' },
     ]);
+  });
+
+  it("names the bad link's words and place, and spots a link written without https://", () => {
+    const target = "https://www.vet.com/blog/award/gbj.com/vote";
+    const post = page("/blog/award/", { links: [target], anchors: [{ url: target, href: "gbj.com/vote", text: "Vote here", area: "body" }] });
+    const t = crawl([post, page("/")], [{ url: target, linkedFrom: [post.url], finalStatus: 404, softError: null }]);
+    expect(find(t, "lead to pages that don't load").details![0].note).toBe(
+      `The "Vote here" link in the page text goes to ${target}, which is "page not found" (404). It's written as "gbj.com/vote", without https://, so browsers open it as a page on your own site.`,
+    );
   });
 
   it("says a link on every page is in the menu or footer instead of listing them all", () => {
