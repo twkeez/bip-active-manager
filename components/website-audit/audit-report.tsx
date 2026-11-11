@@ -482,9 +482,24 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   // Each mistake once, with every page it's on: a menu typo is on every page.
   const typoDetails: FindingDetail[] = uniqueTypos.map((ty) => {
     const on = distinct(typos.filter((x) => x.text === ty.text && x.suggestion === ty.suggestion).map((x) => x.url));
-    const where = ty.where === "url" ? "in the page address" : `in the ${ty.where}`;
+    const where =
+      ty.where === "url"
+        ? "in the page address"
+        : ty.where === "title"
+          ? "in the page title: the text on the browser tab and in Google results, not on the page itself"
+          : `in the ${ty.where}`;
     const fix = `"${ty.text}" should be "${ty.suggestion}"`;
     if (on.length === 1) return { url: on[0], note: `${fix} (${where})` };
+    // On several pages because they all list one page's title (a "recent posts" box): name that page, where the one fix is.
+    const needle = ty.text.toLowerCase();
+    const slug = needle.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const byHeadline = (t?.pages ?? []).filter((p) => p.h1s.some((h) => h.toLowerCase().includes(needle))).map((p) => p.finalUrl);
+    const byAddress = slug.length >= 8 ? [...(t?.pages ?? []).map((p) => p.finalUrl), ...(t?.notInSitemap ?? []).map((g) => g.url)].filter((u) => u.toLowerCase().includes(slug)) : [];
+    const origin = distinct(byHeadline).length === 1 ? byHeadline[0] : distinct(byAddress).length === 1 ? byAddress[0] : null;
+    if (origin && ty.where !== "menu") {
+      const others = on.filter((u) => u !== origin).length;
+      return { label: fix, note: `in the headline of one page: ${origin}. It also shows on ${others} other ${others === 1 ? "page" : "pages"} that list that page's title (in a "recent posts" box, for example). Fix it once, in that page's headline.` };
+    }
     // The same menu on every page: one fix in the menu, not a page list.
     if (ty.where === "menu" && on.length >= 5) return { label: fix, note: `in the website menu, so it shows on ${on.length} pages; fix it once in the menu` };
     return { label: fix, note: `${where}, on ${on.length} pages`, items: on };
