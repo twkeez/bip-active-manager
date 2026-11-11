@@ -483,6 +483,22 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   const crawled = new Map((t?.pages ?? []).map((p) => [p.finalUrl, p]));
   // Says where a quoted bit of a page is when it isn't in the page's own text: its title, headline or menu.
   const squash = (x: string) => x.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim().toLowerCase();
+  /** The words around a phrase in a page's text, to search the page for ("…is commited to providing…"). */
+  const around = (url: string, phrase: string): string | null => {
+    const page = crawled.get(url) ?? crawled.get(url.replace(/\/$/, "")) ?? crawled.get(`${url}/`);
+    const text = (page?.text ?? "").replace(/\s+/g, " ");
+    const at = text.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').indexOf(squash(phrase));
+    if (at < 0) return null;
+    const SIDE = 70;
+    let start = Math.max(0, at - SIDE);
+    let end = Math.min(text.length, at + phrase.length + SIDE);
+    // Whole words only, and stop at a sentence end when one is close.
+    if (start > 0) start = text.indexOf(" ", start) + 1;
+    if (end < text.length) end = text.lastIndexOf(" ", end);
+    const snippet = text.slice(start, end).trim();
+    if (snippet.length <= phrase.trim().length + 8) return null; // Nothing around it to search for.
+    return `${start > 0 ? "…" : ""}${snippet}${end < text.length ? "…" : ""}`;
+  };
   const locate: Locate = (source, quote) => {
     const page = crawled.get(source) ?? crawled.get(source.replace(/\/$/, "")) ?? crawled.get(`${source}/`);
     const q = squash(quote);
@@ -491,7 +507,12 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
     if (page.title && squash(page.title).includes(q) && !inText)
       return `Where: the page title, which is the text on the browser tab and the link in Google results, not on the page itself. It reads "${page.title}".`;
     if (page.h1s.some((h) => squash(h).includes(q))) return "Where: the main headline at the top of the page.";
-    if (!inText && page.navLinks.some((l) => squash(l.text).includes(q))) return "Where: the website menu.";
+    if (page.navLinks.some((l) => squash(l.text) === q || (!inText && squash(l.text).includes(q)))) return "Where: the website menu.";
+    // A word or two in the page text is hard to spot: give the words around it.
+    if (inText && q.split(" ").length <= 4) {
+      const near = around(source, quote);
+      if (near) return `Where: in the page text. Search the page for: "${near}"`;
+    }
     return null;
   };
   const typos = pages.flatMap((p) => realTypos(p.typos, crawled.get(p.url)).map((ty) => ({ ...ty, url: p.url })));
@@ -506,7 +527,10 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
           ? "in the page title: the text on the browser tab and in Google results, not on the page itself"
           : `in the ${ty.where}`;
     const fix = `"${ty.text}" should be "${ty.suggestion}"`;
-    if (on.length === 1) return { url: on[0], note: `${fix} (${where})` };
+    if (on.length === 1) {
+      const near = ty.where === "text" || ty.where === "heading" ? around(on[0], ty.text) : null;
+      return { url: on[0], note: `${fix} (${where})${near ? `. Search the page for: "${near}"` : ""}` };
+    }
     // On several pages because they all list one page's title (a "recent posts" box): name that page, where the one fix is.
     const needle = ty.text.toLowerCase();
     const slug = needle.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");

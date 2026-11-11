@@ -115,6 +115,16 @@ export function appearsOn(text: string, page: PageWords): boolean {
  * The mistakes worth reporting. With the page's own words (`page`), a mistake
  * must also be something the page really shows.
  */
+/** The crawl keeps the first 12,000 characters of a page: a "mistake" that is just the last, cut-off word isn't one. */
+const READ_LIMIT = 12_000;
+export function isCutOffWord(text: string, page: PageWords): boolean {
+  const body = normalize(page.text ?? "").toLowerCase();
+  const word = normalize(text).toLowerCase();
+  if ((page.text ?? "").length < READ_LIMIT - 50 || !word) return false;
+  // Its only appearance is the very end of what we read.
+  return body.endsWith(word) && body.indexOf(word) === body.length - word.length;
+}
+
 export function realTypos<T extends Typo>(typos: T[], page?: PageWords): T[] {
-  return typos.filter((t) => isRealTypo(t) && (!page || appearsOn(t.text, page)));
+  return typos.filter((t) => isRealTypo(t) && (!page || (appearsOn(t.text, page) && !isCutOffWord(t.text, page))));
 }
