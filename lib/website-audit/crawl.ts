@@ -28,6 +28,11 @@ const MAX_LINKS_PER_PAGE = 200;
 /** Links to other websites kept per page, and checked per crawl. */
 const MAX_EXTERNAL_PER_PAGE = 100;
 const MAX_EXTERNAL = 200;
+/** The site's own PDFs, images and documents checked per crawl. */
+const MAX_FILES = 150;
+const FILE_LINK = /\.(jpe?g|png|gif|webp|svg|pdf|docx?|xlsx?|pptx?|zip|mp4|mp3)$/i;
+/** Addresses found only on pages outside the sitemap, checked per crawl (those pages' own links are not read: one step only). */
+const MAX_SECOND_STEP = 60;
 const EXTERNAL_TIMEOUT_MS = 10_000;
 /** Some sites answer "not found" to anything that isn't a browser: a dead link must also be dead for one. */
 const BROWSER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
@@ -258,6 +263,7 @@ export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "ur
   const links = new Set<string>();
   const anchors = new Map<string, LinkAnchor>();
   const external = new Map<string, LinkAnchor>();
+  const files = new Map<string, LinkAnchor>();
   /** A link's words (or its image's alt text), where it sits and the sentence around it. */
   const describe = ($el: ReturnType<typeof $>, url: string, href: string): LinkAnchor => {
     const text = ($el.text().replace(/\s+/g, " ").trim() || $el.attr("aria-label") || $el.find("img[alt]").attr("alt") || "").trim().slice(0, 80);
@@ -279,7 +285,12 @@ export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "ur
       }
       u.hash = "";
       if (u.search) return; // ?p=1, ?replytocom=: not pages of their own
-      if (/\.(jpe?g|png|gif|webp|svg|pdf|docx?|xlsx?|zip|mp4|mp3|css|js|xml)$/i.test(u.pathname)) return;
+      if (FILE_LINK.test(u.pathname)) {
+        // A PDF, image or document on the site itself: checked once per address at the end of the crawl.
+        if (!files.has(u.toString())) files.set(u.toString(), describe($(el), u.toString(), href));
+        return;
+      }
+      if (/\.(css|js|xml)$/i.test(u.pathname)) return;
       if (/\/(feed|wp-json|wp-admin|wp-content|wp-includes)(\/|$)|\/page\/\d+\/?$/i.test(u.pathname)) return;
       links.add(u.toString());
       // Its words (or its image's alt text) and where it sits, so a bad one can be found on the page.
@@ -317,6 +328,7 @@ export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "ur
     // Pruned to the links that turn out bad once the whole crawl is done.
     anchors: [...anchors.values()].slice(0, 400),
     external: [...external.values()].slice(0, MAX_EXTERNAL_PER_PAGE),
+    files: [...files.values()].slice(0, MAX_EXTERNAL_PER_PAGE),
     ...(links.size > MAX_LINKS_PER_PAGE || text.length > MAX_TEXT_CHARS || external.size > MAX_EXTERNAL_PER_PAGE
       ? {
           overLimit: {
@@ -522,6 +534,8 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
   }
   const gapTargets = [...linkedFrom.values()].slice(0, MAX_SITEMAP_GAPS);
   const notInSitemap: SitemapGap[] = [];
+  /** Pages outside the sitemap that loaded: read like any other, so their links get checked too. */
+  const offSitemapPages: { url: string; read: ReturnType<typeof analyzeHtml> }[] = [];
   let nextGap = 0;
   async function gapWorker() {
     while (nextGap < gapTargets.length && Date.now() - started <= budgetMs) {
@@ -532,23 +546,91 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
       const ok = result.response?.status === 200;
       const body = ok ? await result.response!.text().catch(() => "") : "";
       if (!ok) await result.response?.body?.cancel().catch(() => undefined);
+      const softError = softErrorOf(body);
+      const isHtml = (result.response?.headers.get("content-type") ?? "").includes("html");
+      const read = ok && isHtml && !softError ? analyzeHtml(body, result.chain.at(-1)?.url ?? url) : null;
+      if (read) offSitemapPages.push({ url, read });
       notInSitemap.push({
         url,
         linkedFrom: values.slice(1).map((v) => v.slice(5)).slice(0, 5),
         finalStatus: result.response?.status ?? null,
-        softError: softErrorOf(body),
+        softError,
+        ...(read ? { title: read.title } : {}),
       });
       await sleep(DELAY_MS);
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, gapWorker));
 
+  // One step further: addresses that only those off-sitemap pages link to.
+  // Checked that they load; their own links aren't read (that would be step three, four, …).
+  const known = new Set([...listed, ...linkedFrom.keys()]);
+  const secondStep = new Map<string, { url: string; from: (LinkAnchor & { page: string })[] }>();
+  for (const { url: page, read } of offSitemapPages) {
+    for (const link of read.links) {
+      const key = pageKey(link);
+      if (known.has(key) || isListingPage(link)) continue;
+      if (!secondStep.has(key)) secondStep.set(key, { url: link, from: [] });
+      const entry = secondStep.get(key)!;
+      if (entry.from.length < 5) entry.from.push(...(read.anchors ?? []).filter((a) => pageKey(a.url) === key).slice(0, 1).map((a) => ({ ...a, page })));
+    }
+  }
+  const secondTargets = [...secondStep.values()].slice(0, MAX_SECOND_STEP);
+  let nextSecond = 0;
+  let secondChecked = 0;
+  async function secondWorker() {
+    while (nextSecond < secondTargets.length && Date.now() - started <= budgetMs) {
+      const target = secondTargets[nextSecond];
+      nextSecond += 1;
+      const result = await fetchWithChain(target.url);
+      const ok = result.response?.status === 200;
+      const body = ok ? await result.response!.text().catch(() => "") : "";
+      if (!ok) await result.response?.body?.cancel().catch(() => undefined);
+      secondChecked += 1;
+      notInSitemap.push({
+        url: target.url,
+        linkedFrom: [...new Set(target.from.map((f) => f.page))],
+        finalStatus: result.response?.status ?? null,
+        softError: softErrorOf(body),
+        from: target.from,
+      });
+      await sleep(DELAY_MS);
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, secondWorker));
+
+  // PDFs, images and documents on the site itself: each address checked once.
+  const filesFrom = new Map<string, { page: string; anchor: LinkAnchor }[]>();
+  for (const page of [...crawled.map((p) => ({ url: p.finalUrl, files: p.files })), ...offSitemapPages.map((p) => ({ url: p.url, files: p.read.files }))])
+    for (const anchor of page.files ?? []) filesFrom.set(anchor.url, [...(filesFrom.get(anchor.url) ?? []), { page: page.url, anchor }]);
+  for (const page of crawled) delete page.files;
+  const fileTargets = [...filesFrom.keys()].slice(0, MAX_FILES);
+  const deadFiles: DeadExternalLink[] = [];
+  let filesChecked = 0;
+  let filesUnverified = 0;
+  let nextFile = 0;
+  async function fileWorker() {
+    while (nextFile < fileTargets.length && Date.now() - started <= budgetMs) {
+      const url = fileTargets[nextFile];
+      nextFile += 1;
+      const result = await fetchWithChain(url);
+      await result.response?.body?.cancel().catch(() => undefined);
+      const status = result.response?.status ?? 0;
+      filesChecked += 1;
+      if (status === 404 || status === 410) {
+        const from = filesFrom.get(url)!;
+        deadFiles.push({ url, why: status === 404 ? "not-found" : "gone", pages: from.length, from: from.slice(0, 5).map(({ page, anchor }) => ({ page, text: anchor.text, area: anchor.area, ...(anchor.context ? { context: anchor.context } : {}) })) });
+      } else if (status < 200 || status >= 400) filesUnverified += 1;
+      await sleep(DELAY_MS);
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, fileWorker));
+
   // Links to other websites: each address checked once, whichever pages carry it.
   const externalFrom = new Map<string, { page: string; anchor: LinkAnchor }[]>();
-  for (const page of crawled) {
-    for (const anchor of page.external ?? []) externalFrom.set(anchor.url, [...(externalFrom.get(anchor.url) ?? []), { page: page.finalUrl, anchor }]);
-    delete page.external;
-  }
+  for (const page of [...crawled.map((p) => ({ url: p.finalUrl, external: p.external })), ...offSitemapPages.map((p) => ({ url: p.url, external: p.read.external }))])
+    for (const anchor of page.external ?? []) externalFrom.set(anchor.url, [...(externalFrom.get(anchor.url) ?? []), { page: page.url, anchor }]);
+  for (const page of crawled) delete page.external;
   const externalTargets = [...externalFrom.keys()].slice(0, MAX_EXTERNAL);
   const dead: DeadExternalLink[] = [];
   let externalChecked = 0;
@@ -572,6 +654,14 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
 
   // Every cap that cut something short, so the report can say so.
   const limitsHit: string[] = [];
+  if (secondStep.size > MAX_SECOND_STEP)
+    limitsHit.push(`Pages outside your sitemap link to ${secondStep.size} more addresses; we checked the first ${MAX_SECOND_STEP}, so broken links among the other ${secondStep.size - MAX_SECOND_STEP} aren't reported.`);
+  else if (secondChecked < secondTargets.length)
+    limitsHit.push(`We ran out of time checking links on pages outside your sitemap: ${secondChecked} of ${secondTargets.length} checked, so broken links among the rest aren't reported.`);
+  if (filesFrom.size > MAX_FILES)
+    limitsHit.push(`Your pages link to ${filesFrom.size} PDFs, images and documents; we checked the first ${MAX_FILES}, so dead ones among the other ${filesFrom.size - MAX_FILES} aren't reported.`);
+  else if (filesChecked < fileTargets.length)
+    limitsHit.push(`We ran out of time checking links to PDFs, images and documents: ${filesChecked} of ${fileTargets.length} checked, so dead ones among the rest aren't reported.`);
   if (externalFrom.size > MAX_EXTERNAL)
     limitsHit.push(`Your pages link to ${externalFrom.size} addresses on other websites; we checked the first ${MAX_EXTERNAL}, so dead links among the other ${externalFrom.size - MAX_EXTERNAL} aren't reported.`);
   else if (externalChecked < externalTargets.length)
@@ -604,6 +694,8 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
       ...notInSitemap.filter((g) => g.finalStatus !== 200 || g.softError).map((g) => g.url),
     ].map(pageKey),
   );
+  // The same for links found on off-sitemap pages: only a bad address keeps its `from`.
+  for (const gap of notInSitemap) if (gap.from && gap.finalStatus === 200 && !gap.softError) delete gap.from;
   for (const page of crawled) {
     const kept = (page.anchors ?? []).filter((a) => bad.has(pageKey(a.url)));
     if (kept.length) page.anchors = kept;
@@ -625,6 +717,8 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
     notInSitemap: notInSitemap.sort((a, b) => a.url.localeCompare(b.url)),
     limitsHit,
     external: { found: externalFrom.size, checked: externalChecked, unverified, dead: dead.sort((a, b) => a.url.localeCompare(b.url)) },
+    files: { found: filesFrom.size, checked: filesChecked, unverified: filesUnverified, dead: deadFiles.sort((a, b) => a.url.localeCompare(b.url)) },
+    offSitemap: { pagesRead: offSitemapPages.length, linksFound: secondStep.size, linksChecked: secondChecked },
     summary: summarize(crawled, domain, slashVariants),
     ms: Date.now() - started,
   };

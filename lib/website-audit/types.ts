@@ -50,6 +50,8 @@ export type CrawlPage = {
   overLimit?: { links?: number; textChars?: number; external?: number };
   /** Links to other websites. Only held while the crawl runs: checked, then dropped (see TechnicalCrawl.external). */
   external?: LinkAnchor[];
+  /** Links to the site's own PDFs, images and other files. Also only held while the crawl runs (see TechnicalCrawl.files). */
+  files?: LinkAnchor[];
 };
 
 /** A link to another website that is certainly dead: its page is gone, or the whole site no longer exists. */
@@ -148,6 +150,10 @@ export type TechnicalCrawl = {
    * links are neither confirmed nor reported.
    */
   external?: { found: number; checked: number; unverified: number; dead: DeadExternalLink[] };
+  /** Links to the site's own PDFs, images and documents (crawls from 2026-11-11). `unverified`: the server gave an error other than "not found". */
+  files?: { found: number; checked: number; unverified: number; dead: DeadExternalLink[] };
+  /** Pages outside the sitemap whose own links were read too, and how many new addresses those led to (crawls from 2026-11-11). */
+  offSitemap?: { pagesRead: number; linksFound: number; linksChecked: number };
   summary: CrawlSummary;
   ms: number;
 };
@@ -158,6 +164,13 @@ export type SitemapGap = {
   linkedFrom: string[];
   finalStatus: number | null;
   softError: SoftError | null;
+  /** The page's title, when it loaded and was read (crawls from 2026-11-11). */
+  title?: string | null;
+  /**
+   * Set when the only pages linking here are themselves outside the sitemap,
+   * so their links aren't in `pages`: the link's words and place on each.
+   */
+  from?: (LinkAnchor & { page: string })[];
 };
 
 /** DataForSEO's backlink summary for one domain. `rank` is DataForSEO's own 0–1000 scale, not "Domain Rating". */

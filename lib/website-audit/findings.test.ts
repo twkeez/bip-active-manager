@@ -194,3 +194,41 @@ describe("links to other websites", () => {
   });
 });
 
+describe("files and pages outside the sitemap", () => {
+  it("reports a dead PDF under the page that links to it", () => {
+    const t = crawl([page("/"), page("/forms/")]);
+    t.files = { found: 3, checked: 3, unverified: 0, dead: [{ url: "https://www.vet.com/files/new-client.pdf", why: "not-found", pages: 1, from: [{ page: "https://www.vet.com/forms/", text: "New client form (PDF)", area: "body" }] }] };
+    const f = find(t, "PDF, image or document on your site is dead");
+    expect(f.details![0].url).toBe("https://www.vet.com/forms/");
+    expect(f.details![0].note).toContain('The "New client form (PDF)" link in the page text goes to https://www.vet.com/files/new-client.pdf');
+  });
+
+  it("names the words of a broken link that sits on a page outside the sitemap", () => {
+    const dead = "https://www.vet.com/old-page/";
+    const post = "https://www.vet.com/blog/unlisted-post/";
+    const t = crawl(
+      [page("/")],
+      [
+        { url: post, linkedFrom: ["https://www.vet.com/"], finalStatus: 200, softError: null, title: "Unlisted Post - Vet" },
+        { url: dead, linkedFrom: [post], finalStatus: 404, softError: null, from: [{ page: post, url: dead, href: "/old-page/", text: "our old page", area: "body", context: "Read our old page for more." }] },
+      ],
+    );
+    const d = find(t, "doesn't load").details![0];
+    expect(d).toMatchObject({ url: post, title: "Unlisted Post" });
+    expect(d.note).toContain('The "our old page" link in the page text goes to');
+    expect(d.note).toContain('Search the page for: "Read our old page for more."');
+  });
+});
+
+describe("a crawl that read nothing", () => {
+  it("says so in red instead of reporting a sitemap with 0 addresses", async () => {
+    const { crawlLimits } = await import("@/lib/website-audit/findings");
+    const t = crawl([]);
+    t.sitemapErrors = ["No readable sitemap found on either host."];
+    const all = technicalFindings(t);
+    expect(all[0]).toMatchObject({ tone: "bad", details: [{ label: "No readable sitemap found on either host." }] });
+    expect(all.some((f) => f.text.includes("has 0 addresses"))).toBe(false);
+    expect(crawlLimits(t).hit[0]).toContain("No sitemap could be read");
+  });
+});
+

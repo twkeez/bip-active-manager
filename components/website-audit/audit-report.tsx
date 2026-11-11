@@ -881,7 +881,10 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               <div className="rounded-xl border border-slate-200 px-3 py-2 text-[11px] leading-relaxed text-slate-600" style={{ breakInside: "avoid" }}>
                 <p className="font-semibold text-slate-700">What this check covers</p>
                 <p>
-                  Every page in your sitemap, every link between your own pages on them, and every address those links point to{t.external ? `, plus ${t.external.checked} links to other websites` : ""}.
+                  Every page in your sitemap, every link between your own pages on them, and every address those links point to
+                  {t.offSitemap ? `; the links on ${t.offSitemap.pagesRead} pages outside your sitemap` : ""}
+                  {t.files ? `; ${t.files.checked} PDFs, images and documents` : ""}
+                  {t.external ? `; and ${t.external.checked} links to other websites` : ""}.
                   {limits.hit.length === 0 && limits.recorded && " Nothing was cut short on this run."}
                 </p>
                 {limits.hit.length > 0 && (

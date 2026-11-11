@@ -115,13 +115,20 @@ export function notChecked(t: TechnicalCrawl): string[] {
         ? [`${plural(t.external.unverified, "link to another website", "links to other websites")} couldn't be confirmed either way: the other site refused or didn't answer our crawler (Facebook and similar sites always do). We report a link to another website only when its page is certainly gone.`]
         : []
       : ["Links to other websites (a pet insurance company or the AVMA, say) weren't checked on this run; run the technical crawl again to check them."]),
+    ...(t.files
+      ? t.files.unverified
+        ? [`${plural(t.files.unverified, "PDF, image or document", "PDFs, images or documents")} gave an error other than "not found", so we couldn't confirm ${t.files.unverified === 1 ? "it" : "them"} either way.`]
+        : []
+      : ["Links to PDFs, images and documents weren't checked on this run; run the technical crawl again to check them."]),
+    t.offSitemap
+      ? "Pages outside your sitemap are read one step deep: we check that everything they link to loads, but a page found only that way isn't itself read for more links."
+      : "Links on pages that aren't in your sitemap weren't read on this run; run the technical crawl again to read them.",
     ...NOT_CHECKED,
   ];
 }
 
 const NOT_CHECKED = [
-  "Links on pages that aren't in your sitemap aren't read; we only check that those pages load.",
-  "Links to PDFs, images and other files aren't checked.",
+  "Pictures shown on a page (as opposed to links to a picture) aren't checked for being broken.",
   "Links with a \"?\" in the address (searches, page 2 of a list) are skipped, as are links that only appear once a page's scripts run (some pop-up menus).",
 ];
 
@@ -130,8 +137,9 @@ const NOT_CHECKED = [
  * hit; older ones only know whether the page crawl itself stopped early.
  */
 export function crawlLimits(t: TechnicalCrawl): { hit: string[]; recorded: boolean } {
-  if (t.limitsHit) return { hit: t.limitsHit, recorded: true };
-  const hit: string[] = [];
+  const noPages = t.summary.totalUrls === 0 ? ["No sitemap could be read, so no pages were checked at all."] : [];
+  if (t.limitsHit) return { hit: [...noPages, ...t.limitsHit], recorded: true };
+  const hit: string[] = [...noPages];
   if (t.sitemapUrlCount > 500) hit.push(`Your sitemap lists ${t.sitemapUrlCount} addresses; we checked the first 500.`);
   else if (t.stoppedBecause === "time") hit.push(`We ran out of time and checked ${t.pages.length} of the sitemap addresses.`);
   return { hit, recorded: false };
@@ -180,7 +188,8 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
   /** A plain list of linking pages, shortened like linkedList. */
   const shortList = (from: string[]) => (from.length > LINKED_SHOWN + 1 ? [...from.slice(0, LINKED_SHOWN), `and ${from.length - LINKED_SHOWN} more pages`] : from);
   const byUrl = new Map(t.pages.map((p) => [p.url, p]));
-  const titleOf = (url: string) => shortTitle(byFinal.get(url)?.title ?? byUrl.get(url)?.title);
+  const gapByUrl = new Map((t.notInSitemap ?? []).map((g) => [g.url, g]));
+  const titleOf = (url: string) => shortTitle(byFinal.get(url)?.title ?? byUrl.get(url)?.title ?? gapByUrl.get(url)?.title);
   /** A page's address with its title, when the crawl read it. */
   const at = (url: string): FindingDetail => {
     const title = titleOf(url);
@@ -233,7 +242,14 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
   };
   const hosts = Object.entries(s.byHost).map(([host, n]) => `${n} on ${host}`).join(", ");
   const list: Finding[] = [];
-  list.push({
+  if (s.totalUrls === 0)
+    list.push({
+      tone: "bad",
+      text: "We couldn't read a sitemap (the list of pages you give Google) on this run, so no pages were checked and everything below is incomplete.",
+      fix: "Either the site has no sitemap at /sitemap.xml, or its server refused our crawler (some block repeated visits). Open the sitemap address in a browser: if it loads, run the technical crawl again later; if not, the site needs a sitemap.",
+      details: (t.sitemapErrors ?? []).map((e) => ({ label: e })),
+    });
+  else list.push({
     tone: Object.keys(s.byHost).length > 1 ? "warn" : "good",
     text: `Your sitemap (the list of pages you give Google) has ${s.totalUrls} addresses (${hosts}), which add up to ${s.uniquePages} different pages.`,
     fix: Object.keys(s.byHost).length > 1 ? "List each page once, at its one true address (https, with or without www, as the site uses)." : undefined,
@@ -389,7 +405,8 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
           const instead = likelyReplacement(g.url, liveUrls);
           const suggestion = instead ? ` It probably should go to ${instead}.` : "";
           for (const page of on) {
-            const how = anchorsTo(page, g.url);
+            // A page outside the sitemap isn't in `pages`: its links' words came with the gap itself.
+            const how = anchorsTo(page, g.url).length ? anchorsTo(page, g.url) : (g.from ?? []).filter((f) => f.page === page);
             const what = how.length ? how.map((a) => describeAnchor(a)).join("; ") : "a link";
             const look = how.map((a) => a.context).filter(Boolean);
             byPage.set(page, [
@@ -404,14 +421,10 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
         });
       })(),
     });
-  const deadExternal = t.external?.dead ?? [];
-  if (deadExternal.length)
-    list.push({
-      tone: "bad",
-      text: `${plural(deadExternal.length, "link to another website is", "links to other websites are")} dead: the page is gone, or the whole website no longer exists.`,
-      fix: "Change each link to a page that works, or remove it. The page to edit is the one listed first.",
-      // Same shape as the links between your own pages: led by the page the link sits on.
-      details: (() => {
+  // Same shape as the links between your own pages: led by the page the link sits on.
+  const deadLinkDetails = (deadLinks: NonNullable<TechnicalCrawl["external"]>["dead"]): FindingDetail[] =>
+      (() => {
+        const deadExternal = deadLinks;
         const WHY = { "not-found": "is \"page not found\" (404)", gone: "has been removed (410)", "no-site": "is a website that no longer exists" } as const;
         const byPage = new Map<string, string[]>();
         for (const d of deadExternal) {
@@ -432,10 +445,27 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
           const where = page.startsWith("http") ? at(page) : { label: page };
           return bad.length === 1 ? { ...where, note: bad[0] } : { ...where, note: `${bad.length} dead links:`, items: bad };
         });
-      })(),
+      })();
+  const deadExternal = t.external?.dead ?? [];
+  if (deadExternal.length)
+    list.push({
+      tone: "bad",
+      text: `${plural(deadExternal.length, "link to another website is", "links to other websites are")} dead: the page is gone, or the whole website no longer exists.`,
+      fix: "Change each link to a page that works, or remove it. The page to edit is the one listed first.",
+      details: deadLinkDetails(deadExternal),
     });
   else if (t.external && t.external.checked > t.external.unverified)
     list.push({ tone: "good", text: `None of the ${t.external.checked - t.external.unverified} links to other websites we could check is dead.` });
+  const deadFiles = t.files?.dead ?? [];
+  if (deadFiles.length)
+    list.push({
+      tone: "bad",
+      text: `${plural(deadFiles.length, "link to a PDF, image or document on your site is", "links to PDFs, images or documents on your site are")} dead: the file is no longer there.`,
+      fix: "Upload the file again and point the link at it, or remove the link. The page to edit is the one listed first.",
+      details: deadLinkDetails(deadFiles),
+    });
+  else if (t.files && t.files.checked > t.files.unverified)
+    list.push({ tone: "good", text: `All ${t.files.checked - t.files.unverified} PDFs, images and documents your pages link to are there.` });
   if (s.helloWorldInSitemap || helloWorld.length)
     list.push({
       tone: "warn",

@@ -116,6 +116,18 @@ describe("link anchors", () => {
   });
 });
 
+describe("file and outside links", () => {
+  it("sets aside links to the site's own files and to other websites, with their words", () => {
+    const page = analyzeHtml(
+      `<html><body><p>Fill in the <a href="/files/new-client.pdf">New client form</a> or see <a href="https://www.avma.org/pets">the AVMA</a>.</p><a href="/style.css">x</a></body></html>`,
+      "https://www.example.com/forms/",
+    );
+    expect(page.files).toEqual([{ url: "https://www.example.com/files/new-client.pdf", href: "/files/new-client.pdf", text: "New client form", area: "body", context: "Fill in the New client form or see the AVMA." }]);
+    expect(page.external?.map((a) => a.url)).toEqual(["https://www.avma.org/pets"]);
+    expect(page.links).toEqual([]);
+  });
+});
+
 describe("checkExternal", () => {
   const answering = (byAgent: (agent: string) => number | Error) =>
     (async (_url: string, init?: RequestInit) => {
