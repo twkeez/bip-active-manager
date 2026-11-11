@@ -472,9 +472,9 @@ export const GUIDE: Guide = {
           youCan: [
             "Start an audit for a client, or any prospect's website",
             "Run each step and see its findings, each traced to the URLs behind it",
-            "Open the branded report (Report (PDF)) and save it as a PDF to send: summary, AI visibility by platform, trust signals, technical findings, ranked fixes, and a methodology appendix with the exact questions asked",
+            "Open the branded report (Report (PDF)) and save it as a PDF to send: summary, the ranked action plan, AI visibility by platform, trust signals, technical findings, and a methodology appendix with the exact questions asked",
             "Compare the practice's Google rating and review count with the vets near it, and, when it also offers grooming, boarding, daycare or training, with the businesses that only do that",
-            "Re-run a domain later: the report adds a \"last run\" column so you can show what moved",
+            "Re-run a domain later: the report adds a \"last run\" column so you can show what moved (it compares with the last audit from at least 20 hours earlier, so same-day re-runs don't count)",
             "Download the page-by-page crawl as a spreadsheet, or the whole audit as JSON",
           ],
           notes: [

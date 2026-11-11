@@ -27,11 +27,14 @@ export default async function WebsiteAuditPrintPage({ params }: { params: Promis
   const audit = data as WebsiteAuditRow;
 
   // "Today vs. last run": the newest earlier scored audit of the same domain.
+  // A re-run within the same day isn't a "last time" worth comparing with
+  // (nothing on the site has changed), so look at least 20 hours back.
+  const before = new Date(new Date(audit.created_at).getTime() - 20 * 60 * 60 * 1000).toISOString();
   const { data: earlier, error } = await admin
     .from("website_audits")
     .select("id, created_at, results")
     .eq("domain", audit.domain)
-    .lt("created_at", audit.created_at)
+    .lt("created_at", before)
     .not("score", "is", null)
     .order("created_at", { ascending: false })
     .limit(1);

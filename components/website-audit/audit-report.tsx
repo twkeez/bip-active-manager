@@ -31,7 +31,7 @@ const PURPLE = "#603894";
 const MAGENTA = "#962583";
 const PINK = "#ce2084";
 const GRADIENT = `linear-gradient(120deg, ${INDIGO} 0%, ${PURPLE} 55%, ${MAGENTA} 100%)`;
-const URL_LIMIT = 8;
+const URL_LIMIT = 4;
 
 export type PreviousRun = { id: number; created_at: string; results: AuditResults };
 
@@ -78,18 +78,28 @@ function sourceLabel(source: string): string {
   if (/^authority/.test(source)) return "Links from other websites";
   if (/^technical/.test(source)) return "Our scan of your website";
   if (/^score/.test(source)) return "Score breakdown";
-  if (/^content/.test(source)) return "Our reading of your pages";
+  if (/^(content|pages|servicePages|site|doctors|blog)\b/.test(source)) return "Our reading of your pages";
+  // Anything else that looks like a field name from the audit's data is ours, not something to show a client.
+  if (/^[\w.[\]]+$/.test(source) && /[.[\]]|[a-z][A-Z]/.test(source)) return "This audit's findings";
   return source;
 }
 
-function Section({ n, title, intro, children, newPage = true }: { n: string; title: string; intro?: string; children: ReactNode; newPage?: boolean }) {
+/**
+ * Sections follow one another down the page; only `newPage` ones (the
+ * appendices) start a fresh sheet. The heading and intro never sit alone at
+ * the foot of a page: they stay with whatever comes next.
+ */
+function Section({ n, title, intro, children, newPage = false }: { n: string; title: string; intro?: string; children: ReactNode; newPage?: boolean }) {
   return (
-    <section className="space-y-3 pt-2" style={newPage ? { breakBefore: "page" } : undefined}>
-      <h2 className="flex items-center gap-2 text-lg font-semibold" style={{ fontFamily: "var(--font-heading)", color: "#0f172a", breakAfter: "avoid" }}>
-        <span className="inline-block h-5 w-1.5 rounded-full" style={{ background: PINK }} aria-hidden="true" />
-        <span style={{ color: INDIGO }}>{n}</span> {title}
-      </h2>
-      {intro && <p className="text-sm leading-relaxed text-slate-600">{intro}</p>}
+    <section className="space-y-3 border-t border-slate-200 pt-5 first-of-type:border-t-0 first-of-type:pt-2" style={newPage ? { breakBefore: "page" } : undefined}>
+      {/* The extra padding (taken back by the margin) reserves room under the heading, so it can't be the last thing on a page. */}
+      <div className="space-y-2" style={{ breakInside: "avoid", paddingBottom: 150, marginBottom: -150 + 12 }}>
+        <h2 className="flex items-center gap-2 text-lg font-semibold" style={{ fontFamily: "var(--font-heading)", color: "#0f172a", breakAfter: "avoid" }}>
+          <span className="inline-block h-5 w-1.5 rounded-full" style={{ background: PINK }} aria-hidden="true" />
+          <span style={{ color: INDIGO }}>{n}</span> {title}
+        </h2>
+        {intro && <p className="text-sm leading-relaxed text-slate-600">{intro}</p>}
+      </div>
       {children}
     </section>
   );
@@ -123,12 +133,17 @@ function LinkedText({ text }: { text: string }) {
   );
 }
 
-function Sources({ items, label = "Found on" }: { items: string[]; label?: string }) {
+function Sources({ items, label = "Found on", of }: { items: string[]; label?: string; of?: number }) {
   if (!items.length) return null;
+  // On (nearly) every page it's in the site's header or footer: say that, not the same addresses again.
+  if (of && of >= 5 && items.every(isUrl) && distinct(items).length >= Math.ceil(of * 0.8)) {
+    const count = distinct(items).length;
+    return <p className="mt-1 text-[12px] leading-relaxed text-slate-600">{label}: {count >= of ? `every page (${of})` : `nearly every page (${count} of ${of})`}, so it&apos;s in the site&apos;s header or footer.</p>;
+  }
   const shown = distinct(items.map((s) => (isUrl(s) ? s : sourceLabel(s)))).slice(0, URL_LIMIT);
   const rest = items.length - shown.length;
   return (
-    <p className="mt-1 text-[11px] leading-relaxed text-slate-500" title={items.filter((s) => !isUrl(s)).join(", ") || undefined}>
+    <p className="mt-1 text-[12px] leading-relaxed text-slate-600" title={items.filter((s) => !isUrl(s)).join(", ") || undefined}>
       {label}:{" "}
       {shown.map((s, i) => (
         <span key={s}>
@@ -136,37 +151,41 @@ function Sources({ items, label = "Found on" }: { items: string[]; label?: strin
           {isUrl(s) ? <UrlLink url={s} /> : s}
         </span>
       ))}
-      {rest > 0 && ` · and ${rest} more`}
+      {rest > 0 && ` · and ${rest} more ${items.every(isUrl) ? "pages" : ""}`.trimEnd()}
     </p>
   );
 }
+
+/** Roughly how many lines an issue's details take: a short one stays together on a page, a long one may run over. */
+const detailLines = (details?: FindingDetail[]) => (details ?? []).reduce((n, d) => n + 1 + (d.items?.length ?? 0) + (d.linkedFrom?.length ? 1 : 0), 0);
 
 /** Every place an issue shows up: the page as a link, what's wrong there, the specifics, and the pages linking to it. */
 function FindingDetails({ details }: { details: FindingDetail[] }) {
   if (!details.length) return null;
   return (
-    <ul className="mt-1.5 space-y-1 border-t border-slate-200 pt-1.5 text-[11px] leading-relaxed text-slate-600">
+    <ul className="mt-1.5 space-y-1 border-t border-slate-200 pt-1.5 text-[12px] leading-relaxed text-slate-600">
       {details.map((d, i) => (
-        <li key={i} style={{ breakInside: "avoid" }}>
+        // A place with a long list under it may run onto the next page; each line of the list stays whole.
+        <li key={i} style={{ breakInside: (d.items?.length ?? 0) > 3 ? "auto" : "avoid" }}>
           {d.title && <span className="font-medium text-slate-700">{d.title} </span>}
           {d.url ? <UrlLink url={d.url} /> : <span className="font-medium text-slate-700">{d.label}</span>}
           {d.note && (
-            <span className="text-slate-500">
+            <span className="text-slate-600">
               {" "}
               · <LinkedText text={d.note} />
             </span>
           )}
           {d.items && d.items.length > 0 && (
-            <ol className="ml-4 list-decimal text-slate-500">
+            <ol className="ml-4 list-decimal text-slate-600">
               {d.items.map((item, j) => (
-                <li key={j}>
+                <li key={j} style={{ breakInside: "avoid" }}>
                   <LinkedText text={item} />
                 </li>
               ))}
             </ol>
           )}
           {d.linkedFrom && d.linkedFrom.length > 0 && (
-            <p className="ml-4 text-slate-500">
+            <p className="ml-4 text-slate-600">
               Linked from:{" "}
               {d.linkedFrom.map((u, j) => (
                 <span key={u}>
@@ -188,7 +207,7 @@ const isQuoted = (source: string) => isUrl(source) || /^review\s+\d+/i.test(sour
 function EvidenceList({ items }: { items: Evidence[] }) {
   if (!items.length) return null;
   return (
-    <ul className="mt-1 space-y-0.5 text-[11px] leading-relaxed text-slate-500">
+    <ul className="mt-1 space-y-0.5 text-[12px] leading-relaxed text-slate-600">
       {items.map((e, i) => (
         <li key={i} title={isUrl(e.source) ? undefined : e.source}>
           {isQuoted(e.source) ? (
@@ -197,7 +216,7 @@ function EvidenceList({ items }: { items: Evidence[] }) {
             </>
           ) : (
             <>
-              {e.quote} <span className="text-slate-400">({sourceLabel(e.source)})</span>
+              {e.quote} <span className="text-slate-500">({sourceLabel(e.source)})</span>
             </>
           )}
         </li>
@@ -210,7 +229,7 @@ const CHANGE_LABEL = { better: "▲ better", worse: "▼ worse", same: "no chang
 const CHANGE_COLOR = { better: "#047857", worse: "#b91c1c", same: "#64748b", new: "#64748b" } as const;
 
 function ChangeCell({ m }: { m: MetricComparison }) {
-  if (!m.change) return <td className="py-1.5 pl-3 text-right text-xs text-slate-400">—</td>;
+  if (!m.change) return <td className="py-1.5 pl-3 text-right text-xs text-slate-500">—</td>;
   return (
     <td className="py-1.5 pl-3 text-right text-xs font-medium" style={{ color: CHANGE_COLOR[m.change] }}>
       {CHANGE_LABEL[m.change]}
@@ -224,7 +243,7 @@ function MetricTable({ rows, lastDate, heading = "What we measured" }: { rows: M
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+        <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-600">
           <th className="py-1.5 font-semibold">{heading}</th>
           <th className="py-1.5 pl-3 text-right font-semibold">Today</th>
           {lastDate && <th className="py-1.5 pl-3 text-right font-semibold">Last time ({lastDate})</th>}
@@ -245,16 +264,16 @@ function MetricTable({ rows, lastDate, heading = "What we measured" }: { rows: M
   );
 }
 
-function Check({ ok, label, detail, sources, details }: { ok: boolean | null; label: string; detail?: string; sources?: string[]; details?: FindingDetail[] }) {
+function Check({ ok, label, detail, sources, details, of }: { ok: boolean | null; label: string; detail?: string; sources?: string[]; details?: FindingDetail[]; of?: number }) {
   return (
-    <li className="flex gap-3 border-b border-slate-100 py-2" style={{ breakInside: (details?.length ?? 0) > 6 ? "auto" : "avoid" }}>
+    <li className="flex gap-3 border-b border-slate-100 py-2" style={{ breakInside: detailLines(details) > 4 ? "auto" : "avoid" }}>
       <span className="mt-0.5 w-4 shrink-0 text-center font-semibold" style={{ color: ok == null ? "#94a3b8" : ok ? "#047857" : "#b91c1c" }}>
         {ok == null ? "–" : ok ? "✓" : "✗"}
       </span>
       <div className="min-w-0">
         <p className="text-sm text-slate-800">{label}</p>
         {detail && <p className="text-xs text-slate-600">{detail}</p>}
-        {sources && <Sources items={sources} />}
+        {sources && <Sources items={sources} of={of} />}
         {details && <FindingDetails details={details} />}
       </div>
     </li>
@@ -293,7 +312,7 @@ function CompetitorTable({ you, listings, yourLabel }: { you: CompetitorResults[
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+        <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-600">
           <th className="py-1.5 font-semibold">Business</th>
           <th className="py-1.5 pl-3 text-right font-semibold">Distance</th>
           <th className="py-1.5 pl-3 text-right font-semibold">Rating</th>
@@ -305,8 +324,8 @@ function CompetitorTable({ you, listings, yourLabel }: { you: CompetitorResults[
           <tr key={i} className="border-b border-slate-100" style={{ breakInside: "avoid", background: l.isYou ? "#eef2ff" : undefined }}>
             <td className="py-1.5 pr-2 text-slate-800">
               <span className={l.isYou ? "font-semibold" : undefined}>{l.name}</span>
-              {l.isYou && !l.main && <span className="text-xs text-slate-500"> (yours)</span>}
-              {l.category && <span className="block text-[11px] text-slate-500">{l.category}</span>}
+              {l.isYou && !l.main && <span className="text-xs text-slate-600"> (yours)</span>}
+              {l.category && <span className="block text-[12px] text-slate-600">{l.category}</span>}
             </td>
             <td className="py-1.5 pl-3 text-right text-slate-600">{l.main ? "—" : l.miles != null ? `${l.miles} mi` : "—"}</td>
             <td className="py-1.5 pl-3 text-right font-medium text-slate-900">{stars(l.rating)}</td>
@@ -447,9 +466,9 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   return (
     <article className="mx-auto max-w-3xl space-y-8 text-slate-700">
       {/* Cover */}
-      <header className="overflow-hidden rounded-3xl px-8 py-9 text-white" style={{ background: GRADIENT, breakInside: "avoid" }}>
+      <header className="overflow-hidden rounded-3xl px-8 py-7 text-white" style={{ background: GRADIENT, breakInside: "avoid" }}>
         <BeyondIndigoLogo className="h-8 w-auto" />
-        <p className="mt-10 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">Website, SEO & AI Search Audit</p>
+        <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">Website, SEO & AI Search Audit</p>
         <h1 className="mt-1 text-3xl font-semibold leading-tight" style={{ fontFamily: "var(--font-heading)", color: "#ffffff" }}>
           {audit.practice_name}
         </h1>
@@ -457,7 +476,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
           {audit.domain}
           {location && ` · ${location}`} · {runDate}
         </p>
-        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             { label: "Your score", value: s ? String(s.total) : "—", sub: s ? `out of 100 · ${s.band}` : "Not scored yet", m: byKey.get("score") },
             {
@@ -475,19 +494,19 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             { label: "Website problems", value: t ? String(problems.length) : "—", sub: t ? `that need fixing, across ${t.summary.uniquePages} pages` : "Not checked", m: undefined },
           ].map((tile) => (
             <div key={tile.label} className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.12)" }}>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-white/75">{tile.label}</p>
+              <p className="text-[12px] font-medium uppercase tracking-wide text-white/75">{tile.label}</p>
               <p className="mt-1 text-3xl font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
                 {tile.value}
               </p>
               <p className="text-xs text-white/80">{tile.sub}</p>
-              {tile.m?.last != null && <p className="mt-1 text-[11px] text-white/80">Last time: {formatMetric(tile.m.last, tile.m.format)}</p>}
+              {tile.m?.last != null && <p className="mt-1 text-[12px] text-white/80">Last time: {formatMetric(tile.m.last, tile.m.format)}</p>}
             </div>
           ))}
         </div>
-        <p className="mt-6 text-xs text-white/70">Prepared by Beyond Indigo Pets · beyondindigopets.com</p>
+        <p className="mt-5 text-xs text-white/70">Prepared by Beyond Indigo Pets · beyondindigopets.com</p>
       </header>
 
-      <Section n={num()} title="The short version" newPage={false} intro="What's helping you, what's holding you back, and the three things to do first.">
+      <Section n={num()} title="The short version" intro="What's helping you, what's holding you back, and the three things to do first.">
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
             <p className="text-sm font-semibold text-emerald-700">What's working</p>
@@ -526,7 +545,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               ))}
               {problems.length > 0 && (
                 <li>
-                  <span className="font-medium text-slate-800">Website problems.</span> We found {problems.length} that need fixing (see &quot;Website health&quot;).
+                  <span className="font-medium text-slate-800">Website problems.</span> {`We found ${problems.length} that need fixing (see "Website health").`}
                 </li>
               )}
             </ul>
@@ -544,6 +563,49 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         </div>
       </Section>
 
+      {fixes.length > 0 && (
+        <Section
+          n={num()}
+          title="Your action plan"
+          intro="Everything we recommend, most important first. Each item says what to do and who does it, why it matters, and what we found that led to it."
+        >
+          <div className="space-y-3">
+            {fixes.map((f) => (
+              <div key={f.rank} className="flex gap-3 rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
+                <span
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                  style={{ background: f.rank <= 3 ? PINK : INDIGO }}
+                >
+                  {f.rank}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-900">{f.fix}</p>
+                  {f.steps && f.steps.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-600">What to do</p>
+                      <ol className="mt-0.5 list-decimal space-y-1 pl-5 text-[13px] leading-snug text-slate-700">
+                        {f.steps.map((step) => (
+                          <li key={step}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                  <p className="mt-2 text-[13px] text-slate-600">
+                    <span className="font-semibold text-slate-700">Why it matters:</span> {f.whyItMatters}
+                  </p>
+                  {f.evidence.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-600">What we found</p>
+                      <EvidenceList items={f.evidence} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       <Section n={num()} title="Your two numbers, explained" intro="This report gives you two numbers. They measure different things, so it helps to keep them apart.">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-2xl bg-slate-50 p-4" style={{ breakInside: "avoid" }}>
@@ -555,7 +617,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               for things like your reviews, your doctors&apos; bios, your service pages and the technical set-up. The same website always gets the same score: no
               guesswork. <strong>This is the number you can improve directly</strong>, by making the changes in this report.
             </p>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-slate-600">
               {weightsConfig.bands.map((b, i, all) => `${b.label}: ${b.min}${i === 0 ? "–100" : `–${all[i - 1].min - 1}`}`).join(" · ")}
             </p>
           </div>
@@ -605,7 +667,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-600">
                 <th className="py-1.5 font-semibold">AI tool</th>
                 <th className="py-1.5 pl-3 text-right font-semibold">Questions it answered</th>
                 <th className="py-1.5 pl-3 text-right font-semibold">Linked to your website</th>
@@ -617,7 +679,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 <tr key={p.platform} className="border-b border-slate-100" style={{ breakInside: "avoid" }}>
                   <td className="py-1.5">
                     <span className="text-slate-800">{p.label}</span>
-                    <span className="block text-[11px] text-slate-500">{PLATFORM_PLAIN[p.platform]}</span>
+                    <span className="block text-[12px] text-slate-600">{PLATFORM_PLAIN[p.platform]}</span>
                   </td>
                   <td className="py-1.5 pl-3 text-right">
                     {p.promptsAnswered} of {p.promptsRun}
@@ -629,7 +691,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             </tbody>
           </table>
           {v.platforms.some((p) => p.platform === "ai_overview" && p.promptsAnswered < p.promptsRun) && (
-            <p className="text-xs text-slate-500">Google only shows its AI summary for some searches, so it answered fewer questions than the others.</p>
+            <p className="text-xs text-slate-600">Google only shows its AI summary for some searches, so it answered fewer questions than the others.</p>
           )}
           <Sources items={["aiVisibility.platforms"]} label="Source" />
           {prev?.aiVisibility && <MetricTable rows={compareMetrics(platformMetrics(r), platformMetrics(prev))} lastDate={lastDate} />}
@@ -647,7 +709,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               return (
                 <div key={kind} className="rounded-xl bg-slate-50 p-3 text-[13px]" style={{ breakInside: "avoid" }}>
                   <p className="font-semibold text-slate-800">{title}</p>
-                  <p className="text-[11px] text-slate-500">{example}</p>
+                  <p className="text-[12px] text-slate-600">{example}</p>
                   <p className="mt-1 text-2xl font-semibold" style={{ color: hits ? INDIGO : "#b91c1c", fontFamily: "var(--font-heading)" }}>
                     {hits} of {runs.length}
                   </p>
@@ -691,7 +753,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                     .map(([k, count]) => `${k.charAt(0).toUpperCase()}${k.slice(1)}: ${count}`)
                     .join(", ")})`}
                 {" · "}Answers that named a practice called &ldquo;{audit.practice_name}&rdquo;: <strong>{v.mentions.namedInAnswers.mentions}</strong>
-                <span className="block text-xs text-slate-500">
+                <span className="block text-xs text-slate-600">
                   This counts the name anywhere in the US, so it can include other practices with the same name. Links to your website are the reliable measure.
                 </span>
               </p>
@@ -728,31 +790,31 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               ok={pages.some((p) => p.accreditations.length)}
               label="Accreditations shown (such as AAHA, Fear Free, Cat Friendly)"
               detail={distinct(pages.flatMap((p) => p.accreditations)).join(", ") || "None shown on any page. If you hold any, show them: pet owners and AI tools both look for them."}
-              sources={pagesWith(pages, (p) => p.accreditations.length > 0)}
+              of={pages.length} sources={pagesWith(pages, (p) => p.accreditations.length > 0)}
             />
-            <Check ok={pages.some((p) => p.hours)} label="Opening hours shown" sources={pagesWith(pages, (p) => Boolean(p.hours))} />
+            <Check ok={pages.some((p) => p.hours)} label="Opening hours shown" of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.hours))} />
             <Check
               ok={pages.some((p) => p.booking)}
               label="Clear how to book"
               detail={firstFew(pages.map((p) => p.booking), 1)}
-              sources={pagesWith(pages, (p) => Boolean(p.booking))}
+              of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.booking))}
             />
             <Check
               ok={pages.some((p) => p.emergencyReferral)}
               label="Says where to go in an emergency"
               detail={firstFew(pages.map((p) => p.emergencyReferral), 1)}
-              sources={pagesWith(pages, (p) => Boolean(p.emergencyReferral))}
+              of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.emergencyReferral))}
             />
-            <Check ok={pages.some((p) => p.paymentInfo)} label="Payment options explained" sources={pagesWith(pages, (p) => Boolean(p.paymentInfo))} />
+            <Check ok={pages.some((p) => p.paymentInfo)} label="Payment options explained" of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.paymentInfo))} />
             <Check
               ok={pages.some((p) => p.pricesShown.length)}
               label="Some prices shown"
               detail={distinct(pages.flatMap((p) => p.pricesShown))
                 .slice(0, 4)
                 .join(" · ")}
-              sources={pagesWith(pages, (p) => p.pricesShown.length > 0)}
+              of={pages.length} sources={pagesWith(pages, (p) => p.pricesShown.length > 0)}
             />
-            <Check ok={pages.some((p) => p.hasFaq)} label="Answers to common questions (FAQ)" sources={pagesWith(pages, (p) => p.hasFaq)} />
+            <Check ok={pages.some((p) => p.hasFaq)} label="Answers to common questions (FAQ)" of={pages.length} sources={pagesWith(pages, (p) => p.hasFaq)} />
             {t && (
               <>
                 <Check
@@ -790,7 +852,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 <>
                   {standingLine(comp.you, vets.listings, "vets") && <p className="text-sm text-slate-700">{standingLine(comp.you, vets.listings, "vets")}</p>}
                   <CompetitorTable you={comp.you} listings={vets.listings} yourLabel="Your practice" />
-                  <p className="text-[11px] text-slate-500">The first {vets.listings.length} vets Google Maps shows for “{vets.search}” near your address, in Google&apos;s order.</p>
+                  <p className="text-[12px] text-slate-600">The first {vets.listings.length} vets Google Maps shows for “{vets.search}” near your address, in Google&apos;s order.</p>
                 </>
               )}
             </div>
@@ -813,7 +875,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
           ) : (
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-500">
+                <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-600">
                   <th className="py-1.5 font-semibold">Post</th>
                   <th className="py-1.5 pl-2 font-semibold">Headline asks a question</th>
                   <th className="py-1.5 pl-2 font-semibold">Written by</th>
@@ -829,7 +891,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                     <tr key={p.url} className="border-b border-slate-100 align-top" style={{ breakInside: "avoid" }}>
                       <td className="py-1.5 pr-2 text-slate-700">
                         {p.currentH1 ?? "(no headline)"}
-                        <span className="block text-[10px] text-slate-500">{shortUrl(p.url)}</span>
+                        <span className="block text-[12px] text-slate-600">{shortUrl(p.url)}</span>
                       </td>
                       <td className="py-1.5 pl-2">{yesNo(Boolean(p.blog?.questionHeading))}</td>
                       <td className="py-1.5 pl-2">{p.blog?.authorNamed ?? "No one named"}</td>
@@ -863,7 +925,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 key={f.text}
                 className="rounded-xl border-l-4 bg-slate-50 px-3 py-2"
                 // A long list may run onto the next page; a short item stays together.
-                style={{ borderColor: f.tone === "bad" ? "#dc2626" : f.tone === "warn" ? "#d97706" : "#059669", breakInside: (f.details?.length ?? 0) > 6 ? "auto" : "avoid" }}
+                style={{ borderColor: f.tone === "bad" ? "#dc2626" : f.tone === "warn" ? "#d97706" : "#059669", breakInside: detailLines(f.details) > 4 ? "auto" : "avoid" }}
               >
                 <p className="text-[13px] text-slate-800" style={{ breakAfter: "avoid" }}>{f.text}</p>
                 {f.fix && (
@@ -878,7 +940,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
           {(() => {
             const limits = crawlLimits(t);
             return (
-              <div className="rounded-xl border border-slate-200 px-3 py-2 text-[11px] leading-relaxed text-slate-600" style={{ breakInside: "avoid" }}>
+              <div className="rounded-xl border border-slate-200 px-3 py-2 text-[12px] leading-relaxed text-slate-600" style={{ breakInside: "avoid" }}>
                 <p className="font-semibold text-slate-700">What this check covers</p>
                 <p>
                   Every page in your sitemap, every link between your own pages on them, and every address those links point to
@@ -920,7 +982,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
           ) : (
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-500">
+                <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-600">
                   <th className="py-1.5 font-semibold">Name, as written</th>
                   <th className="py-1.5 pl-2 font-semibold">Qualifications</th>
                   <th className="py-1.5 pl-2 font-semibold">Bio</th>
@@ -935,7 +997,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                     <td className="py-1.5 pl-2">{d.credentials ?? "Not shown"}</td>
                     <td className="py-1.5 pl-2">{yesNo(d.hasBio)}</td>
                     <td className="py-1.5 pl-2">{[d.school, d.year].filter(Boolean).join(", ") || "Not stated"}</td>
-                    <td className="py-1.5 pl-2 text-[10px] text-slate-500">{d.urls.slice(0, 3).map(shortUrl).join(" · ")}</td>
+                    <td className="py-1.5 pl-2 text-[12px] text-slate-600">{d.urls.slice(0, 3).map(shortUrl).join(" · ")}</td>
                   </tr>
                 ))}
               </tbody>
@@ -950,7 +1012,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
           <ul className="grid gap-x-4 text-[13px] sm:grid-cols-2">
             {servicePages.map((p) => (
               <li key={p.url}>
-                {p.currentH1 ?? shortUrl(p.url)} <span className="text-[10px] text-slate-500">{shortUrl(p.url)}</span>
+                {p.currentH1 ?? shortUrl(p.url)} <span className="text-[12px] text-slate-600">{shortUrl(p.url)}</span>
               </li>
             ))}
           </ul>
@@ -987,7 +1049,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                   ok={hours.length > 0 && c.site.hoursContradictions.length === 0}
                   label={hours.length === 0 ? "Your hours aren't on the website" : c.site.hoursContradictions.length ? "Your hours don't match from page to page" : "Your hours are clear and consistent"}
                   detail={[...c.site.hoursContradictions, ...hours.slice(0, 1)].join(" / ")}
-                  sources={pagesWith(pages, (p) => Boolean(p.hours))}
+                  of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.hours))}
                 />
               );
             })()}
@@ -995,19 +1057,19 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               ok={pages.some((p) => p.booking)}
               label="Booking"
               detail={firstFew(pages.map((p) => p.booking)) || "We couldn't find how to book."}
-              sources={pagesWith(pages, (p) => Boolean(p.booking))}
+              of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.booking))}
             />
             <Check
               ok={pages.some((p) => p.emergencyReferral)}
               label="Emergencies"
               detail={firstFew(pages.map((p) => p.emergencyReferral), 1) || "We couldn't find where to go in an emergency."}
-              sources={pagesWith(pages, (p) => Boolean(p.emergencyReferral))}
+              of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.emergencyReferral))}
             />
             <Check
               ok={pages.some((p) => p.paymentInfo)}
               label="Payment"
               detail={firstFew(pages.map((p) => p.paymentInfo)) || "We couldn't find any payment information."}
-              sources={pagesWith(pages, (p) => Boolean(p.paymentInfo))}
+              of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.paymentInfo))}
             />
             <Check
               ok={uniqueTypos.length === 0}
@@ -1035,7 +1097,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               </div>
             ))}
           </div>
-          <p className="text-[11px] text-slate-500">&quot;Google review 6&quot; means your 6th most recent Google review when we ran this audit.</p>
+          <p className="text-[12px] text-slate-600">&quot;Google review 6&quot; means your 6th most recent Google review when we ran this audit.</p>
         </Section>
       )}
 
@@ -1047,14 +1109,15 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               {c.site.positioningLine}
             </p>
           </div>
+          <div className="space-y-3" style={{ breakInside: "avoid" }}>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl bg-slate-50 p-4" style={{ breakInside: "avoid" }}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your homepage headline today</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Your homepage headline today</p>
               <p className="mt-1 text-sm text-slate-800">{homepage?.currentH1 ?? t?.pages.find((p) => p.finalStatus === 200)?.h1s[0] ?? "(none)"}</p>
               {homepage && <Sources items={[homepage.url]} />}
             </div>
             <div className="rounded-2xl bg-slate-50 p-4" style={{ breakInside: "avoid" }}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Suggested headline</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Suggested headline</p>
               <p className="mt-1 text-sm font-medium" style={{ color: INDIGO }}>
                 {c.site.homepageH1}
               </p>
@@ -1065,48 +1128,6 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             A good headline says what you do, for whom, and where. That&apos;s exactly what Google and AI tools look for when matching you to someone searching
             nearby.
           </p>
-        </Section>
-      )}
-
-      {fixes.length > 0 && (
-        <Section
-          n={num()}
-          title="Your action plan"
-          intro="Everything we recommend, most important first. Each item says what to do and who does it, why it matters, and what we found that led to it."
-        >
-          <div className="space-y-3">
-            {fixes.map((f) => (
-              <div key={f.rank} className="flex gap-3 rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
-                <span
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                  style={{ background: f.rank <= 3 ? PINK : INDIGO }}
-                >
-                  {f.rank}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-900">{f.fix}</p>
-                  {f.steps && f.steps.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">What to do</p>
-                      <ol className="mt-0.5 list-decimal space-y-1 pl-5 text-[13px] leading-snug text-slate-700">
-                        {f.steps.map((step) => (
-                          <li key={step}>{step}</li>
-                        ))}
-                      </ol>
-                    </div>
-                  )}
-                  <p className="mt-2 text-[13px] text-slate-600">
-                    <span className="font-semibold text-slate-700">Why it matters:</span> {f.whyItMatters}
-                  </p>
-                  {f.evidence.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">What we found</p>
-                      <EvidenceList items={f.evidence} />
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
           </div>
         </Section>
       )}
@@ -1119,7 +1140,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         >
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-600">
                 <th className="py-1.5 font-semibold">Page</th>
                 <th className="py-1.5 pl-2 font-semibold">Headline today</th>
                 <th className="py-1.5 pl-2 font-semibold">Suggested headline</th>
@@ -1128,11 +1149,11 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             <tbody>
               {pages.map((p) => (
                 <tr key={p.url} className="border-b border-slate-100 align-top" style={{ breakInside: "avoid" }}>
-                  <td className="py-1.5 pr-2 text-[10px] text-slate-500">{shortUrl(p.url)}</td>
+                  <td className="py-1.5 pr-2 text-[12px] text-slate-600">{shortUrl(p.url)}</td>
                   <td className="py-1.5 pl-2 text-slate-700">{p.currentH1 ?? "(none)"}</td>
                   <td className="py-1.5 pl-2 text-slate-900">
                     {p.recommendedH1}
-                    {p.secondaryLine && <span className="block text-[10px] text-slate-500">Keep underneath: {p.secondaryLine}</span>}
+                    {p.secondaryLine && <span className="block text-[12px] text-slate-600">Keep underneath: {p.secondaryLine}</span>}
                   </td>
                 </tr>
               ))}
@@ -1156,9 +1177,9 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             . Structured data types: {t.summary.schemaTypes.join(", ") || "none"}. robots.txt: {Object.values(t.robotsTxt).some(Boolean) ? "present" : "missing"}.
             llms.txt: {Object.values(t.llmsTxt).some(Boolean) ? "present" : "missing"}.
           </p>
-          <table className="w-full text-[10px]">
+          <table className="w-full text-[11px]">
             <thead>
-              <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-600">
                 <th className="py-1 font-semibold">Sitemap URL</th>
                 <th className="py-1 pl-1 font-semibold">Status</th>
                 <th className="py-1 pl-1 font-semibold">H1s</th>
@@ -1172,7 +1193,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 <tr key={p.url} className="border-b border-slate-100" style={{ breakInside: "avoid" }}>
                   <td className="py-0.5 pr-1 text-slate-700">
                     {shortUrl(p.url)}
-                    {p.chain.length > 1 && <span className="text-slate-400"> → {shortUrl(p.finalUrl)}</span>}
+                    {p.chain.length > 1 && <span className="text-slate-500"> → {shortUrl(p.finalUrl)}</span>}
                   </td>
                   <td className="py-0.5 pl-1">{p.redirectLoop ? "loop" : p.softError ? "error page" : (p.finalStatus ?? "—")}</td>
                   <td className="py-0.5 pl-1">{p.h1s.length}</td>
@@ -1206,7 +1227,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
           </dd>
           <dt className="font-medium text-slate-800">Reviews and links</dt>
           <dd>
-            Your Google rating, review count and {reviews.length} most recent reviews (we never record reviewers&apos; names). Links from other websites are measured
+            {`Your Google rating, review count and ${reviews.length} most recent reviews (we never record reviewers' names).`} Links from other websites are measured
             on DataForSEO&apos;s 0–1000 scale, which is not the same scale as other tools&apos; &quot;Domain Rating&quot;.
           </dd>
           {comp && (
@@ -1264,7 +1285,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               ] as const
             ).map(([kind, title]) => (
               <div key={kind} className="mt-2" style={{ breakInside: "avoid" }}>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{title}</p>
                 <ol className="list-decimal pl-5 text-[12px] text-slate-700">
                   {v.prompts
                     .filter((p) => p.kind === kind)
@@ -1278,7 +1299,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         )}
       </Section>
 
-      <footer className="border-t border-slate-200 pt-4 text-center text-xs text-slate-500">
+      <footer className="border-t border-slate-200 pt-4 text-center text-xs text-slate-600">
         Beyond Indigo Pets · beyondindigopets.com · Audit #{audit.id}, {runDate}
       </footer>
     </article>
