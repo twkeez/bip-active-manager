@@ -458,6 +458,16 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
               <FileText size={14} /> Report (PDF)
             </a>
           )}
+          {audit.results.score && (
+            <a
+              href={`/website-audit-print/${audit.id}?for=team`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-bip-border px-3 py-1.5 text-sm text-bip-text hover:bg-bip-card"
+            >
+              <FileText size={14} /> Team worklist
+            </a>
+          )}
           <a href={`/api/website-audits/${audit.id}/json`} className="inline-flex items-center gap-1.5 rounded-md border border-bip-border px-3 py-1.5 text-sm text-bip-text hover:bg-bip-card">
             <Download size={14} /> JSON
           </a>

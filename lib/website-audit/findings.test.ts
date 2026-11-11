@@ -232,3 +232,15 @@ describe("a crawl that read nothing", () => {
   });
 });
 
+describe("jobOf", () => {
+  it("gives every problem a short job name for the team worklist", async () => {
+    const { jobOf } = await import("@/lib/website-audit/findings");
+    const post = page("/blog/a/", { links: ["https://www.vet.com/gone"], h1s: ["One", "Two"], metaDescription: null, wordCount: 100, canonical: null });
+    const t = crawl([page("/"), post], [{ url: "https://www.vet.com/gone", linkedFrom: [post.url], finalStatus: 404, softError: null }]);
+    const jobs = technicalFindings(t).filter((f) => f.tone !== "good").map((f) => ({ text: f.text, ...jobOf(f) }));
+    expect(jobs.every((j) => j.job !== j.text)).toBe(true);
+    expect(jobs.find((j) => j.job === "Broken link")?.scope).toBe("page");
+    expect(jobs.find((j) => j.job === "Add a canonical tag")?.scope).toBe("site");
+  });
+});
+
