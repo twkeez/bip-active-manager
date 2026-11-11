@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Download, FileText, Loader2, Play } from "lucide-react";
 import { StatTile, StatTiles } from "@/components/ui/stat-tile";
-import { technicalFindings } from "@/lib/website-audit/findings";
+import { NOT_CHECKED, crawlLimits, technicalFindings } from "@/lib/website-audit/findings";
 import { AI_PLATFORMS, PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import { practiceMatchProblems } from "@/lib/website-audit/practice-match";
 import { realTypos } from "@/lib/website-audit/typos";
@@ -539,6 +539,7 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
                     <ul className="mt-1 space-y-1">
                       {f.details.map((d, i) => (
                         <li key={i} className="break-all">
+                          {d.title && <span className="text-bip-text">{d.title} </span>}
                           {d.url ? (
                             <a href={d.url} target="_blank" rel="noreferrer" className="text-bip-text underline">
                               {d.url}
@@ -560,6 +561,31 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
                 )}
               </div>
             ))}
+            {(() => {
+              const limits = crawlLimits(t);
+              return (
+                <div className={`rounded-lg border p-3 text-xs text-bip-muted ${limits.hit.length ? toneClass.warn : "border-bip-border"}`}>
+                  {limits.hit.length > 0 ? (
+                    <>
+                      <p className="font-semibold text-bip-text">Cut short on this run, so some problems may be missing:</p>
+                      <ul className="list-disc pl-4">
+                        {limits.hit.map((l) => (
+                          <li key={l}>{l}</li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p>{limits.recorded ? "Nothing was cut short on this run." : "This crawl ran before limits were recorded; re-run it to see whether anything was cut short."}</p>
+                  )}
+                  <p className="mt-1 font-semibold text-bip-text">Not checked yet:</p>
+                  <ul className="list-disc pl-4">
+                    {NOT_CHECKED.map((l) => (
+                      <li key={l}>{l}</li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
           </section>
 
           <details className="rounded-xl border border-bip-border bg-bip-card">

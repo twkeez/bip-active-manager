@@ -46,9 +46,12 @@ export type CrawlPage = {
    * Only those links are kept (crawls before 2026-11-09 have none).
    */
   anchors?: LinkAnchor[];
+  /** Set only when the page had more than the crawl keeps: its links (200 kept) and text characters (12,000 kept). */
+  overLimit?: { links?: number; textChars?: number };
 };
 
-export type LinkAnchor = { url: string; href: string; text: string; area: "menu" | "footer" | "body" };
+/** `context`: the sentence or list item around the link, so it can be searched for on the page (crawls from 2026-11-11). */
+export type LinkAnchor = { url: string; href: string; text: string; area: "menu" | "footer" | "body"; context?: string };
 
 export type CrawlSummary = {
   domain: string;
@@ -122,6 +125,12 @@ export type TechnicalCrawl = {
   slashVariants: SlashVariantCheck[];
   /** Pages the site links to that its sitemap leaves out. */
   notInSitemap: SitemapGap[];
+  /**
+   * Every cap this crawl hit, in plain English ("Your sitemap lists 812
+   * addresses; we checked the first 500."). Empty when nothing was cut short.
+   * Crawls before 2026-11-11 don't have it.
+   */
+  limitsHit?: string[];
   summary: CrawlSummary;
   ms: number;
 };

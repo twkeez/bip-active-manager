@@ -5,10 +5,10 @@ import type { CrawlPage, LinkAnchor, RedirectHop, TechnicalCrawl } from "@/lib/w
 
 /**
  * One place an issue shows up, so it can be found and fixed: the page (or, for
- * a headline used on several pages, the headline), what's wrong there, the
+ * a headline used on several pages, the headline) and its title, what's wrong there, the
  * specifics (the headlines, the redirect steps) and the pages linking to it.
  */
-export type FindingDetail = { url?: string; label?: string; note?: string; items?: string[]; linkedFrom?: string[] };
+export type FindingDetail = { url?: string; title?: string; label?: string; note?: string; items?: string[]; linkedFrom?: string[] };
 
 /** `fix`: what to do about it, in a line a web developer (or the practice) can act on. */
 export type Finding = { tone: "bad" | "warn" | "good"; text: string; fix?: string; details?: FindingDetail[] };
@@ -23,17 +23,27 @@ const pageKey = (url: string) => {
   }
 };
 
+/** The same address only when the final "/" matches too: /about and /about/ are different here. */
+const exactKey = (url: string) => {
+  try {
+    const u = new URL(url);
+    return `${u.host.replace(/^www\./, "")}${u.pathname}`.toLowerCase();
+  } catch {
+    return url.toLowerCase();
+  }
+};
+
 /** The pages that link to each address, from every crawled page's own links. */
-function linkIndex(pages: CrawlPage[]): (url: string) => string[] {
+function linkIndex(pages: CrawlPage[], keyOf: (url: string) => string = pageKey): (url: string) => string[] {
   const from = new Map<string, Set<string>>();
   for (const page of pages)
     for (const link of page.links ?? []) {
-      const key = pageKey(link);
+      const key = keyOf(link);
       if (key === pageKey(page.finalUrl)) continue;
       if (!from.has(key)) from.set(key, new Set());
       from.get(key)!.add(page.finalUrl);
     }
-  return (url) => [...(from.get(pageKey(url)) ?? [])].sort();
+  return (url) => [...(from.get(keyOf(url)) ?? [])].sort();
 }
 
 const AREA: Record<LinkAnchor["area"], string> = { menu: "in the menu", footer: "in the footer", body: "in the page text" };
@@ -41,9 +51,45 @@ const AREA: Record<LinkAnchor["area"], string> = { menu: "in the menu", footer: 
 /** "gbj.com/vote" written without https:// opens as a page on the practice's own site. */
 const missingScheme = (href: string) => !/^(https?:|\/|#|\.|mailto:|tel:)/i.test(href) && /^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(href);
 
-/** 'the "Vote here" link in the page text' */
-export function describeAnchor(a: LinkAnchor): string {
-  return `${a.text ? `the "${a.text}" link` : "a link with no words (an image or icon)"} ${AREA[a.area]}`;
+/** 'the "Vote here" link in the page text', and with `withContext` the words around it to search for. */
+export function describeAnchor(a: LinkAnchor, withContext = false): string {
+  const what = `${a.text ? `the "${a.text}" link` : "a link with no words (an image or icon)"} ${AREA[a.area]}`;
+  return withContext && a.context ? `${what}, in: "${a.context}"` : what;
+}
+
+/** "Why Early Care Matters - Dallas Highway Animal Hospital" → "Why Early Care Matters". */
+export function shortTitle(title: string | null | undefined): string | undefined {
+  const t = (title ?? "").trim();
+  if (!t) return undefined;
+  const cut = t.replace(/\s+[|–—-]\s+[^|–—-]+$/, "").trim();
+  return cut.length >= 4 ? cut : t;
+}
+
+const STOP = new Set(["a", "an", "and", "amp", "the", "of", "in", "for", "to", "your", "you", "is", "on", "with", "how", "why", "what", "html", "htm", "php"]);
+/** The words of an address's last part, without ids or filler: "/blogs/1105177-kittens-101" → kittens, 101. */
+const slugWords = (url: string) => {
+  try {
+    const last = new URL(url).pathname.split("/").filter(Boolean).at(-1) ?? "";
+    return last.toLowerCase().replace(/\.(html?|php)$/, "").split(/[-_]+/).filter((w) => w && !STOP.has(w) && !/^\d{4,}$/.test(w));
+  } catch {
+    return [];
+  }
+};
+
+/** A live page whose address says the same thing as a dead one (an old blog's post at its new address), or null. */
+export function likelyReplacement(dead: string, live: string[]): string | null {
+  const want = slugWords(dead);
+  if (want.length < 2) return null;
+  let best: { url: string; score: number } | null = null;
+  for (const url of live) {
+    const have = new Set(slugWords(url));
+    if (!have.size) continue;
+    const shared = want.filter((w) => have.has(w)).length;
+    // Most of the dead address's words, and not a much longer, different topic.
+    const score = shared / Math.max(want.length, have.size * 0.75);
+    if (shared >= 2 && score >= 0.7 && (!best || score > best.score)) best = { url, score };
+  }
+  return best?.url ?? null;
 }
 
 /** Why the link breaks, when it's how it was written. */
@@ -61,6 +107,26 @@ function okPages(pages: CrawlPage[]): CrawlPage[] {
   return [...seen.values()];
 }
 
+/** What the crawl never looks at, whatever the site: said in the report so nobody assumes it found everything. */
+export const NOT_CHECKED = [
+  "Links to other websites (a pet insurance company or the AVMA, say) aren't checked.",
+  "Links on pages that aren't in your sitemap aren't read; we only check that those pages load.",
+  "Links to PDFs, images and other files aren't checked.",
+  "Links with a \"?\" in the address (searches, page 2 of a list) are skipped, as are links that only appear once a page's scripts run (some pop-up menus).",
+];
+
+/**
+ * Where this crawl was cut short. Crawls from 2026-11-11 record every cap they
+ * hit; older ones only know whether the page crawl itself stopped early.
+ */
+export function crawlLimits(t: TechnicalCrawl): { hit: string[]; recorded: boolean } {
+  if (t.limitsHit) return { hit: t.limitsHit, recorded: true };
+  const hit: string[] = [];
+  if (t.sitemapUrlCount > 500) hit.push(`Your sitemap lists ${t.sitemapUrlCount} addresses; we checked the first 500.`);
+  else if (t.stoppedBecause === "time") hit.push(`We ran out of time and checked ${t.pages.length} of the sitemap addresses.`);
+  return { hit, recorded: false };
+}
+
 /** Plain-English technical findings (they print in the client report), each traceable to the URLs behind it. */
 const pages = (n: number) => `${n} ${n === 1 ? "page" : "pages"}`;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -73,6 +139,8 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
   const s = t.summary;
   const ok = okPages(t.pages);
   const linkIndexOf = linkIndex(t.pages);
+  // For "with or without the final /" checks: who links to exactly that spelling.
+  const spelledFrom = linkIndex(t.pages, exactKey);
   const byFinal = new Map(t.pages.map((p) => [p.finalUrl, p]));
   /** How one page links to an address (crawls since 2026-11-09 keep this for bad links). */
   const anchorsTo = (page: string, url: string) => (byFinal.get(page)?.anchors ?? []).filter((a) => pageKey(a.url) === pageKey(url));
@@ -95,19 +163,35 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
           const shown = from.length > LINKED_SHOWN + 1 ? [...from].sort((a, b) => junk(a) - junk(b) || a.length - b.length).slice(0, LINKED_SHOWN) : from;
           const list = shown.map((page) => {
             const a = anchorsTo(page, url);
-            return a.length ? `${page} (${a.map(describeAnchor).join("; ")})` : page;
+            return a.length ? `${page} (${a.map((x) => describeAnchor(x, true)).join("; ")})` : page;
           });
           return shown.length < from.length ? [...list, `and ${from.length - shown.length} more pages`] : list;
         })();
+  /** A plain list of linking pages, shortened like linkedList. */
+  const shortList = (from: string[]) => (from.length > LINKED_SHOWN + 1 ? [...from.slice(0, LINKED_SHOWN), `and ${from.length - LINKED_SHOWN} more pages`] : from);
   const byUrl = new Map(t.pages.map((p) => [p.url, p]));
+  const titleOf = (url: string) => shortTitle(byFinal.get(url)?.title ?? byUrl.get(url)?.title);
+  /** A page's address with its title, when the crawl read it. */
+  const at = (url: string): FindingDetail => {
+    const title = titleOf(url);
+    return title ? { url, title } : { url };
+  };
+  /** Addresses that load today, for suggesting where a dead link should point. */
+  const liveUrls = [...ok.map((p) => p.finalUrl), ...(t.notInSitemap ?? []).filter((g) => g.finalStatus === 200 && !g.softError).map((g) => g.url)];
   /** A sitemap address that fails: its status, the sitemap listing it, and who links to it. */
   const failing = (url: string, note: string): FindingDetail => ({
-    url,
+    ...at(url),
     note: `${note}. Listed in your sitemap${byUrl.get(url)?.sitemap ? ` (${byUrl.get(url)!.sitemap})` : ""}${linkedNote(url, linkedFrom(url))}`,
     linkedFrom: linkedList(url, linkedFrom(url)),
   });
   /** A page's other spelling (with or without the final "/") and where it went. */
-  const variant = (v: TechnicalCrawl["slashVariants"][number]): FindingDetail => ({ url: v.variantUrl, note: `The other spelling of ${v.pageUrl}`, items: hops(v.chain) });
+  const TESTED = "Nothing on your site links to it: we typed it ourselves to test your server";
+  const variant = (v: TechnicalCrawl["slashVariants"][number]): FindingDetail => {
+    const from = spelledFrom(v.variantUrl);
+    return from.length
+      ? { url: v.variantUrl, note: `The other spelling of ${v.pageUrl}${siteWide(from) ? ` · Linked from ${from.length} pages, so it's in the menu or footer` : ""}`, items: hops(v.chain), linkedFrom: siteWide(from) ? undefined : shortList(from) }
+      : { url: v.variantUrl, note: `The other spelling of ${v.pageUrl}. ${TESTED}.`, items: hops(v.chain) };
+  };
   /**
    * Addresses typed without (or with) the final "/" that all bounce through http
    * are one server setting, not one fix each: a single entry with an example.
@@ -124,8 +208,16 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
         ? variant(vs[0])
         : {
             label: `${vs.length} addresses typed ${noSlash ? "without" : "with"} the final "/"`,
-            note: `Each one goes to the http version before landing on the right page, for example ${vs[0].chain.map((h) => h.url).join(" → ")}. They all come from one server setting, so one fix covers every one of them.`,
-            items: vs.map((v) => v.variantUrl),
+            note: `Each one goes to the http version before landing on the right page, for example ${vs[0].chain.map((h) => h.url).join(" → ")}. ${
+              vs.some((v) => spelledFrom(v.variantUrl).length)
+                ? "Most aren't linked from your pages: we typed them to test your server. Where a page does link to one, it's named below."
+                : "These aren't links on your site, so there's nothing to find on a page: we typed each address ourselves to test your server."
+            } They all come from one server setting, so one fix covers every one of them.`,
+            items: vs.map((v) => {
+              const from = spelledFrom(v.variantUrl);
+              if (!from.length) return v.variantUrl;
+              return `${v.variantUrl} (linked this way from ${from.length === 1 ? from[0] : `${from.length} pages, e.g. ${from[0]}`}: change that link to ${v.pageUrl})`;
+            }),
           },
     );
   };
@@ -142,7 +234,7 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
       tone: "warn",
       text: `${plural(filler, "filler page", "filler pages")} (automatic tag, category or author listings) ${filler === 1 ? "is" : "are"} in your sitemap. ${filler === 1 ? "It adds" : "They add"} clutter without adding anything a visitor needs.`,
       fix: "Leave tag, category and author listings out of the sitemap (on WordPress, a setting in the SEO plugin).",
-      details: t.pages.filter((p) => p.archiveType).map((p) => ({ url: p.url, note: `Automatic ${p.archiveType} listing` })),
+      details: t.pages.filter((p) => p.archiveType).map((p) => ({ ...at(p.url), note: `Automatic ${p.archiveType} listing` })),
     });
   if (s.serverErrors.length) list.push({ tone: "bad", text: `${plural(s.serverErrors.length, "page fails", "pages fail")} to load because of a server error.`, fix: "Ask the web host or developer to check the server's error log for these pages.", details: s.serverErrors.map((u) => failing(u, `Server error (${byUrl.get(u)?.finalStatus ?? "5xx"})`)) });
   if (s.softErrors?.length)
@@ -156,7 +248,12 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
       tone: "bad",
       text: "Some old links send visitors to the insecure (http) version of your site before the secure one. Browsers can warn visitors, and Google prefers sites that are secure throughout.",
       details: [
-        ...s.insecureRedirects.map((u) => ({ url: u, note: `Passes through http on the way${linkedNote(u, linkedFrom(u))}`, items: hops(byUrl.get(u)?.chain ?? []), linkedFrom: linkedList(u, linkedFrom(u)) })),
+        ...s.insecureRedirects.map((u) => ({
+          url: u,
+          note: `Passes through http on the way. Listed in your sitemap${byUrl.get(u)?.sitemap ? ` (${byUrl.get(u)!.sitemap})` : ""}, so take it out or replace it with the final address${linkedNote(u, linkedFrom(u))}`,
+          items: hops(byUrl.get(u)?.chain ?? []),
+          linkedFrom: linkedList(u, linkedFrom(u)),
+        })),
         ...insecureVariants(t.slashVariants.filter((v) => s.slashVariants.insecure.includes(v.variantUrl))),
       ],
       fix: "Change each old link to point straight at the https address, and set the server's redirects to go straight to https rather than via http.",
@@ -166,9 +263,15 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
   if (s.slashVariants.duplicates.length)
     list.push({
       tone: "warn",
-      text: `${s.slashVariants.duplicates.length} of ${s.slashVariants.checked} pages also load at a second address (with or without the final "/"), so Google sees two copies of the same page.`,
+      text: `${s.slashVariants.duplicates.length} of ${s.slashVariants.checked} pages also load at a second address (with or without the final "/"), so Google sees two copies of the same page.${
+        s.slashVariants.duplicates.some((u) => spelledFrom(u).length) ? "" : " We found these by typing each address ourselves; your pages don't link to the second versions."
+      }`,
       fix: "One server setting: redirect the second address to the main one. A canonical tag on each page also tells Google which to use.",
-      details: t.slashVariants.filter((v) => s.slashVariants.duplicates.includes(v.variantUrl)).map((v) => ({ url: v.variantUrl, note: `Also loads, with no redirect, as ${v.pageUrl}` })),
+      details: t.slashVariants.filter((v) => s.slashVariants.duplicates.includes(v.variantUrl)).map((v) => ({
+        url: v.variantUrl,
+        note: `Also loads, with no redirect, as ${v.pageUrl}`,
+        linkedFrom: spelledFrom(v.variantUrl).length ? shortList(spelledFrom(v.variantUrl)) : undefined,
+      })),
     });
   list.push(
     s.missingCanonical
@@ -176,7 +279,7 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
           tone: "warn",
           text: `${s.missingCanonical} of ${s.uniquePages} pages don't tell Google which address is their main one (a "canonical tag"), so Google has to guess between copies.`,
           fix: "Add a canonical tag to each of these pages giving its own address (most SEO plugins and site builders have a setting for it).",
-          details: s.missingCanonicalUrls.map((u) => ({ url: u })),
+          details: s.missingCanonicalUrls.map(at),
         }
       : { tone: "good", text: "Every page tells Google which address is its main one." },
   );
@@ -189,24 +292,24 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
               ? `All ${s.uniquePages} pages carry behind-the-scenes labels that tell Google and AI tools what the page is about (structured data).`
               : `${s.uniquePages - s.withSchema} of ${s.uniquePages} pages have none of the behind-the-scenes labels that tell Google and AI tools what the page is about (structured data).`,
           fix: s.withSchema === s.uniquePages ? undefined : "Add structured data to these pages: at least the practice's details (veterinary care) site-wide, and a service label on each service page.",
-          details: ok.filter((p) => !p.schemaTypes.length).map((p) => ({ url: p.finalUrl, note: "No structured data" })),
+          details: ok.filter((p) => !p.schemaTypes.length).map((p) => at(p.finalUrl)),
         }
       : { tone: "bad", text: "No page carries the behind-the-scenes labels (structured data) that tell Google and AI tools what the page is about.", fix: "Add structured data site-wide: at least the practice's details (veterinary care), and a service label on each service page." },
   );
-  if (s.repeatedH1OnPage.length) list.push({ tone: "warn", text: "The main headline appears twice on the same page.", fix: "Keep one copy as the main headline (H1) and make the other a smaller heading or plain text.", details: ok.filter((p) => new Set(p.h1s).size < p.h1s.length).map((p) => ({ url: p.finalUrl, items: p.h1s })) });
+  if (s.repeatedH1OnPage.length) list.push({ tone: "warn", text: "The main headline appears twice on the same page.", fix: "Keep one copy as the main headline (H1) and make the other a smaller heading or plain text.", details: ok.filter((p) => new Set(p.h1s).size < p.h1s.length).map((p) => ({ ...at(p.finalUrl), items: p.h1s })) });
   if (s.noH1)
     list.push({
       tone: "warn",
       text: `${pages(s.noH1)} ${s.noH1 === 1 ? "has" : "have"} no main headline.`,
       fix: "Give each page one main headline (H1) saying what the page is about.",
-      details: ok.filter((p) => !p.h1s.length).map((p) => ({ url: p.finalUrl, note: p.title ? `Page title: "${p.title}"` : undefined })),
+      details: ok.filter((p) => !p.h1s.length).map((p) => at(p.finalUrl)),
     });
   if (s.multipleH1)
     list.push({
       tone: "warn",
       text: `${pages(s.multipleH1)} ${s.multipleH1 === 1 ? "has" : "have"} more than one main headline.`,
       fix: "Keep one main headline (H1) per page and make the rest smaller headings (H2). Where a headline is split over two lines, make it one H1.",
-      details: ok.filter((p) => p.h1s.length > 1).map((p) => ({ url: p.finalUrl, note: `${p.h1s.length} main headlines (H1)`, items: p.h1s })),
+      details: ok.filter((p) => p.h1s.length > 1).map((p) => ({ ...at(p.finalUrl), note: `${p.h1s.length} main headlines (H1)`, items: p.h1s })),
     });
   if (s.duplicateH1AcrossPages.length)
     list.push({
@@ -224,7 +327,7 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
       tone: "warn",
       text: `${pages(s.missingMetaDescription)} ${s.missingMetaDescription === 1 ? "has" : "have"} no summary for Google to show under the link in search results (meta description).`,
       fix: "Write a one or two sentence summary for each page (the meta description, in the page's SEO settings).",
-      details: ok.filter((p) => !p.metaDescription).map((p) => ({ url: p.finalUrl, note: p.title ? `Page title: "${p.title}"` : undefined })),
+      details: ok.filter((p) => !p.metaDescription).map((p) => at(p.finalUrl)),
     });
   if (s.thinPages)
     list.push({
@@ -234,7 +337,7 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
       details: ok
         .filter((p) => p.wordCount < 300 && !p.archiveType)
         .sort((a, b) => a.wordCount - b.wordCount)
-        .map((p) => ({ url: p.finalUrl, note: `${p.wordCount} words` })),
+        .map((p) => ({ ...at(p.finalUrl), note: `${p.wordCount} words` })),
     });
   // Listing pages (tags, months) are left out on purpose; audits before 2026-10-28 still have them.
   const live = (t.notInSitemap ?? []).filter((g) => g.finalStatus === 200 && !g.softError && !isListingPage(g.url));
@@ -269,18 +372,25 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
             const a = on.flatMap((page) => anchorsTo(page, g.url))[0];
             const label = `On ${on.length} pages (${a ? a.area === "footer" ? "the footer" : "the menu" : "the menu or footer"})`;
             const what = a ? describeAnchor(a) : "a link";
-            byPage.set(label, [...(byPage.get(label) ?? []), `${what.charAt(0).toUpperCase()}${what.slice(1)} goes to ${g.url}, which ${status}.${a ? hrefFault(a) : ""}`]);
+            const instead = likelyReplacement(g.url, liveUrls);
+            byPage.set(label, [...(byPage.get(label) ?? []), `${what.charAt(0).toUpperCase()}${what.slice(1)} goes to ${g.url}, which ${status}.${a ? hrefFault(a) : ""}${instead ? ` It probably should go to ${instead}.` : ""}`]);
             continue;
           }
+          const instead = likelyReplacement(g.url, liveUrls);
+          const suggestion = instead ? ` It probably should go to ${instead}.` : "";
           for (const page of on) {
             const how = anchorsTo(page, g.url);
-            const what = how.length ? how.map(describeAnchor).join("; ") : "a link";
-            byPage.set(page, [...(byPage.get(page) ?? []), `${what.charAt(0).toUpperCase()}${what.slice(1)} goes to ${g.url}, which ${status}.${how.map(hrefFault).join("")}`]);
+            const what = how.length ? how.map((a) => describeAnchor(a)).join("; ") : "a link";
+            const look = how.map((a) => a.context).filter(Boolean);
+            byPage.set(page, [
+              ...(byPage.get(page) ?? []),
+              `${what.charAt(0).toUpperCase()}${what.slice(1)} goes to ${g.url}, which ${status}.${how.map(hrefFault).join("")}${look.length ? ` Search the page for: "${look[0]}"` : ""}${suggestion}`,
+            ]);
           }
         }
         return [...byPage.entries()].map(([page, bad]): FindingDetail => {
-          const at = page.startsWith("http") ? { url: page } : { label: page };
-          return bad.length === 1 ? { ...at, note: bad[0] } : { ...at, note: `${bad.length} links that don't work:`, items: bad };
+          const where = page.startsWith("http") ? at(page) : { label: page };
+          return bad.length === 1 ? { ...where, note: bad[0] } : { ...where, note: `${bad.length} links that don't work:`, items: bad };
         });
       })(),
     });
@@ -290,7 +400,7 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
       text: `The "Hello world!" sample post that comes with WordPress is still on the site${s.helloWorldInSitemap ? " and in your sitemap" : ""}.`,
       fix: "Delete the sample post.",
       details: [
-        ...t.pages.filter((p) => HELLO_WORLD.test(p.url)).map((p) => ({ url: p.url })),
+        ...t.pages.filter((p) => HELLO_WORLD.test(p.url)).map((p) => at(p.url)),
         ...helloWorld.map((g) => ({ url: g.url, linkedFrom: linkedList(g.url, linkedFrom(g.url).length ? linkedFrom(g.url) : g.linkedFrom) })),
       ],
     });
@@ -303,9 +413,8 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
       tone: "warn",
       text: `${pages(s.noViewport)} ${s.noViewport === 1 ? "isn't" : "aren't"} set up to display properly on phones.`,
       fix: "Add the mobile viewport setting to these pages (usually one line in the site's page template).",
-      details: ok.filter((p) => !p.hasViewport).map((p) => ({ url: p.finalUrl, note: "No mobile viewport setting" })),
+      details: ok.filter((p) => !p.hasViewport).map((p) => at(p.finalUrl)),
     });
-  if (t.stoppedBecause !== "done") list.push({ tone: "warn", text: `The crawl stopped early (${t.stoppedBecause === "time" ? "time limit" : "500-URL limit"}); results are partial.` });
   // Worst first; within a colour, the order above.
   return list.sort((a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone]);
 }

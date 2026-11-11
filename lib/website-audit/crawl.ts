@@ -23,6 +23,21 @@ const MAX_TEXT_CHARS = 12_000;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /** Linked-but-not-in-sitemap pages checked per crawl. */
 const MAX_SITEMAP_GAPS = 60;
+/** Links kept per page (each is checked); a page with more says so in `limitsHit`. */
+const MAX_LINKS_PER_PAGE = 200;
+/** The words around a bad link, kept so it can be searched for on the page. */
+const CONTEXT_CHARS = 200;
+
+/** The sentence or block around a link, cut to about CONTEXT_CHARS around the link's words. */
+function linkContext(block: string, words: string): string | undefined {
+  const text = block.replace(/\s+/g, " ").trim();
+  if (!text || text === words) return undefined;
+  if (text.length <= CONTEXT_CHARS) return text;
+  const at = Math.max(0, words ? text.indexOf(words) : 0);
+  const start = Math.max(0, at - Math.floor((CONTEXT_CHARS - words.length) / 2));
+  const cut = text.slice(start, start + CONTEXT_CHARS).trim();
+  return `${start > 0 ? "…" : ""}${cut}${start + CONTEXT_CHARS < text.length ? "…" : ""}`;
+}
 
 /** A page's identity ignoring protocol, www and the trailing slash. */
 export function pageKey(url: string): string {
@@ -111,6 +126,8 @@ type SitemapScan = {
   sitemapsRead: string[];
   sitemapErrors: string[];
   urls: { url: string; sitemap: string }[];
+  /** More sitemap files were waiting when MAX_CHILD_SITEMAPS was reached. */
+  capped?: boolean;
 };
 
 /** Every page URL the site's sitemaps list (indexes followed), from robots.txt hints and the usual paths on both hosts. */
@@ -147,6 +164,7 @@ async function scanSitemaps(hosts: string[], robotsSitemaps: string[]): Promise<
     }
   }
   if (scan.sitemapsRead.length === 0) scan.sitemapErrors.push("No readable sitemap found on either host.");
+  scan.capped = queue.some((u) => !visited.has(u));
   return scan;
 }
 
@@ -219,7 +237,11 @@ export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "ur
       const text = ($el.text().replace(/\s+/g, " ").trim() || $el.attr("aria-label") || $el.find("img[alt]").attr("alt") || "").trim().slice(0, 80);
       const area: LinkAnchor["area"] = $el.closest("footer").length ? "footer" : $el.closest("nav, header").length ? "menu" : "body";
       const key = `${u.toString()}|${text}|${area}`;
-      if (!anchors.has(key)) anchors.set(key, { url: u.toString(), href: href.trim(), text, area });
+      if (!anchors.has(key)) {
+        const block = $el.closest("p, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, dd, figcaption");
+        const context = linkContext((block.length ? block : $el.parent()).text(), text);
+        anchors.set(key, { url: u.toString(), href: href.trim(), text, area, ...(context ? { context } : {}) });
+      }
     } catch {
       // Not a usable URL (mailto:, javascript:, malformed): skip it.
     }
@@ -247,9 +269,12 @@ export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "ur
     hasViewport,
     text: text.slice(0, MAX_TEXT_CHARS),
     navLinks: navLinks.slice(0, 80),
-    links: [...links].slice(0, 200),
+    links: [...links].slice(0, MAX_LINKS_PER_PAGE),
     // Pruned to the links that turn out bad once the whole crawl is done.
     anchors: [...anchors.values()].slice(0, 400),
+    ...(links.size > MAX_LINKS_PER_PAGE || text.length > MAX_TEXT_CHARS
+      ? { overLimit: { ...(links.size > MAX_LINKS_PER_PAGE ? { links: links.size } : {}), ...(text.length > MAX_TEXT_CHARS ? { textChars: text.length } : {}) } }
+      : {}),
   };
 }
 
@@ -467,6 +492,25 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, gapWorker));
 
+  // Every cap that cut something short, so the report can say so.
+  const limitsHit: string[] = [];
+  if (sitemaps.urls.length > MAX_URLS) limitsHit.push(`Your sitemap lists ${sitemaps.urls.length} addresses; we checked the first ${MAX_URLS}.`);
+  if ((stoppedBecause as TechnicalCrawl["stoppedBecause"]) === "time") limitsHit.push(`We ran out of time and checked ${crawled.length} of the ${entries.length} sitemap addresses.`);
+  if (sitemaps.capped)
+    limitsHit.push(`Your site has more than ${MAX_CHILD_SITEMAPS} sitemap files; we read the first ${MAX_CHILD_SITEMAPS}.`);
+  if (slashVariants.length < variantTargets.length)
+    limitsHit.push(`We ran out of time testing addresses with and without the final "/": ${slashVariants.length} of ${variantTargets.length} pages tested.`);
+  if (linkedFrom.size > MAX_SITEMAP_GAPS)
+    limitsHit.push(`Your pages link to ${linkedFrom.size} addresses that aren't in your sitemap; we checked the first ${MAX_SITEMAP_GAPS}, so broken links among the other ${linkedFrom.size - MAX_SITEMAP_GAPS} aren't reported.`);
+  else if (notInSitemap.length < gapTargets.length)
+    limitsHit.push(`We ran out of time checking addresses that aren't in your sitemap: ${notInSitemap.length} of ${gapTargets.length} checked, so broken links among the rest aren't reported.`);
+  const manyLinks = crawled.filter((p) => p.overLimit?.links);
+  if (manyLinks.length)
+    limitsHit.push(`${manyLinks.length === 1 ? "1 page has" : `${manyLinks.length} pages have`} more than ${MAX_LINKS_PER_PAGE} links; we checked the first ${MAX_LINKS_PER_PAGE} on each (${manyLinks.slice(0, 3).map((p) => p.finalUrl).join(", ")}${manyLinks.length > 3 ? ", …" : ""}).`);
+  const longText = crawled.filter((p) => p.overLimit?.textChars);
+  if (longText.length)
+    limitsHit.push(`${longText.length === 1 ? "1 page is" : `${longText.length} pages are`} longer than we read for the content and spelling checks; we read the first ${MAX_TEXT_CHARS.toLocaleString("en-US")} characters of each (${longText.slice(0, 3).map((p) => p.finalUrl).join(", ")}${longText.length > 3 ? ", …" : ""}).`);
+
   // Keep how each page links to a bad address (missing, failing, looping or
   // passing through http), and nothing else: the rest would only bloat the audit.
   const bad = new Set(
@@ -494,6 +538,7 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
     pages: crawled,
     slashVariants,
     notInSitemap: notInSitemap.sort((a, b) => a.url.localeCompare(b.url)),
+    limitsHit,
     summary: summarize(crawled, domain, slashVariants),
     ms: Date.now() - started,
   };
