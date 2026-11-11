@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { anthropicClient, costOf } from "@/lib/ai/usage";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
@@ -303,15 +304,26 @@ Audit data:
 ${facts}`;
 }
 
-async function readPage(page: CrawlPage, practice: Practice, serviceUrls: string[], spend: { usd: number }): Promise<PageContent> {
+const fingerprint = (model: string, prompt: string) => createHash("sha256").update(`${model}\n${prompt}`).digest("hex").slice(0, 32);
+
+async function readPage(page: CrawlPage, practice: Practice, serviceUrls: string[], spend: { usd: number }, earlier: Map<string, PageContent>, reused: { pages: number }): Promise<PageContent> {
   const type = pageTypeOf(page);
-  const base = { url: page.finalUrl, pageType: type, currentH1: page.h1s[0] ?? null };
+  const prompt = stripLoneSurrogates(pagePrompt(page, type, practice, serviceUrls));
+  const readOf = fingerprint(PAGE_MODEL, prompt);
+  const base = { url: page.finalUrl, pageType: type, currentH1: page.h1s[0] ?? null, readOf };
+  // The same page, instructions and model as an earlier reading: keep that reading.
+  // Nothing is spent, and an unchanged website reads (and scores) the same every time.
+  const before = earlier.get(page.finalUrl);
+  if (before && !before.error && before.readOf === readOf) {
+    reused.pages += 1;
+    return { ...before, ...base, typos: realTypos(before.typos, page) };
+  }
   try {
     const message = await anthropicClient("Website audit: content (pages)").messages.parse({
       model: PAGE_MODEL,
       max_tokens: 8000,
       output_config: { effort: "low", format: jsonSchemaOutputFormat(pageSchema) },
-      messages: [{ role: "user", content: stripLoneSurrogates(pagePrompt(page, type, practice, serviceUrls)) }],
+      messages: [{ role: "user", content: prompt }],
     });
     spend.usd += priceOf(PAGE_MODEL, message.usage);
     if (message.stop_reason === "max_tokens" || !message.parsed_output) throw new Error("Claude's answer for this page was cut off or unreadable.");
@@ -331,20 +343,25 @@ async function readPage(page: CrawlPage, practice: Practice, serviceUrls: string
 }
 
 /** Runs Section 4. Needs the crawl; uses authority and AI visibility when present. */
-export async function analyzeContent(practice: Practice, results: AuditResults): Promise<ContentResults> {
+export async function analyzeContent(practice: Practice, results: AuditResults, earlierAudit?: ContentResults | null): Promise<ContentResults> {
   const crawl = results.technical;
   if (!crawl) throw new Error("Run the technical crawl first: the content pass reads the pages it found.");
   const toRead = pagesToRead(crawl.pages);
   const servicePages = toRead.filter((p) => pageTypeOf(p) === "service").map((p) => p.finalUrl.replace(/\/$/, ""));
 
   const spend = { usd: 0 };
+  // Readings we already paid for: this audit's own last run first, then the last audit of the same website.
+  const earlier = new Map<string, PageContent>();
+  for (const p of earlierAudit?.pages ?? []) earlier.set(p.url, p);
+  for (const p of results.content?.pages ?? []) earlier.set(p.url, p);
+  const reused = { pages: 0 };
   const pages: PageContent[] = new Array(toRead.length);
   let next = 0;
   async function worker() {
     while (next < toRead.length) {
       const index = next;
       next += 1;
-      pages[index] = await readPage(toRead[index], practice, servicePages, spend);
+      pages[index] = await readPage(toRead[index], practice, servicePages, spend, earlier, reused);
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
@@ -356,8 +373,22 @@ export async function analyzeContent(practice: Practice, results: AuditResults):
     throw new Error(`Claude couldn't read ${failed.length} of ${pages.length} pages (${failed[0].error?.slice(0, 160)}). Nothing was saved; run the step again.`);
   }
 
-  const site = await analyzeSite(practice, results, pages, servicePages, spend);
-  return { ranAt: new Date().toISOString(), pageModel: PAGE_MODEL, siteModel: SITE_MODEL, pages, site, costUsd: Number(spend.usd.toFixed(4)) };
+  // The plan and strengths are written from everything in the audit. If none of that has changed since
+  // this audit's last run, the same plan stands: writing it again would only reword it (and cost the most).
+  const siteOf = fingerprint(SITE_MODEL, stripLoneSurrogates(sitePrompt(practice, siteFacts(results, pages, servicePages))));
+  const keep = results.content && !results.content.site.error && results.content.siteOf === siteOf ? results.content.site : null;
+  const site = keep ?? (await analyzeSite(practice, results, pages, servicePages, spend));
+  return {
+    ranAt: new Date().toISOString(),
+    pageModel: PAGE_MODEL,
+    siteModel: SITE_MODEL,
+    pages,
+    site,
+    costUsd: Number(spend.usd.toFixed(4)),
+    pagesReused: reused.pages,
+    siteReused: Boolean(keep),
+    siteOf,
+  };
 }
 
 /** The site-level pass on its own: strengths, positioning and the action plan, from pages already read. */

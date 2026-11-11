@@ -15,6 +15,7 @@ import { SIDE_SERVICES, standing } from "@/lib/website-audit/competitors";
 import { doctorKeys } from "@/lib/website-audit/doctors";
 import { crawlLimits, jobOf, notChecked, shortTitle, technicalFindings, type FindingDetail } from "@/lib/website-audit/findings";
 import { PLATFORM_LABEL } from "@/lib/website-audit/platforms";
+import { promotedServicesWithoutPage } from "@/lib/website-audit/services";
 import { realTypos } from "@/lib/website-audit/typos";
 import type { AiPlatform, AuditResults, CompetitorListing, CompetitorResults, Evidence, PageContent, ServiceComparison, WebsiteAuditRow } from "@/lib/website-audit/types";
 
@@ -502,6 +503,8 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
       });
     }
 
+  // Services the site names on several pages (the menu, usually) that have no page: counted, so it's the same on every run.
+  const missingServices = promotedServicesWithoutPage(pages, new Map((t?.pages ?? []).map((p) => [p.finalUrl, p.title ?? ""])));
   const blogPosts = pages.filter((p) => p.pageType === "blog_post" && p.blog);
   // Posts the site links to but leaves out of its sitemap: the content step never read them, so say so.
   const unreadPosts = (t?.notInSitemap ?? []).filter((g) => g.finalStatus === 200 && !g.softError && /\/(blog|news|posts?|articles?)\/[^/]+/i.test(g.url) && !/hello-world/i.test(g.url));
@@ -1380,13 +1383,13 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
               </li>
             ))}
           </ul>
-          {c.site.servicesWithoutPage.length > 0 && (
+          {missingServices.length > 0 && (
             <div className="rounded-xl border-l-4 bg-slate-50 px-3 py-2" style={{ borderColor: "#d97706", breakInside: "avoid" }}>
               <p className="text-[13px] text-slate-800">
-                <strong>Mentioned on your site but with no page of their own:</strong> {c.site.servicesWithoutPage.join(", ")}.
+                <strong>Named across your site but with no page of their own:</strong> {missingServices.join(", ")}.
               </p>
               <p className="mt-1 text-xs text-slate-600">
-                When someone asks AI for &quot;{c.site.servicesWithoutPage[0].toLowerCase()} near {town}&quot;, a dedicated page is what gets you recommended.
+                When someone asks AI for &quot;{missingServices[0].toLowerCase()} near {town}&quot;, a dedicated page is what gets you recommended.
               </p>
             </div>
           )}

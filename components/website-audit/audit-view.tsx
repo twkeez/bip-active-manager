@@ -7,6 +7,7 @@ import { StatTile, StatTiles } from "@/components/ui/stat-tile";
 import { crawlLimits, notChecked, technicalFindings } from "@/lib/website-audit/findings";
 import { AI_PLATFORMS, PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import { practiceMatchProblems } from "@/lib/website-audit/practice-match";
+import { promotedServicesWithoutPage } from "@/lib/website-audit/services";
 import { realTypos } from "@/lib/website-audit/typos";
 import {
   AUDIT_STAGES,
@@ -41,6 +42,50 @@ const STAGE_LABEL: Record<AuditStage, { title: string; detail: string }> = {
 };
 
 const num = (n: number | null) => (n == null ? "—" : n.toLocaleString());
+
+const money = (usd: number) => (usd < 1 ? `${Math.max(1, Math.round(usd * 100))}¢` : `$${usd.toFixed(2)}`);
+/** What six AI tools cost per question, from the audits run so far ($1.19 for 17 questions, $1.68 for 24). */
+const AI_COST_PER_QUESTION = 0.07;
+
+/**
+ * What pressing a step's button will cost, said on the button itself. `paid`
+ * steps spend prepaid credits (DataForSEO or the Anthropic API); a step that
+ * costs a dollar or more asks before it runs again.
+ */
+function stageCost(stage: AuditStage, audit: WebsiteAuditRow): { label: string; paid: boolean; note?: string; confirm?: string } {
+  const done = audit.stage_status?.[stage]?.status === "done";
+  if (stage === "crawl") return { label: "Free", paid: false };
+  if (stage === "authority") return { label: "about 4¢", paid: true, note: "DataForSEO credits." };
+  if (stage === "competitors") return { label: "about 1¢", paid: true, note: "DataForSEO credits." };
+  if (stage === "ai-visibility") {
+    const v = audit.results.aiVisibility;
+    const asked = v?.prompts.length ?? 24;
+    if (v && !v.complete) {
+      const left = v.missing ?? 0;
+      return { label: `up to ${money((left / 6) * AI_COST_PER_QUESTION)}`, paid: true, note: `DataForSEO credits. Only asks for the ${left} answers that are still missing.` };
+    }
+    const cost = v?.costUsd ?? asked * AI_COST_PER_QUESTION;
+    return {
+      label: `about ${money(cost)}`,
+      paid: true,
+      note: done
+        ? `DataForSEO credits. This is the most expensive step: running it again asks all ${asked} questions again and pays the full amount again. Only needed when you want fresh AI answers.`
+        : `DataForSEO credits. The most expensive step: about ${asked} questions to six AI tools, at roughly 7¢ a question.`,
+      confirm: done
+        ? `Run AI visibility again?\n\nThis asks all ${asked} questions again and costs about ${money(cost)} in DataForSEO credits.\n\nNothing else in the audit needs it: the report, the score and the worklist all use the answers you already have${v ? ` from ${new Date(v.ranAt).toLocaleDateString()}` : ""}.`
+        : undefined,
+    };
+  }
+  // Content: pages that haven't changed since they were last read aren't read (or charged) again.
+  if (audit.results.content) {
+    return {
+      label: "0¢ to about 30¢",
+      paid: true,
+      note: "Anthropic (Claude) credits. Pages that haven't changed since they were last read are free. Only changed pages and a new plan are charged, and nothing at all if nothing changed.",
+    };
+  }
+  return { label: "about 25–30¢", paid: true, note: "Anthropic (Claude) credits. The first reading of every page, plus the plan." };
+}
 
 function CompetitorsPanel({ c }: { c: CompetitorResults }) {
   return (
@@ -366,7 +411,7 @@ function ContentPanel({ c, crawl }: { c: ContentResults; crawl?: TechnicalCrawl 
         </div>
         <div className="rounded-xl border border-bip-border bg-bip-card p-4 text-xs text-bip-muted">
           <p className="text-sm font-semibold text-bip-text">Services &amp; trust</p>
-          <p className="mt-1">Named without a page: {site.servicesWithoutPage.join(", ") || "none"}</p>
+          <p className="mt-1">Named across the site without a page (counted): {promotedServicesWithoutPage(c.pages, new Map((crawl?.pages ?? []).map((p) => [p.finalUrl, p.title ?? ""]))).join(", ") || "none"}</p>
           <p>Menu items going nowhere: {site.menuItemsGoingNowhere.join(", ") || "none"}</p>
           <p>Hours that disagree: {site.hoursContradictions.join("; ") || "none"}</p>
           <p>Accreditations shown: {accreditations.join(", ") || "none"}</p>
@@ -404,6 +449,8 @@ function ContentPanel({ c, crawl }: { c: ContentResults; crawl?: TechnicalCrawl 
       </details>
       <p className="text-[11px] text-bip-muted">
         Pages read by {c.pageModel}; strategy by {c.siteModel}; {new Date(c.ranAt).toLocaleString()}.
+        {c.pagesReused != null &&
+          ` Last run: ${c.pagesReused} of ${c.pages.length} page readings kept from before (those pages hadn't changed), ${c.siteReused ? "plan kept too" : "new plan written"}; it cost ${c.costUsd > 0 ? money(c.costUsd) : "nothing"}.`}
       </p>
     </section>
   );
@@ -498,11 +545,18 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
       <section className="space-y-2">
         {AUDIT_STAGES.map((stage) => {
           const state = audit.stage_status?.[stage];
+          const cost = stageCost(stage, audit);
           return (
             <div key={stage} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-bip-border bg-bip-card p-4">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-bip-text">{STAGE_LABEL[stage].title}</p>
                 <p className="text-xs text-bip-muted">{STAGE_LABEL[stage].detail}</p>
+                <p className="mt-1 text-xs">
+                  <span className={`font-semibold ${cost.paid ? "text-amber-500" : "text-emerald-500"}`}>
+                    {cost.paid ? `Costs ${cost.label} each time you press the button.` : "Free: run it as often as you like."}
+                  </span>{" "}
+                  {cost.note && <span className="text-bip-muted">{cost.note}</span>}
+                </p>
                 {state && (
                   <p className={`mt-1 text-xs ${state.status === "failed" ? "text-red-300" : "text-bip-muted"}`}>
                     {state.status === "done" ? "Done" : state.status === "failed" ? `Failed: ${state.error}` : "Running"} ·{" "}
@@ -513,11 +567,15 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
               <button
                 type="button"
                 disabled={running !== null}
-                onClick={() => void run(stage)}
+                onClick={() => {
+                  // A step that costs real money to repeat asks first.
+                  if (cost.confirm && !window.confirm(cost.confirm)) return;
+                  void run(stage);
+                }}
                 className="inline-flex items-center gap-1.5 rounded-md bg-bip-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
               >
                 {running === stage ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                {running === stage ? "Running… (up to 5 minutes)" : state?.status === "done" ? "Run again" : "Run"}
+                {running === stage ? "Running… (up to 5 minutes)" : `${state?.status === "done" ? "Run again" : "Run"} · ${cost.paid ? cost.label : "free"}`}
               </button>
             </div>
           );

@@ -334,6 +334,12 @@ export type PageContent = {
   /** An existing tagline kept as a line under the new H1. */
   secondaryLine: string | null;
   error: string | null;
+  /**
+   * A fingerprint of exactly what Claude was shown for this page (the page as
+   * crawled, the instructions and the model). The same fingerprint next time
+   * means the same page, so the reading is kept instead of paid for again.
+   */
+  readOf?: string;
 };
 
 /** Each claim cites what supports it: a page URL or a review. */
@@ -361,6 +367,12 @@ export type ContentResults = {
   pages: PageContent[];
   site: SiteContent;
   costUsd: number;
+  /** Pages whose earlier reading was kept because the page hadn't changed (runs from 2026-11-11). */
+  pagesReused?: number;
+  /** True when the plan and strengths were kept too: nothing they're written from had changed. */
+  siteReused?: boolean;
+  /** Fingerprint of everything the plan was written from. */
+  siteOf?: string;
 };
 
 export type SubScore = {

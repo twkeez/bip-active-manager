@@ -1,5 +1,6 @@
 import weightsConfig from "@/lib/website-audit/config/score-weights.json";
 import { doctorKeys } from "@/lib/website-audit/doctors";
+import { promotedServicesWithoutPage } from "@/lib/website-audit/services";
 import type { AuditResults, CitabilityScore, SubScore } from "@/lib/website-audit/types";
 
 // Section 5: the citability score, worked out from the crawl, authority and
@@ -96,11 +97,12 @@ export function computeScore(results: AuditResults, config = weightsConfig): Cit
   // Services: named services that have a page with real content.
   const servicePages = pages.filter((p) => p.pageType === "service");
   const withContent = servicePages.filter((p) => (crawlByUrl.get(p.url)?.wordCount ?? 0) >= 300).length;
-  const missing = results.content?.site.servicesWithoutPage ?? [];
+  // Counted from the page readings, not taken from the site pass, so it can't change between runs of an unchanged site.
+  const missing = promotedServicesWithoutPage(results.content?.pages ?? [], new Map((results.technical?.pages ?? []).map((p) => [p.finalUrl, p.title ?? ""])));
   const named = servicePages.length + missing.length;
   add("services", "Your services", named ? withContent / named : 0, [
     `${servicePages.length} ${servicePages.length === 1 ? "service has" : "services have"} their own page; ${withContent} of those ${withContent === 1 ? "goes" : "go"} into real detail (300+ words).`,
-    missing.length ? `Mentioned but with no page of their own: ${missing.join(", ")}.` : "Every service you mention has its own page.",
+    missing.length ? `Named across your site but with no page of their own: ${missing.join(", ")}.` : "Every service your site promotes has its own page.",
   ]);
 
   // Blog / answer content.

@@ -70,9 +70,20 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       );
       dataForSeoCost += results.aiVisibility.costUsd - (resume?.costUsd ?? 0);
     } else if ((stage as AuditStage) === "content") {
+      // Page readings from the last audit of this website are kept for pages that haven't changed since.
+      const { data: before, error: beforeError } = await admin
+        .from("website_audits")
+        .select("results")
+        .eq("domain", audit.domain)
+        .neq("id", audit.id)
+        .not("score", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (beforeError) throw new Error(`Couldn't look up the last audit of this website: ${beforeError.message}`);
       results.content = await analyzeContent(
         { practiceName: audit.practice_name, city: audit.city, state: audit.state, domain: audit.domain },
         results,
+        (before?.[0]?.results as WebsiteAuditRow["results"] | undefined)?.content ?? null,
       );
       aiCost += results.content.costUsd;
     }

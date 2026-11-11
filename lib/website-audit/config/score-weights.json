@@ -1,6 +1,6 @@
 {
   "_about": "Citability score weights (0-100 total) and bands, editable without touching code. Each part's rules are in lib/website-audit/score.ts. 2026-10-28: outside authority split into reviews 12 and domain rank 8 (Tom).",
-  "version": "2026-11-11",
+  "version": "2026-11-11b",
   "weights": {
     "reviews": 12,
     "domainRank": 8,
