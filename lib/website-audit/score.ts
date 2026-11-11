@@ -107,10 +107,11 @@ export function computeScore(results: AuditResults, config = weightsConfig): Cit
   const b = blogPosts.map((p) => p.blog).filter((x): x is NonNullable<typeof x> => Boolean(x));
   const loops = t?.slashVariants.loops.length ?? 0;
   const share = (f: (x: (typeof b)[number]) => boolean) => (b.length ? b.filter(f).length / b.length : 0);
-  const blogParts = [share((x) => x.questionHeading), share((x) => Boolean(x.authorNamed)), share((x) => Boolean(x.dateShown)), share((x) => x.linksToServicePage)];
-  add("blog", "Your blog", b.length ? blogParts.reduce((x, y) => x + y, 0) / 4 - (loops ? 0.1 : 0) : 0, [
+  // Who a post is signed by isn't scored or reported (dropped 2026-11-11).
+  const blogParts = [share((x) => x.questionHeading), share((x) => Boolean(x.dateShown)), share((x) => x.linksToServicePage)];
+  add("blog", "Your blog", b.length ? blogParts.reduce((x, y) => x + y, 0) / blogParts.length - (loops ? 0.1 : 0) : 0, [
     `${b.length} blog ${b.length === 1 ? "post" : "posts"}.`,
-    `${pct(blogParts[0])} ask a question in the headline, ${pct(blogParts[1])} name an author, ${pct(blogParts[2])} show a date, ${pct(blogParts[3])} link to a service page.`,
+    `${pct(blogParts[0])} ask a question in the headline, ${pct(blogParts[1])} show a date, ${pct(blogParts[2])} link to a service page.`,
     ...(loops ? [`Points taken off: ${loops} posts break when the address is typed without the final "/".`] : []),
   ]);
 
