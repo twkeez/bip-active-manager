@@ -11,7 +11,7 @@ export default function ReportPrintShell({
   title: string;
   warnings?: string[];
   /** The report is written differently for a client and a prospect: which this is, and links to each. */
-  versions?: { current: "client" | "prospect"; client: string; prospect: string };
+  versions?: { current: string; links: { key: string; label: string; href: string }[] };
   children: ReactNode;
 }) {
   // A report that may be about the wrong practice doesn't open the print dialog by itself.
@@ -59,10 +59,19 @@ export default function ReportPrintShell({
         <div className="space-y-1 text-xs text-gray-500">
           {versions && (
             <p>
-              Written for a <strong>{versions.current}</strong>.{" "}
-              <a href={versions.current === "client" ? versions.prospect : versions.client} className="underline">
-                Switch to the {versions.current === "client" ? "prospect" : "client"} version
-              </a>
+              Version:{" "}
+              {versions.links.map((v, i) => (
+                <span key={v.key}>
+                  {i > 0 && " · "}
+                  {v.key === versions.current ? (
+                    <strong>{v.label}</strong>
+                  ) : (
+                    <a href={v.href} className="underline">
+                      {v.label}
+                    </a>
+                  )}
+                </span>
+              ))}
             </p>
           )}
           <p>

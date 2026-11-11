@@ -13,7 +13,7 @@ import {
 } from "@/lib/website-audit/compare";
 import { SIDE_SERVICES, standing } from "@/lib/website-audit/competitors";
 import { doctorKeys } from "@/lib/website-audit/doctors";
-import { crawlLimits, notChecked, technicalFindings, type FindingDetail } from "@/lib/website-audit/findings";
+import { crawlLimits, jobOf, notChecked, shortTitle, technicalFindings, type FindingDetail } from "@/lib/website-audit/findings";
 import { PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import { realTypos } from "@/lib/website-audit/typos";
 import type { AiPlatform, AuditResults, CompetitorListing, CompetitorResults, Evidence, PageContent, ServiceComparison, WebsiteAuditRow } from "@/lib/website-audit/types";
@@ -424,13 +424,19 @@ function distinct<T>(items: T[]): T[] {
  * "your web developer" is Beyond Indigo and the plan ends with what we'll do
  * and what we need from them. A prospect has someone else looking after it.
  */
-export type Audience = "client" | "prospect";
+export type Audience = "client" | "prospect" | "team";
+
+/** A box to tick on the printed worklist. */
+const Tick = () => <span className="mt-0.5 inline-block h-3.5 w-3.5 shrink-0 rounded border border-slate-400" aria-hidden="true" />;
 
 const DEV_STEP = /^(your )?web developer:\s*/i;
 const OWNER_STEP = /^you:\s*/i;
 
 export default function AuditReport({ audit, previous, audience }: { audit: WebsiteAuditRow; previous: PreviousRun | null; audience?: Audience }) {
-  const forClient = (audience ?? (audit.client_id != null ? "client" : "prospect")) === "client";
+  const mode: Audience = audience ?? (audit.client_id != null ? "client" : "prospect");
+  // The team worklist is ours too, so it speaks as Beyond Indigo. Only the client's own copy leaves the developer detail out.
+  const forClient = mode !== "prospect";
+  const lean = mode === "client";
   /** Plan wording as saved ("Your web developer: …") read for this audience. */
   const voice = (text: string) =>
     forClient
@@ -575,6 +581,204 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
 
   let n = 0;
   const num = () => String(++n).padStart(2, "0");
+
+  if (mode === "team") {
+    type Job = { job: string; note?: string; items?: string[]; linkedFrom?: string[] };
+    const siteJobs: { job: string; text: string; fix?: string; details?: FindingDetail[] }[] = [];
+    const pageJobs = new Map<string, Job[]>();
+    const howTo = new Map<string, string>();
+    const onPage = (url: string, job: Job) => pageJobs.set(url, [...(pageJobs.get(url) ?? []), job]);
+    for (const f of findings.filter((x) => x.tone !== "good")) {
+      const { job, scope } = jobOf(f);
+      if (scope === "site" || !f.details?.length) {
+        siteJobs.push({ job, text: f.text, fix: f.fix, details: f.details });
+        continue;
+      }
+      if (f.fix) howTo.set(job, f.fix);
+      // A place that isn't one page ("On 27 pages (the menu)") is a fix-once job.
+      const loose = f.details.filter((d) => !d.url);
+      for (const d of f.details) if (d.url) onPage(d.url, { job, note: d.note, items: d.items, linkedFrom: d.linkedFrom });
+      if (loose.length) siteJobs.push({ job, text: f.text, fix: f.fix, details: loose });
+    }
+    const spellingOnce = typoDetails.filter((d) => !d.url);
+    for (const d of typoDetails) if (d.url) onPage(d.url, { job: "Spelling", note: d.note });
+    if (spellingOnce.length) siteJobs.push({ job: "Spelling", text: "Mistakes that show on several pages but are fixed in one place.", details: spellingOnce });
+    // Headline suggestions: not for blog posts (the plan wants those as questions) or policy pages.
+    for (const p of pages) {
+      if (!p.recommendedH1 || p.recommendedH1 === p.currentH1 || p.pageType === "blog_post" || /privacy|terms|polic/i.test(p.url)) continue;
+      onPage(p.url, { job: "Suggested headline (once the client agrees)", note: `Change "${p.currentH1 ?? "(none)"}" to "${p.recommendedH1}".${p.secondaryLine ? ` Keep underneath: "${p.secondaryLine}"` : ""}` });
+    }
+    const isHome = (u: string) => {
+      try {
+        return new URL(u).pathname === "/";
+      } catch {
+        return false;
+      }
+    };
+    const pageList = [...pageJobs.entries()].sort(([a], [b]) => Number(isHome(b)) - Number(isHome(a)) || a.localeCompare(b));
+    const planJobs = fixes.map((f) => ({ ...f, ours: (f.steps ?? []).filter((x) => DEV_STEP.test(x)), theirs: (f.steps ?? []).filter((x) => OWNER_STEP.test(x)) }));
+    const limits = t ? crawlLimits(t) : null;
+    const jobCount = pageList.reduce((sum, [, jobs]) => sum + jobs.length, 0);
+    return (
+      <article className="mx-auto max-w-3xl space-y-8 text-slate-700">
+        <header className="rounded-2xl border-2 px-6 py-5" style={{ borderColor: INDIGO, breakInside: "avoid" }}>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: PINK }}>
+            Team worklist · internal, not for the client
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold" style={{ fontFamily: "var(--font-heading)", color: "#0f172a" }}>
+            {audit.practice_name}
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            {audit.domain}
+            {location && ` · ${location}`} · audit #{audit.id}
+            {t && ` · website checked ${dateOf(t.crawledAt)}`}
+          </p>
+          <p className="mt-3 text-[13px] text-slate-700">
+            {`${planJobs.reduce((sum, f) => sum + f.ours.length, 0)} jobs from the action plan · ${siteJobs.length} to fix once for the whole site · ${jobCount} on ${pageList.length} ${pageList.length === 1 ? "page" : "pages"}`}
+          </p>
+          <p className="mt-1 text-[12px] text-slate-600">Everything here comes from the same audit as the client&apos;s report. Tick each job off as it&apos;s done, then run the technical crawl again to confirm.</p>
+        </header>
+
+        {planJobs.length > 0 && (
+          <Section n={num()} title="Jobs from the action plan" intro="What the client's report says Beyond Indigo will do, in the plan's order. Jobs marked 'client' wait on them.">
+            {planJobs.map((f) => (
+              <div key={f.rank} className="rounded-xl border border-slate-200 px-4 py-3" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
+                <p className="text-sm font-semibold text-slate-900" style={{ breakAfter: "avoid" }}>
+                  {f.rank}. {voice(f.fix)}
+                </p>
+                <ul className="mt-1.5 space-y-1.5 text-[13px] leading-snug">
+                  {f.ours.map((step) => (
+                    <li key={step} className="flex gap-2" style={{ breakInside: "avoid" }}>
+                      <Tick />
+                      <span>{step.replace(DEV_STEP, "").replace(/^./, (ch) => ch.toUpperCase())}</span>
+                    </li>
+                  ))}
+                  {f.theirs.map((step) => (
+                    <li key={step} className="flex gap-2 text-slate-600" style={{ breakInside: "avoid" }}>
+                      <span className="mt-0.5 shrink-0 rounded bg-slate-100 px-1 text-[11px] font-semibold uppercase text-slate-600">client</span>
+                      <span>{voice(step.replace(OWNER_STEP, "")).replace(/^./, (ch) => ch.toUpperCase())}</span>
+                    </li>
+                  ))}
+                </ul>
+                {f.evidence.length > 0 && <EvidenceList items={f.evidence} locate={locate} />}
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {siteJobs.length > 0 && (
+          <Section n={num()} title="Fix once for the whole site" intro="Server, template, menu and sitemap settings: one change each, however many pages they touch.">
+            {siteJobs.map((j, i) => (
+              <div key={i} className="rounded-xl border border-slate-200 px-4 py-3" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
+                <p className="flex gap-2 text-sm font-semibold text-slate-900" style={{ breakAfter: "avoid" }}>
+                  <Tick />
+                  <span>{j.job}</span>
+                </p>
+                <p className="mt-1 text-[13px] text-slate-700">{j.text}</p>
+                {j.fix && (
+                  <p className="mt-0.5 text-[12px] text-slate-600">
+                    <span className="font-semibold text-slate-700">How to fix:</span> {j.fix}
+                  </p>
+                )}
+                {j.details && <FindingDetails details={j.details} />}
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {pageList.length > 0 && (
+          <Section n={num()} title="Page by page" intro="Every job that belongs to one page, so each page is opened once. The home page first, then in address order.">
+            {howTo.size > 0 && (
+              <div className="rounded-xl bg-slate-50 px-4 py-3 text-[12px] leading-relaxed text-slate-600" style={{ breakInside: "avoid" }}>
+                <p className="font-semibold text-slate-700">How to fix each kind of job</p>
+                <ul className="mt-1 space-y-0.5">
+                  {[...howTo.entries()].map(([job, fix]) => (
+                    <li key={job}>
+                      <span className="font-medium text-slate-700">{job}:</span> {fix}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {pageList.map(([url, jobs]) => (
+              <div key={url} className="rounded-xl border border-slate-200 px-4 py-3" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
+                <p className="text-sm font-semibold text-slate-900" style={{ breakAfter: "avoid" }}>
+                  {shortTitle(crawled.get(url)?.title ?? t?.notInSitemap?.find((g) => g.url === url)?.title) ?? shortUrl(url).replace(/^[^/]+/, "") } <span className="text-[12px] font-normal"><UrlLink url={url} /></span>
+                </p>
+                <ul className="mt-1.5 space-y-1.5 text-[12px] leading-relaxed text-slate-600">
+                  {jobs.map((j, i) => (
+                    <li key={i} className="flex gap-2" style={{ breakInside: (j.items?.length ?? 0) > 3 ? "auto" : "avoid" }}>
+                      <Tick />
+                      <div className="min-w-0">
+                        <span className="font-semibold text-slate-800">{j.job}</span>
+                        {j.note && (
+                          <>
+                            {" · "}
+                            <LinkedText text={j.note} />
+                          </>
+                        )}
+                        {j.items && j.items.length > 0 && (
+                          <ol className="ml-4 list-decimal">
+                            {j.items.map((item, k) => (
+                              <li key={k} style={{ breakInside: "avoid" }}>
+                                <LinkedText text={item} />
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                        {j.linkedFrom && j.linkedFrom.length > 0 && (
+                          <p>
+                            Linked from:{" "}
+                            {j.linkedFrom.map((u, k) => (
+                              <span key={u}>
+                                {k > 0 && " · "}
+                                <LinkedText text={u} />
+                              </span>
+                            ))}
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {t && limits && (
+          <Section n={num()} title="What this check covered" intro="So nobody assumes the lists above are everything.">
+            <div className="rounded-xl border border-slate-200 px-4 py-3 text-[12px] leading-relaxed text-slate-600" style={{ breakInside: "avoid" }}>
+              {limits.hit.length > 0 ? (
+                <>
+                  <p className="font-semibold text-amber-700">Cut short on this run, so some problems may be missing:</p>
+                  <ul className="list-disc pl-4">
+                    {limits.hit.map((l) => (
+                      <li key={l}>
+                        <LinkedText text={l} />
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p>{limits.recorded ? "Nothing was cut short on this run." : "This crawl ran before limits were recorded; run the technical crawl again to see whether anything was cut short."}</p>
+              )}
+              <p className="mt-1 font-semibold text-slate-700">Not checked, or not certain:</p>
+              <ul className="list-disc pl-4">
+                {notChecked(t).map((l) => (
+                  <li key={l}>{l}</li>
+                ))}
+              </ul>
+              <p className="mt-1">The page-by-page numbers (status, headlines, word counts) are in the spreadsheet download on the audit screen.</p>
+            </div>
+          </Section>
+        )}
+        <p className="border-t border-slate-200 pt-3 text-center text-[12px] text-slate-600">
+          Beyond Indigo Pets · team worklist · audit #{audit.id}, {runDate}
+        </p>
+      </article>
+    );
+  }
 
   return (
     <article className="mx-auto max-w-3xl space-y-8 text-slate-700">
@@ -1076,7 +1280,7 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
         <Section
           n={num()}
           title="Website health"
-          intro={`Things visitors rarely notice but Google and AI tools do. We checked every page you list for Google on ${dateOf(t.crawledAt)}. Red items need fixing; amber items are worth tidying up; green is fine. Each one says how to fix it and lists every page affected, so ${forClient ? "our team" : "your web developer"} can go straight to it.`}
+          intro={`Things visitors rarely notice but Google and AI tools do. We checked every page you list for Google on ${dateOf(t.crawledAt)}. Red items need fixing; amber items are worth tidying up; green is fine. ${lean ? "Our web team works from a page-by-page list of every one of these, so there's nothing here you need to do." : `Each one says how to fix it and lists every page affected, so ${forClient ? "our team" : "your web developer"} can go straight to it.`}`}
         >
           <ul className="space-y-2">
             {findings.map((f) => (
@@ -1087,17 +1291,17 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
                 style={{ borderColor: f.tone === "bad" ? "#dc2626" : f.tone === "warn" ? "#d97706" : "#059669", breakInside: detailLines(f.details) > 4 ? "auto" : "avoid" }}
               >
                 {/* Keep the line with what's under it; a line with nothing under it must not hold on to the next item. */}
-                <p className="text-[13px] text-slate-800" style={f.fix || f.details?.length ? { breakAfter: "avoid" } : undefined}>{f.text}</p>
-                {f.fix && (
+                <p className="text-[13px] text-slate-800" style={!lean && (f.fix || f.details?.length) ? { breakAfter: "avoid" } : undefined}>{f.text}</p>
+                {!lean && f.fix && (
                   <p className="mt-0.5 text-[12px] text-slate-600" style={f.details?.length ? { breakAfter: "avoid" } : undefined}>
                     <span className="font-semibold text-slate-700">How to fix:</span> {f.fix}
                   </p>
                 )}
-                {f.details && <FindingDetails details={f.details} />}
+                {!lean && f.details && <FindingDetails details={f.details} />}
               </li>
             ))}
           </ul>
-          {(() => {
+          {!lean && (() => {
             const limits = crawlLimits(t);
             return (
               <div className="rounded-xl border border-slate-200 px-3 py-2 text-[12px] leading-relaxed text-slate-600" style={{ breakInside: "avoid" }}>
@@ -1234,7 +1438,7 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
             <Check
               ok={uniqueTypos.length === 0}
               label={uniqueTypos.length ? `${uniqueTypos.length} spelling mistakes to fix` : "No spelling mistakes found"}
-              details={typoDetails}
+              details={lean ? uniqueTypos.map((ty) => ({ label: `"${ty.text}" should be "${ty.suggestion}"` })) : typoDetails}
             />
           </ul>
         </Section>
@@ -1291,11 +1495,11 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
         </Section>
       )}
 
-      {c && (
+      {c && !lean && (
         <Section
           n="Appendix A"
-          title="Suggested headline for every page"
-          intro="Each page's main headline (the big text at the top) is one of the first things Google and AI read. We suggest a headline for every page that says what it is, who it's for, and where."
+          title="Suggested headline for each main page"
+          intro="Each page's main headline (the big text at the top) is one of the first things Google and AI read. We suggest a headline for each main page that says what it is, who it's for, and where. Blog posts are left out: their headlines work best as the question a pet owner would ask."
         >
           <table className="w-full text-xs">
             <thead>
@@ -1306,7 +1510,8 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
               </tr>
             </thead>
             <tbody>
-              {pages.map((p) => (
+              {/* Not blog posts (the plan asks for those as questions) or policy pages (nobody searches for them). */}
+              {pages.filter((p) => p.pageType !== "blog_post" && !/privacy|terms|polic/i.test(p.url)).map((p) => (
                 <tr key={p.url} className="border-b border-slate-100 align-top" style={{ breakInside: "avoid" }}>
                   <td className="py-1.5 pr-2 text-[12px] text-slate-600">{shortUrl(p.url)}</td>
                   <td className="py-1.5 pl-2 text-slate-700">{p.currentH1 ?? "(none)"}</td>
@@ -1321,7 +1526,7 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
         </Section>
       )}
 
-      {t && (
+      {t && !lean && (
         <Section
           n="Appendix B"
           title={forClient ? "Technical details for our web team" : "Technical details for your web developer"}
@@ -1366,7 +1571,7 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
         </Section>
       )}
 
-      <Section n="Appendix C" title="How we did this audit">
+      <Section n={lean ? "Appendix" : "Appendix C"} title="How we did this audit">
         <dl className="grid gap-x-4 gap-y-2 text-[13px] sm:grid-cols-[11rem_1fr]">
           <dt className="font-medium text-slate-800">When</dt>
           <dd>

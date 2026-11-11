@@ -145,6 +145,44 @@ export function crawlLimits(t: TechnicalCrawl): { hit: string[]; recorded: boole
   return { hit, recorded: false };
 }
 
+/**
+ * For the team worklist: a short name for the job behind a finding, and whether
+ * it's fixed page by page or once for the whole site (a server or template
+ * setting). Keyed on the finding's own "how to fix" line.
+ */
+const JOBS: [RegExp, string, "page" | "site"][] = [
+  [/^Either the site has no sitemap/, "Sitemap can't be read", "site"],
+  [/^List each page once/, "List each page once in the sitemap", "site"],
+  [/^Leave tag, category/, "Take listing pages out of the sitemap", "site"],
+  [/server's error log/, "Server error", "page"],
+  [/^Open each page to see the error/, "Shows an error message", "page"],
+  [/^Redirect each one to the closest live page/, "Page not found, but listed in the sitemap", "page"],
+  [/^Fix the redirect rules/, "Redirect loop", "page"],
+  [/redirect the other spelling straight/, "Breaks with or without the final \"/\"", "site"],
+  [/^Change each old link to point straight at the https/, "Goes through http on the way", "site"],
+  [/^One server setting: redirect the second address/, "Loads at two addresses", "site"],
+  [/^Add a canonical tag/, "Add a canonical tag", "site"],
+  [/^Add structured data/, "Add structured data", "site"],
+  [/^Keep one copy as the main headline/, "Main headline appears twice", "page"],
+  [/^Give each page one main headline/, "No main headline (H1)", "page"],
+  [/^Keep one main headline \(H1\) per page/, "More than one main headline (H1)", "page"],
+  [/^Give each page a headline of its own/, "Same headline on several pages", "site"],
+  [/^Write a one or two sentence summary/, "Write a meta description", "page"],
+  [/^Add useful detail to the pages/, "Under 300 words", "page"],
+  [/sitemap/i, "Missing from the sitemap", "site"],
+  [/^Change each link to the right page/, "Broken link", "page"],
+  [/^Change each link to a page that works/, "Dead link to another website", "page"],
+  [/^Upload the file again/, "Dead link to a file", "page"],
+  [/^Delete the sample post/, "Delete the sample post", "page"],
+  [/robots\.txt/, "Add robots.txt", "site"],
+  [/llms\.txt/, "Add llms.txt", "site"],
+  [/mobile viewport/, "Add the mobile viewport setting", "site"],
+];
+export function jobOf(f: Finding): { job: string; scope: "page" | "site" } {
+  const found = JOBS.find(([re]) => re.test(f.fix ?? ""));
+  return found ? { job: found[1], scope: found[2] } : { job: f.text, scope: "site" };
+}
+
 /** Plain-English technical findings (they print in the client report), each traceable to the URLs behind it. */
 const pages = (n: number) => `${n} ${n === 1 ? "page" : "pages"}`;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;

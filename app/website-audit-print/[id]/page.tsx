@@ -44,13 +44,16 @@ export default async function WebsiteAuditPrintPage({ params, searchParams }: { 
   // Written for a client (we look after their site) or a prospect (someone else does).
   // An audit started from a client record is a client's; ?for= switches it.
   const asked = (await searchParams).for;
-  const audience: Audience = asked === "client" || asked === "prospect" ? asked : audit.client_id != null ? "client" : "prospect";
+  const audience: Audience = asked === "client" || asked === "prospect" || asked === "team" ? asked : audit.client_id != null ? "client" : "prospect";
 
   return (
     <ReportPrintShell
-      title={`${audit.practice_name} · Website, SEO & AI Search Audit · Beyond Indigo Pets`}
+      title={audience === "team" ? `${audit.practice_name} · Team worklist · Beyond Indigo Pets` : `${audit.practice_name} · Website, SEO & AI Search Audit · Beyond Indigo Pets`}
       warnings={practiceMatchProblems(audit, audit.results).map((p) => p.detail)}
-      versions={{ current: audience, client: `/website-audit-print/${audit.id}?for=client`, prospect: `/website-audit-print/${audit.id}?for=prospect` }}
+      versions={{
+        current: audience,
+        links: (["client", "prospect", "team"] as const).map((v) => ({ key: v, label: v === "team" ? "Team worklist" : `${v === "client" ? "Client" : "Prospect"} report`, href: `/website-audit-print/${audit.id}?for=${v}` })),
+      }}
     >
       <AuditReport audit={audit} previous={previous} audience={audience} />
     </ReportPrintShell>

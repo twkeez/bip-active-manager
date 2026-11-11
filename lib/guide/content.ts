@@ -472,6 +472,7 @@ export const GUIDE: Guide = {
           youCan: [
             "Start an audit for a client, or any prospect's website",
             "Run each step and see its findings, each traced to the URLs behind it",
+            "Print the Team worklist for whoever is fixing the site",
             "Open the branded report (Report (PDF)) and save it as a PDF to send: summary, the ranked action plan, AI visibility by platform, trust signals, technical findings, and a methodology appendix with the exact questions asked",
             "Compare the practice's Google rating and review count with the vets near it, and, when it also offers grooming, boarding, daycare or training, with the businesses that only do that",
             "Re-run a domain later: the report adds a \"last run\" column so you can show what moved (it compares with the last audit from at least 20 hours earlier, so same-day re-runs don't count)",
@@ -486,7 +487,8 @@ export const GUIDE: Guide = {
             "The crawl also reads pages your site links to that aren't in the sitemap (one step deep) and checks links to PDFs, images and documents (up to 150). If no sitemap can be read, or the site's server blocks the crawler, the first finding says in red that no pages were checked.",
             "Links to other websites are checked too (up to 200 per crawl, 100 per page). One is reported as dead only when its page is certainly gone or the website no longer exists, checked twice. Sites that refuse crawlers (Facebook and similar) are counted as \"couldn't be confirmed\", not as dead.",
             "Spelling mistakes are reported only when the page really shows those words and the fix is a small correction. Web addresses, abbreviations (\"Hwy\"), hyphen style and accepted spellings (\"preventative\") are left out. If an AI tool couldn't answer some questions, the AI section says how many were left out.",
-            "The report is written for a client or a prospect. An audit started from a client record is a client's: the plan says \"Beyond Indigo:\" for website work, and a \"What happens next\" section lists what we need from the practice and what we'll do. For a prospect it says \"Your web developer\". A link above the report switches between the two.",
+            "The report is written for a client or a prospect. An audit started from a client record is a client's: the plan says \"Beyond Indigo:\" for website work, and a \"What happens next\" section lists what we need from the practice and what we'll do. For a prospect it says \"Your web developer\". Links above the report switch between the versions.",
+            "Team worklist (button on the audit screen, or the third version link): an internal printout of every job with tick boxes. It lists the action-plan jobs for us (and which wait on the client), the fix-once jobs for the whole site, then every page with its broken links, spelling mistakes and suggested headline. The client's report leaves that detail out and shows each Website health item as one line.",
             "A red \"may be mixing up different practices\" warning means the Google listing links to another website, the listing is in another state, or the home page names another state. The website and listing come from the client record: correct it, then start a new audit. The report won't open the print dialog by itself while the warning stands.",
           ],
         },
