@@ -108,8 +108,18 @@ function okPages(pages: CrawlPage[]): CrawlPage[] {
 }
 
 /** What the crawl never looks at, whatever the site: said in the report so nobody assumes it found everything. */
-export const NOT_CHECKED = [
-  "Links to other websites (a pet insurance company or the AVMA, say) aren't checked.",
+export function notChecked(t: TechnicalCrawl): string[] {
+  return [
+    ...(t.external
+      ? t.external.unverified
+        ? [`${plural(t.external.unverified, "link to another website", "links to other websites")} couldn't be confirmed either way: the other site refused or didn't answer our crawler (Facebook and similar sites always do). We report a link to another website only when its page is certainly gone.`]
+        : []
+      : ["Links to other websites (a pet insurance company or the AVMA, say) weren't checked on this run; run the technical crawl again to check them."]),
+    ...NOT_CHECKED,
+  ];
+}
+
+const NOT_CHECKED = [
   "Links on pages that aren't in your sitemap aren't read; we only check that those pages load.",
   "Links to PDFs, images and other files aren't checked.",
   "Links with a \"?\" in the address (searches, page 2 of a list) are skipped, as are links that only appear once a page's scripts run (some pop-up menus).",
@@ -394,6 +404,38 @@ export function technicalFindings(t: TechnicalCrawl): Finding[] {
         });
       })(),
     });
+  const deadExternal = t.external?.dead ?? [];
+  if (deadExternal.length)
+    list.push({
+      tone: "bad",
+      text: `${plural(deadExternal.length, "link to another website is", "links to other websites are")} dead: the page is gone, or the whole website no longer exists.`,
+      fix: "Change each link to a page that works, or remove it. The page to edit is the one listed first.",
+      // Same shape as the links between your own pages: led by the page the link sits on.
+      details: (() => {
+        const WHY = { "not-found": "is \"page not found\" (404)", gone: "has been removed (410)", "no-site": "is a website that no longer exists" } as const;
+        const byPage = new Map<string, string[]>();
+        for (const d of deadExternal) {
+          const first = d.from[0];
+          const what = first ? describeAnchor({ url: d.url, href: d.url, text: first.text, area: first.area }) : "a link";
+          const line = (context?: string) => `${what.charAt(0).toUpperCase()}${what.slice(1)} goes to ${d.url}, which ${WHY[d.why]}.${context ? ` Search the page for: "${context}"` : ""}`;
+          if (ok.length >= 5 && d.pages >= Math.ceil(ok.length * 0.8)) {
+            const label = `On ${d.pages} pages (${first?.area === "footer" ? "the footer" : first?.area === "menu" ? "the menu" : "the menu or footer"})`;
+            byPage.set(label, [...(byPage.get(label) ?? []), line()]);
+            continue;
+          }
+          for (const f of d.from) {
+            const here = describeAnchor({ url: d.url, href: d.url, text: f.text, area: f.area });
+            byPage.set(f.page, [...(byPage.get(f.page) ?? []), `${here.charAt(0).toUpperCase()}${here.slice(1)} goes to ${d.url}, which ${WHY[d.why]}.${f.context ? ` Search the page for: "${f.context}"` : ""}${d.pages > d.from.length ? ` (It's on ${d.pages} pages in all.)` : ""}`]);
+          }
+        }
+        return [...byPage.entries()].map(([page, bad]): FindingDetail => {
+          const where = page.startsWith("http") ? at(page) : { label: page };
+          return bad.length === 1 ? { ...where, note: bad[0] } : { ...where, note: `${bad.length} dead links:`, items: bad };
+        });
+      })(),
+    });
+  else if (t.external && t.external.checked > t.external.unverified)
+    list.push({ tone: "good", text: `None of the ${t.external.checked - t.external.unverified} links to other websites we could check is dead.` });
   if (s.helloWorldInSitemap || helloWorld.length)
     list.push({
       tone: "warn",

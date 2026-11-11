@@ -13,7 +13,7 @@ import {
 } from "@/lib/website-audit/compare";
 import { SIDE_SERVICES, standing } from "@/lib/website-audit/competitors";
 import { doctorKeys } from "@/lib/website-audit/doctors";
-import { NOT_CHECKED, crawlLimits, technicalFindings, type FindingDetail } from "@/lib/website-audit/findings";
+import { crawlLimits, notChecked, technicalFindings, type FindingDetail } from "@/lib/website-audit/findings";
 import { PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import { realTypos } from "@/lib/website-audit/typos";
 import type { AiPlatform, AuditResults, CompetitorListing, CompetitorResults, Evidence, PageContent, ServiceComparison, WebsiteAuditRow } from "@/lib/website-audit/types";
@@ -881,7 +881,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               <div className="rounded-xl border border-slate-200 px-3 py-2 text-[11px] leading-relaxed text-slate-600" style={{ breakInside: "avoid" }}>
                 <p className="font-semibold text-slate-700">What this check covers</p>
                 <p>
-                  Every page in your sitemap, every link between your own pages on them, and every address those links point to.
+                  Every page in your sitemap, every link between your own pages on them, and every address those links point to{t.external ? `, plus ${t.external.checked} links to other websites` : ""}.
                   {limits.hit.length === 0 && limits.recorded && " Nothing was cut short on this run."}
                 </p>
                 {limits.hit.length > 0 && (
@@ -897,9 +897,9 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                   </>
                 )}
                 {!limits.recorded && <p className="mt-1">This crawl ran before we recorded every limit; run the technical crawl again to see whether anything was cut short.</p>}
-                <p className="mt-1 font-semibold text-slate-700">Not checked yet:</p>
+                <p className="mt-1 font-semibold text-slate-700">Not checked, or not certain:</p>
                 <ul className="list-disc pl-4">
-                  {NOT_CHECKED.map((l) => (
+                  {notChecked(t).map((l) => (
                     <li key={l}>{l}</li>
                   ))}
                 </ul>
