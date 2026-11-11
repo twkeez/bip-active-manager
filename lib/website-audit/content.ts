@@ -261,7 +261,8 @@ function siteFacts(results: AuditResults, pages: PageContent[], servicePages: st
         sitesAiCitesInstead: v.topCitedDomains.slice(0, 8),
       },
       competitors: competitorFacts(results),
-      pages: pages.map(({ error, ...p }) => p),
+      // Who signs a blog post is left out on purpose: the report doesn't cover it, so the plan mustn't either.
+      pages: pages.map(({ error, ...p }) => (p.blog ? { ...p, blog: { questionHeading: p.blog.questionHeading, dateShown: p.blog.dateShown, linksToServicePage: p.blog.linksToServicePage } } : p)),
       googleReviews: (a?.google.reviews ?? []).map((r, i) => ({ id: `review ${i + 1}`, rating: r.rating, date: r.date?.slice(0, 10), text: r.text })),
     },
     null,
@@ -275,8 +276,9 @@ function siteFacts(results: AuditResults, pages: PageContent[], servicePages: st
  */
 export const FIX_STYLE = `Write each fix for a busy practice owner who knows nothing about websites:
 - "fix" is the goal in one short sentence, starting with a verb (e.g. "Get your blog quoted when pet owners ask AI everyday questions").
-- "steps" is 1 to 4 concrete actions that achieve it, in order. Each starts with a verb, names the actual pages, services or wording involved, and says who does it: "You:" for things the practice does itself (replying to reviews, asking a vet to sign posts, deciding hours wording) or "Your web developer:" for changes to the website. Someone should be able to follow a step without asking what it means.
+- "steps" is 1 to 4 concrete actions that achieve it, in order. Each starts with a verb, names the actual pages, services or wording involved, and says who does it: "You:" for things the practice does itself (replying to reviews, choosing which services to promote, deciding hours wording) or "Your web developer:" for changes to the website. Someone should be able to follow a step without asking what it means.
 - If a step uses an unavoidable term, explain it in the step, e.g. "add a short text file that tells AI tools what your practice is and which pages matter most (it's called llms.txt and goes at dhah.org/llms.txt)".
+- Never recommend adding, changing or signing author names on blog posts; the report doesn't cover who wrote a post.
 - No jargon. Never use: H1, canonical, schema, structured data, sitemap, redirect, crawl, SEO, URL, meta description, index, slug, trailing slash, 404. Describe the thing instead ("the main headline on each page", "the list of pages you give Google", "send the old address to the new page", "page not found"). If the owner will need the technical name to pass on, put it in brackets after the plain words, e.g. "a short guide file for AI tools (llms.txt)".
 - "whyItMatters" is one short sentence about what the practice gains or loses: new clients, phone calls, trust, being recommended by Google or AI. Not about how search engines work.
 - Evidence: when the source is a page or a review, "quote" is the exact words from it. When the source is a data point from the audit, "quote" is a plain sentence a practice owner understands, with the number, e.g. "Google's AI summary appeared for 13 of our 24 questions and never mentioned you." Never a bare value like "false" or "cited: 0".`;

@@ -385,7 +385,9 @@ const oneOf = (s: string) =>
     .replace(/\b1 doctors named\b/g, "1 doctor named")
     .replace(/\b1 services have\b/g, "1 service has")
     .replace(/\b1 of those go\b/g, "1 of those goes")
-    .replace(/\b1 blog posts\b/g, "1 blog post");
+    .replace(/\b1 blog posts\b/g, "1 blog post")
+    // Who signs a post is no longer part of the report.
+    .replace(/,? ?\d+% name an author/g, "");
 /** What a few pages say, without repeating every page's wording. */
 /**
  * Does a page's booking / payment / emergency note say something a visitor
@@ -431,7 +433,11 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   const ai = aiAnswersWithPractice(r);
   const findings = t ? technicalFindings(t) : [];
   const problems = findings.filter((f) => f.tone === "bad");
-  const fixes = c?.site.fixes ?? [];
+  // Plans written before 2026-11-11 may tell the practice to have a vet sign blog posts; that advice is no longer given.
+  const aboutAuthors = (x: string) => /\bauthor|\bbyline|\bsign(s|ed)? (each|every|the|your|all)? ?(blog )?posts?\b|["“]By Dr\./i.test(x);
+  const fixes = (c?.site.fixes ?? [])
+    .filter((f) => !aboutAuthors(f.fix))
+    .map((f) => ({ ...f, steps: f.steps?.filter((step) => !aboutAuthors(step)), evidence: f.evidence.filter((e) => !aboutAuthors(e.quote)) }));
 
   // Executive summary, read from the score parts: strong parts are working, weak ones hold the site back.
   const parts = s?.subScores ?? [];
@@ -899,7 +905,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         <Section
           n={num()}
           title="Your blog"
-          intro="AI tools love to quote blog posts that answer one clear question, show which vet wrote them and when, and point readers to the service that helps."
+          intro="AI tools love to quote blog posts that answer one clear question, show when they were written, and point readers to the service that helps."
         >
           {blogPosts.length === 0 ? (
             <p className="text-sm text-slate-600">We didn&apos;t find any blog posts.</p>
@@ -909,7 +915,6 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 <tr className="border-b border-slate-200 text-left uppercase tracking-wide text-slate-600">
                   <th className="py-1.5 font-semibold">Post</th>
                   <th className="py-1.5 pl-2 font-semibold">Headline asks a question</th>
-                  <th className="py-1.5 pl-2 font-semibold">Written by</th>
                   <th className="py-1.5 pl-2 font-semibold">Date shown</th>
                   <th className="py-1.5 pl-2 font-semibold">Links to a service</th>
                   <th className="py-1.5 pl-2 font-semibold">Labelled as an article for Google</th>
@@ -925,7 +930,6 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                         <span className="block text-[12px] text-slate-600">{shortUrl(p.url)}</span>
                       </td>
                       <td className="py-1.5 pl-2">{yesNo(Boolean(p.blog?.questionHeading))}</td>
-                      <td className="py-1.5 pl-2">{p.blog?.authorNamed ?? "No one named"}</td>
                       <td className="py-1.5 pl-2">{p.blog?.dateShown ?? "No"}</td>
                       <td className="py-1.5 pl-2">{yesNo(Boolean(p.blog?.linksToServicePage))}</td>
                       <td className="py-1.5 pl-2">{yesNo(Boolean(crawl?.schemaTypes.some((x) => /Article|BlogPosting/.test(x))))}</td>
@@ -938,12 +942,6 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
           {unreadPosts.length > 0 && (
             <p className="text-[13px] text-slate-600">
               {`This table covers the posts listed in your sitemap. ${unreadPosts.length === 1 ? "1 more post isn't" : `${unreadPosts.length} more posts aren't`} in the sitemap, so ${unreadPosts.length === 1 ? "it wasn't" : "they weren't"} read for this section (see "Website health").`}
-            </p>
-          )}
-          {blogPosts.some((p) => p.blog?.authorNamed && !/^dr\.?\s|dvm/i.test(p.blog.authorNamed)) && (
-            <p className="text-[13px] text-slate-600">
-              Tip: posts signed by the practice rather than a named vet carry less weight. A real doctor&apos;s name (with &quot;DVM&quot;) tells readers and AI the advice
-              comes from an expert.
             </p>
           )}
         </Section>
