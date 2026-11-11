@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Children, type ReactNode } from "react";
 import BeyondIndigoLogo from "@/components/onboarding/beyond-indigo-logo";
 import weightsConfig from "@/lib/website-audit/config/score-weights.json";
 import {
@@ -89,18 +89,22 @@ function sourceLabel(source: string): string {
  * appendices) start a fresh sheet. The heading and intro never sit alone at
  * the foot of a page: they stay with whatever comes next.
  */
-function Section({ n, title, intro, children, newPage = false }: { n: string; title: string; intro?: string; children: ReactNode; newPage?: boolean }) {
+function Section({ n, title, intro, children, newPage = false, keepFirst = false }: { n: string; title: string; intro?: string; children: ReactNode; newPage?: boolean; keepFirst?: boolean }) {
+  // `keepFirst`: the first block under the heading (a card, a pair of cards) moves to the next page with it.
+  // Otherwise (a table or a long list follows) room for a few lines is reserved under the heading.
+  const [first, ...rest] = keepFirst ? Children.toArray(children) : [];
   return (
     <section className="space-y-3 border-t border-slate-200 pt-5 first-of-type:border-t-0 first-of-type:pt-2" style={newPage ? { breakBefore: "page" } : undefined}>
       {/* The extra padding (taken back by the margin) reserves room under the heading, so it can't be the last thing on a page. */}
-      <div className="space-y-2" style={{ breakInside: "avoid", paddingBottom: 150, marginBottom: -150 + 12 }}>
+      <div className={keepFirst ? "space-y-3" : "space-y-2"} style={keepFirst ? { breakInside: "avoid" } : { breakInside: "avoid", paddingBottom: 110, marginBottom: -110 + 12 }}>
         <h2 className="flex items-center gap-2 text-lg font-semibold" style={{ fontFamily: "var(--font-heading)", color: "#0f172a", breakAfter: "avoid" }}>
           <span className="inline-block h-5 w-1.5 rounded-full" style={{ background: PINK }} aria-hidden="true" />
           <span style={{ color: INDIGO }}>{n}</span> {title}
         </h2>
         {intro && <p className="text-sm leading-relaxed text-slate-600">{intro}</p>}
+        {first}
       </div>
-      {children}
+      {keepFirst ? rest : children}
     </section>
   );
 }
@@ -209,7 +213,7 @@ function EvidenceList({ items }: { items: Evidence[] }) {
   return (
     <ul className="mt-1 space-y-0.5 text-[12px] leading-relaxed text-slate-600">
       {items.map((e, i) => (
-        <li key={i} title={isUrl(e.source) ? undefined : e.source}>
+        <li key={i} title={isUrl(e.source) ? undefined : e.source} style={{ breakInside: "avoid" }}>
           {isQuoted(e.source) ? (
             <>
               <span className="font-medium text-slate-600">{isUrl(e.source) ? shortUrl(e.source) : sourceLabel(e.source)}</span> says: “{e.quote}”
@@ -538,9 +542,9 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
 
       <Section n={num()} title="The short version" intro="What's helping you, what's holding you back, and the three things to do first.">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
+          <div className="rounded-2xl border border-slate-200 p-4" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
             <p className="text-sm font-semibold text-emerald-700">What's working</p>
-            <ul className="mt-2 space-y-2 text-[13px] leading-snug">
+            <ul className="mt-2 space-y-2 text-[13px] leading-snug [&>li]:break-inside-avoid">
               {working.map((p) => (
                 <li key={p.key}>
                   <span className="font-medium text-slate-800">{p.label}.</span> {unmarked(p.details[0])}
@@ -559,13 +563,14 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               ))}
             </ul>
           </div>
-          <div className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
+          <div className="rounded-2xl border border-slate-200 p-4" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
             <p className="text-sm font-semibold text-red-700">What's holding you back</p>
-            <ul className="mt-2 space-y-2 text-[13px] leading-snug">
+            <ul className="mt-2 space-y-2 text-[13px] leading-snug [&>li]:break-inside-avoid">
               {v && informationalRuns.length > 0 && informationalHits === 0 && (
                 <li>
-                  <span className="font-medium text-slate-800">Everyday pet questions.</span> When people ask AI things like &quot;why is my dog limping?&quot;, it never
-                  mentions you. It quotes other websites instead.
+                  <span className="font-medium text-slate-800">Everyday pet questions.</span>
+                  {/* In a string: the production build drops the space before text that holds a &quot; */}
+                  {` When people ask AI things like "why is my dog limping?", it never mentions you. It quotes other websites instead.`}
                 </li>
               )}
               {holding.map((p) => (
@@ -580,7 +585,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               )}
             </ul>
           </div>
-          <div className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
+          <div className="rounded-2xl border border-slate-200 p-4" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
             <p className="text-sm font-semibold" style={{ color: INDIGO }}>
               What to do first
             </p>
@@ -599,9 +604,8 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
           title="Your action plan"
           intro="Everything we recommend, most important first. Each item says what to do and who does it, why it matters, and what we found that led to it."
         >
-          <div className="space-y-3">
             {fixes.map((f) => (
-              <div key={f.rank} className="flex gap-3 rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
+              <div key={f.rank} className="flex gap-3 rounded-2xl border border-slate-200 p-4" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
                 <span
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
                   style={{ background: f.rank <= 3 ? PINK : INDIGO }}
@@ -609,36 +613,35 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                   {f.rank}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-900">{f.fix}</p>
+                  <p className="text-sm font-semibold text-slate-900" style={{ breakInside: "avoid", breakAfter: "avoid" }}>{f.fix}</p>
                   {f.steps && f.steps.length > 0 && (
                     <div className="mt-2">
-                      <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-600">What to do</p>
+                      <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-600" style={{ breakAfter: "avoid" }}>What to do</p>
                       <ol className="mt-0.5 list-decimal space-y-1 pl-5 text-[13px] leading-snug text-slate-700">
                         {f.steps.map((step) => (
-                          <li key={step}>{step}</li>
+                          <li key={step} style={{ breakInside: "avoid" }}>{step}</li>
                         ))}
                       </ol>
                     </div>
                   )}
-                  <p className="mt-2 text-[13px] text-slate-600">
+                  <p className="mt-2 text-[13px] text-slate-600" style={{ breakInside: "avoid" }}>
                     <span className="font-semibold text-slate-700">Why it matters:</span> {f.whyItMatters}
                   </p>
                   {f.evidence.length > 0 && (
                     <div className="mt-2">
-                      <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-600">What we found</p>
+                      <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-600" style={{ breakAfter: "avoid" }}>What we found</p>
                       <EvidenceList items={f.evidence} />
                     </div>
                   )}
                 </div>
               </div>
             ))}
-          </div>
         </Section>
       )}
 
       <Section n={num()} title="Your two numbers, explained" intro="This report gives you two numbers. They measure different things, so it helps to keep them apart.">
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl bg-slate-50 p-4" style={{ breakInside: "avoid" }}>
+          <div className="rounded-2xl bg-slate-50 p-4" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
             <p className="text-sm font-semibold" style={{ color: INDIGO }}>
               Your score: {s?.total ?? "—"} out of 100
             </p>
@@ -651,7 +654,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               {weightsConfig.bands.map((b, i, all) => `${b.label}: ${b.min}${i === 0 ? "–100" : `–${all[i - 1].min - 1}`}`).join(" · ")}
             </p>
           </div>
-          <div className="rounded-2xl bg-slate-50 p-4" style={{ breakInside: "avoid" }}>
+          <div className="rounded-2xl bg-slate-50 p-4" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
             <p className="text-sm font-semibold" style={{ color: INDIGO }}>
               AI recommends you {formatMetric(byKey.get("aiShare")?.value ?? null, "percent")} of the time
             </p>
@@ -679,6 +682,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
 
       {v && (
         <Section
+          keepFirst
           n={num()}
           title="How AI search sees you"
           intro={`More and more pet owners ask AI tools instead of scrolling through search results. On ${dateOf(v.ranAt)} we asked six of them the same ${v.prompts.length} questions. ${aiLocationNote(v)} The full list of questions is at the end of this report.`}
@@ -961,9 +965,10 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 // A long list may run onto the next page; a short item stays together.
                 style={{ borderColor: f.tone === "bad" ? "#dc2626" : f.tone === "warn" ? "#d97706" : "#059669", breakInside: detailLines(f.details) > 4 ? "auto" : "avoid" }}
               >
-                <p className="text-[13px] text-slate-800" style={{ breakAfter: "avoid" }}>{f.text}</p>
+                {/* Keep the line with what's under it; a line with nothing under it must not hold on to the next item. */}
+                <p className="text-[13px] text-slate-800" style={f.fix || f.details?.length ? { breakAfter: "avoid" } : undefined}>{f.text}</p>
                 {f.fix && (
-                  <p className="mt-0.5 text-[12px] text-slate-600" style={{ breakAfter: "avoid" }}>
+                  <p className="mt-0.5 text-[12px] text-slate-600" style={f.details?.length ? { breakAfter: "avoid" } : undefined}>
                     <span className="font-semibold text-slate-700">How to fix:</span> {f.fix}
                   </p>
                 )}
@@ -1116,11 +1121,11 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
 
       {c && c.site.differentiators.length > 0 && (
         <Section
+          keepFirst
           n={num()}
           title="What makes you different"
           intro="Strengths your website or your Google reviews already show, which most practices nearby can't claim. Lead with these. Under each one is where it comes from."
         >
-          <div className="space-y-3">
             {c.site.differentiators.map((d) => (
               <div key={d.title} className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
                 <p className="text-sm font-semibold" style={{ color: INDIGO }}>
@@ -1130,13 +1135,12 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 <EvidenceList items={d.evidence} />
               </div>
             ))}
-          </div>
           <p className="text-[12px] text-slate-600">&quot;Google review 6&quot; means your 6th most recent Google review when we ran this audit.</p>
         </Section>
       )}
 
       {c && (
-        <Section n={num()} title="How to say it" intro="A one-sentence description of your practice, and a homepage headline, built from the strengths above.">
+        <Section keepFirst n={num()} title="How to say it" intro="A one-sentence description of your practice, and a homepage headline, built from the strengths above.">
           <div className="rounded-2xl p-5 text-white" style={{ background: GRADIENT, breakInside: "avoid" }}>
             <p className="text-xs font-semibold uppercase tracking-wide text-white/75">Your practice in one sentence</p>
             <p className="mt-1 text-lg leading-snug" style={{ fontFamily: "var(--font-heading)" }}>
