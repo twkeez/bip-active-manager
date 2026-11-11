@@ -47,7 +47,18 @@ export type CrawlPage = {
    */
   anchors?: LinkAnchor[];
   /** Set only when the page had more than the crawl keeps: its links (200 kept) and text characters (12,000 kept). */
-  overLimit?: { links?: number; textChars?: number };
+  overLimit?: { links?: number; textChars?: number; external?: number };
+  /** Links to other websites. Only held while the crawl runs: checked, then dropped (see TechnicalCrawl.external). */
+  external?: LinkAnchor[];
+};
+
+/** A link to another website that is certainly dead: its page is gone, or the whole site no longer exists. */
+export type DeadExternalLink = {
+  url: string;
+  why: "not-found" | "gone" | "no-site";
+  /** How many of the site's pages carry it, and up to 5 of them with the link's words and place. */
+  pages: number;
+  from: { page: string; text: string; area: LinkAnchor["area"]; context?: string }[];
 };
 
 /** `context`: the sentence or list item around the link, so it can be searched for on the page (crawls from 2026-11-11). */
@@ -131,6 +142,12 @@ export type TechnicalCrawl = {
    * Crawls before 2026-11-11 don't have it.
    */
   limitsHit?: string[];
+  /**
+   * Links to other websites (crawls from 2026-11-11). `unverified` sites
+   * refused or timed out on our crawler (Facebook and the like do), so those
+   * links are neither confirmed nor reported.
+   */
+  external?: { found: number; checked: number; unverified: number; dead: DeadExternalLink[] };
   summary: CrawlSummary;
   ms: number;
 };

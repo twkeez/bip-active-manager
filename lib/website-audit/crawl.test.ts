@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isListingPage } from "./archive";
-import { analyzeHtml, bareDomain, pageKey, softErrorOf, summarize } from "./crawl";
+import { analyzeHtml, checkExternal, bareDomain, pageKey, softErrorOf, summarize } from "./crawl";
 import type { CrawlPage } from "./types";
 
 const html = `<html><head><title>Dog Dental Care in Powder Springs</title>
@@ -113,5 +113,31 @@ describe("link anchors", () => {
     expect(nutrition.context!.startsWith("…") && nutrition.context!.endsWith("…")).toBe(true);
     expect(nutrition.context!.length).toBeLessThanOrEqual(202);
     expect(faq.context).toBe("See our FAQ page");
+  });
+});
+
+describe("checkExternal", () => {
+  const answering = (byAgent: (agent: string) => number | Error) =>
+    (async (_url: string, init?: RequestInit) => {
+      const r = byAgent((init?.headers as Record<string, string>)["User-Agent"]);
+      if (r instanceof Error) throw r;
+      return new Response(null, { status: r });
+    }) as unknown as typeof fetch;
+
+  it("calls a link dead only when a browser gets the same answer", async () => {
+    expect(await checkExternal("https://x.com/a", answering(() => 404))).toBe("not-found");
+    expect(await checkExternal("https://x.com/a", answering((agent) => (agent.includes("Mozilla") ? 200 : 404)))).toBe("ok");
+    expect(await checkExternal("https://x.com/a", answering(() => 410))).toBe("gone");
+  });
+
+  it("doesn't call a refusal, a server error or a timeout dead", async () => {
+    expect(await checkExternal("https://facebook.com/vet", answering(() => 403))).toBe("unknown");
+    expect(await checkExternal("https://x.com/a", answering(() => 503))).toBe("unknown");
+    expect(await checkExternal("https://x.com/a", answering(() => new Error("aborted")))).toBe("unknown");
+  });
+
+  it("spots a website that no longer exists", async () => {
+    const gone = Object.assign(new TypeError("fetch failed"), { cause: { code: "ENOTFOUND" } });
+    expect(await checkExternal("https://nosuchvet.example/", answering(() => gone))).toBe("no-site");
   });
 });

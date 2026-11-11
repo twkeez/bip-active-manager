@@ -169,3 +169,28 @@ describe("crawlLimits", () => {
     expect(crawlLimits(t).hit).toHaveLength(1);
   });
 });
+
+describe("links to other websites", () => {
+  it("leads a dead one with the page it sits on, and admits the ones it couldn't confirm", async () => {
+    const { notChecked } = await import("@/lib/website-audit/findings");
+    const t = crawl([page("/"), page("/links/")]);
+    expect(notChecked(t)[0]).toContain("weren't checked on this run");
+    t.external = {
+      found: 12,
+      checked: 12,
+      unverified: 3,
+      dead: [{ url: "https://oldinsurer.com/pets", why: "no-site", pages: 1, from: [{ page: "https://www.vet.com/links/", text: "Pet insurance", area: "body", context: "We recommend Pet insurance from OldInsurer." }] }],
+    };
+    const f = find(t, "link to another website is dead");
+    expect(f.tone).toBe("bad");
+    expect(f.details).toEqual([
+      {
+        url: "https://www.vet.com/links/",
+        title: "Title of /links/",
+        note: 'The "Pet insurance" link in the page text goes to https://oldinsurer.com/pets, which is a website that no longer exists. Search the page for: "We recommend Pet insurance from OldInsurer."',
+      },
+    ]);
+    expect(notChecked(t)[0]).toContain("3 links to other websites couldn't be confirmed");
+  });
+});
+

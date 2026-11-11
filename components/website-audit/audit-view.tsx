@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Download, FileText, Loader2, Play } from "lucide-react";
 import { StatTile, StatTiles } from "@/components/ui/stat-tile";
-import { NOT_CHECKED, crawlLimits, technicalFindings } from "@/lib/website-audit/findings";
+import { crawlLimits, notChecked, technicalFindings } from "@/lib/website-audit/findings";
 import { AI_PLATFORMS, PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import { practiceMatchProblems } from "@/lib/website-audit/practice-match";
 import { realTypos } from "@/lib/website-audit/typos";
@@ -577,9 +577,9 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
                   ) : (
                     <p>{limits.recorded ? "Nothing was cut short on this run." : "This crawl ran before limits were recorded; re-run it to see whether anything was cut short."}</p>
                   )}
-                  <p className="mt-1 font-semibold text-bip-text">Not checked yet:</p>
+                  <p className="mt-1 font-semibold text-bip-text">Not checked, or not certain:</p>
                   <ul className="list-disc pl-4">
-                    {NOT_CHECKED.map((l) => (
+                    {notChecked(t).map((l) => (
                       <li key={l}>{l}</li>
                     ))}
                   </ul>

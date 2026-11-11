@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import { extractSchemaTypes } from "@/lib/seo/schema";
 import { archiveTypeOf, isListingPage } from "@/lib/website-audit/archive";
-import type { CrawlPage, CrawlSummary, LinkAnchor, RedirectHop, SitemapGap, SlashVariantCheck, SoftError, TechnicalCrawl } from "@/lib/website-audit/types";
+import type { CrawlPage, CrawlSummary, DeadExternalLink, LinkAnchor, RedirectHop, SitemapGap, SlashVariantCheck, SoftError, TechnicalCrawl } from "@/lib/website-audit/types";
 
 // Section 3 of the Website, SEO & AI Search Audit: one polite pass over every
 // URL the site's sitemaps list, on both the bare and www host. Unlike the
@@ -25,6 +25,41 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_SITEMAP_GAPS = 60;
 /** Links kept per page (each is checked); a page with more says so in `limitsHit`. */
 const MAX_LINKS_PER_PAGE = 200;
+/** Links to other websites kept per page, and checked per crawl. */
+const MAX_EXTERNAL_PER_PAGE = 100;
+const MAX_EXTERNAL = 200;
+const EXTERNAL_TIMEOUT_MS = 10_000;
+/** Some sites answer "not found" to anything that isn't a browser: a dead link must also be dead for one. */
+const BROWSER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+
+/**
+ * Is a link to another website dead? Only certain answers count: "not found",
+ * "gone", or no such website. A refusal, a timeout or a server error says
+ * nothing about the link (Facebook refuses every crawler), so it's "unknown".
+ */
+export async function checkExternal(url: string, fetcher: typeof fetch = fetch): Promise<DeadExternalLink["why"] | "ok" | "unknown"> {
+  const attempt = async (agent: string): Promise<DeadExternalLink["why"] | "ok" | "unknown"> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), EXTERNAL_TIMEOUT_MS);
+    try {
+      const response = await fetcher(url, { redirect: "follow", signal: controller.signal, headers: { "User-Agent": agent, Accept: "text/html,*/*;q=0.8" }, cache: "no-store" });
+      await response.body?.cancel().catch(() => undefined);
+      if (response.status === 404) return "not-found";
+      if (response.status === 410) return "gone";
+      return response.status >= 200 && response.status < 400 ? "ok" : "unknown";
+    } catch (error) {
+      const code = (error as { cause?: { code?: string } })?.cause?.code;
+      return code === "ENOTFOUND" ? "no-site" : "unknown";
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  const first = await attempt(USER_AGENT);
+  if (first === "ok" || first === "unknown") return first;
+  // Dead for our crawler: confirm it's dead for a browser too before saying so.
+  return attempt(BROWSER_AGENT);
+}
+
 /** The words around a bad link, kept so it can be searched for on the page. */
 const CONTEXT_CHARS = 200;
 
@@ -222,26 +257,35 @@ export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "ur
   const siteHost = bareDomain(new URL(finalUrl).host);
   const links = new Set<string>();
   const anchors = new Map<string, LinkAnchor>();
+  const external = new Map<string, LinkAnchor>();
+  /** A link's words (or its image's alt text), where it sits and the sentence around it. */
+  const describe = ($el: ReturnType<typeof $>, url: string, href: string): LinkAnchor => {
+    const text = ($el.text().replace(/\s+/g, " ").trim() || $el.attr("aria-label") || $el.find("img[alt]").attr("alt") || "").trim().slice(0, 80);
+    const area: LinkAnchor["area"] = $el.closest("footer").length ? "footer" : $el.closest("nav, header").length ? "menu" : "body";
+    const block = $el.closest("p, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, dd, figcaption");
+    const context = linkContext((block.length ? block : $el.parent()).text(), text);
+    return { url, href: href.trim(), text, area, ...(context ? { context } : {}) };
+  };
   $("a[href]").each((_, el) => {
     try {
       const href = $(el).attr("href") ?? "";
       const u = new URL(href, finalUrl);
-      if (!/^https?:$/.test(u.protocol) || bareDomain(u.host) !== siteHost) return;
+      if (!/^https?:$/.test(u.protocol)) return;
+      if (bareDomain(u.host) !== siteHost) {
+        // Another website: checked once per address at the end of the crawl.
+        u.hash = "";
+        if (!external.has(u.toString())) external.set(u.toString(), describe($(el), u.toString(), href));
+        return;
+      }
       u.hash = "";
       if (u.search) return; // ?p=1, ?replytocom=: not pages of their own
       if (/\.(jpe?g|png|gif|webp|svg|pdf|docx?|xlsx?|zip|mp4|mp3|css|js|xml)$/i.test(u.pathname)) return;
       if (/\/(feed|wp-json|wp-admin|wp-content|wp-includes)(\/|$)|\/page\/\d+\/?$/i.test(u.pathname)) return;
       links.add(u.toString());
       // Its words (or its image's alt text) and where it sits, so a bad one can be found on the page.
-      const $el = $(el);
-      const text = ($el.text().replace(/\s+/g, " ").trim() || $el.attr("aria-label") || $el.find("img[alt]").attr("alt") || "").trim().slice(0, 80);
-      const area: LinkAnchor["area"] = $el.closest("footer").length ? "footer" : $el.closest("nav, header").length ? "menu" : "body";
-      const key = `${u.toString()}|${text}|${area}`;
-      if (!anchors.has(key)) {
-        const block = $el.closest("p, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, dd, figcaption");
-        const context = linkContext((block.length ? block : $el.parent()).text(), text);
-        anchors.set(key, { url: u.toString(), href: href.trim(), text, area, ...(context ? { context } : {}) });
-      }
+      const anchor = describe($(el), u.toString(), href);
+      const key = `${anchor.url}|${anchor.text}|${anchor.area}`;
+      if (!anchors.has(key)) anchors.set(key, anchor);
     } catch {
       // Not a usable URL (mailto:, javascript:, malformed): skip it.
     }
@@ -272,8 +316,15 @@ export function analyzeHtml(html: string, finalUrl: string): Omit<CrawlPage, "ur
     links: [...links].slice(0, MAX_LINKS_PER_PAGE),
     // Pruned to the links that turn out bad once the whole crawl is done.
     anchors: [...anchors.values()].slice(0, 400),
-    ...(links.size > MAX_LINKS_PER_PAGE || text.length > MAX_TEXT_CHARS
-      ? { overLimit: { ...(links.size > MAX_LINKS_PER_PAGE ? { links: links.size } : {}), ...(text.length > MAX_TEXT_CHARS ? { textChars: text.length } : {}) } }
+    external: [...external.values()].slice(0, MAX_EXTERNAL_PER_PAGE),
+    ...(links.size > MAX_LINKS_PER_PAGE || text.length > MAX_TEXT_CHARS || external.size > MAX_EXTERNAL_PER_PAGE
+      ? {
+          overLimit: {
+            ...(links.size > MAX_LINKS_PER_PAGE ? { links: links.size } : {}),
+            ...(text.length > MAX_TEXT_CHARS ? { textChars: text.length } : {}),
+            ...(external.size > MAX_EXTERNAL_PER_PAGE ? { external: external.size } : {}),
+          },
+        }
       : {}),
   };
 }
@@ -492,8 +543,42 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, gapWorker));
 
+  // Links to other websites: each address checked once, whichever pages carry it.
+  const externalFrom = new Map<string, { page: string; anchor: LinkAnchor }[]>();
+  for (const page of crawled) {
+    for (const anchor of page.external ?? []) externalFrom.set(anchor.url, [...(externalFrom.get(anchor.url) ?? []), { page: page.finalUrl, anchor }]);
+    delete page.external;
+  }
+  const externalTargets = [...externalFrom.keys()].slice(0, MAX_EXTERNAL);
+  const dead: DeadExternalLink[] = [];
+  let externalChecked = 0;
+  let unverified = 0;
+  let nextExternal = 0;
+  async function externalWorker() {
+    while (nextExternal < externalTargets.length && Date.now() - started <= budgetMs) {
+      const url = externalTargets[nextExternal];
+      nextExternal += 1;
+      const verdict = await checkExternal(url);
+      externalChecked += 1;
+      if (verdict === "unknown") unverified += 1;
+      else if (verdict !== "ok") {
+        const from = externalFrom.get(url)!;
+        dead.push({ url, why: verdict, pages: from.length, from: from.slice(0, 5).map(({ page, anchor }) => ({ page, text: anchor.text, area: anchor.area, ...(anchor.context ? { context: anchor.context } : {}) })) });
+      }
+    }
+  }
+  // Different websites each time, so more at once is still polite.
+  await Promise.all(Array.from({ length: CONCURRENCY * 2 }, externalWorker));
+
   // Every cap that cut something short, so the report can say so.
   const limitsHit: string[] = [];
+  if (externalFrom.size > MAX_EXTERNAL)
+    limitsHit.push(`Your pages link to ${externalFrom.size} addresses on other websites; we checked the first ${MAX_EXTERNAL}, so dead links among the other ${externalFrom.size - MAX_EXTERNAL} aren't reported.`);
+  else if (externalChecked < externalTargets.length)
+    limitsHit.push(`We ran out of time checking links to other websites: ${externalChecked} of ${externalTargets.length} checked, so dead links among the rest aren't reported.`);
+  const manyExternal = crawled.filter((p) => p.overLimit?.external);
+  if (manyExternal.length)
+    limitsHit.push(`${manyExternal.length === 1 ? "1 page has" : `${manyExternal.length} pages have`} more than ${MAX_EXTERNAL_PER_PAGE} links to other websites; we checked the first ${MAX_EXTERNAL_PER_PAGE} on each (${manyExternal.slice(0, 3).map((p) => p.finalUrl).join(", ")}${manyExternal.length > 3 ? ", …" : ""}).`);
   if (sitemaps.urls.length > MAX_URLS) limitsHit.push(`Your sitemap lists ${sitemaps.urls.length} addresses; we checked the first ${MAX_URLS}.`);
   if ((stoppedBecause as TechnicalCrawl["stoppedBecause"]) === "time") limitsHit.push(`We ran out of time and checked ${crawled.length} of the ${entries.length} sitemap addresses.`);
   if (sitemaps.capped)
@@ -539,6 +624,7 @@ export async function crawlSite(domainInput: string, budgetMs = 240_000): Promis
     slashVariants,
     notInSitemap: notInSitemap.sort((a, b) => a.url.localeCompare(b.url)),
     limitsHit,
+    external: { found: externalFrom.size, checked: externalChecked, unverified, dead: dead.sort((a, b) => a.url.localeCompare(b.url)) },
     summary: summarize(crawled, domain, slashVariants),
     ms: Date.now() - started,
   };
