@@ -802,7 +802,7 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
             {
               label: "AI recommends you",
               value: formatMetric(byKey.get("aiShare")?.value ?? null, "percent"),
-              sub: ai ? `of the time (${ai.hits} of ${ai.answered} AI answers)` : "Not checked",
+              sub: ai ? `of the time (${ai.hits} of ${ai.answered} AI answers about vets and services near you)` : "Not checked",
               m: byKey.get("aiShare"),
             },
             {
@@ -987,9 +987,9 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
               AI recommends you {formatMetric(byKey.get("aiShare")?.value ?? null, "percent")} of the time
             </p>
             <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-              Think of this as a test drive. We asked six AI tools the questions a pet owner near you might ask, and counted how often the answer mentioned you or
-              linked to your website. AI answers change from day to day, so treat this as a snapshot. A better score tends to lift this number over the following
-              months.
+              Think of this as a test drive. We asked six AI tools the questions a pet owner near you asks when looking for a vet or a service, and counted how often
+              the answer mentioned you or linked to your website. General pet-care questions are reported separately and aren&apos;t part of this number. AI answers
+              change from day to day, so treat this as a snapshot. A better score tends to lift this number over the following months.
             </p>
           </div>
         </div>
@@ -1075,6 +1075,8 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
             ).map(([kind, title, example]) => {
               const runs = answeredOfKind(kind);
               const hits = runs.filter((run) => run.cited || run.mentioned).length;
+              // A kind with no questions asked (no service pages, say) has nothing to show.
+              if (!runs.length) return null;
               return (
                 <div key={kind} className="rounded-xl bg-slate-50 p-3 text-[13px]" style={{ breakInside: "avoid" }}>
                   <p className="font-semibold text-slate-800">{title}</p>
@@ -1083,6 +1085,7 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
                     {hits} of {runs.length}
                   </p>
                   <p className="text-slate-600">answers included you</p>
+                  {kind === "informational" && <p className="mt-1 text-[12px] text-slate-600">A small sample, not part of your headline number.</p>}
                 </div>
               );
             })}
@@ -1090,7 +1093,7 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
           {informationalRuns.length > 0 && (
             <p className="text-[13px] leading-relaxed text-slate-600">
               {informationalHits === 0
-                ? "Why the everyday questions matter: pet owners ask these long before they choose a vet. Whoever gives the helpful answer earns their trust first. Right now AI gives that answer using other websites."
+                ? "Why the everyday questions matter: pet owners ask these long before they choose a vet. Whoever gives the helpful answer earns their trust first. Right now AI gives that answer using other websites. These questions don't name your town, so few local practices are ever quoted for them; the ones that are have articles that answer the question directly."
                 : "Pet owners ask everyday questions long before they choose a vet, so being the answer there earns trust early."}
             </p>
           )}

@@ -34,3 +34,22 @@ describe("formatMetric", () => {
     expect(formatMetric(null, "number")).toBe("—");
   });
 });
+
+describe("the headline AI number", () => {
+  it("leaves out everyday questions, which no local practice is quoted for", async () => {
+    const { aiAnswersWithPractice } = await import("@/lib/website-audit/compare");
+    const run = (promptId: string, mentioned: boolean) => ({ promptId, answered: true, mentioned, cited: false });
+    const results = {
+      aiVisibility: {
+        prompts: [
+          { id: "l1", kind: "local", text: "best vet in Town" },
+          { id: "s1", kind: "service", text: "pet dental near Town" },
+          { id: "i1", kind: "informational", text: "why is my dog limping" },
+        ],
+        runs: [run("l1", true), run("l1", false), run("s1", true), run("i1", false), run("i1", false)],
+      },
+    } as never;
+    expect(aiAnswersWithPractice(results)).toEqual({ hits: 2, answered: 3 });
+  });
+});
+

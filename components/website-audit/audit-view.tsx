@@ -32,7 +32,7 @@ const STAGE_LABEL: Record<AuditStage, { title: string; detail: string }> = {
   },
   "ai-visibility": {
     title: "AI visibility",
-    detail: "Asks ChatGPT, Gemini, Perplexity, Claude, Google AI Overview and AI Mode about 25 local, service and pet-care questions, and checks DataForSEO's database of observed AI answers. About $1.50–3; up to 4 minutes, and run again if it says answers are missing.",
+    detail: "Asks ChatGPT, Gemini, Perplexity, Claude, Google AI Overview and AI Mode up to 18 questions (7 about finding a vet, one per service page up to 8, and 3 everyday pet-care questions), and checks DataForSEO's database of observed AI answers. About 7¢ a question; up to 4 minutes, and run again if it says answers are missing.",
   },
   content: {
     title: "Content, trust signals & score",
@@ -59,7 +59,7 @@ function stageCost(stage: AuditStage, audit: WebsiteAuditRow): { label: string; 
   if (stage === "competitors") return { label: "about 1¢", paid: true, note: "DataForSEO credits." };
   if (stage === "ai-visibility") {
     const v = audit.results.aiVisibility;
-    const asked = v?.prompts.length ?? 24;
+    const asked = v?.prompts.length ?? 18;
     if (v && !v.complete) {
       const left = v.missing ?? 0;
       return { label: `up to ${money((left / 6) * AI_COST_PER_QUESTION)}`, paid: true, note: `DataForSEO credits. Only asks for the ${left} answers that are still missing.` };
