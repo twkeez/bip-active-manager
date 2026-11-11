@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import AuditReport, { type PreviousRun } from "@/components/website-audit/audit-report";
+import AuditReport, { type Audience, type PreviousRun } from "@/components/website-audit/audit-report";
 import ReportPrintShell from "@/components/website-audit/report-print-shell";
 import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 // The branded audit report, to save as a PDF. Lives outside the (app) route
 // group so it prints without the sidebar. The report renders on the server, so
 // the crawl's page text never reaches the browser.
-export default async function WebsiteAuditPrintPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function WebsiteAuditPrintPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ for?: string }> }) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -41,12 +41,18 @@ export default async function WebsiteAuditPrintPage({ params }: { params: Promis
   if (error) throw new Error(`Couldn't look up the last run: ${error.message}`);
   const previous = (earlier?.[0] as PreviousRun | undefined) ?? null;
 
+  // Written for a client (we look after their site) or a prospect (someone else does).
+  // An audit started from a client record is a client's; ?for= switches it.
+  const asked = (await searchParams).for;
+  const audience: Audience = asked === "client" || asked === "prospect" ? asked : audit.client_id != null ? "client" : "prospect";
+
   return (
     <ReportPrintShell
       title={`${audit.practice_name} · Website, SEO & AI Search Audit · Beyond Indigo Pets`}
       warnings={practiceMatchProblems(audit, audit.results).map((p) => p.detail)}
+      versions={{ current: audience, client: `/website-audit-print/${audit.id}?for=client`, prospect: `/website-audit-print/${audit.id}?for=prospect` }}
     >
-      <AuditReport audit={audit} previous={previous} />
+      <AuditReport audit={audit} previous={previous} audience={audience} />
     </ReportPrintShell>
   );
 }

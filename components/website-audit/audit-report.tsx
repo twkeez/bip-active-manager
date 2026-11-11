@@ -419,7 +419,27 @@ function distinct<T>(items: T[]): T[] {
   return [...new Set(items)];
 }
 
-export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRow; previous: PreviousRun | null }) {
+/**
+ * Who the report is written for. A client's website is ours to look after, so
+ * "your web developer" is Beyond Indigo and the plan ends with what we'll do
+ * and what we need from them. A prospect has someone else looking after it.
+ */
+export type Audience = "client" | "prospect";
+
+const DEV_STEP = /^(your )?web developer:\s*/i;
+const OWNER_STEP = /^you:\s*/i;
+
+export default function AuditReport({ audit, previous, audience }: { audit: WebsiteAuditRow; previous: PreviousRun | null; audience?: Audience }) {
+  const forClient = (audience ?? (audit.client_id != null ? "client" : "prospect")) === "client";
+  /** Plan wording as saved ("Your web developer: …") read for this audience. */
+  const voice = (text: string) =>
+    forClient
+      ? text
+          .replace(DEV_STEP, "Beyond Indigo: ")
+          .replace(/\b(ask|have|tell|send|give|email) your web developer\b/gi, (_, verb: string) => `${verb} us`)
+          .replace(/\byour web developer\b/g, "Beyond Indigo")
+          .replace(/\bYour web developer\b/g, "Beyond Indigo")
+      : text;
   const r = audit.results;
   const t = r.technical;
   const a = r.authority;
@@ -446,6 +466,9 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   const fixes = (c?.site.fixes ?? [])
     .filter((f) => !aboutAuthors(f.fix))
     .map((f) => ({ ...f, steps: f.steps?.filter((step) => !aboutAuthors(step)), evidence: f.evidence.filter((e) => !aboutAuthors(e.quote)) }));
+  // For a client: the decisions only the practice can make, and the goals that have work for us in them.
+  const neededFromClient = fixes.flatMap((f) => (f.steps ?? []).filter((step) => OWNER_STEP.test(step)).map((step) => ({ rank: f.rank, goal: f.fix, ask: step.replace(OWNER_STEP, "") })));
+  const ourWork = fixes.map((f) => ({ rank: f.rank, goal: f.fix, tasks: (f.steps ?? []).filter((step) => DEV_STEP.test(step)).length })).filter((f) => f.tasks > 0);
 
   // Executive summary, read from the score parts: strong parts are working, weak ones hold the site back.
   const parts = s?.subScores ?? [];
@@ -647,7 +670,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             </p>
             <ol className="mt-2 list-decimal space-y-2 pl-4 text-[13px] leading-snug">
               {fixes.slice(0, 3).map((f) => (
-                <li key={f.rank}>{f.fix}</li>
+                <li key={f.rank}>{voice(f.fix)}</li>
               ))}
             </ol>
           </div>
@@ -658,7 +681,11 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         <Section
           n={num()}
           title="Your action plan"
-          intro="Everything we recommend, most important first. Each item says what to do and who does it, why it matters, and what we found that led to it."
+          intro={
+            forClient
+              ? "Everything we recommend, most important first. Each item says what Beyond Indigo will do and what we need from you, why it matters, and what we found that led to it."
+              : "Everything we recommend, most important first. Each item says what to do and who does it, why it matters, and what we found that led to it."
+          }
         >
             {fixes.map((f) => (
               <div key={f.rank} className="flex gap-3 rounded-2xl border border-slate-200 p-4" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
@@ -669,19 +696,19 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                   {f.rank}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-900" style={{ breakInside: "avoid", breakAfter: "avoid" }}>{f.fix}</p>
+                  <p className="text-sm font-semibold text-slate-900" style={{ breakInside: "avoid", breakAfter: "avoid" }}>{voice(f.fix)}</p>
                   {f.steps && f.steps.length > 0 && (
                     <div className="mt-2">
                       <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-600" style={{ breakAfter: "avoid" }}>What to do</p>
                       <ol className="mt-0.5 list-decimal space-y-1 pl-5 text-[13px] leading-snug text-slate-700">
                         {f.steps.map((step) => (
-                          <li key={step} style={{ breakInside: "avoid" }}>{step}</li>
+                          <li key={step} style={{ breakInside: "avoid" }}>{voice(step)}</li>
                         ))}
                       </ol>
                     </div>
                   )}
                   <p className="mt-2 text-[13px] text-slate-600" style={{ breakInside: "avoid" }}>
-                    <span className="font-semibold text-slate-700">Why it matters:</span> {f.whyItMatters}
+                    <span className="font-semibold text-slate-700">Why it matters:</span> {voice(f.whyItMatters)}
                   </p>
                   {f.evidence.length > 0 && (
                     <div className="mt-2">
@@ -692,6 +719,44 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 </div>
               </div>
             ))}
+        </Section>
+      )}
+
+      {forClient && fixes.length > 0 && (neededFromClient.length > 0 || ourWork.length > 0) && (
+        <Section n={num()} title="What happens next" intro="The plan above, sorted by who does what. Reply with your answers to the first list and we can get started.">
+          {neededFromClient.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 p-4" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
+              <p className="text-sm font-semibold" style={{ color: PINK, breakAfter: "avoid" }}>
+                What we need from you ({neededFromClient.length})
+              </p>
+              <p className="text-[12px] text-slate-600" style={{ breakAfter: "avoid" }}>Decisions and jobs only your practice can do. The number shows which part of the plan each belongs to.</p>
+              <ul className="mt-2 space-y-1.5 text-[13px] leading-snug text-slate-700">
+                {neededFromClient.map((x, i) => (
+                  <li key={i} className="flex gap-2" style={{ breakInside: "avoid" }}>
+                    <span className="mt-0.5 inline-block h-3.5 w-3.5 shrink-0 rounded border border-slate-400" aria-hidden="true" />
+                    <span>
+                      {voice(x.ask.charAt(0).toUpperCase() + x.ask.slice(1))} <span className="text-[12px] text-slate-600">(plan item {x.rank})</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {ourWork.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 p-4" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
+              <p className="text-sm font-semibold" style={{ color: INDIGO, breakAfter: "avoid" }}>
+                What Beyond Indigo will do
+              </p>
+              <p className="text-[12px] text-slate-600" style={{ breakAfter: "avoid" }}>We work through the plan in order. Where a job waits on one of your decisions above, we start it as soon as we hear from you.</p>
+              <ol className="mt-2 space-y-1 text-[13px] leading-snug text-slate-700">
+                {ourWork.map((x) => (
+                  <li key={x.rank} style={{ breakInside: "avoid" }}>
+                    <span className="font-medium text-slate-800">{x.rank}.</span> {voice(x.goal)} <span className="text-[12px] text-slate-600">({x.tasks} {x.tasks === 1 ? "job" : "jobs"} for us)</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
         </Section>
       )}
 
@@ -1011,7 +1076,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
         <Section
           n={num()}
           title="Website health"
-          intro={`Things visitors rarely notice but Google and AI tools do. We checked every page you list for Google on ${dateOf(t.crawledAt)}. Red items need fixing; amber items are worth tidying up; green is fine. Each one says how to fix it and lists every page affected, so your web developer can go straight to it.`}
+          intro={`Things visitors rarely notice but Google and AI tools do. We checked every page you list for Google on ${dateOf(t.crawledAt)}. Red items need fixing; amber items are worth tidying up; green is fine. Each one says how to fix it and lists every page affected, so ${forClient ? "our team" : "your web developer"} can go straight to it.`}
         >
           <ul className="space-y-2">
             {findings.map((f) => (
@@ -1259,8 +1324,8 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
       {t && (
         <Section
           n="Appendix B"
-          title="Technical details for your web developer"
-          intro={`The raw numbers behind "Website health", checked ${dateOf(t.crawledAt)}. You don't need to read this page; pass it to whoever looks after your website.`}
+          title={forClient ? "Technical details for our web team" : "Technical details for your web developer"}
+          intro={`The raw numbers behind "Website health", checked ${dateOf(t.crawledAt)}. You don't need to read this page; ${forClient ? "it's what our web team works from" : "pass it to whoever looks after your website"}.`}
         >
           <MetricTable rows={compareMetrics(technicalMetrics(r), prev?.technical ? technicalMetrics(prev) : null)} lastDate={prev?.technical ? lastDate : null} />
           <p className="pt-2 text-[12px] text-slate-600">

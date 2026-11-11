@@ -2,7 +2,18 @@
 import { useEffect, type ReactNode } from "react";
 
 /** Toolbar and print styles around the audit report; opens the print dialog once the page has drawn. */
-export default function ReportPrintShell({ title, warnings = [], children }: { title: string; warnings?: string[]; children: ReactNode }) {
+export default function ReportPrintShell({
+  title,
+  warnings = [],
+  versions,
+  children,
+}: {
+  title: string;
+  warnings?: string[];
+  /** The report is written differently for a client and a prospect: which this is, and links to each. */
+  versions?: { current: "client" | "prospect"; client: string; prospect: string };
+  children: ReactNode;
+}) {
   // A report that may be about the wrong practice doesn't open the print dialog by itself.
   const blocked = warnings.length > 0;
   useEffect(() => {
@@ -45,9 +56,19 @@ export default function ReportPrintShell({ title, warnings = [], children }: { t
         </div>
       )}
       <div className="no-print mx-auto flex max-w-3xl items-center justify-between gap-4 px-8 pt-4">
-        <p className="text-xs text-gray-500">
-          Choose <strong>Save as PDF</strong> to share it. In Safari, untick <strong>Print headers and footers</strong>.
-        </p>
+        <div className="space-y-1 text-xs text-gray-500">
+          {versions && (
+            <p>
+              Written for a <strong>{versions.current}</strong>.{" "}
+              <a href={versions.current === "client" ? versions.prospect : versions.client} className="underline">
+                Switch to the {versions.current === "client" ? "prospect" : "client"} version
+              </a>
+            </p>
+          )}
+          <p>
+            Choose <strong>Save as PDF</strong> to share it. In Safari, untick <strong>Print headers and footers</strong>.
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => window.print()}
