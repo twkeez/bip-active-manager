@@ -208,7 +208,10 @@ function FindingDetails({ details }: { details: FindingDetail[] }) {
 /** Words quoted from a page or a review get quotation marks; a finding from our own checks reads as a plain sentence. */
 const isQuoted = (source: string) => isUrl(source) || /^review\s+\d+/i.test(source);
 
-function EvidenceList({ items }: { items: Evidence[] }) {
+/** Where on a page a quote sits, when that isn't simply "in the text": a visitor can't see a page title or search the page for it. */
+type Locate = (source: string, quote: string) => string | null;
+
+function EvidenceList({ items, locate }: { items: Evidence[]; locate?: Locate }) {
   if (!items.length) return null;
   return (
     <ul className="mt-1 space-y-0.5 text-[12px] leading-relaxed text-slate-600">
@@ -217,6 +220,7 @@ function EvidenceList({ items }: { items: Evidence[] }) {
           {isQuoted(e.source) ? (
             <>
               <span className="font-medium text-slate-600">{isUrl(e.source) ? shortUrl(e.source) : sourceLabel(e.source)}</span> says: “{e.quote}”
+              {locate?.(e.source, e.quote) && <span className="block pl-3 text-slate-600">{locate(e.source, e.quote)}</span>}
             </>
           ) : (
             <>
@@ -477,6 +481,19 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
   // Claude files notes and rewrites as typos too; saved audits still have them.
   // A mistake is reported only if the crawl's copy of the page shows those words.
   const crawled = new Map((t?.pages ?? []).map((p) => [p.finalUrl, p]));
+  // Says where a quoted bit of a page is when it isn't in the page's own text: its title, headline or menu.
+  const squash = (x: string) => x.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim().toLowerCase();
+  const locate: Locate = (source, quote) => {
+    const page = crawled.get(source) ?? crawled.get(source.replace(/\/$/, "")) ?? crawled.get(`${source}/`);
+    const q = squash(quote);
+    if (!page || q.length < 3) return null;
+    const inText = squash(page.text).includes(q);
+    if (page.title && squash(page.title).includes(q) && !inText)
+      return `Where: the page title, which is the text on the browser tab and the link in Google results, not on the page itself. It reads "${page.title}".`;
+    if (page.h1s.some((h) => squash(h).includes(q))) return "Where: the main headline at the top of the page.";
+    if (!inText && page.navLinks.some((l) => squash(l.text).includes(q))) return "Where: the website menu.";
+    return null;
+  };
   const typos = pages.flatMap((p) => realTypos(p.typos, crawled.get(p.url)).map((ty) => ({ ...ty, url: p.url })));
   const uniqueTypos = [...new Map(typos.map((ty) => [`${ty.text}→${ty.suggestion}`, ty])).values()];
   // Each mistake once, with every page it's on: a menu typo is on every page.
@@ -645,7 +662,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                   {f.evidence.length > 0 && (
                     <div className="mt-2">
                       <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-600" style={{ breakAfter: "avoid" }}>What we found</p>
-                      <EvidenceList items={f.evidence} />
+                      <EvidenceList items={f.evidence} locate={locate} />
                     </div>
                   )}
                 </div>
@@ -1147,7 +1164,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                   {d.title}
                 </p>
                 <p className="mt-1 text-[13px] leading-relaxed text-slate-700">{d.detail}</p>
-                <EvidenceList items={d.evidence} />
+                <EvidenceList items={d.evidence} locate={locate} />
               </div>
             ))}
           <p className="text-[12px] text-slate-600">&quot;Google review 6&quot; means your 6th most recent Google review when we ran this audit.</p>
