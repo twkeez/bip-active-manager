@@ -377,10 +377,30 @@ function SideServiceBlock({ comp, you }: { comp: ServiceComparison; you: Competi
 
 const yesNo = (v: boolean) => (v ? "Yes" : "No");
 /** The score's detail lines start with ✓ / ✗ / ◐ marks; the summary reads better without them. */
-const unmarked = (s: string) => s.replace(/^[✓✗◐]\s*/, "");
+const unmarked = (s: string) => oneOf(s.replace(/^[✓✗◐]\s*/, ""));
+/** Score lines saved before 2026-11-11 say "on 1 pages", "1 doctors named": read them back correctly. */
+const oneOf = (s: string) =>
+  s
+    .replace(/\bon 1 pages\b/g, "on 1 page")
+    .replace(/\b1 doctors named\b/g, "1 doctor named")
+    .replace(/\b1 services have\b/g, "1 service has")
+    .replace(/\b1 of those go\b/g, "1 of those goes")
+    .replace(/\b1 blog posts\b/g, "1 blog post");
 /** What a few pages say, without repeating every page's wording. */
+/**
+ * Does a page's booking / payment / emergency note say something a visitor
+ * could act on? Notes like "Payment Options menu link only; no payment
+ * details on this page" or a bare "Request an Appointment" describe a link,
+ * not the information itself.
+ */
+const saysSomething = (value: string | null | undefined): value is string =>
+  Boolean(value) && !/menu link|link only|no (\w+ )?(details|information|info)\b|not (stated|found|mentioned|given|shown)|is linked in the menu|link to \//i.test(value!);
+/** …and for payment and emergencies a bare menu label ("Payment Options", "Emergencies") isn't the information either. */
+const informative = (value: string | null | undefined): value is string =>
+  saysSomething(value) && (value.trim().split(/\s+/).length >= 5 || /\d{3}/.test(value));
+/** The fullest of what the pages say, without repeating every page's wording. */
 const firstFew = (items: (string | null)[], count = 2) =>
-  distinct(items.filter(Boolean) as string[])
+  distinct((items.filter(saysSomething) as string[]).sort((a, b) => b.length - a.length))
     .slice(0, count)
     .map((x) => clip(x, 160))
     .join(" / ");
@@ -440,10 +460,14 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
     }
 
   const blogPosts = pages.filter((p) => p.pageType === "blog_post" && p.blog);
+  // Posts the site links to but leaves out of its sitemap: the content step never read them, so say so.
+  const unreadPosts = (t?.notInSitemap ?? []).filter((g) => g.finalStatus === 200 && !g.softError && /\/(blog|news|posts?|articles?)\/[^/]+/i.test(g.url) && !/hello-world/i.test(g.url));
   const crawlByUrl = new Map((t?.pages ?? []).map((p) => [p.finalUrl, p]));
   const servicePages = pages.filter((p) => p.pageType === "service");
   // Claude files notes and rewrites as typos too; saved audits still have them.
-  const typos = pages.flatMap((p) => realTypos(p.typos).map((ty) => ({ ...ty, url: p.url })));
+  // A mistake is reported only if the crawl's copy of the page shows those words.
+  const crawled = new Map((t?.pages ?? []).map((p) => [p.finalUrl, p]));
+  const typos = pages.flatMap((p) => realTypos(p.typos, crawled.get(p.url)).map((ty) => ({ ...ty, url: p.url })));
   const uniqueTypos = [...new Map(typos.map((ty) => [`${ty.text}→${ty.suggestion}`, ty])).values()];
   // Each mistake once, with every page it's on: a menu typo is on every page.
   const typoDetails: FindingDetail[] = uniqueTypos.map((ty) => {
@@ -639,7 +663,7 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             <ul className="space-y-2">
               {s.subScores.map((p) => (
                 <li key={p.key} className="text-xs text-slate-600" style={{ breakInside: "avoid" }}>
-                  <span className="font-medium text-slate-800">{p.label}:</span> {p.details.join(" ")}
+                  <span className="font-medium text-slate-800">{p.label}:</span> {oneOf(p.details.join(" "))}
                 </li>
               ))}
             </ul>
@@ -690,6 +714,13 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               ))}
             </tbody>
           </table>
+          {v.platforms
+            .filter((p) => p.promptsPlanned > p.promptsRun)
+            .map((p) => (
+              <p key={p.platform} className="text-xs font-medium text-amber-700">
+                {`${p.label}: ${p.promptsPlanned - p.promptsRun} of the ${p.promptsPlanned} questions couldn't be checked on this run${v.errors.some((e) => e.startsWith(p.label)) ? " (the service returned an error)" : ""}, so its numbers here cover ${p.promptsRun} questions. Run the AI visibility step again to fill them in.`}
+              </p>
+            ))}
           {v.platforms.some((p) => p.platform === "ai_overview" && p.promptsAnswered < p.promptsRun) && (
             <p className="text-xs text-slate-600">Google only shows its AI summary for some searches, so it answered fewer questions than the others.</p>
           )}
@@ -794,18 +825,18 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
             />
             <Check ok={pages.some((p) => p.hours)} label="Opening hours shown" of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.hours))} />
             <Check
-              ok={pages.some((p) => p.booking)}
+              ok={pages.some((p) => saysSomething(p.booking))}
               label="Clear how to book"
               detail={firstFew(pages.map((p) => p.booking), 1)}
-              of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.booking))}
+              of={pages.length} sources={pagesWith(pages, (p) => saysSomething(p.booking))}
             />
             <Check
-              ok={pages.some((p) => p.emergencyReferral)}
+              ok={pages.some((p) => informative(p.emergencyReferral))}
               label="Says where to go in an emergency"
               detail={firstFew(pages.map((p) => p.emergencyReferral), 1)}
-              of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.emergencyReferral))}
+              of={pages.length} sources={pagesWith(pages, (p) => informative(p.emergencyReferral))}
             />
-            <Check ok={pages.some((p) => p.paymentInfo)} label="Payment options explained" of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.paymentInfo))} />
+            <Check ok={pages.some((p) => informative(p.paymentInfo))} label="Payment options explained" of={pages.length} sources={pagesWith(pages, (p) => informative(p.paymentInfo))} />
             <Check
               ok={pages.some((p) => p.pricesShown.length)}
               label="Some prices shown"
@@ -903,6 +934,11 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
                 })}
               </tbody>
             </table>
+          )}
+          {unreadPosts.length > 0 && (
+            <p className="text-[13px] text-slate-600">
+              {`This table covers the posts listed in your sitemap. ${unreadPosts.length === 1 ? "1 more post isn't" : `${unreadPosts.length} more posts aren't`} in the sitemap, so ${unreadPosts.length === 1 ? "it wasn't" : "they weren't"} read for this section (see "Website health").`}
+            </p>
           )}
           {blogPosts.some((p) => p.blog?.authorNamed && !/^dr\.?\s|dvm/i.test(p.blog.authorNamed)) && (
             <p className="text-[13px] text-slate-600">
@@ -1054,22 +1090,22 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               );
             })()}
             <Check
-              ok={pages.some((p) => p.booking)}
+              ok={pages.some((p) => saysSomething(p.booking))}
               label="Booking"
               detail={firstFew(pages.map((p) => p.booking)) || "We couldn't find how to book."}
-              of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.booking))}
+              of={pages.length} sources={pagesWith(pages, (p) => saysSomething(p.booking))}
             />
             <Check
-              ok={pages.some((p) => p.emergencyReferral)}
+              ok={pages.some((p) => informative(p.emergencyReferral))}
               label="Emergencies"
               detail={firstFew(pages.map((p) => p.emergencyReferral), 1) || "We couldn't find where to go in an emergency."}
-              of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.emergencyReferral))}
+              of={pages.length} sources={pagesWith(pages, (p) => informative(p.emergencyReferral))}
             />
             <Check
-              ok={pages.some((p) => p.paymentInfo)}
+              ok={pages.some((p) => informative(p.paymentInfo))}
               label="Payment"
               detail={firstFew(pages.map((p) => p.paymentInfo)) || "We couldn't find any payment information."}
-              of={pages.length} sources={pagesWith(pages, (p) => Boolean(p.paymentInfo))}
+              of={pages.length} sources={pagesWith(pages, (p) => informative(p.paymentInfo))}
             />
             <Check
               ok={uniqueTypos.length === 0}
