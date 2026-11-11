@@ -17,11 +17,21 @@ export type Metric = {
 
 export type MetricComparison = Metric & { last: number | null; change: "better" | "worse" | "same" | "new" | null };
 
-/** Named in the answer or cited as a source, across every answered prompt on every platform. */
+/**
+ * Named in the answer or cited as a source, across every answered "looking
+ * for a vet" and "looking for a service" question on every platform.
+ *
+ * Everyday questions ("why is my dog limping") are left out: they don't name
+ * the town, so no AI tool answers them with a local practice and every
+ * practice scores zero. Counting them only diluted the number (dhah.org: 41%
+ * with them, 75% without). Older audits are read the same way, so "last
+ * time" stays comparable.
+ */
 export function aiAnswersWithPractice(results: AuditResults): { hits: number; answered: number } | null {
-  const runs = results.aiVisibility?.runs;
-  if (!runs) return null;
-  const answered = runs.filter((r) => r.answered);
+  const v = results.aiVisibility;
+  if (!v?.runs) return null;
+  const everyday = new Set(v.prompts.filter((p) => p.kind === "informational").map((p) => p.id));
+  const answered = v.runs.filter((r) => r.answered && !everyday.has(r.promptId));
   return { hits: answered.filter((r) => r.mentioned || r.cited).length, answered: answered.length };
 }
 

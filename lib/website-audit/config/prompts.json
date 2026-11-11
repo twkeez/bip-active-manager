@@ -13,16 +13,10 @@
   "service": [
     "{service} near {city} {st}"
   ],
+  "_informational": "Everyday questions don't name the town, so AI tools almost never answer them with a local practice. Three are kept as a small sample for the blog finding; they are not part of the headline 'AI recommends you' number. Each question costs about 7 cents a run across the six AI tools.",
   "informational": [
     "why is my dog limping",
     "how often does my dog need a dental cleaning",
-    "is a pet wellness plan worth it",
-    "what vaccines does my puppy need",
-    "why is my cat itching so much",
-    "when should I take my dog to the emergency vet",
-    "how much does it cost to spay a dog",
-    "what should I expect at my pet's first vet visit",
-    "how do I know if my dog has allergies",
-    "how often should my senior dog see a vet"
+    "what vaccines does my puppy need"
   ]
 }
