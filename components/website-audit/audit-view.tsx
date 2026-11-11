@@ -17,6 +17,7 @@ import {
   type CompetitorResults,
   type ContentResults,
   type WebsiteAuditRow,
+  type TechnicalCrawl,
 } from "@/lib/website-audit/types";
 
 const STAGE_LABEL: Record<AuditStage, { title: string; detail: string }> = {
@@ -301,11 +302,13 @@ function Evidence({ items }: { items: { source: string; quote: string }[] }) {
   );
 }
 
-function ContentPanel({ c }: { c: ContentResults }) {
+function ContentPanel({ c, crawl }: { c: ContentResults; crawl?: TechnicalCrawl }) {
   const site = c.site;
   const doctors = new Map<string, string>();
   for (const p of c.pages) for (const d of p.doctors) if (!doctors.has(d.name)) doctors.set(d.name, `${d.credentials ?? "no credentials shown"}${d.hasBio ? ", has a bio" : ""}${d.school ? `, ${d.school}${d.year ? ` ${d.year}` : ""}` : ""}`);
-  const typos = c.pages.flatMap((p) => realTypos(p.typos).map((t) => ({ ...t, url: p.url })));
+  // A mistake is listed only if the crawl's copy of the page shows those words.
+  const crawled = new Map((crawl?.pages ?? []).map((p) => [p.finalUrl, p]));
+  const typos = c.pages.flatMap((p) => realTypos(p.typos, crawled.get(p.url)).map((t) => ({ ...t, url: p.url })));
   const accreditations = [...new Set(c.pages.flatMap((p) => p.accreditations))];
   const prices = [...new Set(c.pages.flatMap((p) => p.pricesShown))];
   return (
@@ -513,7 +516,7 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
       </section>
 
       {audit.results.score && <ScorePanel s={audit.results.score} />}
-      {audit.results.content && <ContentPanel c={audit.results.content} />}
+      {audit.results.content && <ContentPanel c={audit.results.content} crawl={audit.results.technical} />}
       {audit.results.aiVisibility && <AiVisibilityPanel v={audit.results.aiVisibility} />}
       {audit.results.competitors && <CompetitorsPanel c={audit.results.competitors} />}
       {audit.results.authority && <AuthorityPanel a={audit.results.authority} />}

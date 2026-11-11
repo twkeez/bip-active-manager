@@ -147,7 +147,7 @@ Also:
 - accreditations: AAHA, Fear Free, Cat Friendly Practice / AAFP, or others named.
 - hasFaq: true if the page has questions with answers.
 - blog: only for a blog post, otherwise null.
-- typos: spelling mistakes in the URL, title, headings, menu or text (e.g. "opthalmology", or a misspelled town). "where" says which: url, title, heading, menu or text.
+- typos: spelling mistakes in the URL, title, headings, menu or text (e.g. "opthalmology", or a misspelled town). "where" says which: url, title, heading, menu or text. Quote the mistake exactly as the page shows it. Only real misspellings and typing slips: not abbreviations ("Hwy"), not hyphen or capital-letter style, not accepted spellings ("preventative"), not wording you'd improve.
 - recommendedH1: one H1 for this page following the pattern "{what} {for whom} in {city}", e.g. "Dog and Cat Dental Care in ${practice.city ?? "Town"}". secondaryLine: the page's existing tagline or H1 if worth keeping as a line under it, else null.
 
 Page text:
@@ -315,7 +315,8 @@ async function readPage(page: CrawlPage, practice: Practice, serviceUrls: string
     if (message.stop_reason === "max_tokens" || !message.parsed_output) throw new Error("Claude's answer for this page was cut off or unreadable.");
     const parsed = message.parsed_output as Omit<PageContent, "url" | "pageType" | "currentH1" | "error">;
     // Claude files notes and rewrites as typos too; keep only real corrections.
-    const typos = realTypos(parsed.typos);
+    // …and only ones the page really shows, outside its web addresses.
+    const typos = realTypos(parsed.typos, page);
     return { ...base, ...parsed, typos, blog: type === "blog_post" ? parsed.blog : null, error: null };
   } catch (error) {
     return {

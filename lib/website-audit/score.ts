@@ -88,7 +88,7 @@ export function computeScore(results: AuditResults, config = weightsConfig): Cit
     : 0;
   const ownPages = new Set(doctorPages.map((p) => p.finalUrl)).size;
   add("doctors", "Your doctors", docs, [
-    `${n} doctors named.`,
+    `${n} ${n === 1 ? "doctor" : "doctors"} named.`,
     `${[...doctors.values()].filter((d) => d.bio).length} with a bio, ${[...doctors.values()].filter((d) => d.credentials).length} with their qualifications shown.`,
     ownPages ? `${ownPages} with a page of their own.` : "None has a page of their own.",
   ]);
@@ -99,7 +99,7 @@ export function computeScore(results: AuditResults, config = weightsConfig): Cit
   const missing = results.content?.site.servicesWithoutPage ?? [];
   const named = servicePages.length + missing.length;
   add("services", "Your services", named ? withContent / named : 0, [
-    `${servicePages.length} services have their own page; ${withContent} of those go into real detail (300+ words).`,
+    `${servicePages.length} ${servicePages.length === 1 ? "service has" : "services have"} their own page; ${withContent} of those ${withContent === 1 ? "goes" : "go"} into real detail (300+ words).`,
     missing.length ? `Mentioned but with no page of their own: ${missing.join(", ")}.` : "Every service you mention has its own page.",
   ]);
 
@@ -109,13 +109,13 @@ export function computeScore(results: AuditResults, config = weightsConfig): Cit
   const share = (f: (x: (typeof b)[number]) => boolean) => (b.length ? b.filter(f).length / b.length : 0);
   const blogParts = [share((x) => x.questionHeading), share((x) => Boolean(x.authorNamed)), share((x) => Boolean(x.dateShown)), share((x) => x.linksToServicePage)];
   add("blog", "Your blog", b.length ? blogParts.reduce((x, y) => x + y, 0) / 4 - (loops ? 0.1 : 0) : 0, [
-    `${b.length} blog posts.`,
+    `${b.length} blog ${b.length === 1 ? "post" : "posts"}.`,
     `${pct(blogParts[0])} ask a question in the headline, ${pct(blogParts[1])} name an author, ${pct(blogParts[2])} show a date, ${pct(blogParts[3])} link to a service page.`,
     ...(loops ? [`Points taken off: ${loops} posts break when the address is typed without the final "/".`] : []),
   ]);
 
   const faq = pages.filter((p) => p.hasFaq).map((p) => p.url);
-  add("faq", "Frequently asked questions", faq.length ? 1 : 0, [faq.length ? `Questions and answers on ${faq.length} pages.` : "No questions-and-answers section found."]);
+  add("faq", "Frequently asked questions", faq.length ? 1 : 0, [faq.length ? `Questions and answers on ${faq.length} ${faq.length === 1 ? "page" : "pages"}.` : "No questions-and-answers section found."]);
   const accreditations = [...new Set(pages.flatMap((p) => p.accreditations))];
   add("accreditations", "Accreditations", accreditations.length ? 1 : 0, [
     accreditations.length ? `Shown: ${accreditations.join(", ")}.` : "No accreditations shown (such as AAHA, Fear Free or Cat Friendly).",
