@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appearsOn, isRealTypo, realTypos } from "@/lib/website-audit/typos";
+import { appearsOn, isCutOffWord, isRealTypo, realTypos } from "@/lib/website-audit/typos";
 
 const t = (text: string, suggestion: string, where?: string) => isRealTypo({ text, suggestion, where });
 
@@ -68,5 +68,12 @@ describe("mistakes must be on the page", () => {
   });
   it("doesn't drop anything when there's no page text to check", () => {
     expect(realTypos([{ text: "enjoyes", suggestion: "enjoys" }], {})).toHaveLength(1);
+  });
+  it("drops a word that is only cut off by our reading limit", () => {
+    const long = { text: `${"word ".repeat(2400)}contact betwee` };
+    expect(long.text.length).toBeGreaterThanOrEqual(12_000);
+    expect(isCutOffWord("betwee", long)).toBe(true);
+    expect(realTypos([{ text: "betwee", suggestion: "between" }], long)).toEqual([]);
+    expect(isCutOffWord("betwee", { text: "a short page that ends with betwee" })).toBe(false);
   });
 });
