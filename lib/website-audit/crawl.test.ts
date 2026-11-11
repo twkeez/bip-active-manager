@@ -100,8 +100,18 @@ describe("link anchors", () => {
     expect(page.anchors).toEqual([
       { url: "https://www.example.com/staff", href: "/staff", text: "Our Team", area: "menu" },
       { url: "https://www.example.com/blog/award/gbj.com/vote", href: "gbj.com/vote", text: "Vote here", area: "body" },
-      { url: "https://www.example.com/services/", href: "/services/", text: "Services", area: "body" },
+      { url: "https://www.example.com/services/", href: "/services/", text: "Services", area: "body", context: "Vote here" },
       { url: "https://www.example.com/privacy", href: "/privacy", text: "Privacy", area: "footer" },
     ]);
+  });
+
+  it("keeps the sentence around a link, cut down around its words when long", () => {
+    const long = `${"Intro words here. ".repeat(20)}Good <a href="/blogs/1-nutrition">nutrition</a> keeps cats healthy. ${"More words follow. ".repeat(20)}`;
+    const page = analyzeHtml(`<html><body><p>${long}</p><ul><li>See our <a href="/faq">FAQ</a> page</li></ul></body></html>`, "https://www.example.com/blog/a/");
+    const [nutrition, faq] = page.anchors!;
+    expect(nutrition.context).toContain("Good nutrition keeps cats healthy.");
+    expect(nutrition.context!.startsWith("…") && nutrition.context!.endsWith("…")).toBe(true);
+    expect(nutrition.context!.length).toBeLessThanOrEqual(202);
+    expect(faq.context).toBe("See our FAQ page");
   });
 });

@@ -37,9 +37,9 @@ describe("finding details", () => {
   it("names each page and what's wrong there", () => {
     const t = crawl([page("/a", { h1s: ["Pet Surgery", "in Indian Land"] }), page("/b", { wordCount: 120, metaDescription: null })]);
     expect(find(t, "more than one main headline").details).toEqual([
-      { url: "https://www.vet.com/a", note: "2 main headlines (H1)", items: ["Pet Surgery", "in Indian Land"] },
+      { url: "https://www.vet.com/a", title: "Title of /a", note: "2 main headlines (H1)", items: ["Pet Surgery", "in Indian Land"] },
     ]);
-    expect(find(t, "under 300 words").details).toEqual([{ url: "https://www.vet.com/b", note: "120 words" }]);
+    expect(find(t, "under 300 words").details).toEqual([{ url: "https://www.vet.com/b", title: "Title of /b", note: "120 words" }]);
     expect(find(t, "no summary").details?.[0].url).toBe("https://www.vet.com/b");
   });
 
@@ -47,7 +47,7 @@ describe("finding details", () => {
     const post = page("/blog/award/", { links: ["https://www.vet.com/blog/award/gbj.com/vote"] });
     const t = crawl([post, page("/")], [{ url: "https://www.vet.com/blog/award/gbj.com/vote", linkedFrom: [post.url], finalStatus: 404, softError: null }]);
     expect(find(t, "doesn't load").details).toEqual([
-      { url: "https://www.vet.com/blog/award/", note: 'A link goes to https://www.vet.com/blog/award/gbj.com/vote, which is "page not found" (404).' },
+      { url: "https://www.vet.com/blog/award/", title: "Title of /blog/award/", note: 'A link goes to https://www.vet.com/blog/award/gbj.com/vote, which is "page not found" (404).' },
     ]);
   });
 
@@ -119,5 +119,53 @@ describe("finding details", () => {
     const t = crawl([page("/")], [{ url: "https://www.vet.com/blog/hello-world/", linkedFrom: [], finalStatus: 200, softError: null }]);
     expect(technicalFindings(t).some((f) => f.text.includes("missing from your sitemap"))).toBe(false);
     expect(find(t, "Hello world").text).toBe('The "Hello world!" sample post that comes with WordPress is still on the site.');
+  });
+
+  it("gives the sentence around a broken link and the live page it probably meant", () => {
+    const dead = "https://dhah.org/blogs/1105177-kittens-101";
+    const post = page("/blog/early-care/", {
+      links: [dead],
+      anchors: [{ url: dead, href: dead, text: "a curious kitten", area: "body", context: "Whether you have a curious kitten or a senior dog, early care matters." }],
+    });
+    const t = crawl([post, page("/"), page("/blog/kittens-101/")], [{ url: dead, linkedFrom: [post.url], finalStatus: 404, softError: null }]);
+    const d = find(t, "doesn't load").details![0];
+    expect(d.title).toBe("Title of /blog/early-care/");
+    expect(d.note).toContain('Search the page for: "Whether you have a curious kitten or a senior dog, early care matters."');
+    expect(d.note).toContain("It probably should go to https://www.vet.com/blog/kittens-101/.");
+  });
+
+  it("says an address we tested ourselves isn't a link on the site", () => {
+    const v = { pageUrl: "https://www.vet.com/about/", variantUrl: "https://www.vet.com/about", chain: [{ url: "https://www.vet.com/about", status: 301 }, { url: "http://www.vet.com/about/", status: 301 }, { url: "https://www.vet.com/about/", status: 200 }] };
+    const t = crawl([page("/")]);
+    t.slashVariants = [v] as TechnicalCrawl["slashVariants"];
+    t.summary.slashVariants = { ...t.summary.slashVariants, insecure: [v.variantUrl] };
+    expect(find(t, "insecure (http)").details![0].note).toContain("we typed it ourselves to test your server");
+  });
+
+  it("doesn't mistake a link to /about/ for a link to /about", () => {
+    const v = { pageUrl: "https://www.vet.com/about/", variantUrl: "https://www.vet.com/about", chain: [{ url: "https://www.vet.com/about", status: 301 }, { url: "http://www.vet.com/about/", status: 301 }, { url: "https://www.vet.com/about/", status: 200 }] };
+    const t = crawl([page("/", { links: ["https://www.vet.com/about/"] }), page("/x", { links: ["https://vet.com/about"] })]);
+    t.slashVariants = [v] as TechnicalCrawl["slashVariants"];
+    t.summary.slashVariants = { ...t.summary.slashVariants, insecure: [v.variantUrl] };
+    expect(find(t, "insecure (http)").details![0].linkedFrom).toEqual(["https://www.vet.com/x"]);
+  });
+});
+
+describe("likelyReplacement", () => {
+  it("matches an old blog address to the same post's new one, and nothing loosely related", async () => {
+    const { likelyReplacement } = await import("@/lib/website-audit/findings");
+    const live = ["https://www.dhah.org/blog/anxiety-in-pets/", "https://www.dhah.org/blog/pet-dental-tips/", "https://www.dhah.org/services/wellness.html"];
+    expect(likelyReplacement("https://dhah.org/blogs/1069277-anxiety-in-pets", live)).toBe("https://www.dhah.org/blog/anxiety-in-pets/");
+    expect(likelyReplacement("https://dhah.org/blogs/1158083-the-importance-of-nutrition-in-your-cats-diet", live)).toBeNull();
+  });
+});
+
+describe("crawlLimits", () => {
+  it("passes on what the crawl recorded, and says when an old crawl recorded nothing", async () => {
+    const { crawlLimits } = await import("@/lib/website-audit/findings");
+    const t = crawl([page("/")]);
+    expect(crawlLimits(t)).toEqual({ hit: [], recorded: false });
+    t.limitsHit = ["Your pages link to 75 addresses that aren't in your sitemap; we checked the first 60."];
+    expect(crawlLimits(t).hit).toHaveLength(1);
   });
 });

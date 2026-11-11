@@ -7,7 +7,7 @@ import type { Guide } from "@/lib/guide/types";
 // and anything that would otherwise surprise you.
 
 export const GUIDE: Guide = {
-  updated: "November 9, 2026",
+  updated: "November 11, 2026",
   intro: [
     "BIP Control is Beyond Indigo's home base for running client work: who our clients are, what they bought, what they're waiting on, how their marketing is performing and what we need to do next.",
     "This guide walks through the sidebar from top to bottom. Each tool says what it's for, what you can do there, and anything good to know before you rely on it.",
@@ -481,7 +481,8 @@ export const GUIDE: Guide = {
             "Steps: technical crawl (free), authority & reviews (a few cents), reviews vs. competitors (about 1¢), AI visibility (about $1.50–3), and content, trust signals & the citability score (about 25–40¢ in Claude). The report button appears once the score exists. Paid calls are logged on AI Spend. Score weights are in lib/website-audit/config/score-weights.json.",
             "Reviews vs. competitors searches Google Maps from the practice's own listing, so run it after authority & reviews. A side service counts as offered when it's on the Google listing's categories, the website menu, a non-blog page address or a service page; blog posts don't count.",
             "AI visibility shows two separate measurements: our fixed prompt set asked today, and DataForSEO's database of AI answers observed over about 90 days. The prompts are edited in lib/website-audit/config/prompts.json.",
-            "Website health in the report lists red items first. Each says how to fix it and lists every page affected, with clickable links: for a broken link, the page it sits on and the link's words (crawls from November 9, 2026 on; re-run the free technical crawl on older audits).",
+            "Website health in the report lists red items first. Each says how to fix it and lists every page affected, with clickable links: for a broken link, the page it sits on (with its title), the link's words, the sentence around it to search for, and the live page it probably should point to (crawls from November 11, 2026 on; re-run the free technical crawl on older audits).",
+            "The crawl has limits: 500 sitemap addresses, 60 addresses outside the sitemap, 200 links and 12,000 characters of text per page, and a 4-minute time budget. Whenever one is reached, a \"Cut short on this run\" note under the technical findings and in the report's Website health section says exactly what was left out. The same note lists what the crawl never checks: links to other websites, links on pages outside the sitemap, and links to PDFs and images.",
             "A red \"may be mixing up different practices\" warning means the Google listing links to another website, the listing is in another state, or the home page names another state. The website and listing come from the client record: correct it, then start a new audit. The report won't open the print dialog by itself while the warning stands.",
           ],
         },

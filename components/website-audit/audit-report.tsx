@@ -13,7 +13,7 @@ import {
 } from "@/lib/website-audit/compare";
 import { SIDE_SERVICES, standing } from "@/lib/website-audit/competitors";
 import { doctorKeys } from "@/lib/website-audit/doctors";
-import { technicalFindings, type FindingDetail } from "@/lib/website-audit/findings";
+import { NOT_CHECKED, crawlLimits, technicalFindings, type FindingDetail } from "@/lib/website-audit/findings";
 import { PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import { realTypos } from "@/lib/website-audit/typos";
 import type { AiPlatform, AuditResults, CompetitorListing, CompetitorResults, Evidence, PageContent, ServiceComparison, WebsiteAuditRow } from "@/lib/website-audit/types";
@@ -148,6 +148,7 @@ function FindingDetails({ details }: { details: FindingDetail[] }) {
     <ul className="mt-1.5 space-y-1 border-t border-slate-200 pt-1.5 text-[11px] leading-relaxed text-slate-600">
       {details.map((d, i) => (
         <li key={i} style={{ breakInside: "avoid" }}>
+          {d.title && <span className="font-medium text-slate-700">{d.title} </span>}
           {d.url ? <UrlLink url={d.url} /> : <span className="font-medium text-slate-700">{d.label}</span>}
           {d.note && (
             <span className="text-slate-500">
@@ -874,6 +875,37 @@ export default function AuditReport({ audit, previous }: { audit: WebsiteAuditRo
               </li>
             ))}
           </ul>
+          {(() => {
+            const limits = crawlLimits(t);
+            return (
+              <div className="rounded-xl border border-slate-200 px-3 py-2 text-[11px] leading-relaxed text-slate-600" style={{ breakInside: "avoid" }}>
+                <p className="font-semibold text-slate-700">What this check covers</p>
+                <p>
+                  Every page in your sitemap, every link between your own pages on them, and every address those links point to.
+                  {limits.hit.length === 0 && limits.recorded && " Nothing was cut short on this run."}
+                </p>
+                {limits.hit.length > 0 && (
+                  <>
+                    <p className="mt-1 font-semibold text-amber-700">Cut short on this run, so some problems may be missing:</p>
+                    <ul className="list-disc pl-4">
+                      {limits.hit.map((l) => (
+                        <li key={l}>
+                          <LinkedText text={l} />
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                {!limits.recorded && <p className="mt-1">This crawl ran before we recorded every limit; run the technical crawl again to see whether anything was cut short.</p>}
+                <p className="mt-1 font-semibold text-slate-700">Not checked yet:</p>
+                <ul className="list-disc pl-4">
+                  {NOT_CHECKED.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
         </Section>
       )}
 
