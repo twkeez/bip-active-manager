@@ -7,7 +7,7 @@ import type { Guide } from "@/lib/guide/types";
 // and anything that would otherwise surprise you.
 
 export const GUIDE: Guide = {
-  updated: "November 11, 2026",
+  updated: "November 12, 2026",
   intro: [
     "BIP Control is Beyond Indigo's home base for running client work: who our clients are, what they bought, what they're waiting on, how their marketing is performing and what we need to do next.",
     "This guide walks through the sidebar from top to bottom. Each tool says what it's for, what you can do there, and anything good to know before you rely on it.",
@@ -472,6 +472,7 @@ export const GUIDE: Guide = {
           youCan: [
             "Start an audit for a client, or any prospect's website",
             "Run each step and see its findings, each traced to the URLs behind it",
+            "Print the Client highlights: a short good-news copy for a client",
             "Print the Team worklist for whoever is fixing the site",
             "Open the branded report (Report (PDF)) and save it as a PDF to send: summary, the ranked action plan, AI visibility by platform, trust signals, technical findings, and a methodology appendix with the exact questions asked",
             "Compare the practice's Google rating and review count with the vets near it, and, when it also offers grooming, boarding, daycare or training, with the businesses that only do that",
@@ -491,6 +492,7 @@ export const GUIDE: Guide = {
             "The score's services part counts services named on several pages (usually the menu) that no service page covers. It is counted from the page readings, so an unchanged website scores the same on every run.",
             "Spelling mistakes are reported only when the page really shows those words and the fix is a small correction. Web addresses, abbreviations (\"Hwy\"), hyphen style and accepted spellings (\"preventative\") are left out. If an AI tool couldn't answer some questions, the AI section says how many were left out.",
             "The report is written for a client or a prospect. An audit started from a client record is a client's: the plan says \"Beyond Indigo:\" for website work, and a \"What happens next\" section lists what we need from the practice and what we'll do. For a prospect it says \"Your web developer\". Links above the report switch between the versions.",
+            "Client highlights (button on a client's audit screen, or the first version link): a short good-news copy to hand a client. It shows their numbers, where AI recommends them, their Google standing, what the website already does well, what makes them different, what has improved since the last check, and up to three things we're working on next. It leaves out every website finding, fix list and comparison that isn't in their favour, so it is not the whole picture: its last line says the strategist has the full audit.",
             "Team worklist (button on the audit screen, or the third version link): an internal printout of every job with tick boxes. It lists the action-plan jobs for us (and which wait on the client), the fix-once jobs for the whole site, then every page with its broken links, spelling mistakes and suggested headline. The client's report leaves that detail out and shows each Website health item as one line.",
             "A red \"may be mixing up different practices\" warning means the Google listing links to another website, the listing is in another state, or the home page names another state. The website and listing come from the client record: correct it, then start a new audit. The report won't open the print dialog by itself while the warning stands.",
           ],

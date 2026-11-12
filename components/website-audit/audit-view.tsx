@@ -505,6 +505,17 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
               <FileText size={14} /> Report (PDF)
             </a>
           )}
+          {audit.results.score && audit.client_id != null && (
+            <a
+              href={`/website-audit-print/${audit.id}?for=highlights`}
+              target="_blank"
+              rel="noreferrer"
+              title="The good-news copy for the client: what's working, with no website findings or fix lists"
+              className="inline-flex items-center gap-1.5 rounded-md border border-bip-border px-3 py-1.5 text-sm text-bip-text hover:bg-bip-card"
+            >
+              <FileText size={14} /> Client highlights
+            </a>
+          )}
           {audit.results.score && (
             <a
               href={`/website-audit-print/${audit.id}?for=team`}

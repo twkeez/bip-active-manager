@@ -425,7 +425,7 @@ function distinct<T>(items: T[]): T[] {
  * "your web developer" is Beyond Indigo and the plan ends with what we'll do
  * and what we need from them. A prospect has someone else looking after it.
  */
-export type Audience = "client" | "prospect" | "team";
+export type Audience = "client" | "prospect" | "team" | "highlights";
 
 /** A box to tick on the printed worklist. */
 const Tick = () => <span className="mt-0.5 inline-block h-3.5 w-3.5 shrink-0 rounded border border-slate-400" aria-hidden="true" />;
@@ -778,6 +778,239 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
         )}
         <p className="border-t border-slate-200 pt-3 text-center text-[12px] text-slate-600">
           Beyond Indigo Pets · team worklist · audit #{audit.id}, {runDate}
+        </p>
+      </article>
+    );
+  }
+
+  // The client's good-news copy: what's working, in plain words. No website findings, no fix lists.
+  if (mode === "highlights") {
+    const hitsOf = (runs: NonNullable<typeof v>["runs"]) => runs.filter((run) => run.cited || run.mentioned).length;
+    const aiKinds = (
+      [
+        ["Looking for a vet", `e.g. "best vet in ${town}"`, answeredOfKind("local")],
+        ["Looking for a service", `e.g. "dog dental cleaning near ${town}"`, answeredOfKind("service")],
+      ] as const
+    ).filter(([, , runs]) => hitsOf(runs) > 0);
+    const aiTools = (v?.platforms ?? []).filter((p) => p.promptsCited + p.promptsMentioned > 0);
+
+    // Only the comparisons that are in the practice's favour.
+    const st = comp && vets && !vets.error && vets.listings.length ? standing(comp.you, vets.listings) : null;
+    const outOf = (count: number, total: number) => (count === total ? `all ${total} of the` : `${count} of the ${total}`);
+    const reviewPoints: string[] = [];
+    if (a?.google.rating != null && a.google.rating >= 4.5)
+      reviewPoints.push(`Your Google rating is ${a.google.rating}★${a.google.reviewCount != null ? `, from ${a.google.reviewCount.toLocaleString("en-US")} reviews` : ""}.`);
+    if (st?.count && st.higherRatingThan != null && st.higherRatingThan * 2 >= st.count)
+      reviewPoints.push(`Your rating is higher than ${outOf(st.higherRatingThan, st.count)} vets Google Maps shows near you.`);
+    if (st?.count && st.moreReviewsThan != null && st.moreReviewsThan * 2 >= st.count)
+      reviewPoints.push(`You have more reviews than ${outOf(st.moreReviewsThan, st.count)} vets Google Maps shows near you.`);
+    if (reviews.length > 0 && answeredReviews / reviews.length >= 0.5) reviewPoints.push(`You replied to ${answeredReviews} of your ${reviews.length} most recent reviews, which pet owners and Google both notice.`);
+
+    const named = [...doctors.values()];
+    const withBio = named.filter((d) => d.hasBio).length;
+    const inPlace = (
+      [
+        [named.length > 0, "Your doctors are named", `${named.length} named on your website${withBio === 0 ? "" : named.length === 1 ? ", with a bio" : `, ${withBio === named.length ? "all" : withBio} with a bio`}.`],
+        [servicePages.length > 0, "Services with a page of their own", `${servicePages.length} ${servicePages.length === 1 ? "service has" : "services have"} a dedicated page, which is what gets you recommended for that service.`],
+        [pages.some((p) => p.accreditations.length), "Accreditations shown", distinct(pages.flatMap((p) => p.accreditations)).join(", ")],
+        [pages.some((p) => p.hours), "Opening hours shown", ""],
+        [pages.some((p) => saysSomething(p.booking)), "Clear how to book", ""],
+        [pages.some((p) => informative(p.emergencyReferral)), "Says where to go in an emergency", ""],
+        [pages.some((p) => informative(p.paymentInfo)), "Payment options explained", ""],
+        [pages.some((p) => p.hasFaq), "Answers to common questions (FAQ)", ""],
+        [blogPosts.length > 0, "A blog pet owners can learn from", `${blogPosts.length} ${blogPosts.length === 1 ? "post" : "posts"} on your website.`],
+      ] as [boolean, string, string][]
+    ).filter(([ok]) => ok);
+
+    const improved = [...headline, ...(prev ? compareMetrics(scoreMetrics(r), scoreMetrics(prev)) : [])].filter(
+      // A real move, not a rounding wobble (6.9 to 7).
+      (m) => m.change === "better" && m.value != null && m.last != null && m.value - m.last >= (m.format === "rating" ? 0.1 : m.format === "percent" ? 0.03 : 1),
+    );
+    // What's next, without the website housekeeping.
+    const TECHNICAL = /redirect|sitemap|schema|structured data|broken|dead link|404|https|canonical|\btags?\b|speed|robots|llms|crawl|typo|spelling|\blinks?\b|load|secure|Google knows about|test post|alt text/i;
+    const next = ourWork.filter((x) => !TECHNICAL.test(x.goal)).slice(0, 3);
+    const strengths = c?.site.differentiators ?? [];
+    // Score parts about how the site is built: not this copy's subject.
+    const BEHIND_THE_SCENES = new Set(["technical", "structuredData", "domainRank"]);
+
+    const tiles = [
+      { label: "Your score", value: s ? String(s.total) : null, sub: "out of 100", m: byKey.get("score") },
+      {
+        label: "AI recommends you",
+        value: ai && ai.hits > 0 ? formatMetric(byKey.get("aiShare")?.value ?? null, "percent") : null,
+        sub: ai ? `of the time (${ai.hits} of ${ai.answered} AI answers about vets and services near you)` : "",
+        m: byKey.get("aiShare"),
+      },
+      {
+        label: "Google rating",
+        value: a?.google.rating != null ? formatMetric(a.google.rating, "rating") : null,
+        sub: a?.google.reviewCount != null ? `from ${a.google.reviewCount.toLocaleString("en-US")} reviews` : "",
+        m: byKey.get("rating"),
+      },
+    ].filter((tile) => tile.value != null);
+
+    return (
+      <article className="mx-auto max-w-3xl space-y-8 text-slate-700">
+        <header className="overflow-hidden rounded-3xl px-8 py-7 text-white" style={{ background: GRADIENT, breakInside: "avoid" }}>
+          <BeyondIndigoLogo className="h-8 w-auto" />
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">Website, SEO & AI Search · Highlights</p>
+          <h1 className="mt-1 text-3xl font-semibold leading-tight" style={{ fontFamily: "var(--font-heading)", color: "#ffffff" }}>
+            {audit.practice_name}
+          </h1>
+          <p className="mt-2 text-sm text-white/80">
+            {audit.domain}
+            {location && ` · ${location}`} · {runDate}
+          </p>
+          {tiles.length > 0 && (
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              {tiles.map((tile) => (
+                <div key={tile.label} className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.12)" }}>
+                  <p className="text-[12px] font-medium uppercase tracking-wide text-white/75">{tile.label}</p>
+                  <p className="mt-1 text-3xl font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
+                    {tile.value}
+                  </p>
+                  <p className="text-xs text-white/80">{tile.sub}</p>
+                  {tile.m?.change === "better" && tile.m.last != null && <p className="mt-1 text-[12px] text-white/80">Up from {formatMetric(tile.m.last, tile.m.format)} last time</p>}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-5 text-xs text-white/70">Prepared by Beyond Indigo Pets · beyondindigopets.com</p>
+        </header>
+
+        {(working.some((p) => !BEHIND_THE_SCENES.has(p.key)) || strengths.length > 0) && (
+          <Section n={num()} title="What's working for you" intro="The parts of your online presence that are doing their job today.">
+            <ul className="space-y-2 rounded-2xl border border-slate-200 p-4 text-[13px] leading-snug [&>li]:break-inside-avoid" style={{ boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
+              {working.filter((p) => !BEHIND_THE_SCENES.has(p.key)).map((p) => (
+                <li key={p.key} className="flex gap-2">
+                  <span className="font-semibold" style={{ color: "#047857" }}>✓</span>
+                  <span>
+                    <span className="font-medium text-slate-800">{p.label}.</span> {unmarked(p.details[0])}
+                  </span>
+                </li>
+              ))}
+              {strengths.slice(0, 2).map((d) => (
+                <li key={d.title} className="flex gap-2">
+                  <span className="font-semibold" style={{ color: "#047857" }}>✓</span>
+                  <span>
+                    <span className="font-medium text-slate-800">{d.title}.</span> Your reviews and website back this up.
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {v && ai && ai.hits > 0 && (
+          <Section
+            keepFirst
+            n={num()}
+            title="Where AI recommends you"
+            intro={`More and more pet owners ask AI tools instead of scrolling through search results. On ${dateOf(v.ranAt)} we asked six of them the questions a pet owner near you asks.`}
+          >
+            <div className="grid gap-3 sm:grid-cols-2" style={{ breakInside: "avoid" }}>
+              {aiKinds.map(([title, example, runs]) => (
+                <div key={title} className="rounded-xl bg-slate-50 p-3 text-[13px]">
+                  <p className="font-semibold text-slate-800">{title}</p>
+                  <p className="text-[12px] text-slate-600">{example}</p>
+                  <p className="mt-1 text-2xl font-semibold" style={{ color: INDIGO, fontFamily: "var(--font-heading)" }}>
+                    {hitsOf(runs)} of {runs.length}
+                  </p>
+                  <p className="text-slate-600">answers included you</p>
+                </div>
+              ))}
+            </div>
+            {aiTools.length > 0 && (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-600">
+                    <th className="py-1.5 font-semibold">AI tool</th>
+                    <th className="py-1.5 pl-3 text-right font-semibold">Answers that named you</th>
+                    <th className="py-1.5 pl-3 text-right font-semibold">Answers that linked to your website</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {aiTools.map((p) => (
+                    <tr key={p.platform} className="border-b border-slate-100" style={{ breakInside: "avoid" }}>
+                      <td className="py-1.5">
+                        <span className="text-slate-800">{p.label}</span>
+                        <span className="block text-[12px] text-slate-600">{PLATFORM_PLAIN[p.platform]}</span>
+                      </td>
+                      <td className="py-1.5 pl-3 text-right font-medium text-slate-900">{p.promptsMentioned}</td>
+                      <td className="py-1.5 pl-3 text-right font-medium text-slate-900">{p.promptsCited}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="text-[12px] text-slate-600">
+              {`A link is the stronger result: the AI is treating your website as a trusted source. AI answers change from day to day, so this is a snapshot of ${dateOf(v.ranAt)}.`}
+            </p>
+          </Section>
+        )}
+
+        {reviewPoints.length > 0 && (
+          <Section keepFirst n={num()} title="What pet owners see on Google" intro="Star rating and number of reviews are the first two things a pet owner compares.">
+            <ul className="space-y-2 rounded-2xl border border-slate-200 p-4 text-[13px] leading-snug" style={{ breakInside: "avoid" }}>
+              {reviewPoints.map((point) => (
+                <li key={point} className="flex gap-2">
+                  <span className="font-semibold" style={{ color: "#047857" }}>✓</span>
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {inPlace.length > 0 && (
+          <Section n={num()} title="What your website already does well" intro="The things a pet owner, Google and AI tools look for when deciding whether to trust a practice.">
+            <ul>
+              {inPlace.map(([, label, detail]) => (
+                <Check key={label} ok label={label} detail={detail || undefined} />
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {strengths.length > 0 && (
+          <Section keepFirst n={num()} title="What makes you different" intro="Strengths your website and your Google reviews already show, which most practices nearby can't claim.">
+            {strengths.map((d) => (
+              <div key={d.title} className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
+                <p className="text-sm font-semibold" style={{ color: INDIGO }}>
+                  {d.title}
+                </p>
+                <p className="mt-1 text-[13px] leading-relaxed text-slate-700">{d.detail}</p>
+              </div>
+            ))}
+            {c?.site.positioningLine && (
+              <div className="rounded-2xl p-5 text-white" style={{ background: GRADIENT, breakInside: "avoid" }}>
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/75">Your practice in one sentence</p>
+                <p className="mt-1 text-lg leading-snug" style={{ fontFamily: "var(--font-heading)" }}>
+                  {c.site.positioningLine}
+                </p>
+              </div>
+            )}
+          </Section>
+        )}
+
+        {improved.length > 0 && lastDate && (
+          <Section keepFirst n={num()} title="What has improved" intro={`Compared with our last check on ${lastDate}.`}>
+            <MetricTable rows={improved} lastDate={lastDate} heading="What we measured" />
+          </Section>
+        )}
+
+        {next.length > 0 && (
+          <Section keepFirst n={num()} title="What we're working on next" intro="Where Beyond Indigo is putting its effort for you now.">
+            <ol className="list-decimal space-y-1.5 rounded-2xl border border-slate-200 py-4 pl-9 pr-4 text-[13px] leading-snug text-slate-700" style={{ breakInside: "avoid" }}>
+              {next.map((x) => (
+                <li key={x.rank}>{voice(x.goal)}</li>
+              ))}
+            </ol>
+          </Section>
+        )}
+
+        <p className="border-t border-slate-200 pt-3 text-center text-[12px] text-slate-600">
+          {`Beyond Indigo Pets · ${runDate}. This is a summary of what's working. Your strategist has the full audit behind it and is glad to walk you through it.`}
         </p>
       </article>
     );
