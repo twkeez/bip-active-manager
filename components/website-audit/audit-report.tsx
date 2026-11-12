@@ -806,13 +806,23 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
       reviewPoints.push(`You have more reviews than ${outOf(st.moreReviewsThan, st.count)} vets Google Maps shows near you.`);
     if (reviews.length > 0 && answeredReviews / reviews.length >= 0.5) reviewPoints.push(`You replied to ${answeredReviews} of your ${reviews.length} most recent reviews, which pet owners and Google both notice.`);
 
+    // Each accreditation once, by its short name: pages word them differently ("AAHA Accreditation", "AAHA").
+    const accreditations = [
+      ...new Map(
+        pages
+          .flatMap((p) => p.accreditations)
+          .map((x) => x.replace(/\([^)]*\)/g, "").replace(/\b(accreditations?|accredited|certifications?|certified|professionals?)\b/gi, "").replace(/\s+/g, " ").trim())
+          .filter(Boolean)
+          .map((x) => [x.toLowerCase(), x] as const),
+      ).values(),
+    ].slice(0, 6);
     const named = [...doctors.values()];
     const withBio = named.filter((d) => d.hasBio).length;
     const inPlace = (
       [
         [named.length > 0, "Your doctors are named", `${named.length} named on your website${withBio === 0 ? "" : named.length === 1 ? ", with a bio" : `, ${withBio === named.length ? "all" : withBio} with a bio`}.`],
         [servicePages.length > 0, "Services with a page of their own", `${servicePages.length} ${servicePages.length === 1 ? "service has" : "services have"} a dedicated page, which is what gets you recommended for that service.`],
-        [pages.some((p) => p.accreditations.length), "Accreditations shown", distinct(pages.flatMap((p) => p.accreditations)).join(", ")],
+        [pages.some((p) => p.accreditations.length), "Accreditations shown", accreditations.join(", ")],
         [pages.some((p) => p.hours), "Opening hours shown", ""],
         [pages.some((p) => saysSomething(p.booking)), "Clear how to book", ""],
         [pages.some((p) => informative(p.emergencyReferral)), "Says where to go in an emergency", ""],
@@ -878,7 +888,7 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
                 <li key={p.key} className="flex gap-2">
                   <span className="font-semibold" style={{ color: "#047857" }}>✓</span>
                   <span>
-                    <span className="font-medium text-slate-800">{p.label}.</span> {unmarked(p.details[0])}
+                    <span className="font-medium text-slate-800">{p.label}.</span> {p.key === "accreditations" && accreditations.length ? `Shown: ${accreditations.join(", ")}.` : unmarked(p.details[0])}
                   </span>
                 </li>
               ))}
