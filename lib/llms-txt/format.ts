@@ -24,7 +24,8 @@ export function formatLlmsTxt(curation: LlmsTxtCuration): string {
   const optionalSection = curation.sections.find((s) => s.name.trim().toLowerCase() === "optional");
 
   for (const section of primarySections) {
-    if (!section.links.length) continue;
+    // A section whose links are all optional has nothing to list here: they go under Optional below.
+    if (!section.links.some((link) => !link.optional)) continue;
     lines.push(`## ${section.name.trim()}`);
     for (const link of section.links) {
       if (!link.optional) {
