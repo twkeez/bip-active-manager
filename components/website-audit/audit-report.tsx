@@ -822,13 +822,6 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
       ] as [boolean, string, string][]
     ).filter(([ok]) => ok);
 
-    const improved = [...headline, ...(prev ? compareMetrics(scoreMetrics(r), scoreMetrics(prev)) : [])].filter(
-      // A real move, not a rounding wobble (6.9 to 7).
-      (m) => m.change === "better" && m.value != null && m.last != null && m.value - m.last >= (m.format === "rating" ? 0.1 : m.format === "percent" ? 0.03 : 1),
-    );
-    // What's next, without the website housekeeping.
-    const TECHNICAL = /redirect|sitemap|schema|structured data|broken|dead link|404|https|canonical|\btags?\b|speed|robots|llms|crawl|typo|spelling|\blinks?\b|load|secure|Google knows about|test post|alt text/i;
-    const next = ourWork.filter((x) => !TECHNICAL.test(x.goal)).slice(0, 3);
     const strengths = c?.site.differentiators ?? [];
     // Score parts about how the site is built: not this copy's subject.
     const BEHIND_THE_SCENES = new Set(["technical", "structuredData", "domainRank"]);
@@ -990,22 +983,6 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
                 </p>
               </div>
             )}
-          </Section>
-        )}
-
-        {improved.length > 0 && lastDate && (
-          <Section keepFirst n={num()} title="What has improved" intro={`Compared with our last check on ${lastDate}.`}>
-            <MetricTable rows={improved} lastDate={lastDate} heading="What we measured" />
-          </Section>
-        )}
-
-        {next.length > 0 && (
-          <Section keepFirst n={num()} title="What we're working on next" intro="Where Beyond Indigo is putting its effort for you now.">
-            <ol className="list-decimal space-y-1.5 rounded-2xl border border-slate-200 py-4 pl-9 pr-4 text-[13px] leading-snug text-slate-700" style={{ breakInside: "avoid" }}>
-              {next.map((x) => (
-                <li key={x.rank}>{voice(x.goal)}</li>
-              ))}
-            </ol>
           </Section>
         )}
 
