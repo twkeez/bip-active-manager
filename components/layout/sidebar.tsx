@@ -30,6 +30,7 @@ import {
   Mail,
   MessageSquare,
   MessageSquareQuote,
+  MapPin,
   MapPinned,
   Phone,
   Radar,
@@ -129,6 +130,7 @@ const SEO_TOOLS: NavItem[] = [
   { label: "Site Audit", href: "/site-audit", icon: Globe },
   { label: "Website & AI Audit", href: "/website-audits", icon: ScanSearch, adminOnly: true },
   { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
+  { label: "Maps Rank Tracker", href: "/maps-rank", icon: MapPin, adminOnly: true },
   { label: "Reputation", href: "/reputation", icon: MessageSquareQuote },
   { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
 ];
