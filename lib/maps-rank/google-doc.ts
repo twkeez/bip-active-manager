@@ -45,12 +45,20 @@ export function reportHtml(report: MapsRankReport, pictures: { banner: Buffer; m
   )
     .map(([tier, text]) => `<span style="color:${TIER[tier]};font-size:12pt">&#9679;</span> <span style="font-size:9pt;color:#475569">${esc(text)}</span>`)
     .join(" &nbsp;&nbsp; ");
+  const first = report.isBaseline;
   const summaryRows = report.summary
     .map(
       (row) =>
-        `<tr><td ${td("font-weight:bold")}>${esc(row.keyword)}</td><td ${td()}>Top ${row.goal}</td><td ${td()}>${esc(row.baselineLabel)}</td><td ${td()}>${esc(row.lastLabel)}</td><td ${td(`font-weight:bold;color:${row.goalMet ? "#047857" : "#0f172a"}`)}>${esc(row.todayLabel)}</td><td ${td(`color:${row.change ? CHANGE_COLOR[row.change] : "#475569"}`)}>${esc(row.changeLabel)}</td><td ${td()}>${esc(row.addressLabel)}</td></tr>`,
+        `<tr><td ${td("font-weight:bold")}>${esc(row.keyword)}</td><td ${td()}>Top ${row.goal}</td>${first ? "" : `<td ${td()}>${esc(row.baselineLabel)}</td><td ${td()}>${esc(row.lastLabel)}</td>`}<td ${td(`font-weight:bold;font-size:11pt;color:${row.goalMet ? "#047857" : "#0f172a"}`)}>${esc(row.todayLabel)}</td>${first ? "" : `<td ${td(`color:${row.change ? CHANGE_COLOR[row.change] : "#475569"}`)}>${esc(row.changeLabel)}</td>`}<td ${td("font-weight:bold;font-size:11pt")}>${esc(row.addressLabel)}</td></tr>`,
     )
     .join("");
+  const summaryHead = first
+    ? `<th ${th("36%")}>Search</th><th ${th("12%")}>Goal</th><th ${th("28%")}>Searching from ${esc(report.townLabel)}</th><th ${th("24%")}>Searching from your address</th>`
+    : `<th ${th("24%")}>Search</th><th ${th("8%")}>Goal</th><th ${th("13%")}>Baseline</th><th ${th("13%")}>Last report</th><th ${th("15%")}>Today, from ${esc(report.townLabel)}</th><th ${th("14%")}>Since baseline</th><th ${th("13%")}>Today, from your address</th>`;
+  const places = `<table style="border-collapse:collapse;width:100%;margin-top:6pt"><tr>
+<td style="width:50%;background:#f1f5f9;border:1px solid #f1f5f9;padding:5pt 7pt;vertical-align:top"><span style="font-size:10pt;font-weight:bold"><span style="color:${INDIGO}">&#9670;</span> Searching from ${esc(report.townLabel)}</span><br><span style="font-size:9pt;color:#475569">${esc(report.places.town)} It is the blue diamond on each map.</span></td>
+<td style="width:50%;background:#f1f5f9;border:1px solid #f1f5f9;padding:5pt 7pt;vertical-align:top"><span style="font-size:10pt;font-weight:bold"><span style="color:#1e1b4b">&#9711;</span> Searching from your address</span><br><span style="font-size:9pt;color:#475569">${esc(report.places.address)} It is the ringed circle in the middle of each map.</span></td>
+</tr></table>`;
   const sections = report.sections
     .map((s) => {
       const map = pictures.maps[s.index];
@@ -79,8 +87,9 @@ ${
 <p style="font-size:9pt;color:${PURPLE};letter-spacing:1pt;margin:10pt 0 0 0"><b>GOOGLE MAPS RANKING REPORT</b></p>
 <h1 style="font-size:22pt;color:#0f172a;margin:0">${esc(report.practice)}</h1>
 <p style="font-size:10pt;color:#475569;margin:2pt 0 10pt 0">${esc(report.dateLabel)} · Report ${report.reportNumber}${report.goalDateLabel ? ` · Goals due ${esc(report.goalDateLabel)}` : ""}</p>
-<table style="border-collapse:collapse;width:100%"><tr><th ${th("27%")}>Search</th><th ${th("9%")}>Goal</th><th ${th("14%")}>Baseline</th><th ${th("14%")}>Last report</th><th ${th("10%")}>Today</th><th ${th("14%")}>Since baseline</th><th ${th("12%")}>From your address</th></tr>${summaryRows}</table>
-<p style="font-size:9pt;color:#475569;margin:4pt 0 0 0">&ldquo;Today&rdquo;, &ldquo;Baseline&rdquo; and &ldquo;Last report&rdquo; are searched from ${esc(report.townLabel)}.</p>
+<table style="border-collapse:collapse;width:100%"><tr>${summaryHead}</tr>${summaryRows}</table>
+${places}
+${first ? "" : `<p style="font-size:9pt;color:#475569;margin:4pt 0 0 0">&ldquo;Baseline&rdquo;, &ldquo;Last report&rdquo; and &ldquo;Since baseline&rdquo; are all measured from ${esc(report.townLabel)}.</p>`}
 ${report.problems.length ? `<p style="font-size:10pt;color:#b91c1c"><b>Not everything could be read on this run:</b> ${report.problems.map(esc).join(" ")}</p>` : ""}
 <h2 style="color:${INDIGO};font-size:13pt;margin:14pt 0 2pt 0">How to read this report</h2>
 ${report.notes.map((n) => `<p style="font-size:9.5pt;color:#334155;margin:0 0 5pt 0">${esc(n)}</p>`).join("")}
