@@ -113,9 +113,12 @@ describe("the comparison", () => {
   });
   it("prefers a baseline recorded on the tracker, and calls a first run a first report", async () => {
     const first = await runAt(1, "2026-11-23T12:00:00Z", 9);
-    expect(buildReport(tracker, first, [first]).summary[0].changeLabel).toBe("First report");
+    const baseline = buildReport(tracker, first, [first]);
+    expect(baseline.isBaseline).toBe(true);
+    expect(baseline.sections[0].headline).toBe("From Town center: #9. From your address: #9. Goal: top 3.");
     const withBaseline = { ...tracker, searches: [{ ...tracker.searches[0], baseline: { rank: 8, date: "2026-11-05" } }] };
     const report = buildReport(withBaseline, first, [first]);
+    expect(report.isBaseline).toBe(false);
     expect(report.summary[0].baselineLabel).toBe("#8 (Nov 5)");
     expect(report.summary[0].changeLabel).toBe("Down 1 place");
   });

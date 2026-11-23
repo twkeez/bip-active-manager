@@ -39,7 +39,10 @@ export default function MapsRankReportView({ report, maps }: { report: MapsRankR
         <table className="w-full text-[13px]">
           <thead>
             <tr className="text-left text-[12px] uppercase tracking-wide text-white" style={{ background: INDIGO }}>
-              {["Search", "Goal", "Baseline", "Last report", "Today", "Since baseline", "From your address"].map((h) => (
+              {(report.isBaseline
+                ? ["Search", "Goal", `Searching from ${report.townLabel}`, "Searching from your address"]
+                : ["Search", "Goal", "Baseline", "Last report", `Today, from ${report.townLabel}`, "Since baseline", "Today, from your address"]
+              ).map((h) => (
                 <th key={h} className="px-2 py-1.5 font-semibold">
                   {h}
                 </th>
@@ -49,22 +52,40 @@ export default function MapsRankReportView({ report, maps }: { report: MapsRankR
           <tbody>
             {report.summary.map((row) => (
               <tr key={row.keyword} className="border-b border-slate-200">
-                <td className="px-2 py-2 font-medium text-slate-900">{row.keyword}</td>
+                <td className="whitespace-nowrap px-2 py-2 font-medium text-slate-900">{row.keyword}</td>
                 <td className="px-2 py-2">Top {row.goal}</td>
-                <td className="px-2 py-2">{row.baselineLabel}</td>
-                <td className="px-2 py-2">{row.lastLabel}</td>
+                {!report.isBaseline && <td className="px-2 py-2">{row.baselineLabel}</td>}
+                {!report.isBaseline && <td className="px-2 py-2">{row.lastLabel}</td>}
                 <td className="px-2 py-2 text-base font-semibold" style={{ color: row.goalMet ? "#047857" : "#0f172a" }}>
                   {row.todayLabel}
                 </td>
-                <td className="px-2 py-2 font-medium" style={{ color: row.change ? CHANGE_COLOR[row.change] : "#475569" }}>
-                  {row.changeLabel}
-                </td>
-                <td className="px-2 py-2">{row.addressLabel}</td>
+                {!report.isBaseline && (
+                  <td className="px-2 py-2 font-medium" style={{ color: row.change ? CHANGE_COLOR[row.change] : "#475569" }}>
+                    {row.changeLabel}
+                  </td>
+                )}
+                <td className="px-2 py-2 text-base font-semibold text-slate-900">{row.addressLabel}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="text-[12px] text-slate-600">{`"Today", "Baseline" and "Last report" are searched from ${report.townLabel}.`}</p>
+        <div className="grid gap-3 pt-1 sm:grid-cols-2">
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="flex items-center gap-2 text-[13px] font-semibold text-slate-900">
+              <span className="inline-block h-3 w-3 rotate-45" style={{ background: INDIGO }} />
+              Searching from {report.townLabel}
+            </p>
+            <p className="mt-1 text-[12px] leading-relaxed text-slate-600">{report.places.town} It is the blue diamond on each map.</p>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="flex items-center gap-2 text-[13px] font-semibold text-slate-900">
+              <span className="inline-block h-3.5 w-3.5 rounded-full border-[3px]" style={{ borderColor: "#1e1b4b", background: "#ffffff" }} />
+              Searching from your address
+            </p>
+            <p className="mt-1 text-[12px] leading-relaxed text-slate-600">{report.places.address} It is the ringed circle in the middle of each map.</p>
+          </div>
+        </div>
+        {!report.isBaseline && <p className="text-[12px] text-slate-600">{`"Baseline", "Last report" and "Since baseline" are all measured from ${report.townLabel}.`}</p>}
         {report.problems.length > 0 && (
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
             <strong>Not everything could be read on this run:</strong> {report.problems.join(" ")}

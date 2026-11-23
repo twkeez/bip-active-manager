@@ -8,7 +8,7 @@ export type ReportSection = {
   index: number;
   keyword: string;
   goalLabel: string;
-  /** "Today: #9 from Rockville town center. Goal: top 5." */
+  /** "From Rockville town center: #9. From your address: #3. Goal: top 5." */
   headline: string;
   /** "Within the top 5 at 9 of the 25 map points." */
   gridLine: string;
@@ -26,6 +26,10 @@ export type MapsRankReport = {
   radiusMiles: number;
   depth: number;
   reportNumber: number;
+  /** True when there is nothing earlier to compare with: this report sets the baseline, so it shows no movement. */
+  isBaseline: boolean;
+  /** What each of the two search places means, in a sentence each. */
+  places: { town: string; address: string };
   summary: (SearchSummary & { todayLabel: string; addressLabel: string; baselineLabel: string; lastLabel: string; changeLabel: string; change: RankChange })[];
   sections: ReportSection[];
   problems: string[];
@@ -60,6 +64,11 @@ export function buildReport(
     radiusMiles,
     depth,
     reportNumber: earlier.filter((r) => r.id !== run.id && r.ran_at < run.ran_at).length + 1,
+    isBaseline: rows.every((row) => !row.baseline),
+    places: {
+      town: `What Google Maps shows someone who makes the search from ${tracker.town_label}. This is the rank your goals are measured on.`,
+      address: "What Google Maps shows someone who makes the same search standing at your front door.",
+    },
     summary: rows.map((row) => {
       // Movement is measured against the baseline: that is what the goal is judged from.
       const change = row.baseline ? row.sinceBaseline : null;
@@ -82,7 +91,7 @@ export function buildReport(
         goalLabel: `Top ${s.goal}`,
         headline: s.town.error
           ? `Today's rank from ${tracker.town_label} couldn't be read.`
-          : `Today: ${rankLabel(s.town.rank, depth)} from ${tracker.town_label}, and ${rankLabel(s.address.rank, depth)} from your own address. Goal: top ${s.goal}.`,
+          : `From ${tracker.town_label}: ${rankLabel(s.town.rank, depth)}. From your address: ${rankLabel(s.address.rank, depth)}. Goal: top ${s.goal}.`,
         gridLine:
           read === 0
             ? "None of the map points could be read on this run."
@@ -94,7 +103,9 @@ export function buildReport(
     }),
     problems: run.results.problems,
     notes: [
-      `The headline rank is what Google Maps shows for the exact search, made from ${tracker.town_label}. It is searched from that same spot on every report, so the numbers compare.`,
+      rows.every((row) => !row.baseline)
+        ? `This report is the baseline. Every later report runs the same searches from the same two places, and shows how far each rank has moved from these numbers.`
+        : `Every report runs the same searches from the same two places, so the numbers compare from one report to the next.`,
       `Each map shows your rank when the same search is made from ${points} spots: a ${gridSize} by ${gridSize} grid reaching ${radiusMiles} miles from your address in each direction, about ${step.toFixed(1)} miles apart. The ringed circle in the middle is your address; the blue diamond is ${tracker.town_label}.`,
       `Google Maps ranks by distance from the searcher, how well a listing matches the search, and how prominent it is (reviews, links, activity). Distance is why the same business ranks differently a few miles away.`,
       `We read the first ${depth} results at each spot, so a rank further down shows as "${depth}+". Paid listings are left out. What one person sees on their own phone can differ a little with their exact location and search history.`,
