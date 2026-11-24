@@ -247,11 +247,11 @@ export async function loadReportForClient(
     periods.current ? pageRowsFor(periods.current.id) : Promise.resolve(gscPageMetrics as GscPageMetric[]),
     periods.previous ? pageRowsFor(periods.previous.id) : Promise.resolve([] as GscPageMetric[]),
     periodIds.length
-      ? fetchAllRows<{ snapshot_id: number; clicks: number; impressions: number; position: number }>(
+      ? fetchAllRows<{ snapshot_id: number; metric_date: string; clicks: number; impressions: number; position: number }>(
           (from, to) =>
             supabase
               .from("client_gsc_daily_metrics")
-              .select("id, snapshot_id, clicks, impressions, position")
+              .select("id, snapshot_id, metric_date, clicks, impressions, position")
               .in("snapshot_id", periodIds)
               .order("id", { ascending: true })
               .range(from, to),
@@ -272,13 +272,23 @@ export async function loadReportForClient(
     return rows.length > 0 ? sumSearchRows(rows) : null;
   };
   const currentDaily = dailyTotalsFor(periods.current?.id);
+  // The dates the numbers really cover. Search Console only returns finished
+  // days, so a sync run just after midnight has no row for its last day yet
+  // (Adobe Animal Hospital, Nov 24 2026: labelled "to Nov 23", data to Nov 22,
+  // matching Search Console's own total for Oct 27 to Nov 22).
+  const currentDays = periods.current
+    ? dailyRaw
+        .filter((row) => Number(row.snapshot_id) === periods.current!.id)
+        .map((row) => String(row.metric_date).slice(0, 10))
+        .sort()
+    : [];
   const gscSiteTotals =
     currentDaily && periods.current
       ? {
           current: {
             ...currentDaily,
-            startDate: periods.current.start_date,
-            endDate: periods.current.end_date,
+            startDate: currentDays[0] ?? periods.current.start_date,
+            endDate: currentDays[currentDays.length - 1] ?? periods.current.end_date,
             source: "daily" as const,
           },
           // Compare like with like: only the previous period's own daily totals.
