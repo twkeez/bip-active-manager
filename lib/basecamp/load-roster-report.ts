@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadResponseReport, type ResponseReportData, type ResponseReportRow } from "@/lib/basecamp/load-response-report";
 import { applyRoster, daysBetween, type RosterClientFlags } from "@/lib/basecamp/roster-report";
 import { loadSheetRoster, type LoadedSheetRoster } from "@/lib/basecamp/sheet-roster";
+import { ACCOUNT_STATUS_MIGRATION } from "@/lib/clients/account-status";
 import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 
 /**
@@ -14,6 +15,8 @@ import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
  */
 
 export type RosterReportData = ResponseReportData & {
+  /** Roster clients marked cancelling or former. Empty when the roster was not applied. */
+  excludedRows: ResponseReportRow[];
   /** Projects no roster client points at. Empty when the roster was not applied. */
   otherRows: ResponseReportRow[];
   roster: LoadedSheetRoster;
@@ -75,6 +78,7 @@ export async function loadRosterReport(supabase: SupabaseClient): Promise<Roster
   const unapplied = (rosterError: string | null): RosterReportData => ({
     ...report,
     otherRows: [],
+    excludedRows: [],
     roster: rosterError ? { ...roster, error: rosterError } : roster,
     rosterApplied: false,
   });
@@ -83,16 +87,23 @@ export async function loadRosterReport(supabase: SupabaseClient): Promise<Roster
   const ready = roster.entries.filter((entry) => entry.state === "ready");
   try {
     const clientIds = ready.map((entry) => entry.clientId!);
-    const flags = await fetchAllRows<RosterClientFlags>(
-      (from, to) =>
-        supabase
-          .from("clients")
-          .select("id,is_low_contact,is_website_only,reply_acknowledged_for_occurred_at")
-          .in("id", clientIds)
-          .order("id")
-          .range(from, to),
-      "roster clients",
-    );
+    const readFlags = (columns: string) =>
+      fetchAllRows<RosterClientFlags>(
+        (from, to) => supabase.from("clients").select(columns).in("id", clientIds).order("id").range(from, to),
+        "roster clients",
+      );
+    const baseColumns = "id,is_low_contact,is_website_only,reply_acknowledged_for_occurred_at";
+    const warnings = [...roster.warnings];
+    let flags: RosterClientFlags[];
+    try {
+      flags = await readFlags(`${baseColumns},account_status,account_status_changed_at,account_status_changed_by`);
+    } catch (error) {
+      // The status column ships as a migration pasted by hand. Until it is
+      // run nobody can be marked former or cancelling, so everyone is active.
+      if (!/account_status/.test((error as Error).message)) throw error;
+      flags = await readFlags(baseColumns);
+      warnings.push(`Former and cancelling are not set up yet (run ${ACCOUNT_STATUS_MIGRATION}), so no client is excluded.`);
+    }
 
     // The sheet outranks the ignore list: a roster client whose project was
     // marked "not tracked" is still reported, read straight from its posts.
@@ -103,8 +114,8 @@ export async function loadRosterReport(supabase: SupabaseClient): Promise<Roster
       [...needed].map(([projectId, name]) => loadProjectRow(supabase, projectId, name)),
     );
 
-    const { rosterRows, otherRows } = applyRoster(report.rows, roster.entries, flags, ignoredRows);
-    return { ...report, rows: rosterRows, otherRows, roster, rosterApplied: true };
+    const { rosterRows, excludedRows, otherRows } = applyRoster(report.rows, roster.entries, flags, ignoredRows);
+    return { ...report, rows: rosterRows, excludedRows, otherRows, roster: { ...roster, warnings }, rosterApplied: true };
   } catch (error) {
     return unapplied(
       `${(error as Error).message}. Showing every Basecamp project instead of the roster until this is fixed.`,

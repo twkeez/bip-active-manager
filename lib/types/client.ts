@@ -32,6 +32,8 @@ export type ClientRow = {
    * with them — see lib/clients/service-active.ts.
    */
   is_low_contact?: boolean | null;
+  /** active, cancelling or former. Cancelling and former are left off the Response Report. */
+  account_status?: string | null;
   /**
    * Website-build-only account. Hidden from the client lists behind a toggle —
    * see lib/clients/service-active.ts. Also moved off `tier`.
