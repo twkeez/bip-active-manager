@@ -491,6 +491,11 @@ export default function ResponseReportView({
               Shares a Basecamp project with {r.shares_project_with.join(", ")}
             </p>
           )}
+          {r.read_problem && (
+            <p className="truncate text-[11px] font-medium text-red-200" title={r.read_problem}>
+              Could not be read: {r.read_problem}
+            </p>
+          )}
           {r.on_ignore_list && (
             <p className="truncate text-[11px] text-amber-200" title="The project is on the Not tracked list, but the Master Sheet says to cover this client.">
               On the Not tracked list; shown because the sheet covers it

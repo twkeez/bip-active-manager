@@ -1,6 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadResponseReport, type ResponseReportData, type ResponseReportRow } from "@/lib/basecamp/load-response-report";
-import { applyRoster, daysBetween, type RosterClientFlags } from "@/lib/basecamp/roster-report";
+import {
+  applyRoster,
+  buildIntegrity,
+  daysBetween,
+  failedSyncProjects,
+  readProblemOf,
+  type ReportIntegrity,
+  type RosterClientFlags,
+} from "@/lib/basecamp/roster-report";
+import { assessSyncHealth } from "@/lib/coal-mines/sync-health";
 import { loadSheetRoster, type LoadedSheetRoster } from "@/lib/basecamp/sheet-roster";
 import { ACCOUNT_STATUS_MIGRATION } from "@/lib/clients/account-status";
 import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
@@ -22,7 +31,12 @@ export type RosterReportData = ResponseReportData & {
   roster: LoadedSheetRoster;
   /** False when the roster could not be read and `rows` is every project instead. */
   rosterApplied: boolean;
+  /** What was checked and what could not be. Null when the roster was not applied. */
+  integrity: ReportIntegrity | null;
 };
+
+/** How far back the sync keeps Basecamp posts. */
+export const HISTORY_DAYS = 180;
 
 type EventRow = {
   occurred_at: string;
@@ -79,6 +93,7 @@ export async function loadRosterReport(supabase: SupabaseClient): Promise<Roster
     ...report,
     otherRows: [],
     excludedRows: [],
+    integrity: null,
     roster: rosterError ? { ...roster, error: rosterError } : roster,
     rosterApplied: false,
   });
@@ -114,8 +129,29 @@ export async function loadRosterReport(supabase: SupabaseClient): Promise<Roster
       [...needed].map(([projectId, name]) => loadProjectRow(supabase, projectId, name)),
     );
 
-    const { rosterRows, excludedRows, otherRows } = applyRoster(report.rows, roster.entries, flags, ignoredRows);
-    return { ...report, rows: rosterRows, excludedRows, otherRows, roster: { ...roster, warnings }, rosterApplied: true };
+    const applied = applyRoster(report.rows, roster.entries, flags, ignoredRows);
+    const context = { failedProjects: failedSyncProjects(report.lastSyncError), now: Date.now() };
+    const rosterRows = applied.rosterRows.map((row) => ({ ...row, read_problem: readProblemOf(row, context) }));
+
+    const sync = assessSyncHealth({ last_synced_at: report.lastSyncedAt, last_error: null });
+    const problems = [...report.loadWarnings, ...(sync.status === "ok" ? [] : [sync.headline])];
+    const integrity = buildIntegrity({
+      entries: roster.entries,
+      rosterRows,
+      excludedRows: applied.excludedRows,
+      problems,
+      historyDays: HISTORY_DAYS,
+    });
+    return {
+      ...report,
+      rows: rosterRows,
+      excludedRows: applied.excludedRows,
+      // Not counted, but an archived or failed project is still said to be one.
+      otherRows: applied.otherRows.map((row) => ({ ...row, read_problem: readProblemOf(row, context) })),
+      roster: { ...roster, warnings },
+      rosterApplied: true,
+      integrity,
+    };
   } catch (error) {
     return unapplied(
       `${(error as Error).message}. Showing every Basecamp project instead of the roster until this is fixed.`,

@@ -33,7 +33,7 @@ export default async function ResponseReportPage({
     return <FollowupsView open={followups.open} done={followups.done} loadError={followups.loadError} tabs={tabs} />;
   }
 
-  const [{ rows, otherRows, excludedRows, rosterApplied, roster, ignored, lastSyncedAt, loadError }, staffResult, followupResult] = await Promise.all([
+  const [{ rows, otherRows, excludedRows, rosterApplied, integrity, roster, ignored, lastSyncedAt, loadError }, staffResult, followupResult] = await Promise.all([
     // One row per Master Sheet client with a Package; other projects kept apart.
     loadRosterReport(supabase),
     // Profiles are RLS-restricted to your own row, so the teammate list for
@@ -65,7 +65,7 @@ export default async function ResponseReportPage({
       tabs={
         <>
           {tabs}
-          <RosterCheck roster={roster} excluded={excludedRows.length} />
+          <RosterCheck roster={roster} integrity={integrity} />
         </>
       }
     />

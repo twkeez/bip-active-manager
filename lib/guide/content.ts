@@ -99,6 +99,8 @@ export const GUIDE: Guide = {
             "Low contact also lists the client as Paused and leaves it out of the daily brief, so use it only for deliberately quiet accounts.",
             "Excluded clients are counted in the roster line and listed with who marked them and when; they are never dropped without a trace.",
             "The roster line also names any Basecamp project that more than one client record points at. Two Master Sheet practices sharing one project is fine; anything else is listed as wiring to fix on Project Wiring.",
+            "The line at the top says how many Master Sheet clients were checked and names every one not reported: not matched, excluded, or could not be read (a failed sync, or a project Basecamp no longer lists). Those rows carry a red Could not be read note.",
+            "Only Basecamp is read: email, calls and meetings don't count as contact here.",
             "The sheet decides who is covered: a roster client shows even if its project was marked not tracked, the strategist shown is the one on the sheet, and two practices sharing one Basecamp project each get a row.",
             "Follow-ups close themselves when the person replies in that Basecamp thread. Overdue ones get one reminder email, then appear in the morning email until they're closed.",
           ],

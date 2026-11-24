@@ -1078,8 +1078,9 @@ export async function runBasecampSync(
           rosterWarning,
           projectErrors.length > 0
             ? `${projectErrors.length} project(s) failed: ` +
+              // Every failed project is named: the Response Report reads this
+              // text to say which clients' data cannot be trusted.
               projectErrors
-                .slice(0, 5)
                 .map((e) => `project ${e.projectId} (client ${e.clientId ?? "none"}): ${e.error}`)
                 .join("; ")
             : null,
