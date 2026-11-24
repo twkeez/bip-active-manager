@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReportIntegrity } from "@/lib/basecamp/roster-report";
 import type { LoadedSheetRoster, RosterEntry } from "@/lib/basecamp/sheet-roster";
 
 /**
@@ -29,7 +30,14 @@ function why(entry: RosterEntry): string {
     : "no client has this name";
 }
 
-export default function RosterCheck({ roster, excluded = 0 }: { roster: LoadedSheetRoster; excluded?: number }) {
+export default function RosterCheck({
+  roster,
+  integrity,
+}: {
+  roster: LoadedSheetRoster;
+  /** What was checked and what could not be. Null when the roster could not be applied. */
+  integrity: ReportIntegrity | null;
+}) {
   if (roster.error) {
     return (
       <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -43,7 +51,10 @@ export default function RosterCheck({ roster, excluded = 0 }: { roster: LoadedSh
   const unsettled = roster.entries.filter((entry) => entry.state !== "ready");
   const shared = roster.sharedProjects.filter((project) => project.kind === "shared");
   const wiringProblems = roster.sharedProjects.filter((project) => project.kind === "problem");
-  const attention = unsettled.length > 0 || roster.warnings.length > 0 || wiringProblems.length > 0;
+  const failed = integrity?.failed ?? [];
+  const problems = integrity?.problems ?? [];
+  const attention =
+    unsettled.length > 0 || roster.warnings.length > 0 || wiringProblems.length > 0 || failed.length > 0 || problems.length > 0;
 
   return (
     <div
@@ -51,19 +62,51 @@ export default function RosterCheck({ roster, excluded = 0 }: { roster: LoadedSh
         attention ? "border-amber-500/40 bg-amber-500/10" : "border-bip-border bg-bip-fill/40"
       }`}
     >
-      <p className="text-bip-text">
-        <span className="font-medium">Master Sheet roster:</span> {counts.inScope} clients have a Package.{" "}
-        {counts.ready} of {counts.inScope} are matched to a client with a Basecamp project
-        {unsettled.length > 0 ? `; ${unsettled.length} are not (listed below).` : "."}
-        {excluded > 0 &&
-          ` ${excluded} of those ${excluded === 1 ? "is" : "are"} marked cancelling or former and listed under Excluded, so ${
-            counts.ready - excluded
-          } are on the report.`}
-      </p>
+      {integrity ? (
+        <p className="text-bip-text">
+          <span className="font-medium">
+            Checked {integrity.inScope} of {integrity.inScope} Master Sheet clients with a Package:
+          </span>{" "}
+          {integrity.reported} reported
+          {integrity.failed.length > 0 && `, ${integrity.failed.length} could not be read`}
+          {integrity.excluded > 0 && `, ${integrity.excluded} excluded as cancelling or former`}
+          {integrity.notMatched.length > 0 && `, ${integrity.notMatched.length} not matched to a client`}.
+          {integrity.complete ? " Nothing was skipped." : " The ones not reported are named below."}
+        </p>
+      ) : (
+        <p className="text-bip-text">
+          <span className="font-medium">Master Sheet roster:</span> {counts.inScope} clients have a Package.{" "}
+          {counts.ready} of {counts.inScope} are matched to a client with a Basecamp project
+          {unsettled.length > 0 ? `; ${unsettled.length} are not (listed below).` : "."}
+        </p>
+      )}
       <p className="mt-1 text-xs text-bip-muted">
         Sheet read {readAt(roster.sheetReadAt)} · {roster.sheetTotal} practices on the Master tab · re-read every
-        morning. The report below has one row for each matched client.
+        morning. {integrity ? integrity.limits.join(" ") : "The report below has one row for each matched client."}
       </p>
+
+      {problems.map((problem) => (
+        <p key={problem} className="mt-2 text-xs font-medium text-red-200">
+          {problem}
+        </p>
+      ))}
+
+      {failed.length > 0 && (
+        <div className="mt-2 text-xs text-bip-text">
+          <p className="font-medium text-red-200">
+            Could not be read ({failed.length}). {failed.length === 1 ? "This client is" : "These clients are"} on the
+            report, but what it shows for {failed.length === 1 ? "it" : "them"} cannot be trusted:
+          </p>
+          <ul className="mt-1 space-y-1">
+            {failed.map((item) => (
+              <li key={item.name}>
+                <span className="font-medium">{item.name}</span>
+                <span className="text-bip-muted">: {item.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {roster.warnings.map((warning) => (
         <p key={warning} className="mt-2 text-xs text-amber-200">

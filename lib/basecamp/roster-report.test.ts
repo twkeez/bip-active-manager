@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResponseReportRow } from "./load-response-report";
-import { applyRoster, daysBetween } from "./roster-report";
+import { applyRoster, buildIntegrity, daysBetween, failedSyncProjects, readProblemOf } from "./roster-report";
 import type { RosterEntry } from "./sheet-roster";
 
 const projectRow = (projectId: string, over: Partial<ResponseReportRow> = {}): ResponseReportRow => ({
@@ -148,5 +148,54 @@ describe("former and cancelling clients", () => {
     );
     expect(rosterRows).toHaveLength(2);
     expect(excludedRows).toEqual([]);
+  });
+});
+
+describe("integrity", () => {
+  const NOW = Date.parse("2026-11-24T12:00:00Z");
+
+  it("reads failed projects out of the sync's error text, all of them", () => {
+    const text =
+      "Could not list | 7 project(s) failed: project 11 (client 4): Basecamp answered 500; project 12 (client none): timed out; " +
+      "project 13 (client 9): Duplicate basecamp_project_id — client 2 also points at this project.";
+    const failed = failedSyncProjects(text);
+    expect([...failed.keys()]).toEqual(["11", "12"]);
+    expect(failed.get("11")).toBe("Basecamp answered 500");
+    expect(failedSyncProjects(null).size).toBe(0);
+  });
+
+  it("explains why a row cannot be trusted", () => {
+    const context = { failedProjects: new Map([["p1", "timed out"]]), now: NOW };
+    expect(readProblemOf(projectRow("p1"), context)).toMatch(/last Basecamp sync failed.*timed out/);
+    expect(readProblemOf(projectRow("p2", { project_last_seen_at: "2026-11-04T23:30:00Z" }), context)).toMatch(/not listed this project since 2026-11-04/);
+    expect(readProblemOf(projectRow("p2", { project_last_seen_at: "2026-11-24T11:00:00Z" }), context)).toBeNull();
+    expect(readProblemOf(projectRow("p3"), context)).toBeNull();
+  });
+
+  it("marks a roster client whose project the sync does not read", () => {
+    const { rosterRows } = applyRoster([], [entry("Oak Vet", 1, "p1")], []);
+    expect(rosterRows[0]!.read_problem).toMatch(/not in the list the sync reads/);
+  });
+
+  it("accounts for every roster client", () => {
+    const entries = [
+      entry("Oak Vet", 1, "p1"),
+      entry("Elm Vet", 2, "p2"),
+      entry("Ash Vet", 3, "p3"),
+      entry("Fir Vet", 0, null, { state: "unmatched", clientId: null }),
+    ];
+    const rosterRows = [projectRow("p1"), projectRow("p2", { account_name: "Elm Vet", read_problem: "timed out" })];
+    const integrity = buildIntegrity({ entries, rosterRows, excludedRows: [projectRow("p3")], problems: [], historyDays: 180 });
+    expect(integrity).toMatchObject({ inScope: 4, reported: 1, excluded: 1, notMatched: ["Fir Vet"], complete: false });
+    expect(integrity.failed).toEqual([{ name: "Elm Vet", reason: "timed out" }]);
+    expect(integrity.reported + integrity.failed.length + integrity.excluded + integrity.notMatched.length).toBe(integrity.inScope);
+  });
+
+  it("is complete only when nothing is wrong", () => {
+    const entries = [entry("Oak Vet", 1, "p1")];
+    const ok = buildIntegrity({ entries, rosterRows: [projectRow("p1")], excludedRows: [], problems: [], historyDays: 180 });
+    expect(ok.complete).toBe(true);
+    const capped = buildIntegrity({ entries, rosterRows: [projectRow("p1")], excludedRows: [], problems: ["row limit hit"], historyDays: 180 });
+    expect(capped.complete).toBe(false);
   });
 });

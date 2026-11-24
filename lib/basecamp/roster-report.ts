@@ -33,6 +33,7 @@ export type RosterReport = {
 
 function blankRow(entry: RosterEntry): ResponseReportRow {
   return {
+    read_problem: "Its Basecamp project is not in the list the sync reads, so none of its posts are stored.",
     basecamp_project_id: entry.projectId!,
     basecamp_project_name: entry.practiceName,
     client_id: entry.clientId,
@@ -110,4 +111,86 @@ export function applyRoster(
 export function daysBetween(earlier: string, now: number): number {
   const day = (ms: number) => Math.floor(ms / 86_400_000);
   return day(now) - day(new Date(earlier).getTime());
+}
+
+// --- Integrity: what was checked, and what could not be -------------------
+
+/** A project Basecamp has not listed for this long is archived or gone. */
+export const PROJECT_GONE_AFTER_HOURS = 48;
+
+/** Project ids the last sync said it failed on, with its reason, read from the sync's own error text. */
+export function failedSyncProjects(lastSyncError: string | null): Map<string, string> {
+  const failed = new Map<string, string>();
+  if (!lastSyncError) return failed;
+  for (const match of lastSyncError.matchAll(/project (\d+) \(client [^)]*\): ([^;|]*)/g)) {
+    const reason = match[2]!.trim();
+    // Older runs filed a shared project under failures; it never was one.
+    if (/^Duplicate basecamp_project_id/.test(reason)) continue;
+    failed.set(match[1]!, reason);
+  }
+  return failed;
+}
+
+/** Why a row's Basecamp data cannot be trusted, or null when it can. */
+export function readProblemOf(
+  row: ResponseReportRow,
+  context: { failedProjects: Map<string, string>; now: number },
+): string | null {
+  if (row.read_problem) return row.read_problem;
+  const failure = context.failedProjects.get(row.basecamp_project_id);
+  if (failure) return `The last Basecamp sync failed on this project: ${failure}`;
+  if (row.project_last_seen_at) {
+    const hours = (context.now - new Date(row.project_last_seen_at).getTime()) / 3_600_000;
+    if (hours > PROJECT_GONE_AFTER_HOURS) {
+      return `Basecamp has not listed this project since ${row.project_last_seen_at.slice(0, 10)}, so it is probably archived${
+        row.on_roster ? " and the client may be wired to the wrong project" : ""
+      }.`;
+    }
+  }
+  return null;
+}
+
+export type ReportIntegrity = {
+  /** Master Sheet clients with a Package: the number the report answers for. */
+  inScope: number;
+  /** On the report with data that can be trusted. */
+  reported: number;
+  /** On the report, but their Basecamp data could not be read or cannot be trusted. */
+  failed: Array<{ name: string; reason: string }>;
+  /** Marked cancelling or former. */
+  excluded: number;
+  /** Not matched to a client with a Basecamp project. */
+  notMatched: string[];
+  /** Things that limit the whole report: a stale sync, a row cap, a list that would not load. */
+  problems: string[];
+  /** Fixed limits, always stated. */
+  limits: string[];
+  /** True when every roster client is reported and nothing above is wrong. */
+  complete: boolean;
+};
+
+export function buildIntegrity(input: {
+  entries: RosterEntry[];
+  rosterRows: ResponseReportRow[];
+  excludedRows: ResponseReportRow[];
+  problems: string[];
+  historyDays: number;
+}): ReportIntegrity {
+  const failed = input.rosterRows
+    .filter((row) => row.read_problem)
+    .map((row) => ({ name: row.account_name, reason: row.read_problem! }));
+  const notMatched = input.entries.filter((entry) => entry.state !== "ready").map((entry) => entry.practiceName);
+  return {
+    inScope: input.entries.length,
+    reported: input.rosterRows.length - failed.length,
+    failed,
+    excluded: input.excludedRows.length,
+    notMatched,
+    problems: input.problems,
+    limits: [
+      `Basecamp history goes back about ${input.historyDays} days; anything older reads as no activity.`,
+      "Only Basecamp is read. Email, phone calls and meetings are not counted as contact.",
+    ],
+    complete: failed.length === 0 && notMatched.length === 0 && input.problems.length === 0,
+  };
 }
