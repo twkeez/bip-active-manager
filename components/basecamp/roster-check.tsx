@@ -41,8 +41,9 @@ export default function RosterCheck({ roster, excluded = 0 }: { roster: LoadedSh
 
   const { counts } = roster;
   const unsettled = roster.entries.filter((entry) => entry.state !== "ready");
-  const shared = roster.entries.filter((entry) => entry.sharesProjectWith.length > 0);
-  const attention = unsettled.length > 0 || roster.warnings.length > 0;
+  const shared = roster.sharedProjects.filter((project) => project.kind === "shared");
+  const wiringProblems = roster.sharedProjects.filter((project) => project.kind === "problem");
+  const attention = unsettled.length > 0 || roster.warnings.length > 0 || wiringProblems.length > 0;
 
   return (
     <div
@@ -91,11 +92,49 @@ export default function RosterCheck({ roster, excluded = 0 }: { roster: LoadedSh
         </ul>
       )}
 
+      {wiringProblems.length > 0 && (
+        <div className="mt-2 text-xs text-bip-text">
+          <p className="font-medium text-amber-200">
+            Wiring to fix: {wiringProblems.length} Basecamp {wiringProblems.length === 1 ? "project has" : "projects have"}{" "}
+            more than one client record pointing at {wiringProblems.length === 1 ? "it" : "them"}.
+          </p>
+          <ul className="mt-1 space-y-1">
+            {wiringProblems.map((project) => (
+              <li key={project.projectId}>
+                <a
+                  href={`https://basecamp.com/2175055/projects/${project.projectId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-bip-accent hover:underline"
+                >
+                  Project {project.projectId}
+                </a>
+                <span className="text-bip-muted">
+                  :{" "}
+                  {project.claimants
+                    .map((c) => `${c.clientName} (#${c.clientId}${c.practiceName ? "" : ", not a Master Sheet client"})`)
+                    .join(" and ")}
+                </span>
+              </li>
+            ))}
+            <li className="text-bip-muted">
+              Usually one of these is a duplicate client record. Unlink it on{" "}
+              <Link href="/basecamp-projects" className="text-bip-accent hover:underline">
+                Project Wiring
+              </Link>
+              . The posts are still read once and shown on the report.
+            </li>
+          </ul>
+        </div>
+      )}
+
       {(shared.length > 0 || roster.needsStrategist.length > 0) && (
         <details className="mt-2 text-xs text-bip-muted">
           <summary className="cursor-pointer hover:text-bip-text">
             {[
-              shared.length > 0 ? `${shared.length} share a Basecamp project` : null,
+              shared.length > 0
+                ? `${shared.length} Basecamp ${shared.length === 1 ? "project is" : "projects are"} shared by two practices (fine)`
+                : null,
               roster.needsStrategist.length > 0 ? `${roster.needsStrategist.length} have no strategist on the sheet` : null,
             ]
               .filter(Boolean)
@@ -103,8 +142,8 @@ export default function RosterCheck({ roster, excluded = 0 }: { roster: LoadedSh
           </summary>
           {shared.length > 0 && (
             <p className="mt-1">
-              Sharing a project:{" "}
-              {shared.map((entry) => `${entry.practiceName} (with ${entry.sharesProjectWith.join(", ")})`).join("; ")}.
+              Sharing a project, each with its own row:{" "}
+              {shared.map((project) => project.claimants.map((c) => c.practiceName).join(" and ")).join("; ")}.
             </p>
           )}
           {roster.needsStrategist.length > 0 && (
