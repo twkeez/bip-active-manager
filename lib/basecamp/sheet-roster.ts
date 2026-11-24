@@ -65,9 +65,23 @@ export type RosterCounts = {
   ambiguous: number;
 };
 
+/** A Basecamp project that more than one client record points at. */
+export type SharedProject = {
+  projectId: string;
+  claimants: Array<{ clientId: number; clientName: string; practiceName: string | null }>;
+  /**
+   * "shared": every client pointing at it is its own practice on the roster
+   * (one project genuinely serving two practices), which is fine.
+   * "problem": at least one is not, which usually means a duplicate client record.
+   */
+  kind: "shared" | "problem";
+};
+
 export type SheetRoster = {
   entries: RosterEntry[];
   counts: RosterCounts;
+  /** Every project claimed by more than one client record, roster or not. */
+  sharedProjects: SharedProject[];
   /** Roster rows whose Strategist is blank or a placeholder such as "NEED". */
   needsStrategist: string[];
 };
@@ -178,9 +192,28 @@ export function buildSheetRoster(sheet: RosterSheetRow[], clients: RosterClient[
     }
   }
 
+  const practiceByClient = new Map<number, string>();
+  for (const entry of entries) if (entry.clientId != null) practiceByClient.set(entry.clientId, entry.practiceName);
+  const claims = new Map<string, RosterClient[]>();
+  for (const client of [...clients].sort((a, b) => a.id - b.id)) {
+    const projectId = trimmed(client.basecamp_project_id);
+    if (projectId) claims.set(projectId, [...(claims.get(projectId) ?? []), client]);
+  }
+  const sharedProjects: SharedProject[] = [];
+  for (const [projectId, group] of claims) {
+    if (group.length < 2) continue;
+    const claimants = group.map((client) => ({
+      clientId: client.id,
+      clientName: client.account_name,
+      practiceName: practiceByClient.get(client.id) ?? null,
+    }));
+    sharedProjects.push({ projectId, claimants, kind: claimants.every((c) => c.practiceName) ? "shared" : "problem" });
+  }
+
   const count = (state: RosterState) => entries.filter((entry) => entry.state === state).length;
   return {
     entries,
+    sharedProjects,
     counts: {
       inScope: entries.length,
       ready: count("ready"),
@@ -214,6 +247,7 @@ export type LoadedSheetRoster = SheetRoster & {
 
 const EMPTY: SheetRoster = {
   entries: [],
+  sharedProjects: [],
   counts: { inScope: 0, ready: 0, noProject: 0, unmatched: 0, ambiguous: 0 },
   needsStrategist: [],
 };

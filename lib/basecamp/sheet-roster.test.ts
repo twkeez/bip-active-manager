@@ -101,3 +101,34 @@ describe("duplicatePracticeNames", () => {
     expect(duplicatePracticeNames(grid.slice(0, 4))).toEqual([]);
   });
 });
+
+describe("projects more than one client points at", () => {
+  it("is fine when each client is its own roster practice", () => {
+    const roster = buildSheetRoster(
+      [row("Maple Veterinary Clinic"), row("Animal ER of Mapleton")],
+      [client(20, "Maple Veterinary Clinic", "p-shared"), client(18, "Animal ER of Mapleton", "p-shared")],
+    );
+    expect(roster.sharedProjects).toEqual([
+      {
+        projectId: "p-shared",
+        kind: "shared",
+        claimants: [
+          { clientId: 18, clientName: "Animal ER of Mapleton", practiceName: "Animal ER of Mapleton" },
+          { clientId: 20, clientName: "Maple Veterinary Clinic", practiceName: "Maple Veterinary Clinic" },
+        ],
+      },
+    ]);
+  });
+
+  it("is a problem when one of them is not a roster client", () => {
+    const roster = buildSheetRoster([row("Oak Vet")], [client(72, "Oak Vet", "p9"), client(355, "Oak", "p9"), client(5, "Elm Vet", "p5")]);
+    expect(roster.sharedProjects).toHaveLength(1);
+    expect(roster.sharedProjects[0]).toMatchObject({ projectId: "p9", kind: "problem" });
+    expect(roster.sharedProjects[0]!.claimants.map((c) => c.practiceName)).toEqual(["Oak Vet", null]);
+  });
+
+  it("is reported even when neither client is on the roster", () => {
+    const roster = buildSheetRoster([], [client(52, "Willow Animal Hospital", "p1"), client(57, "Willow Animal Hospital", "p1")]);
+    expect(roster.sharedProjects.map((p) => p.kind)).toEqual(["problem"]);
+  });
+});

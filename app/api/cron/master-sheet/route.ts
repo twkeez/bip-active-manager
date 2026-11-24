@@ -35,6 +35,14 @@ async function handle(request: Request) {
     ...(unsettled.length
       ? [`${unsettled.length} roster client(s) not matched to a client with a Basecamp project: ${unsettled.map((entry) => entry.practiceName).join(", ")}`]
       : []),
+    ...roster.sharedProjects
+      .filter((project) => project.kind === "problem")
+      .map(
+        (project) =>
+          `Basecamp project ${project.projectId} has more than one client record pointing at it: ${project.claimants
+            .map((c) => `${c.clientName} (#${c.clientId})`)
+            .join(" and ")}`,
+      ),
     ...roster.warnings,
   ];
   return NextResponse.json(

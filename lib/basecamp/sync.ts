@@ -723,6 +723,12 @@ export async function runBasecampSync(
   let skippedProjects = 0;
   let failedProjects = 0;
   const projectErrors: Array<{ projectId: string; clientId: number | null; error: string }> = [];
+  /**
+   * Projects more than one client record points at. Not a sync failure: the
+   * threads are synced once, and one project can genuinely serve two practices.
+   * The Response Report's roster line names the ones that look like a mistake.
+   */
+  const wiringWarnings: Array<{ projectId: string; clientIds: number[] }> = [];
   let clientlessProjects = 0;
   /**
    * The newest message in each project, captured as we go.
@@ -744,12 +750,8 @@ export async function runBasecampSync(
   const syncProject = async (project: RosterProject) => {
     const projectId = project.projectId;
     if (project.clientId == null) clientlessProjects += 1;
-    for (const duplicateId of project.duplicateClientIds) {
-      projectErrors.push({
-        projectId,
-        clientId: duplicateId,
-        error: `Duplicate basecamp_project_id — client ${project.clientId} also points at this project. Threads are synced once; fix the wiring at /basecamp-projects.`,
-      });
+    if (project.duplicateClientIds.length > 0 && project.clientId != null) {
+      wiringWarnings.push({ projectId, clientIds: [project.clientId, ...project.duplicateClientIds] });
     }
 
     try {
@@ -1115,6 +1117,7 @@ export async function runBasecampSync(
     skippedProjects,
     failedProjects,
     projectErrors,
+    wiringWarnings,
     eventsUpserted,
     classifiedInternal: internalCount,
     classifiedExternal: externalCount,

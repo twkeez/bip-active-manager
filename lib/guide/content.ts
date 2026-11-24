@@ -98,6 +98,7 @@ export const GUIDE: Guide = {
             "Haven't heard from us means we spoke last (or not at all) and our last post is 15 or more days old; 30 or more for low-contact clients and clients whose Strategist on the sheet is Alex. A client waiting on us is listed there only.",
             "Low contact also lists the client as Paused and leaves it out of the daily brief, so use it only for deliberately quiet accounts.",
             "Excluded clients are counted in the roster line and listed with who marked them and when; they are never dropped without a trace.",
+            "The roster line also names any Basecamp project that more than one client record points at. Two Master Sheet practices sharing one project is fine; anything else is listed as wiring to fix on Project Wiring.",
             "The sheet decides who is covered: a roster client shows even if its project was marked not tracked, the strategist shown is the one on the sheet, and two practices sharing one Basecamp project each get a row.",
             "Follow-ups close themselves when the person replies in that Basecamp thread. Overdue ones get one reminder email, then appear in the morning email until they're closed.",
           ],
