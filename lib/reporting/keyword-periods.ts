@@ -43,21 +43,35 @@ export function pickKeywordPeriods<T extends GscSnapshotWindow>(
     .sort((a, b) => b.end_date!.localeCompare(a.end_date!) || b.created_at.localeCompare(a.created_at));
   const current = completed[0] ?? null;
   if (!current) return { current: null, previous: null };
+  return { current, previous: pickPreviousWindow(current, completed) };
+}
 
-  const idealEnd = dayNumber(current.start_date!) - 1;
+/**
+ * The completed snapshot covering the period just before `current`: it must
+ * end before `current` starts (so the two never overlap), within a few days of
+ * the day before. Null when that period was never captured. Used for Search
+ * Console and Google Ads, whose nightly snapshots each hold one window.
+ */
+export function pickPreviousWindow<T extends GscSnapshotWindow>(
+  current: { start_date: string | null },
+  snapshots: T[],
+): T | null {
+  if (!current.start_date) return null;
+  const currentStart = dayNumber(current.start_date);
+  const idealEnd = currentStart - 1;
   let previous: T | null = null;
   let bestGap = Infinity;
-  for (const snapshot of completed) {
-    const end = dayNumber(snapshot.end_date!);
-    // Must end before the current period starts, so the two never overlap.
-    if (end >= dayNumber(current.start_date!)) continue;
+  for (const snapshot of snapshots) {
+    if (snapshot.run_status !== "completed" || !snapshot.start_date || !snapshot.end_date) continue;
+    const end = dayNumber(snapshot.end_date);
+    if (end >= currentStart) continue;
     const gap = Math.abs(end - idealEnd);
     if (gap <= PREVIOUS_WINDOW_TOLERANCE_DAYS && gap < bestGap) {
       previous = snapshot;
       bestGap = gap;
     }
   }
-  return { current, previous };
+  return previous;
 }
 
 /** The window a missing previous snapshot should cover: the 28 days (or current length) before `current`. */

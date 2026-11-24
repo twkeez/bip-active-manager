@@ -7,6 +7,7 @@ import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { isCanadian } from "@/lib/website-audit/site-location";
 import { AUDIT_STAGES, type WebsiteAuditRow } from "@/lib/website-audit/types";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +60,10 @@ export default async function WebsiteAuditsPage() {
                   <Link href={`/website-audits/${a.id}`} className="font-medium text-bip-text hover:underline">
                     {a.practice_name}
                   </Link>
-                  <span className="block text-xs text-bip-muted">{[a.city, a.state].filter(Boolean).join(", ")}</span>
+                  <span className="block text-xs text-bip-muted">
+                    {[a.city, a.state].filter(Boolean).join(", ")}
+                    {isCanadian(a.city, a.state) && <span className="ml-1 font-medium text-amber-300">· Canada: run separately</span>}
+                  </span>
                 </td>
                 <td className="px-4 py-2 text-bip-muted">{a.domain}</td>
                 <td className="px-4 py-2 text-bip-muted">

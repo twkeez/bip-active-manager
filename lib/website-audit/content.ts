@@ -291,7 +291,8 @@ Below is everything the audit found, as JSON: technical crawl results, authority
 
 Write:
 1. differentiators: 4 to 6 things the website should lead with. Each must be supported by something written on the site or said in a review. For each, give evidence: source is the page URL, or "review N"; quote is the exact words. Do not invent anything the evidence doesn't show.
-2. positioningLine: one sentence the practice could use to describe itself.
+   The title and detail go to the practice as good news, so: describe the strength, never advise ("Lead with...", "Put it on the homepage" belong in fixes); never compare with other practices ("few practices offer this") unless the audit data shows it; leave out opening hours; and don't say "every", "always" or "never" unless the evidence says so in those words.
+2. positioningLine: one sentence describing the practice in the third person ("Dallas Highway Animal Hospital is...", never "our vets"), using only facts the website states.
 3. homepageH1: a homepage H1 in the pattern "{what} {for whom} in {city}".
 4. fixes: a prioritized fix list, most impact first (rank 1 = do first), 6 to 10 items. ${FIX_STYLE}
    Each fix cites its evidence: source is a page URL, "review N", or the JSON field it comes from (e.g. "technical.linksThatDontLoad"). area is technical, content, trust, ai_visibility, reputation or conversion.
