@@ -81,17 +81,19 @@ export const GUIDE: Guide = {
         {
           href: "/response-report",
           label: "Response Report",
-          purpose: "Every Basecamp project: who spoke last, when we last replied, and when the client last reached out.",
+          purpose: "Every Master Sheet client with a Package: who spoke last, when we last replied, and when the client last reached out.",
           youCan: [
             "Switch between Waiting on us, Waiting on client, No activity and All",
+            "Open Not on the Master Sheet to see Basecamp projects with no roster client behind them (they aren't counted in the numbers)",
             "Sort, search and filter by who replied last",
             "Notify a strategist by email (it then appears on the Follow-ups tab)",
-            "Dismiss a project, stop tracking it with a reason, or restore it",
+            "Dismiss a project, or stop tracking one that isn't on the Master Sheet (with a reason), or restore it",
             "Admins: on the Follow-ups tab, see what you've asked strategists to do, mark items done, and reopen anything finished in the last 30 days",
           ],
           notes: [
             "Data comes from the Basecamp sync (the last sync time is shown) and goes back about 180 days.",
             "The roster line at the top counts every client on Master Sheet 2026 with a Package, and names any that aren't matched to a client with a Basecamp project. Clients are matched by exact name only; the sheet is re-read every morning.",
+            "The sheet decides who is covered: a roster client shows even if its project was marked not tracked, the strategist shown is the one on the sheet, and two practices sharing one Basecamp project each get a row.",
             "Follow-ups close themselves when the person replies in that Basecamp thread. Overdue ones get one reminder email, then appear in the morning email until they're closed.",
           ],
         },

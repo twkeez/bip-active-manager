@@ -6,8 +6,7 @@ import FollowupsView from "@/components/followups/followups-view";
 import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { loadFollowups } from "@/lib/followups/load";
 import { STATUS_FILTERS, type StatusFilter } from "@/lib/basecamp/response-report";
-import { loadResponseReport } from "@/lib/basecamp/load-response-report";
-import { loadSheetRoster } from "@/lib/basecamp/sheet-roster";
+import { loadRosterReport } from "@/lib/basecamp/load-roster-report";
 import type { FollowupRow } from "@/lib/followups/followups";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -34,10 +33,9 @@ export default async function ResponseReportPage({
     return <FollowupsView open={followups.open} done={followups.done} loadError={followups.loadError} tabs={tabs} />;
   }
 
-  const [{ rows, ignored, lastSyncedAt, loadError }, roster, staffResult, followupResult] = await Promise.all([
-    loadResponseReport(supabase),
-    // The clients the Master Sheet says to cover, and any it could not match.
-    loadSheetRoster(supabase),
+  const [{ rows, otherRows, rosterApplied, roster, ignored, lastSyncedAt, loadError }, staffResult, followupResult] = await Promise.all([
+    // One row per Master Sheet client with a Package; other projects kept apart.
+    loadRosterReport(supabase),
     // Profiles are RLS-restricted to your own row, so the teammate list for
     // "Notify strategist" is read with the service role (names and emails only).
     createAdminClient().from("profiles").select("full_name,email").not("email", "is", null),
@@ -55,6 +53,8 @@ export default async function ResponseReportPage({
   return (
     <ResponseReportView
       rows={rows}
+      otherRows={otherRows}
+      rosterApplied={rosterApplied}
       ignored={ignored}
       staff={staff}
       openFollowups={(followupResult.data ?? []) as FollowupRow[]}
