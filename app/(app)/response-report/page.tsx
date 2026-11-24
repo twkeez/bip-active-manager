@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import ResponseReportTabs from "@/components/basecamp/response-report-tabs";
 import ResponseReportView from "@/components/basecamp/response-report-view";
+import RosterCheck from "@/components/basecamp/roster-check";
 import FollowupsView from "@/components/followups/followups-view";
 import { getProfile, isAdmin } from "@/lib/auth/profile";
 import { loadFollowups } from "@/lib/followups/load";
 import { STATUS_FILTERS, type StatusFilter } from "@/lib/basecamp/response-report";
 import { loadResponseReport } from "@/lib/basecamp/load-response-report";
+import { loadSheetRoster } from "@/lib/basecamp/sheet-roster";
 import type { FollowupRow } from "@/lib/followups/followups";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -32,8 +34,10 @@ export default async function ResponseReportPage({
     return <FollowupsView open={followups.open} done={followups.done} loadError={followups.loadError} tabs={tabs} />;
   }
 
-  const [{ rows, ignored, lastSyncedAt, loadError }, staffResult, followupResult] = await Promise.all([
+  const [{ rows, ignored, lastSyncedAt, loadError }, roster, staffResult, followupResult] = await Promise.all([
     loadResponseReport(supabase),
+    // The clients the Master Sheet says to cover, and any it could not match.
+    loadSheetRoster(supabase),
     // Profiles are RLS-restricted to your own row, so the teammate list for
     // "Notify strategist" is read with the service role (names and emails only).
     createAdminClient().from("profiles").select("full_name,email").not("email", "is", null),
@@ -57,7 +61,12 @@ export default async function ResponseReportPage({
       lastSyncedAt={lastSyncedAt}
       loadError={loadError}
       initialStatus={initialStatus}
-      tabs={tabs}
+      tabs={
+        <>
+          {tabs}
+          <RosterCheck roster={roster} />
+        </>
+      }
     />
   );
 }

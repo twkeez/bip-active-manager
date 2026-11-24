@@ -132,6 +132,28 @@ export function parseMasterSheetRows(rows: string[][]): MasterSheetRow[] {
   return out;
 }
 
+/**
+ * Practice names that appear on more than one row. The parser keeps the first
+ * row of each name, so the rest would otherwise vanish without a word.
+ */
+export function duplicatePracticeNames(rows: string[][]): string[] {
+  const headerIndex = rows.findIndex((row) =>
+    row.some((cell) => cell.trim().toLowerCase() === "practice name"),
+  );
+  if (headerIndex === -1) return [];
+  const nameCol = rows[headerIndex]!.findIndex((cell) => cell.trim().toLowerCase() === "practice name");
+  const seen = new Set<string>();
+  const repeated = new Map<string, string>();
+  for (const row of rows.slice(headerIndex + 1)) {
+    const name = (row[nameCol] ?? "").trim();
+    const normalized = name ? normalizeClientName(name) : "";
+    if (!normalized) continue;
+    if (seen.has(normalized)) repeated.set(normalized, name);
+    seen.add(normalized);
+  }
+  return [...repeated.values()];
+}
+
 /** Words that carry no identity, plus the ones every practice shares. */
 const NOISE = new Set(["the", "and", "of", "at", "in", "a", "llc", "inc", "pc", "pa", "dba", "fka"]);
 

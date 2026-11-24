@@ -7,7 +7,7 @@ import type { Guide } from "@/lib/guide/types";
 // and anything that would otherwise surprise you.
 
 export const GUIDE: Guide = {
-  updated: "November 23, 2026",
+  updated: "November 24, 2026",
   intro: [
     "BIP Control is Beyond Indigo's home base for running client work: who our clients are, what they bought, what they're waiting on, how their marketing is performing and what we need to do next.",
     "This guide walks through the sidebar from top to bottom. Each tool says what it's for, what you can do there, and anything good to know before you rely on it.",
@@ -91,6 +91,7 @@ export const GUIDE: Guide = {
           ],
           notes: [
             "Data comes from the Basecamp sync (the last sync time is shown) and goes back about 180 days.",
+            "The roster line at the top counts every client on Master Sheet 2026 with a Package, and names any that aren't matched to a client with a Basecamp project. Clients are matched by exact name only; the sheet is re-read every morning.",
             "Follow-ups close themselves when the person replies in that Basecamp thread. Overdue ones get one reminder email, then appear in the morning email until they're closed.",
           ],
         },

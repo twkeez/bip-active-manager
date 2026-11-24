@@ -24,6 +24,7 @@ export const WATCHED_JOBS: WatchedJob[] = [
   { key: "ga4-sync", name: "Google Analytics sync", schedule: "nightly", overdueAfterHours: 26 },
   { key: "gbp-sync", name: "Business Profile sync", schedule: "nightly", overdueAfterHours: 26 },
   { key: "maps-rank", name: "Maps rank tracker", schedule: "daily check; each client every two weeks", overdueAfterHours: 26 },
+  { key: "master-sheet", name: "Master Sheet roster refresh", schedule: "every morning", overdueAfterHours: 26 },
   { key: "job-watch", name: "Job watchdog", schedule: "hourly", overdueAfterHours: 3 },
   // Mondays 11:20 UTC (7:20 AM Eastern in summer, 6:20 AM in winter): a week plus slack.
   { key: "help-desk-report", name: "Help Desk Report", schedule: "weekly, Monday morning", overdueAfterHours: 170 },
