@@ -314,12 +314,6 @@ export async function loadReportForClient(
       console.error(`[report] previous Google Ads period for client ${clientId}: ${adsWindowsError.message}`);
     }
     const match = pickPreviousWindow(adsSnapshot, adsWindows ?? []);
-    // TEMP diagnostic (remove before merge): which earlier Ads windows exist.
-    console.info(
-      `[report-diag] ads client ${clientId} current ${adsSnapshot.start_date}..${adsSnapshot.end_date} earlier ${(adsWindows ?? [])
-        .map((w) => `${w.start_date}..${w.end_date}`)
-        .join(", ") || "none"} match ${match?.id ?? "none"}`,
-    );
     if (match) {
       const { data: full, error: fullError } = await supabase
         .from("client_ads_snapshots")
