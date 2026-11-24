@@ -3,6 +3,7 @@ import { getDataForSeoConfig } from "@/lib/env";
 import { US_STATES } from "@/lib/onboarding/research-location";
 import { SERVICE_PATH } from "@/lib/website-audit/page-paths";
 import { bareDomain } from "@/lib/website-audit/crawl";
+import { isCanadian, splitTypedLocation } from "@/lib/website-audit/site-location";
 import { AI_PLATFORMS, PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import platformConfig from "@/lib/website-audit/config/platforms.json";
 import promptConfig from "@/lib/website-audit/config/prompts.json";
@@ -262,6 +263,17 @@ export async function checkAiVisibility(
   previous: AiVisibilityResults | undefined,
   options: { profile?: AiProfile; budgetMs?: number } = {},
 ): Promise<AiVisibilityResults> {
+  // Every tool below is asked from the United States (Google's location, the
+  // ChatGPT/Gemini scrapers, Perplexity and the mentions database), so a
+  // Canadian practice's answers would be about the wrong country. Those are run
+  // separately; nothing is spent here.
+  if (isCanadian(practice.city, practice.state)) {
+    throw new Error("This practice is in Canada. The AI questions are asked from the United States, so Canadian practices are run separately. Nothing was spent.");
+  }
+  practice = { ...practice, ...splitTypedLocation(practice.city, practice.state) };
+  if (!practice.city || !practice.state) {
+    throw new Error("Add the practice's town and state first: the AI questions ask about vets near that town. Nothing was spent.");
+  }
   const started = Date.now();
   const profile = options.profile ?? previous?.profile ?? "consumer";
   const budgetMs = options.budgetMs ?? 230_000;
