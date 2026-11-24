@@ -57,7 +57,7 @@ export default function RosterCheck({ roster }: { roster: LoadedSheetRoster }) {
       </p>
       <p className="mt-1 text-xs text-bip-muted">
         Sheet read {readAt(roster.sheetReadAt)} · {roster.sheetTotal} practices on the Master tab · re-read every
-        morning. This line checks the roster only; the list below still shows every Basecamp project.
+        morning. The report below has one row for each matched client.
       </p>
 
       {roster.warnings.map((warning) => (

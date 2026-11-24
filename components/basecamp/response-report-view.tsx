@@ -131,6 +131,8 @@ function Side({
 
 export default function ResponseReportView({
   rows,
+  otherRows = [],
+  rosterApplied = false,
   ignored,
   staff,
   openFollowups,
@@ -143,7 +145,12 @@ export default function ResponseReportView({
   tabs?: ReactNode;
   /** From ?status= in the address; the page opens on "Waiting on us" otherwise. */
   initialStatus?: StatusFilter | null;
+  /** Master Sheet clients with a Package, or every project when the roster could not be read. */
   rows: ResponseReportRow[];
+  /** Basecamp projects that are not on the Master Sheet roster. */
+  otherRows?: ResponseReportRow[];
+  /** True when `rows` is the Master Sheet roster. */
+  rosterApplied?: boolean;
   ignored: BasecampProjectIgnoreRow[];
   staff: StaffOption[];
   openFollowups: FollowupRow[];
@@ -153,9 +160,12 @@ export default function ResponseReportView({
   const router = useRouter();
   const [status, setStatusState] = useState<StatusFilter>(initialStatus ?? "awaiting_us");
   const [showDismissed, setShowDismissed] = useState(false);
+  // The roster is the report; projects off the sheet are a separate list.
+  const [scope, setScope] = useState<"roster" | "other">("roster");
   // Keep the chosen tab in the address so a reload or a shared link keeps it,
   // without a navigation that would re-fetch the whole report.
   function setStatus(next: StatusFilter) {
+    setScope("roster");
     setStatusState(next);
     const url = new URL(window.location.href);
     url.searchParams.set("status", next);
@@ -255,14 +265,19 @@ export default function ResponseReportView({
     () => shapeAndSort(rows.filter((row) => !hidden.has(row.basecamp_project_id))),
     [rows, hidden],
   );
+  const shapedOther = useMemo(
+    () => shapeAndSort(otherRows.filter((row) => !hidden.has(row.basecamp_project_id))),
+    [otherRows, hidden],
+  );
+  const showingOther = scope === "other" && shapedOther.length > 0;
   const summary = useMemo(() => summarizeReport(shaped), [shaped]);
   const tiles = useMemo(() => reportTiles(shaped), [shaped]);
   const authors = useMemo(() => internalAuthors(shaped), [shaped]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return shaped.filter((r: ShapedReportRow) => {
-      if (status !== "all" && r.status !== status) return false;
+    return (showingOther ? shapedOther : shaped).filter((r: ShapedReportRow) => {
+      if (!showingOther && status !== "all" && r.status !== status) return false;
       if (author !== "all" && r.last_internal_author !== author) return false;
       if (
         needle &&
@@ -273,7 +288,7 @@ export default function ResponseReportView({
       }
       return true;
     });
-  }, [shaped, status, author, query]);
+  }, [shaped, shapedOther, showingOther, status, author, query]);
 
   const filters: { key: StatusFilter; label: string; count: number }[] = [
     { key: "awaiting_us", label: "Waiting on us", count: tiles.waitingOnUs },
@@ -286,7 +301,7 @@ export default function ResponseReportView({
   const activeRows = sortReportRows(visible.filter((r) => !isDismissed(r)), sort);
   const dismissedRows = sortReportRows(visible.filter((r) => isDismissed(r)), sort);
   // The age bands only make sense in the report's own order; a chosen sort is one flat list.
-  const ageGroups = status === "awaiting_us" && !sort ? groupByWait(activeRows) : null;
+  const ageGroups = !showingOther && status === "awaiting_us" && !sort ? groupByWait(activeRows) : null;
 
   const sortHeader = (key: SortKey, label: string) => {
     const active = sort?.key === key ? sort.direction : null;
@@ -353,8 +368,11 @@ export default function ResponseReportView({
       tone: "danger",
       onSelect: () => {
         setReason(STOP_REASONS[0]);
-        setConfirming(r.basecamp_project_id);
+        setConfirming(r.row_key ?? r.basecamp_project_id);
       },
+      disabled: r.on_roster === true,
+      disabledReason:
+        "This client is on the Master Sheet with a Package, so it stays on the report. The sheet decides who is covered.",
     });
     return actions;
   }
@@ -363,7 +381,7 @@ export default function ResponseReportView({
     const followup = followupByProject.get(r.basecamp_project_id);
     const now = new Date();
     return (
-      <tr key={r.basecamp_project_id} className="border-b border-bip-border last:border-0 hover:bg-bip-fill/50">
+      <tr key={r.row_key ?? r.basecamp_project_id} className="border-b border-bip-border last:border-0 hover:bg-bip-fill/50">
         <td className="min-w-0 px-3 py-2 align-top">
           <a
             href={basecampProjectUrl(r.basecamp_project_id)}
@@ -377,6 +395,16 @@ export default function ResponseReportView({
           <p className="truncate text-xs text-bip-muted">
             {r.client_id == null ? "No client record" : r.marketing_strategist || "\u00a0"}
           </p>
+          {r.shares_project_with && r.shares_project_with.length > 0 && (
+            <p className="truncate text-[11px] text-bip-muted" title={`Same Basecamp project as ${r.shares_project_with.join(", ")}`}>
+              Shares a Basecamp project with {r.shares_project_with.join(", ")}
+            </p>
+          )}
+          {r.on_ignore_list && (
+            <p className="truncate text-[11px] text-amber-200" title="The project is on the Not tracked list, but the Master Sheet says to cover this client.">
+              On the Not tracked list; shown because the sheet covers it
+            </p>
+          )}
         </td>
         <td className="min-w-0 px-3 py-2 align-top">
           {r.waitingDays == null ? (
@@ -435,7 +463,7 @@ export default function ResponseReportView({
           </span>
         </td>
         <td className="px-3 py-2 text-right align-top">
-          {confirming === r.basecamp_project_id ? (
+          {confirming === (r.row_key ?? r.basecamp_project_id) ? (
             <div className="space-y-1.5 text-left" role="group" aria-label={`Stop tracking ${r.account_name}`}>
               <select
                 value={reason}
@@ -492,7 +520,11 @@ export default function ResponseReportView({
       title="Basecamp Response Report"
       icon={MessageSquare}
       maxWidth="6xl"
-      description={`Every Basecamp project with who spoke last, when we last replied and who replied, and when the client last reached out. ${summary.total} projects · last sync ${fmtSync(lastSyncedAt)}.`}
+      description={
+        rosterApplied
+          ? `Every Master Sheet client with a Package: who spoke last, when we last replied and who replied, and when the client last reached out. ${summary.total} clients · ${shapedOther.length} other Basecamp projects kept apart · last sync ${fmtSync(lastSyncedAt)}.`
+          : `Every Basecamp project with who spoke last, when we last replied and who replied, and when the client last reached out. ${summary.total} projects · last sync ${fmtSync(lastSyncedAt)}.`
+      }
     >
       {tabs}
       {loadError ? (
@@ -530,7 +562,7 @@ export default function ResponseReportView({
                 key={f.key}
                 onClick={() => setStatus(f.key)}
                 className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                  status === f.key
+                  !showingOther && status === f.key
                     ? "border-bip-accent text-bip-text"
                     : "border-bip-border text-bip-muted hover:text-bip-text"
                 }`}
@@ -538,6 +570,18 @@ export default function ResponseReportView({
                 {f.label} <span className="tabular-nums text-bip-muted">{f.count}</span>
               </button>
             ))}
+
+            {shapedOther.length > 0 && (
+              <button
+                onClick={() => setScope("other")}
+                title="Basecamp projects with no Master Sheet client behind them. Not counted in the numbers above."
+                className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                  showingOther ? "border-bip-accent text-bip-text" : "border-bip-border text-bip-muted hover:text-bip-text"
+                }`}
+              >
+                Not on the Master Sheet <span className="tabular-nums text-bip-muted">{shapedOther.length}</span>
+              </button>
+            )}
 
             <select
               value={author}
@@ -560,6 +604,14 @@ export default function ResponseReportView({
               className="rounded-md border border-bip-border bg-bip-card px-2 py-1 text-xs text-bip-text placeholder:text-bip-muted"
             />
           </div>
+
+          {showingOther && (
+            <p className="text-xs text-bip-muted">
+              These {shapedOther.length} Basecamp projects have no Master Sheet client with a Package behind them
+              (onboarding, website-only, former clients, our own projects). They are not counted in the tiles or tabs
+              above.
+            </p>
+          )}
 
           {/* Its own scroll area, so the header can stay put while the rows scroll
               and a narrow screen scrolls the table sideways, not the page. */}

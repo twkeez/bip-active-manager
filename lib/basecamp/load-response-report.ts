@@ -38,6 +38,14 @@ export type ResponseReportRow = {
    * so a project with no stored messages can say when it was last active.
    */
   last_activity_at?: string | null;
+  /** Unique per row. Two roster clients can share one project, so the project id is not enough. */
+  row_key?: string;
+  /** True for a Master Sheet client with a Package; false for any other project. */
+  on_roster?: boolean;
+  /** Other roster practices on the same Basecamp project. */
+  shares_project_with?: string[];
+  /** The project is on the "not tracked" list, but the sheet says to cover this client. */
+  on_ignore_list?: boolean;
 };
 
 export type ResponseReportData = {
