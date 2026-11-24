@@ -1,5 +1,5 @@
 import { formatDateRange, websiteLabel } from "@/lib/reporting/format";
-import { mergePagesByAddress, sumSearchRows, type SearchTotals } from "@/lib/reporting/search-totals";
+import { blogPostTitle, mergePagesByAddress, sumSearchRows, type SearchTotals } from "@/lib/reporting/search-totals";
 import { buildSocialByPlatform } from "@/lib/reporting/social-metrics";
 import type {
   AdsSnapshot,
@@ -1417,7 +1417,10 @@ export function buildClientReportModel(params: {
   const gscBlogTotals = {
     clicks: blogSum.clicks,
     impressions: blogSum.impressions,
-    pagesOnPageOne: gscBlogPages.filter((row) => row.position > 0 && row.position <= 10).length,
+    // Posts only: the blog's own home page is not a post.
+    pagesOnPageOne: gscBlogPages.filter(
+      (row) => row.position > 0 && row.position <= 10 && blogPostTitle(row.page_url) !== "Blog home page",
+    ).length,
     pageCount: gscBlogPages.length,
   };
   const siteCurrent = params.gscSiteTotals?.current ?? null;

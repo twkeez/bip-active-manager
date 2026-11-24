@@ -43,19 +43,43 @@ function isSet(value: string | null | undefined): value is string {
 
 export type ReportGeography = {
   rows: Array<{ location: string; sessions: number; users: number }>;
-  /** The state the list was narrowed to, or null when the client has none on file. */
+  /** The state the list was narrowed to, or null when none could be told. */
   state: string | null;
+  /** "client" when it is the client's state on file, "traffic" when it is where most visits came from. */
+  stateSource: "client" | "traffic" | null;
   /** How many listed locations were left out because they are outside that state. */
   leftOut: number;
 };
 
+/** The state or region with the most sessions among the listed locations. */
+function busiestRegion(rows: Ga4GeoRow[]): string | null {
+  const totals = new Map<string, number>();
+  for (const r of rows) {
+    if (!isSet(r.region)) continue;
+    totals.set(r.region.trim(), (totals.get(r.region.trim()) ?? 0) + r.sessions);
+  }
+  let best: string | null = null;
+  let bestSessions = 0;
+  for (const [region, sessions] of totals) {
+    if (sessions > bestSessions) {
+      best = region;
+      bestSessions = sessions;
+    }
+  }
+  return best;
+}
+
 /**
- * The locations to show: in the client's state when it is known, every listed
- * location otherwise. A city GA4 couldn't place reads "Unknown city" instead of
+ * The locations to show: in the client's state, or the busiest region when the
+ * client has no state on file; every listed location when neither is known. A city GA4 couldn't place reads "Unknown city" instead of
  * "(not set)".
  */
 export function reportGeography(rows: Ga4GeoRow[], clientState: string | null | undefined): ReportGeography {
-  const state = stateName(clientState);
+  // A client with no state on file is narrowed to the region most visits came
+  // from, which for a local practice is its own state.
+  const onFile = stateName(clientState);
+  const state = onFile ?? busiestRegion(rows);
+  const stateSource = onFile ? "client" : state ? "traffic" : null;
   const kept = state
     ? rows.filter((r) => isSet(r.region) && r.region.trim().toLowerCase() === state.toLowerCase())
     : rows;
@@ -69,6 +93,7 @@ export function reportGeography(rows: Ga4GeoRow[], clientState: string | null | 
       users: r.users,
     })),
     state,
+    stateSource,
     leftOut: rows.length - kept.length,
   };
 }
@@ -76,5 +101,9 @@ export function reportGeography(rows: Ga4GeoRow[], clientState: string | null | 
 /** One line under the table saying what was left out, or null when nothing was. */
 export function geographyNote(geo: ReportGeography): string | null {
   if (!geo.state || geo.leftOut === 0) return null;
-  return `Showing visits from ${geo.state}. Visits from other states and countries, which often come from automated traffic, are left out.`;
+  const where =
+    geo.stateSource === "traffic"
+      ? `Showing visits from ${geo.state}, where most of the site's visits come from.`
+      : `Showing visits from ${geo.state}.`;
+  return `${where} Visits from other states and countries, which often come from automated traffic, are left out.`;
 }

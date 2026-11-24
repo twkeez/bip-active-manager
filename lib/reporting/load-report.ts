@@ -290,14 +290,31 @@ export async function loadReportForClient(
   // before it, when that was captured.
   let previousAdsSnapshot: AdsSnapshot | null = null;
   if (adsSnapshot?.start_date) {
-    const { data: adsWindows } = await supabase
+    // Dates first (each full snapshot carries large campaign and call lists),
+    // then the one full row that matches.
+    const { data: adsWindows, error: adsWindowsError } = await supabase
       .from("client_ads_snapshots")
-      .select("*")
+      .select("id, start_date, end_date, run_status, created_at")
       .eq("client_id", clientId)
+      .eq("run_status", "completed")
       .lt("end_date", adsSnapshot.start_date)
       .order("end_date", { ascending: false })
-      .limit(60);
-    previousAdsSnapshot = pickPreviousWindow(adsSnapshot, (adsWindows ?? []) as AdsSnapshot[]);
+      .limit(20);
+    if (adsWindowsError) {
+      console.error(`[report] previous Google Ads period for client ${clientId}: ${adsWindowsError.message}`);
+    }
+    const match = pickPreviousWindow(adsSnapshot, adsWindows ?? []);
+    if (match) {
+      const { data: full, error: fullError } = await supabase
+        .from("client_ads_snapshots")
+        .select("*")
+        .eq("id", match.id)
+        .maybeSingle<AdsSnapshot>();
+      if (fullError) {
+        console.error(`[report] previous Google Ads snapshot ${match.id}: ${fullError.message}`);
+      }
+      previousAdsSnapshot = full ?? null;
+    }
   }
 
   const report = buildClientReportModel({

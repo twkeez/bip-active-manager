@@ -27,11 +27,18 @@ describe("reportGeography", () => {
     expect(geographyNote(geo)).toContain("Pennsylvania");
   });
 
-  it("shows every location when the client has no state on file", () => {
+  it("uses the region most visits came from when the client has no state on file", () => {
     const geo = reportGeography(rows, null);
-    expect(geo.rows).toHaveLength(4);
-    expect(geo.rows[2].location).toBe("Singapore");
-    expect(geo.rows[3].location).toBe("Pennsylvania");
+    expect(geo.state).toBe("Pennsylvania");
+    expect(geo.stateSource).toBe("traffic");
+    expect(geo.rows.map((r) => r.location)).toEqual(["Philadelphia", "Unknown city, Pennsylvania"]);
+    expect(geographyNote(geo)).toContain("where most of the site's visits come from");
+  });
+
+  it("shows every location when no region is known at all", () => {
+    const geo = reportGeography([row("Singapore", "(not set)"), row("(not set)", "(not set)")], null);
+    expect(geo.state).toBeNull();
+    expect(geo.rows.map((r) => r.location)).toEqual(["Singapore", "Location not available"]);
     expect(geographyNote(geo)).toBeNull();
   });
 });

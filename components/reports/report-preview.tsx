@@ -196,7 +196,7 @@ function MetricCard({
     >
       <p className="text-xs text-gray-500">{metric.label}</p>
       <p className={`${val.length > 8 ? "text-xl" : "text-3xl"} font-bold text-gray-900 leading-none`}>{val}</p>
-      {metric.previous != null ? (
+      {metric.current === 0 && zeroText ? null : metric.previous != null ? (
         <div className="flex items-center gap-1.5">
           <DeltaBadge delta={metric.deltaPercent ?? null} />
           <span className="text-[10px] text-gray-400">vs prior period</span>
