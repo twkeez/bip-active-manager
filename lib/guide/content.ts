@@ -83,7 +83,8 @@ export const GUIDE: Guide = {
           label: "Response Report",
           purpose: "Every Master Sheet client with a Package: who spoke last, when we last replied, and when the client last reached out.",
           youCan: [
-            "Switch between Waiting on us, Waiting on client, No activity and All",
+            "Switch between Waiting on us, Haven't heard from us, Waiting on client, No activity and All",
+            "Mark a client low contact (or remove it) from the row's menu, or on the client's page",
             "Open Not on the Master Sheet to see Basecamp projects with no roster client behind them (they aren't counted in the numbers)",
             "Sort, search and filter by who replied last",
             "Notify a strategist by email (it then appears on the Follow-ups tab)",
@@ -93,6 +94,8 @@ export const GUIDE: Guide = {
           notes: [
             "Data comes from the Basecamp sync (the last sync time is shown) and goes back about 180 days.",
             "The roster line at the top counts every client on Master Sheet 2026 with a Package, and names any that aren't matched to a client with a Basecamp project. Clients are matched by exact name only; the sheet is re-read every morning.",
+            "Haven't heard from us means we spoke last (or not at all) and our last post is 15 or more days old; 30 or more for low-contact clients and clients whose Strategist on the sheet is Alex. A client waiting on us is listed there only.",
+            "Low contact also lists the client as Paused and leaves it out of the daily brief, so use it only for deliberately quiet accounts.",
             "The sheet decides who is covered: a roster client shows even if its project was marked not tracked, the strategist shown is the one on the sheet, and two practices sharing one Basecamp project each get a row.",
             "Follow-ups close themselves when the person replies in that Basecamp thread. Overdue ones get one reminder email, then appear in the morning email until they're closed.",
           ],

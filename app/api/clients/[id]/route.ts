@@ -106,7 +106,9 @@ export async function PATCH(
     "expectations_note",
   ] as const;
   const numericAllowed = ["total_package_hours", "hours_for_strategist"] as const;
-  const booleanAllowed = ["awaiting_website_launch"] as const;
+  // is_low_contact: a deliberately quiet account. The Response Report gives it
+  // 30 days, not 15, before saying the client has not heard from us.
+  const booleanAllowed = ["awaiting_website_launch", "is_low_contact"] as const;
 
   const patch: Record<string, string | string[] | number | boolean | null> = {};
   for (const key of allowed) {

@@ -1,5 +1,6 @@
 "use client";
 
+import LowContactToggle from "@/components/clients/low-contact-toggle";
 import { researchLocationFor } from "@/lib/onboarding/research-location";
 import ClientPracticeProfile from "@/components/dashboard/client-practice-profile";
 import { WEBSITE_STAGES, WEBSITE_STAGE_LABEL, websiteStageOf, type WebsiteStage } from "@/lib/clients/practice-profile";
@@ -1133,6 +1134,7 @@ export default function ClientOverview({
             >
               Expectations (Word)
             </a>
+            <LowContactToggle clientId={client.id} lowContact={client.is_low_contact === true} accent={T.pink} />
             {/* Admin-only: a tier change is a billing change, and team members
                 can open this page. */}
             {isAdminUser && !editingPlan && (

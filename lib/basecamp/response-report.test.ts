@@ -8,6 +8,7 @@ import {
   summarizeReport,
   groupByWait,
   isDismissed,
+  notHeardRows,
   reportTiles,
   shapeRow,
   waitTone,
@@ -196,5 +197,81 @@ describe("triage view", () => {
     const groupTotal = groupByWait(rows).reduce((sum, g) => sum + g.rows.length, 0);
     expect(tiles.waitingOnUs).toBe(groupTotal);
     expect(tiles).toMatchObject({ waitingOnUs: 3, waitingOverdue: 2, oldest: { days: 33, name: "Client b" } });
+  });
+});
+
+describe("haven't heard from us", () => {
+  const base = {
+    basecamp_project_id: "p",
+    basecamp_project_name: "P",
+    client_id: 1,
+    account_name: "Oak Vet",
+    marketing_strategist: "Stephanie",
+    is_low_contact: false,
+    is_website_only: false,
+    reply_acknowledged_for_occurred_at: null,
+    last_internal_at: "2026-11-01T00:00:00Z",
+    last_internal_author: null,
+    last_internal_author_email: null,
+    last_internal_thread_title: null,
+    last_internal_thread_url: null,
+    last_client_at: "2026-10-01T00:00:00Z",
+    last_client_author: null,
+    last_client_author_email: null,
+    last_client_thread_title: null,
+    last_client_thread_url: null,
+    client_spoke_last: false,
+    days_since_our_reply: 14,
+    days_since_client_contact: 40,
+  };
+  const shaped = (over: Record<string, unknown>) => shapeRow({ ...base, ...over });
+
+  it("flags at 15 days, not at 14", () => {
+    expect(shaped({ days_since_our_reply: 14 }).notHeard).toBe(false);
+    expect(shaped({ days_since_our_reply: 15 })).toMatchObject({ notHeard: true, heardLimitDays: 15, relaxedReason: null });
+  });
+
+  it("gives low-contact clients 30 days", () => {
+    expect(shaped({ is_low_contact: true, days_since_our_reply: 29 }).notHeard).toBe(false);
+    expect(shaped({ is_low_contact: true, days_since_our_reply: 30 })).toMatchObject({ notHeard: true, heardLimitDays: 30, relaxedReason: "low_contact" });
+  });
+
+  it("gives Alex's clients 30 days, but not a shared strategist", () => {
+    expect(shaped({ marketing_strategist: " alex ", days_since_our_reply: 20 })).toMatchObject({ notHeard: false, relaxedReason: "alex" });
+    expect(shaped({ marketing_strategist: "Alex", days_since_our_reply: 30 }).notHeard).toBe(true);
+    expect(shaped({ marketing_strategist: "Alex/Daniel", days_since_our_reply: 20 })).toMatchObject({ notHeard: true, heardLimitDays: 15 });
+  });
+
+  it("does not double-flag a client already waiting on us", () => {
+    const row = shaped({ client_spoke_last: true, last_client_at: "2026-11-20T00:00:00Z", days_since_our_reply: 40 });
+    expect(row.status).toBe("awaiting_us");
+    expect(row.notHeard).toBe(false);
+  });
+
+  it("flags a dismissed client message once our own last post is too old", () => {
+    const row = shaped({
+      client_spoke_last: true,
+      last_client_at: "2026-11-20T00:00:00Z",
+      reply_acknowledged_for_occurred_at: "2026-11-21T00:00:00Z",
+      days_since_our_reply: 40,
+    });
+    expect(row.acknowledged).toBe(true);
+    expect(row.notHeard).toBe(true);
+  });
+
+  it("flags a client with no post from us in the stored history", () => {
+    const row = shaped({ last_internal_at: null, days_since_our_reply: null, last_client_at: null, days_since_client_contact: null });
+    expect(row).toMatchObject({ status: "no_contact", quietDays: null, notHeard: true });
+  });
+
+  it("lists the quietest first and counts them in the tiles", () => {
+    const rows = [
+      shaped({ account_name: "B", days_since_our_reply: 16 }),
+      shaped({ account_name: "A", days_since_our_reply: 3 }),
+      shaped({ account_name: "C", last_internal_at: null, days_since_our_reply: null }),
+      shaped({ account_name: "D", days_since_our_reply: 60 }),
+    ];
+    expect(notHeardRows(rows).map((r) => r.account_name)).toEqual(["C", "D", "B"]);
+    expect(reportTiles(rows).notHeard).toBe(3);
   });
 });

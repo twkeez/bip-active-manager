@@ -31,6 +31,10 @@ function row(overrides: Partial<ShapedReportRow> = {}): ShapedReportRow {
     status: "awaiting_us",
     acknowledged: false,
     waitingDays: 25,
+    quietDays: 33,
+    heardLimitDays: 15,
+    relaxedReason: null,
+    notHeard: false,
     ...overrides,
   };
 }
