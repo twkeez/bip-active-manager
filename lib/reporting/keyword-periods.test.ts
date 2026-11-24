@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickKeywordPeriods, previousWindowFor } from "./keyword-periods";
+import { pickKeywordPeriods, pickPreviousWindow, previousWindowFor } from "./keyword-periods";
 
 const snap = (id: number, start: string, end: string, run_status = "completed") => ({
   id,
@@ -63,5 +63,27 @@ describe("keyword rows in the client report", () => {
     expect(bayside).toMatchObject({ currentClicks: 13, previousClicks: 10, currentPosition: 1.4 });
     expect(bayside.positionDelta).toBeCloseTo(-0.5);
     expect(exotic).toMatchObject({ currentClicks: null, previousClicks: null, currentPosition: null });
+  });
+});
+
+describe("pickPreviousWindow", () => {
+  const snap = (id: number, start: string, end: string, run_status = "completed") => ({
+    id, start_date: start, end_date: end, run_status, created_at: `${end}T05:00:00Z`,
+  });
+
+  it("finds the completed window ending just before the current one starts", () => {
+    const current = snap(3, "2026-10-25", "2026-11-23");
+    const previous = pickPreviousWindow(current, [
+      snap(1, "2026-09-25", "2026-10-24"),
+      snap(2, "2026-09-26", "2026-10-25"), // overlaps the current window
+      snap(4, "2026-09-24", "2026-10-23", "failed"),
+    ]);
+    expect(previous?.id).toBe(1);
+  });
+
+  it("is null when that period was never captured", () => {
+    const current = snap(3, "2026-10-25", "2026-11-23");
+    expect(pickPreviousWindow(current, [snap(1, "2026-08-01", "2026-08-30")])).toBeNull();
+    expect(pickPreviousWindow({ start_date: null }, [snap(1, "2026-09-25", "2026-10-24")])).toBeNull();
   });
 });

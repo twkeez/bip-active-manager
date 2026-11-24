@@ -77,6 +77,26 @@ export type ClientReportModel = {
   recommendations: ReportRecommendationItem[];
   gscTopPages: Array<{ page_url: string; clicks: number; impressions: number; position: number; ctr: number }>;
   gscTopBlogPages: Array<{ page_url: string; clicks: number; impressions: number; position: number; ctr: number }>;
+  /** Every blog page Search Console listed (not only the 10 shown), for the Blog section's totals. */
+  gscBlogTotals: { clicks: number; impressions: number; pagesOnPageOne: number; pageCount: number };
+  /**
+   * Whole-site Search Console totals for the report's search period, with the
+   * dates they cover. `source` says where they came from: "daily" is the site's
+   * own day-by-day totals (what Google's Performance report shows); "pages" is
+   * the sum of the pages Search Console listed, used only when the day-by-day
+   * numbers weren't captured.
+   */
+  gscSiteTotals: {
+    clicks: number;
+    impressions: number;
+    ctrPercent: number | null;
+    position: number | null;
+    startDate: string | null;
+    endDate: string | null;
+    source: "daily" | "pages";
+  } | null;
+  /** The dates each channel's numbers cover, for the report to say so. */
+  dataWindows: { search: string | null; ads: string | null; ga4: string | null };
   basecampEvents: Array<{ id: number; kind: "message" | "comment"; occurred_at: string; author_email: string | null; is_internal: boolean; thread_title: string | null; thread_excerpt: string | null; thread_url: string | null }>;
   playbookChecklist: Array<{ id: number; title: string; category: string; tier_key: string; type: "checklist" | "deliverable" | "guideline"; status: "pass" | "fail" | "manual"; verify_label: string | null }>;
   channels: {

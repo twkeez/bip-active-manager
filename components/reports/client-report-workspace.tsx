@@ -92,9 +92,11 @@ export default function ClientReportWorkspace({
   }
 
   // ── Draft / Narrative ──────────────────────────────────────────────────────
-  const [windowLabel, setWindowLabel] = useState(
-    initialDraft?.window_label ?? "Last 30 days",
-  );
+  // The report's numbers always cover about the last 30 days (Search Console,
+  // Google Ads and GA4 are synced that way), so the window is fixed. Choosing
+  // "Last 6 months" here used to relabel 30-day numbers, in the report and in
+  // the strategist intro.
+  const windowLabel = "Last 30 days";
   const [narrative, setNarrative] = useState(initialDraft?.narrative ?? "");
   const [sectionComments, setSectionComments] = useState<Record<string, string>>(
     initialDraft?.section_comments ?? {},
@@ -385,7 +387,6 @@ export default function ClientReportWorkspace({
               visibleSectionKeys={visibleSectionKeys}
               savingDraft={savingDraft}
               generatingIntro={generatingIntro}
-              onWindowLabelChange={setWindowLabel}
               onNarrativeChange={setNarrative}
               onSectionCommentChange={(key, val) =>
                 setSectionComments((prev) => ({ ...prev, [key]: val }))
@@ -590,7 +591,6 @@ function NarrativePanel({
   visibleSectionKeys,
   savingDraft,
   generatingIntro,
-  onWindowLabelChange,
   onNarrativeChange,
   onSectionCommentChange,
   onSave,
@@ -602,41 +602,23 @@ function NarrativePanel({
   visibleSectionKeys: string[];
   savingDraft: boolean;
   generatingIntro: boolean;
-  onWindowLabelChange: (v: string) => void;
   onNarrativeChange: (v: string) => void;
   onSectionCommentChange: (key: string, val: string) => void;
   onSave: () => void;
   onGenerateIntro: () => void;
 }) {
-  const windowOptions = [
-    "Last 7 days",
-    "Last 30 days",
-    "Last 90 days",
-    "Last 3 months",
-    "Last 6 months",
-  ];
-
   return (
     <div className="p-4 space-y-5">
       {/* Reporting window */}
       <div>
-        <label className="block text-[10px] font-medium uppercase tracking-wider text-gray-400 mb-1.5">
+        <p className="block text-[10px] font-medium uppercase tracking-wider text-gray-400 mb-1.5">
           Reporting Window
-        </label>
-        <select
-          value={windowLabel}
-          onChange={(e) => onWindowLabelChange(e.target.value)}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-800 focus:border-blue-400 focus:outline-none"
-        >
-          {windowOptions.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-          {!windowOptions.includes(windowLabel) && (
-            <option value={windowLabel}>{windowLabel}</option>
-          )}
-        </select>
+        </p>
+        <p className="text-xs text-gray-800">{windowLabel}</p>
+        <p className="mt-1 text-[10px] text-gray-400">
+          Every channel is synced for about the last 30 days, so the report covers that period.
+          Each channel&apos;s exact dates are on the report.
+        </p>
       </div>
 
       {/* Strategist intro */}
