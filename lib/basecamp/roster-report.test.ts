@@ -111,3 +111,42 @@ describe("daysBetween", () => {
     expect(daysBetween("2026-11-09T12:00:00Z", now)).toBe(15);
   });
 });
+
+describe("former and cancelling clients", () => {
+  const flag = (id: number, account_status: string | null | undefined) => ({
+    id,
+    is_low_contact: false,
+    is_website_only: false,
+    reply_acknowledged_for_occurred_at: null,
+    account_status,
+    account_status_changed_at: "2026-11-24T00:00:00Z",
+    account_status_changed_by: "someone@example.com",
+  });
+
+  it("moves them off the report into the excluded list, and loses nobody", () => {
+    const entries = [entry("Oak Vet", 1, "p1"), entry("Elm Vet", 2, "p2"), entry("Ash Vet", 3, "p3")];
+    const { rosterRows, excludedRows, otherRows } = applyRoster(
+      [projectRow("p1"), projectRow("p2"), projectRow("p3")],
+      entries,
+      [flag(1, "active"), flag(2, "cancelling"), flag(3, "former")],
+    );
+    expect(rosterRows.map((r) => r.account_name)).toEqual(["Oak Vet"]);
+    expect(excludedRows.map((r) => [r.account_name, r.account_status, r.account_status_changed_by])).toEqual([
+      ["Elm Vet", "cancelling", "someone@example.com"],
+      ["Ash Vet", "former", "someone@example.com"],
+    ]);
+    expect(rosterRows.length + excludedRows.length).toBe(entries.length);
+    // An excluded client's project is still its own: it must not reappear as an unclaimed project.
+    expect(otherRows).toEqual([]);
+  });
+
+  it("treats a missing or unknown status as active", () => {
+    const { rosterRows, excludedRows } = applyRoster(
+      [projectRow("p1"), projectRow("p2")],
+      [entry("Oak Vet", 1, "p1"), entry("Elm Vet", 2, "p2")],
+      [flag(1, undefined), flag(2, "paused")],
+    );
+    expect(rosterRows).toHaveLength(2);
+    expect(excludedRows).toEqual([]);
+  });
+});

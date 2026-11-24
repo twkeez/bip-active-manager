@@ -1,5 +1,6 @@
 import type { ResponseReportRow } from "@/lib/basecamp/load-response-report";
 import type { RosterEntry } from "@/lib/basecamp/sheet-roster";
+import { accountStatusOf } from "@/lib/clients/account-status";
 
 /**
  * Turns the per-project response report into a per-client one, driven by the
@@ -15,11 +16,17 @@ export type RosterClientFlags = {
   is_low_contact: boolean | null;
   is_website_only: boolean | null;
   reply_acknowledged_for_occurred_at: string | null;
+  /** Missing when the status column has not been added yet; read as active. */
+  account_status?: string | null;
+  account_status_changed_at?: string | null;
+  account_status_changed_by?: string | null;
 };
 
 export type RosterReport = {
   /** One row per roster client with a Basecamp project. */
   rosterRows: ResponseReportRow[];
+  /** Roster clients marked cancelling or former: off the report, but counted and listed. */
+  excludedRows: ResponseReportRow[];
   /** Basecamp projects no roster client points at. */
   otherRows: ResponseReportRow[];
 };
@@ -64,6 +71,7 @@ export function applyRoster(
   const flagsById = new Map(flags.map((flag) => [flag.id, flag]));
 
   const rosterRows: ResponseReportRow[] = [];
+  const excludedRows: ResponseReportRow[] = [];
   const claimed = new Set<string>();
   for (const entry of entries) {
     if (entry.state !== "ready" || !entry.projectId || entry.clientId == null) continue;
@@ -71,8 +79,12 @@ export function applyRoster(
     const onIgnoreList = !tracked.has(entry.projectId) && ignored.has(entry.projectId);
     const base = tracked.get(entry.projectId) ?? ignored.get(entry.projectId) ?? blankRow(entry);
     const flag = flagsById.get(entry.clientId);
-    rosterRows.push({
+    const accountStatus = accountStatusOf(flag?.account_status);
+    (accountStatus === "active" ? rosterRows : excludedRows).push({
       ...base,
+      account_status: accountStatus,
+      account_status_changed_at: flag?.account_status_changed_at ?? null,
+      account_status_changed_by: flag?.account_status_changed_by ?? null,
       // The sheet names the client and its owner; the conversation comes from
       // the project, which two practices may share.
       client_id: entry.clientId,
@@ -91,7 +103,7 @@ export function applyRoster(
   const otherRows = projectRows
     .filter((row) => !claimed.has(row.basecamp_project_id))
     .map((row) => ({ ...row, row_key: `project-${row.basecamp_project_id}`, on_roster: false }));
-  return { rosterRows, otherRows };
+  return { rosterRows, excludedRows, otherRows };
 }
 
 /** Whole days between two moments, by calendar date (UTC), as the report's view counts them. */

@@ -46,6 +46,10 @@ export type ResponseReportRow = {
   shares_project_with?: string[];
   /** The project is on the "not tracked" list, but the sheet says to cover this client. */
   on_ignore_list?: boolean;
+  /** "cancelling" or "former" on a roster client left off the report; who marked it and when. */
+  account_status?: "active" | "cancelling" | "former";
+  account_status_changed_at?: string | null;
+  account_status_changed_by?: string | null;
 };
 
 export type ResponseReportData = {

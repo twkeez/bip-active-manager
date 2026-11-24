@@ -1,3 +1,4 @@
+import { ACCOUNT_STATUS_MIGRATION, isAccountStatus } from "@/lib/clients/account-status";
 import { profilePatch } from "@/lib/clients/practice-profile";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -137,6 +138,17 @@ export async function PATCH(
     }
   }
 
+  // Former / cancelling: drops the client off the Response Report's roster.
+  // Stamped with who and when, because it hides a client from a report.
+  if (Object.prototype.hasOwnProperty.call(body, "account_status")) {
+    if (!isAccountStatus(body.account_status)) {
+      return NextResponse.json({ error: "account_status must be active, cancelling or former." }, { status: 400 });
+    }
+    patch.account_status = body.account_status;
+    patch.account_status_changed_at = new Date().toISOString();
+    patch.account_status_changed_by = user.email ?? null;
+  }
+
   // Practice type, website stage, ad budget, opening date and conversion
   // types: checked against their allowed values before anything is written.
   const profile = profilePatch(body as Record<string, unknown>);
@@ -178,6 +190,12 @@ export async function PATCH(
     .single();
 
   if (error) {
+    if ("account_status" in patch && /account_status/.test(error.message)) {
+      return NextResponse.json(
+        { error: `Former and cancelling are not set up yet. Run ${ACCOUNT_STATUS_MIGRATION} in Supabase, then try again.` },
+        { status: 500 },
+      );
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/ui/feedback";
 import { ToolPage } from "@/components/ui/tool-page";
 import { openableBasecampUrl } from "@/lib/basecamp/display";
 import type { ResponseReportRow } from "@/lib/basecamp/load-response-report";
+import { ACCOUNT_STATUS_LABEL, type AccountStatus } from "@/lib/clients/account-status";
 import type { BasecampProjectIgnoreRow } from "@/lib/clients/basecamp-project-ignores";
 import { isOverdue, openForLabel, type FollowupRow } from "@/lib/followups/followups";
 import { resolveStrategistContacts } from "@/lib/onboarding/expectation-people";
@@ -134,6 +135,7 @@ function Side({
 export default function ResponseReportView({
   rows,
   otherRows = [],
+  excludedRows = [],
   rosterApplied = false,
   ignored,
   staff,
@@ -151,6 +153,8 @@ export default function ResponseReportView({
   rows: ResponseReportRow[];
   /** Basecamp projects that are not on the Master Sheet roster. */
   otherRows?: ResponseReportRow[];
+  /** Roster clients marked cancelling or former: off the report, listed at the bottom. */
+  excludedRows?: ResponseReportRow[];
   /** True when `rows` is the Master Sheet roster. */
   rosterApplied?: boolean;
   ignored: BasecampProjectIgnoreRow[];
@@ -184,6 +188,7 @@ export default function ResponseReportView({
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [actionError, setActionError] = useState<string | null>(null);
   const [showIgnored, setShowIgnored] = useState(false);
+  const [showExcluded, setShowExcluded] = useState(false);
   const [notifying, setNotifying] = useState<ShapedReportRow | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -352,6 +357,44 @@ export default function ResponseReportView({
     }
   }
 
+  async function setAccountStatus(
+    row: Pick<ResponseReportRow, "client_id" | "account_name" | "basecamp_project_id">,
+    next: AccountStatus,
+  ) {
+    if (row.client_id == null) return;
+    if (
+      next !== "active" &&
+      !window.confirm(
+        `Mark ${row.account_name} as ${ACCOUNT_STATUS_LABEL[next].toLowerCase()}? It comes off the Response Report and moves to the Excluded list at the bottom, where it can be put back.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(row.basecamp_project_id);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/clients/${row.client_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_status: next }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? "Could not save the client's status.");
+      }
+      setNotice(
+        next === "active"
+          ? `${row.account_name} is back on the report.`
+          : `${row.account_name} marked ${ACCOUNT_STATUS_LABEL[next].toLowerCase()} and moved to Excluded.`,
+      );
+      router.refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not save the client's status.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function setLowContact(row: ShapedReportRow, lowContact: boolean) {
     if (row.client_id == null) return;
     setBusy(row.basecamp_project_id);
@@ -404,6 +447,12 @@ export default function ResponseReportView({
           : { label: `Mark low contact (${HEARD_THRESHOLDS.relaxedDays}-day limit)`, onSelect: () => void setLowContact(r, true) },
       );
     }
+    if (r.on_roster === true) {
+      actions.push(
+        { label: "Mark cancelling…", onSelect: () => void setAccountStatus(r, "cancelling") },
+        { label: "Mark former client…", tone: "danger", onSelect: () => void setAccountStatus(r, "former") },
+      );
+    }
     actions.push({
       label: "Stop tracking…",
       tone: "danger",
@@ -413,7 +462,7 @@ export default function ResponseReportView({
       },
       disabled: r.on_roster === true,
       disabledReason:
-        "This client is on the Master Sheet with a Package, so it stays on the report. The sheet decides who is covered.",
+        "This client is on the Master Sheet with a Package. To take it off the report, mark it cancelling or a former client.",
     });
     return actions;
   }
@@ -578,7 +627,9 @@ export default function ResponseReportView({
       maxWidth="6xl"
       description={
         rosterApplied
-          ? `Every Master Sheet client with a Package: who spoke last, when we last replied and who replied, and when the client last reached out. ${summary.total} clients · ${shapedOther.length} other Basecamp projects kept apart · last sync ${fmtSync(lastSyncedAt)}.`
+          ? `Every Master Sheet client with a Package: who spoke last, when we last replied and who replied, and when the client last reached out. ${summary.total} clients${
+              excludedRows.length ? ` · ${excludedRows.length} excluded as cancelling or former` : ""
+            } · ${shapedOther.length} other Basecamp projects kept apart · last sync ${fmtSync(lastSyncedAt)}.`
           : `Every Basecamp project with who spoke last, when we last replied and who replied, and when the client last reached out. ${summary.total} projects · last sync ${fmtSync(lastSyncedAt)}.`
       }
     >
@@ -776,6 +827,53 @@ export default function ResponseReportView({
                 router.refresh();
               }}
             />
+          )}
+
+          {excludedRows.length > 0 && (
+            <div className="rounded-xl border border-bip-border bg-bip-card">
+              <button
+                onClick={() => setShowExcluded((open) => !open)}
+                aria-expanded={showExcluded}
+                className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-bip-muted hover:text-bip-text"
+              >
+                <span>
+                  Excluded <span className="tabular-nums">({excludedRows.length})</span>
+                  <span className="ml-2 text-xs">on the Master Sheet, marked cancelling or former; not in the numbers above</span>
+                </span>
+                <span className="text-xs">{showExcluded ? "Hide" : "Show"}</span>
+              </button>
+              {showExcluded && (
+                <ul className="border-t border-bip-border">
+                  {excludedRows.map((row) => (
+                    <li
+                      key={row.row_key ?? row.basecamp_project_id}
+                      className="flex items-center justify-between gap-3 border-b border-bip-border px-4 py-2 last:border-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-bip-text">{row.account_name}</p>
+                        <p className="truncate text-xs text-bip-muted">
+                          {[
+                            ACCOUNT_STATUS_LABEL[row.account_status ?? "active"],
+                            row.marketing_strategist,
+                            row.account_status_changed_by,
+                            row.account_status_changed_at ? fmtDate(row.account_status_changed_at) : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => void setAccountStatus(row, "active")}
+                        disabled={busy === row.basecamp_project_id}
+                        className="shrink-0 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-muted hover:text-bip-text disabled:opacity-50"
+                      >
+                        {busy === row.basecamp_project_id ? "…" : "Put back on the report"}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
 
           {ignored.length > 0 && (

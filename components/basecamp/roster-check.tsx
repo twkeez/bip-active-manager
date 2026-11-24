@@ -29,7 +29,7 @@ function why(entry: RosterEntry): string {
     : "no client has this name";
 }
 
-export default function RosterCheck({ roster }: { roster: LoadedSheetRoster }) {
+export default function RosterCheck({ roster, excluded = 0 }: { roster: LoadedSheetRoster; excluded?: number }) {
   if (roster.error) {
     return (
       <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -54,6 +54,10 @@ export default function RosterCheck({ roster }: { roster: LoadedSheetRoster }) {
         <span className="font-medium">Master Sheet roster:</span> {counts.inScope} clients have a Package.{" "}
         {counts.ready} of {counts.inScope} are matched to a client with a Basecamp project
         {unsettled.length > 0 ? `; ${unsettled.length} are not (listed below).` : "."}
+        {excluded > 0 &&
+          ` ${excluded} of those ${excluded === 1 ? "is" : "are"} marked cancelling or former and listed under Excluded, so ${
+            counts.ready - excluded
+          } are on the report.`}
       </p>
       <p className="mt-1 text-xs text-bip-muted">
         Sheet read {readAt(roster.sheetReadAt)} · {roster.sheetTotal} practices on the Master tab · re-read every
