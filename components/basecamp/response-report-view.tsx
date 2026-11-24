@@ -17,6 +17,8 @@ import { isOverdue, openForLabel, type FollowupRow } from "@/lib/followups/follo
 import { resolveStrategistContacts } from "@/lib/onboarding/expectation-people";
 import {
   groupByWait,
+  HEARD_THRESHOLDS,
+  notHeardRows,
   internalAuthors,
   isDismissed,
   reportTiles,
@@ -277,7 +279,8 @@ export default function ResponseReportView({
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return (showingOther ? shapedOther : shaped).filter((r: ShapedReportRow) => {
-      if (!showingOther && status !== "all" && r.status !== status) return false;
+      if (!showingOther && status === "not_heard" && !r.notHeard) return false;
+      if (!showingOther && status !== "all" && status !== "not_heard" && r.status !== status) return false;
       if (author !== "all" && r.last_internal_author !== author) return false;
       if (
         needle &&
@@ -292,14 +295,18 @@ export default function ResponseReportView({
 
   const filters: { key: StatusFilter; label: string; count: number }[] = [
     { key: "awaiting_us", label: "Waiting on us", count: tiles.waitingOnUs },
+    { key: "not_heard", label: "Haven't heard from us", count: tiles.notHeard },
     { key: "awaiting_client", label: "Waiting on client", count: summary.awaitingClient },
     { key: "no_contact", label: `No activity in ${HISTORY_DAYS} days`, count: summary.noContact },
     { key: "all", label: "All", count: summary.total },
   ];
 
   // Dismissed rows never sit among rows that need action: their own group.
-  const activeRows = sortReportRows(visible.filter((r) => !isDismissed(r)), sort);
-  const dismissedRows = sortReportRows(visible.filter((r) => isDismissed(r)), sort);
+  // "Haven't heard from us" is one list, quietest first, and keeps a dismissed
+  // client message in it: the flag is about our silence, not their question.
+  const flaggedView = !showingOther && status === "not_heard";
+  const activeRows = sortReportRows(flaggedView ? notHeardRows(visible) : visible.filter((r) => !isDismissed(r)), sort);
+  const dismissedRows = flaggedView ? [] : sortReportRows(visible.filter((r) => isDismissed(r)), sort);
   // The age bands only make sense in the report's own order; a chosen sort is one flat list.
   const ageGroups = !showingOther && status === "awaiting_us" && !sort ? groupByWait(activeRows) : null;
 
@@ -345,6 +352,33 @@ export default function ResponseReportView({
     }
   }
 
+  async function setLowContact(row: ShapedReportRow, lowContact: boolean) {
+    if (row.client_id == null) return;
+    setBusy(row.basecamp_project_id);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/clients/${row.client_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_low_contact: lowContact }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? "Could not save low contact.");
+      }
+      setNotice(
+        lowContact
+          ? `${row.account_name} is now low contact: ${HEARD_THRESHOLDS.relaxedDays} days before "haven't heard from us".`
+          : `${row.account_name} is no longer low contact.`,
+      );
+      router.refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not save low contact.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   function rowActions(r: ShapedReportRow): RowAction[] {
     const noClient = r.client_id == null;
     const actions: RowAction[] = [
@@ -362,6 +396,13 @@ export default function ResponseReportView({
           ? "Dismiss is saved on the client record, and this project has none. Link it on Project Wiring, or use Stop tracking."
           : "Only a project waiting on us can be dismissed.",
       });
+    }
+    if (!noClient) {
+      actions.push(
+        r.is_low_contact === true
+          ? { label: "Remove low contact", onSelect: () => void setLowContact(r, false) }
+          : { label: `Mark low contact (${HEARD_THRESHOLDS.relaxedDays}-day limit)`, onSelect: () => void setLowContact(r, true) },
+      );
     }
     actions.push({
       label: "Stop tracking…",
@@ -394,6 +435,7 @@ export default function ResponseReportView({
           </a>
           <p className="truncate text-xs text-bip-muted">
             {r.client_id == null ? "No client record" : r.marketing_strategist || "\u00a0"}
+            {r.is_low_contact === true && " · Low contact"}
           </p>
           {r.shares_project_with && r.shares_project_with.length > 0 && (
             <p className="truncate text-[11px] text-bip-muted" title={`Same Basecamp project as ${r.shares_project_with.join(", ")}`}>
@@ -461,6 +503,20 @@ export default function ResponseReportView({
           >
             {statusLabel(r)}
           </span>
+          {r.notHeard && r.on_roster !== false && (
+            <span
+              className="mt-1 block w-fit whitespace-nowrap rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-medium text-red-200"
+              title={`${
+                r.quietDays == null
+                  ? `No post from us in the last ${HISTORY_DAYS} days.`
+                  : `Our last post was ${r.quietDays} days ago.`
+              } Limit for this client: ${r.heardLimitDays} days${
+                r.relaxedReason === "low_contact" ? " (low contact)" : r.relaxedReason === "alex" ? " (Alex's client)" : ""
+              }.`}
+            >
+              Not heard from us · {r.quietDays == null ? `${HISTORY_DAYS}d+` : `${r.quietDays}d`}
+            </span>
+          )}
         </td>
         <td className="px-3 py-2 text-right align-top">
           {confirming === (r.row_key ?? r.basecamp_project_id) ? (
@@ -543,7 +599,12 @@ export default function ResponseReportView({
               value={tiles.oldest ? waitLabel(tiles.oldest.days) : "—"}
               sub={tiles.oldest?.name}
             />
-            <StatTile label="Waiting on client" value={tiles.waitingOnClient} />
+            <StatTile
+              label="Haven't heard from us"
+              value={tiles.notHeard}
+              sub={`${HEARD_THRESHOLDS.standardDays}+ days; ${HEARD_THRESHOLDS.relaxedDays}+ for low contact and Alex's`}
+              tone={tiles.notHeard > 0 ? "danger" : undefined}
+            />
           </StatTiles>
 
           {actionError && <p className="text-sm text-red-400">{actionError}</p>}
@@ -610,6 +671,14 @@ export default function ResponseReportView({
               These {shapedOther.length} Basecamp projects have no Master Sheet client with a Package behind them
               (onboarding, website-only, former clients, our own projects). They are not counted in the tiles or tabs
               above.
+            </p>
+          )}
+
+          {flaggedView && (
+            <p className="text-xs text-bip-muted">
+              We spoke last (or not at all) and our last post is {HEARD_THRESHOLDS.standardDays} or more days old;{" "}
+              {HEARD_THRESHOLDS.relaxedDays} or more for low-contact clients and clients whose Strategist on the sheet is
+              Alex. Clients waiting on us are not repeated here. Basecamp history goes back {HISTORY_DAYS} days.
             </p>
           )}
 

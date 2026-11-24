@@ -6,8 +6,29 @@ import type { ResponseReportRow } from "@/lib/basecamp/load-response-report";
 export type ReportStatus = "awaiting_us" | "awaiting_client" | "no_contact";
 
 /** The report's tabs, in order. The page opens on the first. */
-export type StatusFilter = "all" | ReportStatus;
-export const STATUS_FILTERS: StatusFilter[] = ["awaiting_us", "awaiting_client", "no_contact", "all"];
+export type StatusFilter = "all" | ReportStatus | "not_heard";
+export const STATUS_FILTERS: StatusFilter[] = ["awaiting_us", "not_heard", "awaiting_client", "no_contact", "all"];
+
+/**
+ * How long a client may go without a post from us before the report says
+ * "haven't heard from us" (Tom, 2026-11-24). Low-contact clients and Alex's
+ * clients get the longer limit.
+ */
+export const HEARD_THRESHOLDS = { standardDays: 15, relaxedDays: 30 } as const;
+
+/** Why a row gets the longer limit, or null when it gets the standard one. */
+export type RelaxedReason = "low_contact" | "alex";
+
+/** Alex's clients: the sheet's Strategist is exactly "Alex", not a shared "Alex/…". */
+export function isAlexClient(strategist: string | null | undefined): boolean {
+  return (strategist ?? "").trim().toLowerCase() === "alex";
+}
+
+export function relaxedReasonOf(row: Pick<ResponseReportRow, "is_low_contact" | "marketing_strategist">): RelaxedReason | null {
+  if (row.is_low_contact === true) return "low_contact";
+  if (isAlexClient(row.marketing_strategist)) return "alex";
+  return null;
+}
 
 export type ShapedReportRow = ResponseReportRow & {
   status: ReportStatus;
@@ -15,6 +36,17 @@ export type ShapedReportRow = ResponseReportRow & {
   acknowledged: boolean;
   /** Days the ball has been in someone's court. Null when nobody has spoken. */
   waitingDays: number | null;
+  /** Days since our last post. Null when we have not posted within the stored history. */
+  quietDays: number | null;
+  /** The limit this row is held to: 15 days, or 30 for low-contact and Alex's clients. */
+  heardLimitDays: number;
+  relaxedReason: RelaxedReason | null;
+  /**
+   * "Haven't heard from us": our last post is at or past the limit (or there
+   * is none in the stored history). Never set on a row already waiting on us,
+   * so a client is flagged once, under the more urgent heading.
+   */
+  notHeard: boolean;
 };
 
 export function statusOf(row: ResponseReportRow): ReportStatus {
@@ -32,10 +64,19 @@ export function isAcknowledged(row: ResponseReportRow): boolean {
 
 export function shapeRow(row: ResponseReportRow): ShapedReportRow {
   const status = statusOf(row);
+  const acknowledged = isAcknowledged(row);
+  const relaxedReason = relaxedReasonOf(row);
+  const heardLimitDays = relaxedReason ? HEARD_THRESHOLDS.relaxedDays : HEARD_THRESHOLDS.standardDays;
+  const quietDays = row.last_internal_at ? row.days_since_our_reply : null;
+  const waitingOnUs = status === "awaiting_us" && !acknowledged;
   return {
     ...row,
     status,
-    acknowledged: isAcknowledged(row),
+    acknowledged,
+    quietDays,
+    heardLimitDays,
+    relaxedReason,
+    notHeard: !waitingOnUs && (quietDays == null || quietDays >= heardLimitDays),
     waitingDays:
       status === "awaiting_us"
         ? row.days_since_client_contact
@@ -146,8 +187,20 @@ export function groupByWait(rows: ShapedReportRow[]): AgeGroup[] {
   return groups;
 }
 
+/** Rows flagged "haven't heard from us", quietest first (no post in the stored history leads). */
+export function notHeardRows(rows: ShapedReportRow[]): ShapedReportRow[] {
+  return rows
+    .filter((row) => row.notHeard)
+    .sort(
+      (a, b) =>
+        (b.quietDays ?? Number.MAX_SAFE_INTEGER) - (a.quietDays ?? Number.MAX_SAFE_INTEGER) ||
+        a.account_name.localeCompare(b.account_name),
+    );
+}
+
 export type ReportTiles = {
   waitingOnUs: number;
+  notHeard: number;
   waitingOverdue: number;
   oldest: { days: number; name: string } | null;
   waitingOnClient: number;
@@ -161,6 +214,7 @@ export function reportTiles(rows: ShapedReportRow[]): ReportTiles {
   );
   return {
     waitingOnUs: open.length,
+    notHeard: rows.filter((row) => row.notHeard).length,
     waitingOverdue: open.filter((row) => waitTone(row.waitingDays) === "overdue").length,
     oldest: oldest && oldest.waitingDays != null ? { days: oldest.waitingDays, name: oldest.account_name } : null,
     waitingOnClient: rows.filter((row) => row.status === "awaiting_client").length,
