@@ -9,6 +9,7 @@ import { AI_PLATFORMS, PLATFORM_LABEL } from "@/lib/website-audit/platforms";
 import { practiceMatchProblems } from "@/lib/website-audit/practice-match";
 import { promotedServicesWithoutPage } from "@/lib/website-audit/services";
 import { realTypos } from "@/lib/website-audit/typos";
+import { isCanadian } from "@/lib/website-audit/site-location";
 import {
   AUDIT_STAGES,
   type AiVisibilityResults,
@@ -489,7 +490,9 @@ export default function WebsiteAuditView({ audit }: { audit: WebsiteAuditRow }) 
         <div>
           <h1 className="text-xl font-semibold text-bip-text">{audit.practice_name}</h1>
           <p className="text-sm text-bip-muted">
-            {audit.domain} · {[audit.city, audit.state].filter(Boolean).join(", ")} · started {new Date(audit.created_at).toLocaleDateString()}
+            {audit.domain} · {[audit.city, audit.state].filter(Boolean).join(", ")}
+            {isCanadian(audit.city, audit.state) && <span className="font-medium text-amber-300"> (Canada: run separately, the AI step asks from the US)</span>} · started{" "}
+            {new Date(audit.created_at).toLocaleDateString()}
             {Number(audit.dataforseo_cost_usd) > 0 && ` · DataForSEO so far $${Number(audit.dataforseo_cost_usd).toFixed(2)}`}
             {Number(audit.ai_cost_usd) > 0 && ` · Claude $${Number(audit.ai_cost_usd).toFixed(2)}`}
           </p>

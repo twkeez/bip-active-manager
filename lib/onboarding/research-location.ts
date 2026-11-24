@@ -26,14 +26,14 @@ export const CA_PROVINCES: Record<string, string> = {
   QC: "Quebec", SK: "Saskatchewan", YT: "Yukon",
 };
 
-function regionName(code: string): { name: string; country: "USA" | "Canada" } | null {
+export function regionName(code: string): { name: string; country: "USA" | "Canada" } | null {
   if (US_STATES[code]) return { name: US_STATES[code], country: "USA" };
   if (CA_PROVINCES[code]) return { name: CA_PROVINCES[code], country: "Canada" };
   return null;
 }
 
 /** "Ontario" → "ON", "Maryland" → "MD". */
-function codeForName(name: string): string | null {
+export function codeForName(name: string): string | null {
   const wanted = name.trim().toLowerCase();
   for (const [code, full] of [...Object.entries(US_STATES), ...Object.entries(CA_PROVINCES)]) {
     if (full.toLowerCase() === wanted) return code;

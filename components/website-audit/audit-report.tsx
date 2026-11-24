@@ -12,6 +12,7 @@ import {
   type MetricComparison,
 } from "@/lib/website-audit/compare";
 import { SIDE_SERVICES, standing } from "@/lib/website-audit/competitors";
+import { backedByLine, checkedStrengths, clientPositioningLine, countWord, examplePrompt, farEnoughApart, highlightsNotReady } from "@/lib/website-audit/highlights";
 import { doctorKeys } from "@/lib/website-audit/doctors";
 import { crawlLimits, jobOf, notChecked, shortTitle, technicalFindings, type FindingDetail } from "@/lib/website-audit/findings";
 import { PLATFORM_LABEL } from "@/lib/website-audit/platforms";
@@ -786,13 +787,28 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
   // The client's good-news copy: what's working, in plain words. No website findings, no fix lists.
   if (mode === "highlights") {
     const hitsOf = (runs: NonNullable<typeof v>["runs"]) => runs.filter((run) => run.cited || run.mentioned).length;
+    // Both kinds are shown whenever either included the practice, so the two boxes add up to the cover's "N of M".
+    // The example under each is a question that really ran.
+    const exampleOf = (kind: "local" | "service") => {
+      const text = v ? examplePrompt(v.prompts, v.runs, kind) : null;
+      return text ? `e.g. "${text}"` : "";
+    };
     const aiKinds = (
       [
-        ["Looking for a vet", `e.g. "best vet in ${town}"`, answeredOfKind("local")],
-        ["Looking for a service", `e.g. "dog dental cleaning near ${town}"`, answeredOfKind("service")],
+        ["Looking for a vet", exampleOf("local"), answeredOfKind("local")],
+        ["Looking for a service", exampleOf("service"), answeredOfKind("service")],
       ] as const
-    ).filter(([, , runs]) => hitsOf(runs) > 0);
-    const aiTools = (v?.platforms ?? []).filter((p) => p.promptsCited + p.promptsMentioned > 0);
+    ).filter(([, , runs]) => runs.length > 0);
+    const toolsAsked = (v?.platforms ?? []).filter((p) => p.promptsRun > 0);
+    const aiTools = toolsAsked.filter((p) => p.promptsCited + p.promptsMentioned > 0);
+    const toolsWithout = toolsAsked.filter((p) => p.promptsCited + p.promptsMentioned === 0);
+    const notReady = highlightsNotReady(audit);
+    const strengthsChecked = checkedStrengths(
+      c?.site.differentiators ?? [],
+      (url) => (crawled.get(url) ?? crawled.get(url.replace(/\/$/, "")) ?? crawled.get(`${url}/`))?.text ?? null,
+      a?.google.reviews ?? [],
+    );
+    const showChange = farEnoughApart(audit.created_at, previous?.created_at);
 
     // Only the comparisons that are in the practice's favour.
     const st = comp && vets && !vets.error && vets.listings.length ? standing(comp.you, vets.listings) : null;
@@ -832,12 +848,12 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
       ] as [boolean, string, string][]
     ).filter(([ok]) => ok);
 
-    const strengths = c?.site.differentiators ?? [];
+    // Only strengths whose quotes check out, without advice or hours (see lib/website-audit/highlights.ts).
+    const strengths = strengthsChecked;
     // Score parts about how the site is built: not this copy's subject.
     const BEHIND_THE_SCENES = new Set(["technical", "structuredData", "domainRank"]);
 
     const tiles = [
-      { label: "Your score", value: s ? String(s.total) : null, sub: "out of 100", m: byKey.get("score") },
       {
         label: "AI recommends you",
         value: ai && ai.hits > 0 ? formatMetric(byKey.get("aiShare")?.value ?? null, "percent") : null,
@@ -854,6 +870,16 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
 
     return (
       <article className="mx-auto max-w-3xl space-y-8 text-slate-700">
+        {notReady.length > 0 && (
+          <div className="rounded-2xl border-2 border-red-500 bg-red-50 p-4 text-sm text-red-900" style={{ breakInside: "avoid" }}>
+            <p className="font-semibold">Not ready to send to the practice</p>
+            <ul className="mt-1 list-disc pl-5">
+              {notReady.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <header className="overflow-hidden rounded-3xl px-8 py-7 text-white" style={{ background: GRADIENT, breakInside: "avoid" }}>
           <BeyondIndigoLogo className="h-8 w-auto" />
           <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">Website, SEO & AI Search · Highlights</p>
@@ -873,7 +899,11 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
                     {tile.value}
                   </p>
                   <p className="text-xs text-white/80">{tile.sub}</p>
-                  {tile.m?.change === "better" && tile.m.last != null && <p className="mt-1 text-[12px] text-white/80">Up from {formatMetric(tile.m.last, tile.m.format)} last time</p>}
+                  {showChange && tile.m?.change === "better" && tile.m.last != null && (
+                    <p className="mt-1 text-[12px] text-white/80">
+                      Up from {formatMetric(tile.m.last, tile.m.format)} on {lastDate}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -896,7 +926,7 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
                 <li key={d.title} className="flex gap-2">
                   <span className="font-semibold" style={{ color: "#047857" }}>✓</span>
                   <span>
-                    <span className="font-medium text-slate-800">{d.title}.</span> Your reviews and website back this up.
+                    <span className="font-medium text-slate-800">{d.title}.</span> {backedByLine(d.backedBy)}
                   </span>
                 </li>
               ))}
@@ -909,13 +939,13 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
             keepFirst
             n={num()}
             title="Where AI recommends you"
-            intro={`More and more pet owners ask AI tools instead of scrolling through search results. On ${dateOf(v.ranAt)} we asked six of them the questions a pet owner near you asks.`}
+            intro={`More and more pet owners ask AI tools instead of scrolling through search results. On ${dateOf(v.ranAt)} we asked ${countWord(toolsAsked.length)} of them the questions a pet owner near you asks.`}
           >
             <div className="grid gap-3 sm:grid-cols-2" style={{ breakInside: "avoid" }}>
               {aiKinds.map(([title, example, runs]) => (
                 <div key={title} className="rounded-xl bg-slate-50 p-3 text-[13px]">
                   <p className="font-semibold text-slate-800">{title}</p>
-                  <p className="text-[12px] text-slate-600">{example}</p>
+                  {example && <p className="text-[12px] text-slate-600">{example}</p>}
                   <p className="mt-1 text-2xl font-semibold" style={{ color: INDIGO, fontFamily: "var(--font-heading)" }}>
                     {hitsOf(runs)} of {runs.length}
                   </p>
@@ -945,6 +975,11 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
                   ))}
                 </tbody>
               </table>
+            )}
+            {toolsWithout.length > 0 && (
+              <p className="text-[12px] text-slate-600">
+                {`${toolsWithout.map((p) => p.label).join(", ").replace(/, ([^,]*)$/, " and $1")} didn't name or link to you in these answers.`}
+              </p>
             )}
             <p className="text-[12px] text-slate-600">
               {`A link is the stronger result: the AI is treating your website as a trusted source. AI answers change from day to day, so this is a snapshot of ${dateOf(v.ranAt)}.`}
@@ -976,7 +1011,7 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
         )}
 
         {strengths.length > 0 && (
-          <Section keepFirst n={num()} title="What makes you different" intro="Strengths your website and your Google reviews already show, which most practices nearby can't claim.">
+          <Section keepFirst n={num()} title="What makes you different" intro="Strengths your website and your Google reviews already show.">
             {strengths.map((d) => (
               <div key={d.title} className="rounded-2xl border border-slate-200 p-4" style={{ breakInside: "avoid" }}>
                 <p className="text-sm font-semibold" style={{ color: INDIGO }}>
@@ -985,11 +1020,11 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
                 <p className="mt-1 text-[13px] leading-relaxed text-slate-700">{d.detail}</p>
               </div>
             ))}
-            {c?.site.positioningLine && (
+            {clientPositioningLine(c?.site.positioningLine) && (
               <div className="rounded-2xl p-5 text-white" style={{ background: GRADIENT, breakInside: "avoid" }}>
                 <p className="text-xs font-semibold uppercase tracking-wide text-white/75">Your practice in one sentence</p>
                 <p className="mt-1 text-lg leading-snug" style={{ fontFamily: "var(--font-heading)" }}>
-                  {c.site.positioningLine}
+                  {clientPositioningLine(c?.site.positioningLine)}
                 </p>
               </div>
             )}
@@ -1288,8 +1323,8 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
           <div className="grid gap-3 sm:grid-cols-3">
             {(
               [
-                ["local", "Looking for a vet", `e.g. "best vet in ${town}"`],
-                ["service", "Looking for a service", `e.g. "dog dental cleaning near ${town}"`],
+                ["local", "Looking for a vet", `e.g. "${(v && examplePrompt(v.prompts, v.runs, "local")) ?? `best vet in ${town}`}"`],
+                ["service", "Looking for a service", `e.g. "${(v && examplePrompt(v.prompts, v.runs, "service")) ?? `pet dental care near ${town}`}"`],
                 ["informational", "Everyday pet questions", 'e.g. "why is my dog limping"'],
               ] as const
             ).map(([kind, title, example]) => {
