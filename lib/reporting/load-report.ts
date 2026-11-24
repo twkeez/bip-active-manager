@@ -1,7 +1,10 @@
-import { pickKeywordPeriods, type GscSnapshotWindow, type KeywordPeriodRow } from "@/lib/reporting/keyword-periods";
+import { pickKeywordPeriods, pickPreviousWindow, type GscSnapshotWindow, type KeywordPeriodRow } from "@/lib/reporting/keyword-periods";
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
+import { sumSearchRows, type SearchTotals } from "@/lib/reporting/search-totals";
 import type { createClient } from "@/lib/supabase/server";
 import { loadClientWorkspaceData } from "@/lib/dashboard/load-client-workspace-data";
 import type {
+  AdsSnapshot,
   ClientKeywordTarget,
   GscPageMetric,
   KeywordHealthRow,
@@ -37,7 +40,10 @@ export async function loadReportForClient(
   supabase: ServerClient,
   userId: string,
   clientId: number,
-  range: string | undefined,
+  // Still accepted from the page and Word routes (?range=), but every channel is
+  // synced for about 30 days, so it no longer changes the report.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _range: string | undefined,
 ): Promise<LoadedReport | null> {
   const workspace = await loadClientWorkspaceData(supabase, clientId);
   if (!workspace) return null;
@@ -222,10 +228,84 @@ export async function loadReportForClient(
     })
     .sort((a, b) => b.current_impressions - a.current_impressions);
 
+  // Search numbers for the report all come from the same period as the
+  // keywords: the newest completed snapshot, and the one before it. Whole-site
+  // totals are the site's day-by-day numbers (what Google's Performance report
+  // shows), not the listed pages added up; pages are read in full, not capped.
+  const pageRowsFor = (snapshotId: number) =>
+    fetchAllRows<GscPageMetric>(
+      (from, to) =>
+        supabase
+          .from("client_gsc_page_metrics")
+          .select("*")
+          .eq("snapshot_id", snapshotId)
+          .order("id", { ascending: true })
+          .range(from, to),
+      "Search Console page metrics",
+    );
+  const [currentPages, previousPages, dailyRaw] = await Promise.all([
+    periods.current ? pageRowsFor(periods.current.id) : Promise.resolve(gscPageMetrics as GscPageMetric[]),
+    periods.previous ? pageRowsFor(periods.previous.id) : Promise.resolve([] as GscPageMetric[]),
+    periodIds.length
+      ? fetchAllRows<{ snapshot_id: number; clicks: number; impressions: number; position: number }>(
+          (from, to) =>
+            supabase
+              .from("client_gsc_daily_metrics")
+              .select("id, snapshot_id, clicks, impressions, position")
+              .in("snapshot_id", periodIds)
+              .order("id", { ascending: true })
+              .range(from, to),
+          "Search Console daily metrics",
+        )
+      : Promise.resolve([]),
+  ]);
+  const dailyTotalsFor = (snapshotId: number | undefined): SearchTotals | null => {
+    if (snapshotId == null) return null;
+    // Numeric columns can arrive as strings, so read every value as a number.
+    const rows = dailyRaw
+      .filter((row) => Number(row.snapshot_id) === snapshotId)
+      .map((row) => ({
+        clicks: Number(row.clicks) || 0,
+        impressions: Number(row.impressions) || 0,
+        position: Number(row.position) || 0,
+      }));
+    return rows.length > 0 ? sumSearchRows(rows) : null;
+  };
+  const currentDaily = dailyTotalsFor(periods.current?.id);
+  const gscSiteTotals =
+    currentDaily && periods.current
+      ? {
+          current: {
+            ...currentDaily,
+            startDate: periods.current.start_date,
+            endDate: periods.current.end_date,
+            source: "daily" as const,
+          },
+          // Compare like with like: only the previous period's own daily totals.
+          previous: dailyTotalsFor(periods.previous?.id),
+        }
+      : undefined;
+
+  // Google Ads: compare the snapshot shown with the one covering the 30 days
+  // before it, when that was captured.
+  let previousAdsSnapshot: AdsSnapshot | null = null;
+  if (adsSnapshot?.start_date) {
+    const { data: adsWindows } = await supabase
+      .from("client_ads_snapshots")
+      .select("*")
+      .eq("client_id", clientId)
+      .lt("end_date", adsSnapshot.start_date)
+      .order("end_date", { ascending: false })
+      .limit(60);
+    previousAdsSnapshot = pickPreviousWindow(adsSnapshot, (adsWindows ?? []) as AdsSnapshot[]);
+  }
+
   const report = buildClientReportModel({
     client,
     generatedAt: new Date().toISOString(),
-    reportingWindowLabel: range === "last7" ? "Last 7 days" : "Last 30 days",
+    // Every channel's numbers cover about 30 days whatever is asked for, so the
+    // report says so. "last7" used to relabel the same 30-day numbers as 7 days.
+    reportingWindowLabel: "Last 30 days",
     urgencyScore,
     kpis,
     alerts,
@@ -241,7 +321,10 @@ export async function loadReportForClient(
     ga4Snapshot: workspace.ga4Snapshot,
     gbpSnapshot,
     gbpReviews,
-    gscPageMetrics: gscPageMetrics as GscPageMetric[],
+    previousAdsSnapshot,
+    gscPageMetrics: currentPages,
+    gscPreviousPageMetrics: previousPages,
+    gscSiteTotals,
     gscQueryMetrics: queryRows,
     managedKeywords,
     strategistSummary: null as StrategistSummaryResult | null,

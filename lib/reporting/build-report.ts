@@ -1,4 +1,5 @@
-import { websiteLabel } from "@/lib/reporting/format";
+import { formatDateRange, websiteLabel } from "@/lib/reporting/format";
+import { mergePagesByAddress, sumSearchRows, type SearchTotals } from "@/lib/reporting/search-totals";
 import { buildSocialByPlatform } from "@/lib/reporting/social-metrics";
 import type {
   AdsSnapshot,
@@ -1152,11 +1153,16 @@ function buildMetaAdsChannelBlock(params: {
   };
 }
 
+type SiteSearchTotals = SearchTotals & { startDate: string | null; endDate: string | null; source: "daily" | "pages" };
+
 function buildSearchConsoleChannelBlock(params: {
   gscCurrentPageMetrics: GscPageMetric[];
   gscPreviousPageMetrics: GscPageMetric[];
+  /** Whole-site totals for the current and previous search periods, when known. */
+  siteTotals?: { current: SiteSearchTotals | null; previous: SearchTotals | null } | null;
 }): ReportChannelBlock {
-  if (params.gscCurrentPageMetrics.length === 0) {
+  const current = params.siteTotals?.current ?? null;
+  if (params.gscCurrentPageMetrics.length === 0 && !current) {
     return {
       source: "search_console",
       title: "Google Search Console",
@@ -1166,22 +1172,29 @@ function buildSearchConsoleChannelBlock(params: {
       metrics: [],
     };
   }
-  const clicks = params.gscCurrentPageMetrics.reduce((sum, row) => sum + row.clicks, 0);
-  const impressions = params.gscCurrentPageMetrics.reduce((sum, row) => sum + row.impressions, 0);
-  const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-  const prevClicks = params.gscPreviousPageMetrics.reduce((sum, row) => sum + row.clicks, 0);
-  const prevImpressions = params.gscPreviousPageMetrics.reduce((sum, row) => sum + row.impressions, 0);
-  const prevCtr = prevImpressions > 0 ? (prevClicks / prevImpressions) * 100 : 0;
+  // Whole-site totals when we have them; otherwise the listed pages added up.
+  // A previous period that was never captured is null ("no earlier data"), not
+  // zero, so it never shows as a 100% rise.
+  const now = current ?? sumSearchRows(params.gscCurrentPageMetrics);
+  const previous: SearchTotals | null =
+    params.siteTotals !== undefined
+      ? params.siteTotals?.previous ?? null
+      : params.gscPreviousPageMetrics.length > 0
+        ? sumSearchRows(params.gscPreviousPageMetrics)
+        : null;
   return {
     source: "search_console",
     title: "Google Search Console",
     connected: true,
     status: "ready",
-    summary: "Search Console aggregates from latest synced query/page windows.",
+    summary:
+      current?.source === "daily"
+        ? "Whole-site Search Console totals for the latest captured period."
+        : "Search Console totals added up from the pages it listed.",
     metrics: [
-      toPeriodMetric("Clicks", clicks, prevClicks || null),
-      toPeriodMetric("Impressions", impressions, prevImpressions || null),
-      toPeriodMetric("CTR", ctr, prevCtr || null, "%"),
+      toPeriodMetric("Clicks", now.clicks, previous ? previous.clicks : null),
+      toPeriodMetric("Impressions", now.impressions, previous ? previous.impressions : null),
+      toPeriodMetric("CTR", now.ctrPercent, previous ? previous.ctrPercent : null, "%"),
     ],
   };
 }
@@ -1283,6 +1296,8 @@ export function buildClientReportModel(params: {
   previousMetaAdsSnapshot?: MetaAdsSnapshot | null;
   gscPageMetrics?: GscPageMetric[];
   gscPreviousPageMetrics?: GscPageMetric[];
+  /** Whole-site search totals for the current and previous periods (see load-report). */
+  gscSiteTotals?: { current: SiteSearchTotals | null; previous: SearchTotals | null } | null;
   gscQueryMetrics?: KeywordMetricInput[];
   managedKeywords?: ManagedKeyword[];
   socialPostSnapshots?: SocialPostSnapshot[];
@@ -1368,9 +1383,13 @@ export function buildClientReportModel(params: {
     metaAdsSnapshot: params.metaAdsSnapshot ?? null,
     previousMetaAdsSnapshot: params.previousMetaAdsSnapshot,
   });
+  // A page reached through a tracking link (?rwg_token=…, ?utm_…) is the same
+  // page: merge those rows before listing or adding anything up.
+  const gscPages = mergePagesByAddress(params.gscPageMetrics ?? []);
   const searchConsole = buildSearchConsoleChannelBlock({
-    gscCurrentPageMetrics: params.gscPageMetrics ?? [],
-    gscPreviousPageMetrics: params.gscPreviousPageMetrics ?? [],
+    gscCurrentPageMetrics: gscPages,
+    gscPreviousPageMetrics: mergePagesByAddress(params.gscPreviousPageMetrics ?? []),
+    siteTotals: params.gscSiteTotals,
   });
   const keywords = buildKeywordSection({
     managedKeywords: params.managedKeywords ?? [],
@@ -1387,15 +1406,55 @@ export function buildClientReportModel(params: {
     ctr: row.ctr,
   });
   const isBlogPage = (url: string) => url.includes("/blog/");
-  const gscPagesByClicks = (params.gscPageMetrics ?? []).slice().sort((a, b) => b.clicks - a.clicks);
+  const gscPagesByClicks = gscPages.slice().sort((a, b) => b.clicks - a.clicks);
   const gscTopPages = gscPagesByClicks
     .filter((row) => !isBlogPage(row.page_url))
     .slice(0, 10)
     .map(toTopPageRow);
-  const gscTopBlogPages = gscPagesByClicks
-    .filter((row) => isBlogPage(row.page_url))
-    .slice(0, 10)
-    .map(toTopPageRow);
+  const gscBlogPages = gscPagesByClicks.filter((row) => isBlogPage(row.page_url));
+  const gscTopBlogPages = gscBlogPages.slice(0, 10).map(toTopPageRow);
+  const blogSum = sumSearchRows(gscBlogPages);
+  const gscBlogTotals = {
+    clicks: blogSum.clicks,
+    impressions: blogSum.impressions,
+    pagesOnPageOne: gscBlogPages.filter((row) => row.position > 0 && row.position <= 10).length,
+    pageCount: gscBlogPages.length,
+  };
+  const siteCurrent = params.gscSiteTotals?.current ?? null;
+  const gscSiteTotals: ClientReportModel["gscSiteTotals"] = siteCurrent
+    ? siteCurrent
+    : gscPages.length > 0
+      ? { ...sumSearchRows(gscPages), startDate: null, endDate: null, source: "pages" }
+      : null;
+  const windowLabel = (start: string | null | undefined, end: string | null | undefined) =>
+    start && end ? formatDateRange(start, end) : null;
+  const dataWindows = {
+    search: windowLabel(siteCurrent?.startDate, siteCurrent?.endDate),
+    ads: windowLabel(params.adsSnapshot?.start_date, params.adsSnapshot?.end_date),
+    ga4: windowLabel(params.ga4Snapshot?.start_date, params.ga4Snapshot?.end_date),
+  };
+
+  // The shared Search KPI cards add up the stored top pages. In the report they
+  // use the whole-site totals instead, so they match the rest of the report.
+  const kpis = siteCurrent
+    ? params.kpis.map((card) => {
+        if (card.id === "gsc-clicks") {
+          return {
+            ...card,
+            value: siteCurrent.clicks.toLocaleString(),
+            definition: "Total Search Console clicks for the whole site over the report's search period.",
+          };
+        }
+        if (card.id === "gsc-ctr-30d" && siteCurrent.ctrPercent != null) {
+          return {
+            ...card,
+            value: `${siteCurrent.ctrPercent.toFixed(2)}%`,
+            definition: "Whole-site Search clicks divided by impressions over the report's search period.",
+          };
+        }
+        return card;
+      })
+    : params.kpis;
 
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const topSocialPosts = (params.socialPostSnapshots ?? [])
@@ -1413,7 +1472,7 @@ export function buildClientReportModel(params: {
       topGains,
       topDips,
     },
-    kpis: params.kpis,
+    kpis,
     alerts: params.alerts,
     freshness: params.freshness,
     staleSources,
@@ -1433,6 +1492,9 @@ export function buildClientReportModel(params: {
     recommendations,
     gscTopPages,
     gscTopBlogPages,
+    gscBlogTotals,
+    gscSiteTotals,
+    dataWindows,
     basecampEvents: params.basecampEvents ?? [],
     playbookChecklist: params.playbookChecklist ?? [],
     channels: {

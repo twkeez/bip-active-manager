@@ -2,6 +2,8 @@ import type { ClientReportModel, ReportChannelBlock, ReportPeriodMetric } from "
 import type { ReportConfig } from "@/lib/reporting/report-config-types";
 import { buildSocialByPlatform } from "@/lib/reporting/social-metrics";
 import { channelColor } from "@/lib/reporting/channel-colors";
+import { blogPostTitle } from "@/lib/reporting/search-totals";
+import { geographyNote, reportGeography } from "@/lib/reporting/geography";
 
 // Brand palette mirrors lib/site-audit/seo-audit-word.ts so report and audit
 // deliverables look consistent. All colors inline-hex (Word can't read CSS vars).
@@ -62,6 +64,12 @@ function fmtMetricValue(m: ReportPeriodMetric): string {
   return `${m.valuePrefix ?? ""}${fmtNum(m.current)}${m.valueSuffix ?? ""}`;
 }
 
+// "No earlier data yet" when the period before was never captured, so a missing
+// comparison doesn't read as no change.
+function fmtChange(m: ReportPeriodMetric): string {
+  return m.previous == null ? "No earlier data yet" : fmtDelta(m.deltaPercent);
+}
+
 function fmtDelta(deltaPercent: number | null): string {
   if (deltaPercent == null) return "—";
   return `${deltaPercent >= 0 ? "+" : ""}${deltaPercent.toFixed(1)}%`;
@@ -98,11 +106,11 @@ function pagePath(url: string): string {
 }
 
 // GA4 (Website Traffic) — metrics plus the enabled breakdown sub-sections.
-function ga4Html(ga4: ReportChannelBlock, config: ReportConfig): string {
+function ga4Html(ga4: ReportChannelBlock, config: ReportConfig, clientState: string | null | undefined): string {
   const metrics = ga4.metrics.filter((m) => m.current != null && m.current !== 0);
   let html = table(
     ["Metric", "This period", "Change"],
-    metrics.map((m) => [m.label, fmtMetricValue(m), fmtDelta(m.deltaPercent)]),
+    metrics.map((m) => [m.label, fmtMetricValue(m), fmtChange(m)]),
   );
   if (ga4.channelBreakdown?.length) {
     html += block(
@@ -135,10 +143,13 @@ function ga4Html(ga4: ReportChannelBlock, config: ReportConfig): string {
       table(["Event", "Conversions"], ga4.conversionsByEvent.slice(0, 12).map((r) => [r.event_name, Math.round(r.conversions).toLocaleString()])),
     );
   }
-  if (sectionOn(config, "ga4_geography") && ga4.geoBreakdown?.length) {
+  const geography = reportGeography(ga4.geoBreakdown ?? [], clientState);
+  if (sectionOn(config, "ga4_geography") && geography.rows.length > 0) {
+    const note = geographyNote(geography);
     html += block(
       "Geography",
-      table(["Location", "Sessions", "Users"], ga4.geoBreakdown.slice(0, 12).map((r) => [[r.city, r.region].filter(Boolean).join(", ") || "(unknown)", r.sessions.toLocaleString(), r.users.toLocaleString()])),
+      table(["Location", "Sessions", "Users"], geography.rows.slice(0, 12).map((r) => [r.location, r.sessions.toLocaleString(), r.users.toLocaleString()])) +
+        (note ? `<p style="font-size:11px;color:${MUTED};margin:0 0 6px;">${esc(note)}</p>` : ""),
     );
   }
   if (sectionOn(config, "ga4_device") && ga4.deviceBreakdown?.length) {
@@ -156,15 +167,28 @@ function ga4Html(ga4: ReportChannelBlock, config: ReportConfig): string {
   return html;
 }
 
-function topPagesTable(pages: ClientReportModel["gscTopPages"]): string {
+// The summary line is given totals (whole site, or every blog page) rather than
+// adding up the rows listed, which are only the top 10.
+function topPagesTable(
+  pages: ClientReportModel["gscTopPages"],
+  totals: { clicks: number; impressions: number; position?: number | null; pagesOnPageOne?: number } | null,
+  pageLabel: (url: string) => string = pagePath,
+): string {
   if (pages.length === 0) return "";
-  const totalClicks = pages.reduce((s, p) => s + p.clicks, 0);
-  const totalImpr = pages.reduce((s, p) => s + p.impressions, 0);
-  const avgPos = pages.reduce((s, p) => s + p.position, 0) / pages.length;
-  const summary = `<p style="font-size:12px;color:${MUTED};margin:0 0 6px;">${totalClicks.toLocaleString()} clicks · ${totalImpr.toLocaleString()} impressions · avg position ${avgPos.toFixed(1)}</p>`;
+  const parts = totals
+    ? [
+        `${totals.clicks.toLocaleString()} clicks`,
+        `${totals.impressions.toLocaleString()} impressions`,
+        totals.position != null ? `avg position ${totals.position.toFixed(1)}` : null,
+        totals.pagesOnPageOne != null ? `${totals.pagesOnPageOne} on page 1` : null,
+      ].filter(Boolean)
+    : [];
+  const summary = parts.length
+    ? `<p style="font-size:12px;color:${MUTED};margin:0 0 6px;">${esc(parts.join(" · "))}</p>`
+    : "";
   return summary + table(
     ["Page", "Clicks", "Impressions", "Position"],
-    pages.map((p) => [pagePath(p.page_url), p.clicks.toLocaleString(), p.impressions.toLocaleString(), p.position.toFixed(1)]),
+    pages.map((p) => [pageLabel(p.page_url), p.clicks.toLocaleString(), p.impressions.toLocaleString(), p.position.toFixed(1)]),
   );
 }
 
@@ -202,16 +226,21 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
 
   const ga4 = report.channels.ga4;
   const ads = report.channels.ads;
+  const windowsLine = [
+    report.dataWindows.search ? `Search: ${report.dataWindows.search}` : null,
+    report.dataWindows.ads ? `Ads: ${report.dataWindows.ads}` : null,
+    report.dataWindows.ga4 ? `Website: ${report.dataWindows.ga4}` : null,
+  ].filter(Boolean).join(" · ");
   const keywords = report.channels.keywords;
 
   const adsMetrics = ads.metrics.filter((m) => m.current != null && m.current !== 0);
-  const adsBody = table(["Metric", "This period", "Change"], adsMetrics.map((m) => [m.label, fmtMetricValue(m), fmtDelta(m.deltaPercent)]));
+  const adsBody = table(["Metric", "This period", "Change"], adsMetrics.map((m) => [m.label, fmtMetricValue(m), fmtChange(m)]));
 
   const metaAds = report.channels.metaAds;
   const metaAdsMetrics = metaAds.metrics.filter((m) => m.current != null && m.current !== 0);
   const metaAdsCampaigns = metaAds.campaigns ?? [];
   const metaAdsBody =
-    table(["Metric", "This period", "Change"], metaAdsMetrics.map((m) => [m.label, fmtMetricValue(m), fmtDelta(m.deltaPercent)])) +
+    table(["Metric", "This period", "Change"], metaAdsMetrics.map((m) => [m.label, fmtMetricValue(m), fmtChange(m)])) +
     (metaAdsCampaigns.length
       ? table(
           ["Campaign", "Spend", "Reach", "Clicks", "Results"],
@@ -265,7 +294,8 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
     <div style="font-family:'Segoe UI',Arial,sans-serif;color:${INK};max-width:760px;">
       <p style="color:${PINK};font-size:12px;font-weight:700;letter-spacing:1px;margin:0;text-transform:uppercase;">Beyond Indigo Pets</p>
       <h1 style="color:${INDIGO};font-size:24px;margin:2px 0 2px;">Marketing Report</h1>
-      <p style="color:${MUTED};font-size:12px;margin:0 0 14px;">${esc(report.reportingWindowLabel)} · generated ${esc(generated)}</p>
+      <p style="color:${MUTED};font-size:12px;margin:0 0 ${windowsLine ? 2 : 14}px;">${esc(report.reportingWindowLabel)} · generated ${esc(generated)}</p>
+      ${windowsLine ? `<p style="color:${MUTED};font-size:11px;margin:0 0 14px;">${esc(windowsLine)}</p>` : ""}
       <table style="margin-bottom:10px;">
         <tr><td style="font-size:12px;color:${MUTED};padding:2px 12px 2px 0;">Client</td><td style="font-size:12px;color:${INK};font-weight:600;">${esc(client.account_name)}</td></tr>
         ${client.contact_name ? `<tr><td style="font-size:12px;color:${MUTED};padding:2px 12px 2px 0;">Prepared for</td><td style="font-size:12px;color:${INK};">${esc(client.contact_name)}</td></tr>` : ""}
@@ -274,9 +304,9 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
 
       ${block("Executive summary", execBody)}
       ${sectionOn(config, "kpis") ? block("Performance overview", kpiBody) : ""}
-      ${block("Website traffic (GA4)", ga4Html(ga4, config))}
-      ${sectionOn(config, "gsc_top_pages") ? block("Search traffic", topPagesTable(report.gscTopPages)) : ""}
-      ${sectionOn(config, "blog") ? block("Blog performance", topPagesTable(report.gscTopBlogPages)) : ""}
+      ${block("Website traffic (GA4)", ga4Html(ga4, config, client.state))}
+      ${sectionOn(config, "gsc_top_pages") ? block("Search traffic", topPagesTable(report.gscTopPages, report.gscSiteTotals)) : ""}
+      ${sectionOn(config, "blog") ? block("Blog performance", topPagesTable(report.gscTopBlogPages.slice(0, 10), report.gscBlogTotals, blogPostTitle)) : ""}
       ${sectionOn(config, "keywords") ? block("Keyword rankings", keywordBody) : ""}
       ${sectionOn(config, "keywords") ? block("Organic search rankings", organicBody) : ""}
       ${block("Google Ads", adsBody)}

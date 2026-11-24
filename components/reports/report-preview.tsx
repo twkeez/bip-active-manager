@@ -1,5 +1,7 @@
 "use client";
 import type { ClientReportModel } from "@/lib/reporting/types";
+import { blogPostTitle } from "@/lib/reporting/search-totals";
+import { geographyNote, reportGeography } from "@/lib/reporting/geography";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
 import { METRIC_LABELS, type ReportConfig } from "@/lib/reporting/report-config-types";
 import type { ReportPeriodMetric } from "@/lib/reporting/types";
@@ -28,12 +30,13 @@ const C_SOCIAL   = "#7B35B0";
 
 // ── GA4 breakdown helpers (inline-styled for html2canvas/PDF safety) ──────────
 function Ga4TableSection({
-  title, subtitle, headers, rows,
+  title, subtitle, headers, rows, note,
 }: {
   title: string;
   subtitle?: string;
   headers: string[];
   rows: string[][];
+  note?: string | null;
 }) {
   if (rows.length === 0) return null;
   return (
@@ -66,6 +69,7 @@ function Ga4TableSection({
           </tbody>
         </table>
       </div>
+      {note && <p className="text-[10px] text-gray-400 mt-2">{note}</p>}
     </section>
   );
 }
@@ -161,11 +165,26 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   );
 }
 
-function MetricCard({ metric, accent }: { metric: ReportPeriodMetric; accent: string }) {
+// GA4 conversions read 0 both when nothing converted and when the site sends GA4
+// no key events, so a 0 there is shown as "None recorded" rather than as a result.
+const ZERO_AS_NONE_RECORDED = new Set(["Conversions", "Conversion Rate"]);
+
+function MetricCard({
+  metric,
+  accent,
+  zeroText,
+}: {
+  metric: ReportPeriodMetric;
+  accent: string;
+  /** Shown instead of a 0, for numbers where 0 may mean "not recorded". */
+  zeroText?: string;
+}) {
   const val =
     metric.current == null
       ? "—"
-      : `${metric.valuePrefix ?? ""}${metric.current.toLocaleString(undefined, { maximumFractionDigits: 2 })}${metric.valueSuffix ?? ""}`;
+      : metric.current === 0 && zeroText
+        ? zeroText
+        : `${metric.valuePrefix ?? ""}${metric.current.toLocaleString(undefined, { maximumFractionDigits: 2 })}${metric.valueSuffix ?? ""}`;
   return (
     <div
       className="rounded-xl bg-white p-4 flex flex-col gap-2 shadow-sm"
@@ -176,12 +195,14 @@ function MetricCard({ metric, accent }: { metric: ReportPeriodMetric; accent: st
       }}
     >
       <p className="text-xs text-gray-500">{metric.label}</p>
-      <p className="text-3xl font-bold text-gray-900 leading-none">{val}</p>
-      {metric.previous != null && (
+      <p className={`${val.length > 8 ? "text-xl" : "text-3xl"} font-bold text-gray-900 leading-none`}>{val}</p>
+      {metric.previous != null ? (
         <div className="flex items-center gap-1.5">
           <DeltaBadge delta={metric.deltaPercent ?? null} />
           <span className="text-[10px] text-gray-400">vs prior period</span>
         </div>
+      ) : (
+        <span className="text-[10px] text-gray-400">No earlier data yet</span>
       )}
     </div>
   );
@@ -281,7 +302,9 @@ export default function ReportPreview({ report, config, draft, printMode = false
     if (!configKey) return true;
     return adsMetricVis[configKey] !== false;
   });
-  const gscMetrics = searchConsole.metrics.filter((m) => m.current != null && m.current !== 0);
+  const gscMetrics = report.gscSiteTotals
+    ? searchConsole.metrics.filter((m) => m.current != null && !Number.isNaN(m.current))
+    : [];
 
   const metaAdsSubsection =
     kpisSection?.key === "kpis"
@@ -332,6 +355,14 @@ export default function ReportPreview({ report, config, draft, printMode = false
   const generatedDate = new Date(report.generatedAt).toLocaleDateString("en-US", {
     month: "long", day: "numeric", year: "numeric",
   });
+  // Each channel's own dates, since Search Console ends a few days earlier than the rest.
+  const dataWindowsLine = [
+    report.dataWindows.search && hasGsc ? `Search: ${report.dataWindows.search}` : null,
+    report.dataWindows.ads && hasAds ? `Ads: ${report.dataWindows.ads}` : null,
+    report.dataWindows.ga4 && hasGa4 ? `Website: ${report.dataWindows.ga4}` : null,
+  ].filter(Boolean).join(" · ");
+
+  const geography = reportGeography(ga4.geoBreakdown ?? [], report.client.state);
 
   return (
     <main
@@ -370,8 +401,9 @@ export default function ReportPreview({ report, config, draft, printMode = false
             </div>
             <div className="text-right space-y-1" style={{ color: "rgba(255,255,255,0.75)" }}>
               <p className="text-sm font-semibold" style={{ color: "#fff" }}>
-                {draft?.window_label ?? report.reportingWindowLabel}
+                {report.reportingWindowLabel}
               </p>
+              {dataWindowsLine && <p className="text-xs">{dataWindowsLine}</p>}
               <p className="text-xs">Generated {generatedDate}</p>
               <p className="text-xs">
                 Strategist: {report.client.marketing_strategist || "Unassigned"}
@@ -432,7 +464,7 @@ export default function ReportPreview({ report, config, draft, printMode = false
         <section>
           <h2 className="text-base font-bold text-gray-900 mb-1">Performance Overview</h2>
           <p className="text-xs text-gray-400 mb-6">
-            Key metrics for {draft?.window_label ?? report.reportingWindowLabel} · changes vs prior period
+            Key metrics for the {report.reportingWindowLabel.toLowerCase()} · changes vs the period before
           </p>
 
           {/* Organic Search */}
@@ -453,7 +485,12 @@ export default function ReportPreview({ report, config, draft, printMode = false
               <SectionLabel title="Website Traffic (GA4)" color={C_SEARCH} />
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {ga4Metrics.map((m) => (
-                  <MetricCard key={m.label} metric={m} accent={C_SEARCH} />
+                  <MetricCard
+                    key={m.label}
+                    metric={m}
+                    accent={C_SEARCH}
+                    zeroText={ZERO_AS_NONE_RECORDED.has(m.label) ? "None recorded" : undefined}
+                  />
                 ))}
               </div>
 
@@ -578,16 +615,17 @@ export default function ReportPreview({ report, config, draft, printMode = false
           rows={(ga4.conversionsByEvent ?? []).slice(0, 12).map((r) => [r.event_name, Math.round(r.conversions).toLocaleString()])}
         />
       )}
-      {sectionVisible("ga4_geography") && (ga4.geoBreakdown?.length ?? 0) > 0 && (
+      {sectionVisible("ga4_geography") && geography.rows.length > 0 && (
         <Ga4TableSection
           title="Geography (GA4)"
           subtitle="Where your website traffic comes from"
           headers={["Location", "Sessions", "Users"]}
-          rows={(ga4.geoBreakdown ?? []).slice(0, 12).map((r) => [
-            [r.city, r.region].filter(Boolean).join(", ") || "(not set)",
+          rows={geography.rows.slice(0, 12).map((r) => [
+            r.location,
             r.sessions.toLocaleString(),
             r.users.toLocaleString(),
           ])}
+          note={geographyNote(geography)}
         />
       )}
       {sectionVisible("ga4_device") && (ga4.deviceBreakdown?.length ?? 0) > 0 && (
@@ -631,7 +669,7 @@ export default function ReportPreview({ report, config, draft, printMode = false
         <section style={{ breakInside: "avoid" }}>
           <h2 className="text-base font-bold text-gray-900 mb-1">Search Traffic</h2>
           <p className="text-xs text-gray-400 mb-4">
-            Your top-performing pages in organic search this period
+            Whole-site totals, then your top-performing pages in organic search this period
           </p>
 
           <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid #e5e7eb" }}>
@@ -641,9 +679,9 @@ export default function ReportPreview({ report, config, draft, printMode = false
               style={{ background: "#f9fafb" }}
             >
               {[
-                { label: "Total clicks",       value: report.gscTopPages.reduce((s, p) => s + p.clicks, 0).toLocaleString() },
-                { label: "Total impressions",  value: report.gscTopPages.reduce((s, p) => s + p.impressions, 0).toLocaleString() },
-                { label: "Avg position",       value: (report.gscTopPages.reduce((s, p) => s + p.position, 0) / report.gscTopPages.length).toFixed(1) },
+                { label: "Total clicks",       value: report.gscSiteTotals ? report.gscSiteTotals.clicks.toLocaleString() : "—" },
+                { label: "Total impressions",  value: report.gscSiteTotals ? report.gscSiteTotals.impressions.toLocaleString() : "—" },
+                { label: "Avg position",       value: report.gscSiteTotals?.position != null ? report.gscSiteTotals.position.toFixed(1) : "—" },
               ].map((stat) => (
                 <div key={stat.label} className="px-5 py-4">
                   <p className="text-[10px] text-gray-400 mb-0.5">{stat.label}</p>
@@ -694,18 +732,11 @@ export default function ReportPreview({ report, config, draft, printMode = false
         const blogPages = report.gscTopBlogPages.slice(0, 10);
         if (blogPages.length === 0) return null;
 
-        const totalClicks      = blogPages.reduce((s, p) => s + p.clicks, 0);
-        const totalImpressions = blogPages.reduce((s, p) => s + p.impressions, 0);
-        const page1Count       = blogPages.filter((p) => p.position <= 10).length;
+        // Totals cover every blog page Search Console listed, not only the 10 shown.
+        const totalClicks      = report.gscBlogTotals.clicks;
+        const totalImpressions = report.gscBlogTotals.impressions;
+        const page1Count       = report.gscBlogTotals.pagesOnPageOne;
         const blogMaxClicks    = Math.max(...blogPages.map((p) => p.clicks), 1);
-
-        function postTitle(url: string) {
-          const slug = url.replace(/^https?:\/\/[^/]+/, "").replace(/^\/blog\//, "").replace(/\/$/, "");
-          return slug
-            .split("-")
-            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-            .join(" ");
-        }
 
         const C_BLOG = "#0891b2"; // cyan-600 — distinct from search blue
 
@@ -744,7 +775,7 @@ export default function ReportPreview({ report, config, draft, printMode = false
               <div className="px-6 py-4 space-y-3.5">
                 {blogPages.map((page, i) => {
                   const pct   = Math.round((page.clicks / blogMaxClicks) * 100);
-                  const title = postTitle(page.page_url);
+                  const title = blogPostTitle(page.page_url);
                   return (
                     <div key={page.page_url} className="space-y-1">
                       <div className="flex items-center justify-between gap-3">
