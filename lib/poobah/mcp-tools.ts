@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadBasecampActivity } from "./basecamp";
+import { describeRosterEntry, loadResponseReportForClaude, resolveClientForRead } from "./roster";
 import { addItem, addLogEntry, addWatch, getWatch, listWatches, resolveWatch, setBasics, setStatus, updateItem } from "./store";
 import { EMAIL_COVERAGE_NOTE, POOBAH_NAME, type PoobahActor } from "./types";
 import { PoobahError, todayEastern } from "./validate";
@@ -88,21 +89,43 @@ export function registerPoobahTools(server: McpServer) {
     {
       title: "Read a client's Basecamp conversation",
       description:
-        "Read-only. A watched client's Basecamp activity from BIP Control's own sync: every post in the window with its words (who, when, Beyond Indigo or client), grouped by thread, newest thread first; plus the Response Report's who-is-waiting-on-whom and days waiting. Says when Basecamp last synced and flags it if stale. Words of threads for logins/access are never shown and credential-looking lines are removed. Posts from before 2026-09-29 may have no words until the backfill finishes (each says so).",
+        "Read-only. Works for any client on the Master Sheet with a Package, watched or not, and for any watched client: pass `client` (a name or a watch id) or `bip_client_id` (from get_response_report). The answer says whether the client is watched and gives its Master Sheet row (strategist, package). A client's Basecamp activity from BIP Control's own sync: every post in the window with its words (who, when, Beyond Indigo or client), grouped by thread, newest thread first; plus the Response Report's who-is-waiting-on-whom and days waiting. Says when Basecamp last synced and flags it if stale. Words of threads for logins/access are never shown and credential-looking lines are removed. Posts from before 2026-09-29 may have no words until the backfill finishes (each says so).",
       inputSchema: z.object({
-        client: clientRef,
+        client: z
+          .union([z.string().min(1), z.number().int().positive()])
+          .optional()
+          .describe("A client name (watch list or Master Sheet practice name), or a watch id."),
+        bip_client_id: z.number().int().positive().optional().describe("The BIP Control client id of a Master Sheet client, from get_response_report. Use instead of `client`."),
         since_days: z.number().int().min(1).max(365).optional().describe("How many days back. Default 30."),
       }),
       annotations: readOnly,
     },
-    async ({ client, since_days }, ctx) =>
+    async ({ client, bip_client_id, since_days }, ctx) =>
       run(ctx as Ctx, async () => {
-        const watch = await resolveWatch(admin(), client);
-        if (!watch.client_id) {
-          throw new PoobahError(`${watch.name} is not linked to a BIP Control client, so it has no synced Basecamp project.`, 404);
-        }
-        return { client: watch.name, bip_client_id: watch.client_id, ...(await loadBasecampActivity(admin(), watch.client_id, since_days ?? 30)) };
+        const found = await resolveClientForRead(admin(), { client, bipClientId: bip_client_id });
+        return {
+          client: found.name,
+          bip_client_id: found.clientId,
+          on_watch_list: found.watched,
+          master_sheet: describeRosterEntry(found.roster),
+          ...(await loadBasecampActivity(admin(), found.clientId, since_days ?? 30)),
+        };
       }),
+  );
+
+  server.registerTool(
+    "get_response_report",
+    {
+      title: "Basecamp Response Report for every Master Sheet client",
+      description:
+        "Read-only. The Basecamp Response Report exactly as BIP Control shows it: one line for every client on Master Sheet 2026 with a Package (the Strategist is the owner), flagged \"waiting on us\" when the client posted last and \"haven't heard from us\" when our last post is 15+ days old (30+ for low-contact clients and Alex's). Always says how many clients were checked and names every one not reported: could not be read, excluded as cancelling or former, or not matched. `complete` is false when anything is missing. Use `only: \"flagged\"` or `strategist` to narrow the list; the counts always cover the whole roster. Only Basecamp is read; email and calls are not counted.",
+      inputSchema: z.object({
+        only: z.enum(["all", "flagged"]).optional().describe("\"flagged\" lists only clients waiting on us or who haven't heard from us. Default all."),
+        strategist: z.string().optional().describe("Only clients whose Strategist on the sheet contains this name, e.g. \"Alex\"."),
+      }),
+      annotations: readOnly,
+    },
+    async ({ only, strategist }, ctx) => run(ctx as Ctx, async () => loadResponseReportForClaude(admin(), { only, strategist })),
   );
 
   server.registerTool(

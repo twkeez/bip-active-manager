@@ -113,6 +113,7 @@ export const GUIDE: Guide = {
           youCan: ["Add a client to the watch list", "Filter by status", "Update a client's status, open items and log"],
           notes: [
             "Claude can read and update it too. Every change records who made it and when; nothing is deleted.",
+            "Through the same connector, Claude can also read the Basecamp Response Report and the Basecamp conversation of any Master Sheet client with a Package, whether or not it is on the watch list. Each answer says how many clients were checked and names any that could not be read.",
             "This is separate from the daily \"Client watch\" routine in Coal Mines.",
           ],
         },
