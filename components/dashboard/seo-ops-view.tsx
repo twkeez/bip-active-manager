@@ -1,12 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Check,
   CheckCircle2,
   Circle,
-  ExternalLink,
   Loader2,
 } from "lucide-react";
 import { buildPage2Opportunities } from "@/lib/seo/page2-opportunities";
@@ -272,22 +270,6 @@ export default function SeoOpsView({
           {" · "}
           Week {evaluation.weeklyPeriodKey} · Month {evaluation.monthlyPeriodKey}
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link
-            href={`/site-audit?clientId=${client.id}`}
-            className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-text hover:bg-bip-fill"
-          >
-            Site Audit
-            <ExternalLink className="h-3 w-3" />
-          </Link>
-          <Link
-            href="/content-qa"
-            className="inline-flex items-center gap-1 rounded-md border border-bip-border px-2 py-1 text-xs text-bip-text hover:bg-bip-fill"
-          >
-            Pre-launch SEO / Content QA
-            <ExternalLink className="h-3 w-3" />
-          </Link>
-        </div>
       </section>
 
       <section className="rounded-lg border border-bip-border bg-bip-card p-4">

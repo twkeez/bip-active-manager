@@ -80,11 +80,7 @@ export default async function ReportClientPage({
   const monthSummary = await loadMonthSummary(supabase, id, month);
 
   const backLink =
-    back === "cockpit"
-      ? { href: `/dashboard/cockpit?client=${id}`, label: "Back to cockpit" }
-      : back === "reporting"
-        ? { href: `/reporting?month=${month}`, label: "Back to Reporting" }
-        : null;
+    back === "reporting" ? { href: `/reporting?month=${month}`, label: "Back to Reporting" } : null;
 
   return (
     <>

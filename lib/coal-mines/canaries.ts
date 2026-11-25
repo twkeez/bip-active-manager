@@ -280,7 +280,7 @@ export async function checkAdsFreshness(
         ? `No ads account has refreshed in ${freshness.freshestDays ?? "any number of"} days — the nightly sync has stopped.`
         : `${freshness.stale.length + freshness.never.length} of ${freshness.considered} ads accounts are not up to date.`,
     detail,
-    action: { label: "Open Ads Optimization", href: "/global-ads-optimization" },
+    action: { label: "Open Clients", href: "/dashboard/clients" },
     sections,
   };
 }
@@ -487,7 +487,7 @@ export async function checkServiceCoverage(
       counts.noData > 0 ? `${counts.noData} are connected but returning nothing.` : null,
     ].filter((line): line is string => line !== null),
     sections,
-    action: { label: "Open briefings to see what this costs", href: "/client-briefings" },
+    action: { label: "Open Clients to fix connections", href: "/dashboard/clients" },
   };
 }
 

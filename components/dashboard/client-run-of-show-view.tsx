@@ -47,12 +47,11 @@ function SeoAuditDueChip({ clientId }: { clientId: number }) {
 
   if (!status) return null;
   return (
-    <a
-      href="/seo-audits"
+    <span
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${status === "overdue" ? "bg-red-500/15 text-red-300" : "bg-amber-500/15 text-amber-300"}`}
     >
       <CalendarClock className="h-3.5 w-3.5" /> SEO audit {status}
-    </a>
+    </span>
   );
 }
 

@@ -78,19 +78,14 @@ describe("a strategist with Playbook", () => {
   });
 
   it("sees those pages in the sidebar on the full build, and only Clients on the team build", () => {
-    expect(sidebarFor(["playbook"], "full")).toEqual([
-      "/dashboard/clients",
-      "/services",
-      "/playbook",
-      "/services/partnership",
-    ]);
+    expect(sidebarFor(["playbook"], "full")).toEqual(["/dashboard/clients", "/services", "/playbook"]);
     expect(sidebarFor(["playbook"], "team")).toEqual(["/dashboard/clients"]);
   });
 });
 
 describe("a strategist with Reporting", () => {
-  it("reaches the monthly list and Doc to PDF, but not Client Snapshot or the BigQuery tools", () => {
-    for (const path of ["/reporting", "/reporting?month=2026-10", "/reports/doc-to-pdf"]) {
+  it("reaches the monthly list, but not Client Snapshot", () => {
+    for (const path of ["/reporting", "/reporting?month=2026-10"]) {
       expect(decideRoleGate(path.split("?")[0]!, "strategist", ["reporting"]), path).toBe("allow");
     }
     for (const path of ["/client-snapshot", "/client-snapshot/12", "/api/client-snapshot/12"]) {
@@ -102,8 +97,8 @@ describe("a strategist with Reporting", () => {
     expect(decideRoleGate("/reporting", "strategist", [])).toBe("block");
   });
 
-  it("sees Monthly reports and Doc to PDF in the sidebar on the full build", () => {
-    expect(sidebarFor(["reporting"], "full")).toEqual(["/dashboard/clients", "/reporting", "/reports/doc-to-pdf"]);
+  it("sees Monthly reports in the sidebar on the full build", () => {
+    expect(sidebarFor(["reporting"], "full")).toEqual(["/dashboard/clients", "/reporting"]);
     expect(sidebarFor(["reporting"], "team")).toEqual(["/dashboard/clients"]);
   });
 });

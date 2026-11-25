@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { runBasecampReview } from "@/lib/routines/kinds/basecamp-review";
 import { runBasecampWatch } from "@/lib/routines/kinds/basecamp-watch";
 import { runClientWatch } from "@/lib/routines/kinds/client-watch";
-import { runDailyBrief } from "@/lib/routines/kinds/daily-brief";
 import { runBriefingReminders } from "@/lib/routines/kinds/briefing-reminders";
 import { isDue } from "@/lib/routines/schedule";
 import type { RoutineResult, RoutineRow, RoutineRunRow } from "@/lib/routines/types";
@@ -25,8 +24,19 @@ export const RUNNERS: Record<string, { label: string; run: Runner }> = {
   basecamp_watch: { label: "Basecamp watch", run: runBasecampWatch },
   client_watch: { label: "Client watch", run: runClientWatch },
   briefing_reminders: { label: "Client update reminders", run: runBriefingReminders },
-  daily_brief: { label: "Daily brief", run: runDailyBrief },
+  // Daily Brief is parked (see the tool inventory doc; restore from commit
+  // d1c45bc). A daily_brief routine left switched on reports that here
+  // instead of running, so it shows up rather than failing quietly.
+  daily_brief: { label: "Daily brief (parked)", run: runParkedDailyBrief },
 };
+
+async function runParkedDailyBrief(): Promise<RoutineResult> {
+  return {
+    status: "attention",
+    headline: "Daily Brief is parked, so nothing was built. Turn this routine off on the Routines page.",
+    findings: [],
+  };
+}
 
 export async function runRoutine(
   admin: SupabaseClient,

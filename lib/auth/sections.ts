@@ -48,8 +48,8 @@ export const SECTION_ACCESS: Record<SectionGrant, SectionAccess> = {
     note: "See and move along the monthly reports of their own clients. Client Snapshot stays with admins.",
     // A client's report (/reports/…) and its APIs are part of the Clients
     // section already, so every strategist reaches them; the grant adds the
-    // monthly list and Doc → PDF. Client Snapshot is admin-only and stays so.
-    pages: ["/reporting", "/reports/doc-to-pdf"],
+    // monthly list. Client Snapshot is admin-only and stays so.
+    pages: ["/reporting"],
     api: [],
   },
   onboarding: {
@@ -62,8 +62,8 @@ export const SECTION_ACCESS: Record<SectionGrant, SectionAccess> = {
   playbook: {
     label: "Playbook",
     ready: true,
-    note: "Read Services & Tiers, the Service Playbook and Partnership & Boundaries. Editing stays with admins.",
-    // /services covers /services/partnership. Their data APIs (services,
+    note: "Read Services & Tiers and the Service Playbook. Editing stays with admins.",
+    // Their data APIs (services,
     // playbook) are already open to strategists, and their saves check for an
     // admin themselves.
     pages: ["/playbook", "/services"],
