@@ -77,6 +77,17 @@ export function defaultReportMonth(now: Date = new Date()): MonthKey {
   return month === 0 ? key(year - 1, 11) : key(year, month - 1);
 }
 
+/**
+ * The report month a Client Snapshot counts toward: the month most of its days
+ * fall in. A snapshot holds about the 30 days before it was published, so this
+ * is the month of the day 15 days before publishing (UTC). Published Dec 3, it
+ * is November's report; published Nov 28, it is November's too.
+ */
+export function snapshotReportMonth(publishedAt: Date | string): MonthKey {
+  const middle = new Date(new Date(publishedAt).getTime() - 15 * 86_400_000);
+  return key(middle.getUTCFullYear(), middle.getUTCMonth());
+}
+
 /** The month asked for, or the default when none (or nonsense) was given. Never a future month. */
 export function parseReportMonth(value: unknown, now: Date = new Date()): MonthKey {
   if (!isMonthKey(value)) return defaultReportMonth(now);
@@ -87,6 +98,13 @@ export function parseReportMonth(value: unknown, now: Date = new Date()): MonthK
 /** "2026-10" → "2026-10-01", the value stored in monthly_reports.month. */
 export function monthStartDate(month: MonthKey): string {
   return `${month}-01`;
+}
+
+/** "2026-10" → "October": the month alone, as client emails name it. */
+export function monthName(month: MonthKey): string {
+  const match = MONTH_PATTERN.exec(month);
+  if (!match) return month;
+  return MONTH_NAMES[Number(match[2]) - 1];
 }
 
 /** "2026-10" → "October 2026". */
