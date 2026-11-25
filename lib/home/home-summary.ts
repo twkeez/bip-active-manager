@@ -8,9 +8,12 @@ import { countStates, type StateCounts } from "@/lib/reporting/monthly";
  * the Response Report's rows (Basecamp) and Monthly reports' list for one month.
  * Nothing here reads or writes; it only narrows and counts.
  *
- * "My clients" are the clients assigned to the viewer (clients.strategist_user_id
- * or strategist_user_ids). Every working strategist is an admin today, so the
- * access rules show them every client; this filter is what keeps Home personal.
+ * "My clients" are the clients whose Strategist on the Master Sheet (column I)
+ * names the viewer, alone or shared ("Daniel/Tom" counts for both). Tom chose
+ * the sheet over the strategist fields stored on each client (Nov 25, 2026):
+ * those were filled once by hand and don't follow the sheet. Every working
+ * strategist is an admin, so the access rules show them every client; this
+ * filter is what keeps Home personal.
  */
 
 export type HomeView = "mine" | "all";
@@ -57,7 +60,7 @@ export function buildHomeSummary({
   reportRows: ResponseReportRow[];
   monthlyRows: MonthlyListRow[];
   view: HomeView;
-  /** Client ids assigned to the viewer. Only read for the My clients view. */
+  /** Client ids whose sheet Strategist names the viewer. Only read for the My clients view. */
   mine: ReadonlySet<number>;
   /**
    * Each roster client's Strategist (column I on the Master Sheet), by client id.
@@ -119,6 +122,38 @@ function strategistLines(
   return [...lines.values()].sort((a, b) =>
     a.strategist === NO_STRATEGIST ? 1 : b.strategist === NO_STRATEGIST ? -1 : a.strategist.localeCompare(b.strategist),
   );
+}
+
+/** Report states have been saved since this day; earlier work has no record. */
+export const REPORT_TRACKING_BEGAN = "2026-11-25";
+
+/**
+ * True for a month whose reports were mostly done before tracking began, so
+ * "Not started" there can mean "no record" rather than "not done".
+ */
+export function predatesReportTracking(month: string): boolean {
+  return month < REPORT_TRACKING_BEGAN.slice(0, 7);
+}
+
+/**
+ * The names the viewer goes by in the sheet's Strategist column: the first word
+ * of their profile name ("Tom"), or of their email when the profile has no name.
+ * Lower case, for comparing.
+ */
+export function viewerSheetNames(profile: { full_name?: string | null; email?: string | null } | null): string[] {
+  const fromName = profile?.full_name?.trim().split(/\s+/)[0] ?? "";
+  const fromEmail = profile?.email?.split("@")[0]?.split(/[._-]/)[0] ?? "";
+  const name = (fromName || fromEmail).toLowerCase();
+  return name ? [name] : [];
+}
+
+/** True when a sheet Strategist value ("Daniel/Tom", "Alex") names one of these people. */
+export function strategistNames(value: string | null | undefined, names: readonly string[]): boolean {
+  if (!value || names.length === 0) return false;
+  return value
+    .split(/[/&,+]/)
+    .map((part) => part.trim().toLowerCase())
+    .some((part) => names.includes(part));
 }
 
 /** ?view=mine|all wins; otherwise My clients when the viewer has any, else Everyone. */

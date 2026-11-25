@@ -4,7 +4,7 @@ import { ToolPage } from "@/components/ui/tool-page";
 import { StatTile, StatTiles } from "@/components/ui/stat-tile";
 import { ReportStateBadge } from "@/components/reporting/report-state-badge";
 import { waitTone, WAIT_THRESHOLDS } from "@/lib/basecamp/response-report";
-import type { HomeSummary, HomeView as View } from "@/lib/home/home-summary";
+import { predatesReportTracking, REPORT_TRACKING_BEGAN, type HomeSummary, type HomeView as View } from "@/lib/home/home-summary";
 import { monthLabel, STATE_LABELS, type MonthKey } from "@/lib/reporting/monthly";
 
 const TZ = "America/New_York";
@@ -17,6 +17,13 @@ function fmtSync(value: string | null): string {
 }
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
+
+const trackingBeganLabel = new Date(`${REPORT_TRACKING_BEGAN}T12:00:00Z`).toLocaleDateString("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+  timeZone: TZ,
+});
 
 const TONE_BADGE = { overdue: "bip-badge-danger", aging: "bip-badge-warning", fresh: "bip-badge-info" } as const;
 
@@ -35,16 +42,19 @@ function Problem({ children }: { children: React.ReactNode }) {
 export default function HomeView({
   summary,
   view,
-  assignedCount,
-  assignedError,
+  mineCount,
+  mineError,
+  sheetName,
   month,
   reportLoad,
   monthlyLoad,
 }: {
   summary: HomeSummary;
   view: View;
-  assignedCount: number;
-  assignedError: string | null;
+  mineCount: number;
+  mineError: string | null;
+  /** The name looked for in the sheet's Strategist column, as typed there (lower case). */
+  sheetName: string | null;
   month: MonthKey;
   reportLoad: { rosterApplied: boolean; lastSyncedAt: string | null; loadError: string | null };
   monthlyLoad: { error: string | null; warnings: string[]; statesTracked: boolean };
@@ -59,7 +69,7 @@ export default function HomeView({
       maxWidth="6xl"
       description={
         mine
-          ? `Your ${plural(assignedCount, "assigned client")}: who's waiting on us in Basecamp, and where ${label} reports stand.`
+          ? `Your ${plural(mineCount, "client")} on the Master Sheet: who's waiting on us in Basecamp, and where ${label} reports stand.`
           : `Every client with a Package on the Master Sheet: who's waiting on us in Basecamp, and where ${label} reports stand.`
       }
       actions={
@@ -84,12 +94,11 @@ export default function HomeView({
         </nav>
       }
     >
-      {assignedError && (
-        <Problem>Your assigned clients couldn&apos;t be read, so this shows everyone. {assignedError}</Problem>
-      )}
-      {mine && !assignedError && assignedCount === 0 && (
+      {mineError && <Problem>{mineError}</Problem>}
+      {mine && !mineError && mineCount === 0 && (
         <p className="rounded-xl border border-bip-border bg-bip-card p-4 text-sm text-bip-muted">
-          No clients are assigned to you yet, so My clients is empty. Everyone shows every client.
+          No client on the Master Sheet has {sheetName ? `“${sheetName.charAt(0).toUpperCase()}${sheetName.slice(1)}”` : "your name"} in its Strategist column, so My
+          clients is empty. Everyone shows every client.
         </p>
       )}
 
@@ -198,6 +207,12 @@ export default function HomeView({
                 ))}
               </ul>
             )}
+            {predatesReportTracking(month) && (
+              <p className="rounded-xl border border-bip-border bg-bip-card p-4 text-sm text-bip-text">
+                Report tracking began {trackingBeganLabel}. A {label} report finished before then shows Not started until
+                it&apos;s marked on Monthly reports, so Not started here can mean no record rather than not done.
+              </p>
+            )}
             <StatTiles>
               {(["not_started", "draft", "reviewed", "sent"] as const).map((key) => (
                 <StatTile
@@ -287,7 +302,9 @@ export default function HomeView({
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-bip-muted">Strategists as named in column I of the Master Sheet.</p>
+          <p className="text-xs text-bip-muted">
+            Strategists as named in column I of the Master Sheet. A shared client (&ldquo;Daniel/Tom&rdquo;) is counted once, under that name; in My clients it counts for each person named.
+          </p>
         </section>
       )}
     </ToolPage>

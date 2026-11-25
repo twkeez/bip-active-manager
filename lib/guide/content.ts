@@ -40,7 +40,7 @@ export const GUIDE: Guide = {
           label: "Home",
           purpose: "Where the day starts: who's waiting on a reply from us in Basecamp, and which of last month's reports aren't sent yet, for your clients or for everyone.",
           youCan: [
-            "Switch between My clients (the clients assigned to you) and Everyone",
+            "Switch between My clients (clients whose Strategist on the Master Sheet names you, alone or shared like Daniel/Tom) and Everyone",
             "Open a client waiting on us, or their last Basecamp message",
             "Open a report that isn't sent yet",
             "In Everyone, see each strategist's numbers side by side",
@@ -48,6 +48,7 @@ export const GUIDE: Guide = {
           notes: [
             "The Basecamp numbers are the Response Report's, and the report states are Monthly reports'. Go there for every client, other months and the actions.",
             "The reports shown are for last month, the month reports are written for. It moves on at the start of each month.",
+            "Report tracking began November 25, 2026. An October report finished before then shows Not started until it's marked on Monthly reports.",
             "Strategists in the Everyone table are named as in column I of the Master Sheet.",
             "Home only shows things; nothing is changed or sent from it.",
           ],

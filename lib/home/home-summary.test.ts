@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { ResponseReportRow } from "@/lib/basecamp/load-response-report";
 import type { MonthlyListRow } from "@/lib/reporting/monthly-list";
-import { buildHomeSummary, chooseHomeView, NO_STRATEGIST } from "./home-summary";
+import {
+  buildHomeSummary,
+  chooseHomeView,
+  NO_STRATEGIST,
+  predatesReportTracking,
+  strategistNames,
+  viewerSheetNames,
+} from "./home-summary";
 
 const report = (name: string, clientId: number | null, overrides: Partial<ResponseReportRow> = {}): ResponseReportRow => ({
   basecamp_project_id: name,
@@ -101,5 +108,32 @@ describe("chooseHomeView", () => {
     expect(chooseHomeView("mine", 0)).toBe("mine");
     expect(chooseHomeView(undefined, 13)).toBe("mine");
     expect(chooseHomeView("anything", 0)).toBe("all");
+  });
+});
+
+describe("My clients by the Master Sheet", () => {
+  it("finds the viewer in a shared or single Strategist value", () => {
+    expect(strategistNames("Daniel/Tom", ["tom"])).toBe(true);
+    expect(strategistNames("Daniel / Tom", ["daniel"])).toBe(true);
+    expect(strategistNames("Tom", ["tom"])).toBe(true);
+    expect(strategistNames("Stephanie", ["tom"])).toBe(false);
+    expect(strategistNames("Tommy", ["tom"])).toBe(false);
+    expect(strategistNames(null, ["tom"])).toBe(false);
+    expect(strategistNames("Tom", [])).toBe(false);
+  });
+
+  it("looks for the first word of the profile name, or of the email without one", () => {
+    expect(viewerSheetNames({ full_name: "Tom", email: "tom@beyondindigo.com" })).toEqual(["tom"]);
+    expect(viewerSheetNames({ full_name: "Hollis Murphy", email: "hollis.murphy@beyondindigo.com" })).toEqual(["hollis"]);
+    expect(viewerSheetNames({ full_name: "", email: "melissa@beyondindigo.com" })).toEqual(["melissa"]);
+    expect(viewerSheetNames(null)).toEqual([]);
+  });
+});
+
+describe("predatesReportTracking", () => {
+  it("flags months before tracking began, Nov 25 2026", () => {
+    expect(predatesReportTracking("2026-10")).toBe(true);
+    expect(predatesReportTracking("2026-11")).toBe(false);
+    expect(predatesReportTracking("2026-12")).toBe(false);
   });
 });
