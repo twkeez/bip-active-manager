@@ -119,7 +119,7 @@ export const NAV_SECTIONS: NavSection[] = [
     key: "onboarding",
     label: "Onboarding",
     icon: GraduationCap,
-    items: [{ label: "Onboarding", href: "/onboarding", icon: GraduationCap }],
+    items: [{ label: "Onboarding", href: "/onboarding", icon: GraduationCap, adminOnly: true }],
   },
   {
     key: "playbook",
@@ -128,9 +128,9 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Services & Tiers", href: "/services", icon: Layers },
       { label: "Service Playbook", href: "/playbook", icon: BookOpen },
-      { label: "Client Expectations", href: "/client-expectations", icon: CalendarClock },
+      { label: "Client Expectations", href: "/client-expectations", icon: CalendarClock, adminOnly: true },
       { label: "Onboarding Basecamp Message", href: "/onboarding-settings", icon: MessageSquare, adminOnly: true },
-      { label: "Best Practices", href: "/best-practices", icon: Sparkles },
+      { label: "Best Practices", href: "/best-practices", icon: Sparkles, adminOnly: true },
       { label: "Partnership & Boundaries", href: "/services/partnership", icon: Handshake },
     ],
   },

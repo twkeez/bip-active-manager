@@ -345,6 +345,7 @@ export const GUIDE: Guide = {
         {
           href: "/onboarding",
           label: "Onboarding",
+          adminOnly: true,
           purpose:
             "Onboard a new client: upload the pipeline form (and the website team's kickoff doc), check the practice details, and research runs on its own. You finish with the Basecamp kickoff message and the client's plan document.",
           youCan: [
@@ -380,6 +381,7 @@ export const GUIDE: Guide = {
         {
           href: "/client-expectations",
           label: "Client Expectations",
+          adminOnly: true,
           purpose:
             "The shared wording behind each client's \"Your Marketing Plan & Expectations\" document, and where you produce a client's branded PDF or Word copy.",
           youCan: [
@@ -402,6 +404,7 @@ export const GUIDE: Guide = {
         {
           href: "/best-practices",
           label: "Best Practices",
+          adminOnly: true,
           purpose:
             "The rules we always apply (standard negative keywords, campaign setup, constant keywords) and an \"I have this issue\" playbook of fixes for common ads and SEO problems.",
           youCan: ["Search by symptom and read the fix", "Edit entries"],

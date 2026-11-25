@@ -4,20 +4,26 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, KeyRound, Loader2, Mail, ShieldCheck, UserPlus } from "lucide-react";
 import type { UserRole } from "@/lib/auth/profile";
+import { SECTION_ACCESS, SECTION_GRANT_KEYS, type SectionGrant } from "@/lib/auth/sections";
 
 export type TeamMember = {
   id: string;
   email: string;
   full_name: string | null;
   role: UserRole;
+  /** Sections opened for a strategist on top of Clients (lib/auth/sections.ts). */
+  grants: SectionGrant[];
 };
 
 export default function TeamManager({
   initialMembers,
   currentUserId,
+  grantsColumn,
 }: {
   initialMembers: TeamMember[];
   currentUserId: string;
+  /** False until the section_grants migration is applied. */
+  grantsColumn: boolean;
 }) {
   const router = useRouter();
   const [members, setMembers] = useState(initialMembers);
@@ -98,12 +104,39 @@ export default function TeamManager({
     }
   }
 
+  async function toggleSection(member: TeamMember, section: SectionGrant) {
+    const nextGrants = member.grants.includes(section)
+      ? member.grants.filter((grant) => grant !== section)
+      : SECTION_GRANT_KEYS.filter((key) => key === section || member.grants.includes(key));
+    setSavingId(member.id);
+    setRowError(null);
+    const prev = members;
+    setMembers((ms) => ms.map((m) => (m.id === member.id ? { ...m, grants: nextGrants } : m)));
+    try {
+      const res = await fetch("/api/team/access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: member.id, grants: nextGrants }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not change their sections.");
+    } catch (err) {
+      setMembers(prev); // revert
+      setRowError(err instanceof Error ? err.message : "Could not change their sections.");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   async function changeRole(member: TeamMember, nextRole: UserRole) {
     if (nextRole === member.role) return;
     setSavingId(member.id);
     setRowError(null);
     const prev = members;
-    setMembers((ms) => ms.map((m) => (m.id === member.id ? { ...m, role: nextRole } : m)));
+    // An admin holds every section; the server clears earlier grants on promotion.
+    setMembers((ms) =>
+      ms.map((m) => (m.id === member.id ? { ...m, role: nextRole, grants: nextRole === "admin" ? [] : m.grants } : m)),
+    );
     try {
       const res = await fetch("/api/team/role", {
         method: "POST",
@@ -121,7 +154,7 @@ export default function TeamManager({
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
+    <div className="mx-auto max-w-5xl px-6 py-8">
       <div className="mb-6 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-bip-accent/10 text-bip-accent">
           <ShieldCheck size={20} />
@@ -204,7 +237,15 @@ export default function TeamManager({
 
       {/* Members */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-bip-text">Members ({members.length})</h2>
+        <h2 className="mb-1 text-sm font-semibold text-bip-text">Members ({members.length})</h2>
+        <p className="mb-3 text-xs text-bip-muted">
+          Strategists work in Clients. Tick a section to open it for one of them as well; admins have every section. Reporting and Onboarding can be opened once they&apos;re rebuilt to show each person only their own clients.
+        </p>
+        {!grantsColumn && (
+          <p className="mb-3 rounded-lg border border-bip-border bg-bip-card px-3 py-2 text-xs text-bip-muted">
+            Sections can&apos;t be saved until the database update that comes with this release is applied.
+          </p>
+        )}
         {rowError && <p className="mb-3 rounded-lg border border-bip-danger/30 bg-bip-danger/10 px-3 py-2 text-sm text-bip-danger">{rowError}</p>}
         <div className="overflow-hidden rounded-xl border border-bip-border">
           <table className="w-full text-sm">
@@ -212,6 +253,7 @@ export default function TeamManager({
               <tr>
                 <th className="px-4 py-2.5 text-left font-semibold">Name</th>
                 <th className="px-4 py-2.5 text-left font-semibold">Email</th>
+                <th className="px-4 py-2.5 text-left font-semibold">Sections</th>
                 <th className="px-4 py-2.5 text-right font-semibold">Access</th>
                 <th className="px-4 py-2.5 text-right font-semibold">Role</th>
               </tr>
@@ -227,6 +269,36 @@ export default function TeamManager({
                       {isSelf && <span className="ml-2 text-[10px] uppercase tracking-wide text-bip-subtle">you</span>}
                     </td>
                     <td className="px-4 py-2.5 text-bip-muted">{m.email}</td>
+                    <td className="px-4 py-2.5">
+                      {m.role === "admin" ? (
+                        <span className="text-xs text-bip-muted">All sections</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-x-3 gap-y-1">
+                          {SECTION_GRANT_KEYS.map((key) => {
+                            const section = SECTION_ACCESS[key];
+                            const usable = section.ready && grantsColumn;
+                            return (
+                              <label
+                                key={key}
+                                title={section.note}
+                                className={`inline-flex items-center gap-1.5 text-xs ${
+                                  usable ? "cursor-pointer text-bip-text" : "cursor-not-allowed text-bip-subtle"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={m.grants.includes(key)}
+                                  disabled={!usable || savingId === m.id}
+                                  onChange={() => void toggleSection(m, key)}
+                                  className="accent-[var(--bip-accent)]"
+                                />
+                                {section.label}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5 text-right">
                       <button
                         type="button"

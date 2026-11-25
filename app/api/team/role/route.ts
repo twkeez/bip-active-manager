@@ -53,5 +53,19 @@ export async function POST(req: Request) {
   const { error } = await admin.from("profiles").update({ role }).eq("id", userId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // An admin holds every section, so sections granted earlier are cleared;
+  // otherwise they would come back unnoticed if this person is made a
+  // strategist again. 42703: the section_grants migration isn't applied yet,
+  // so there is nothing to clear.
+  if (role === "admin") {
+    const { error: grantsError } = await admin.from("profiles").update({ section_grants: [] }).eq("id", userId);
+    if (grantsError && grantsError.code !== "42703") {
+      return NextResponse.json(
+        { error: `Made admin, but couldn't clear their earlier sections: ${grantsError.message}` },
+        { status: 500 },
+      );
+    }
+  }
+
   return NextResponse.json({ ok: true, userId, role });
 }

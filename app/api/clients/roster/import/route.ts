@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminRole } from "@/lib/auth/guard";
 import { startOnboardingForClient } from "@/lib/clients/onboarding";
 import type { ClientInsert, ClientRow } from "@/lib/types/client";
 
@@ -8,13 +8,11 @@ type ImportBody = {
 };
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Adding and removing roster clients is admin work: the Master Sheet is the
+  // source of clients, and these routes write the whole clients table.
+  const auth = await requireAdminRole();
+  if ("response" in auth) return auth.response;
+  const { supabase, profile } = auth;
 
   let body: ImportBody;
   try {
@@ -47,7 +45,7 @@ export async function POST(request: Request) {
   const importedClients = (data ?? []) as ClientRow[];
   for (const client of importedClients) {
     try {
-      await startOnboardingForClient(supabase, client.id, user.id);
+      await startOnboardingForClient(supabase, client.id, profile.id);
     } catch {
       // Continue importing remaining clients if one onboarding seed fails.
     }

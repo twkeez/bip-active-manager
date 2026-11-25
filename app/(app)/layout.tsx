@@ -5,6 +5,7 @@ import Sidebar from "@/components/layout/sidebar";
 import { getProfile } from "@/lib/auth/profile";
 import { resolveEffectiveRole, VIEW_AS_COOKIE } from "@/lib/auth/effective-role";
 import { getAppMode } from "@/lib/auth/app-mode";
+import { readAccess } from "@/lib/auth/access";
 import DataWarningBanner from "@/components/data-integrity/data-warning-banner";
 import { isActiveWarning, loadOpenWarnings } from "@/lib/data-integrity/warnings";
 
@@ -30,6 +31,13 @@ export default async function AppLayout({
     cookieStore.get(VIEW_AS_COOKIE)?.value,
   );
 
+  // Sections an admin granted this person (lib/auth/sections.ts). An admin
+  // previewing the strategist view sees a strategist with none. If they can't
+  // be read the sidebar shows the plain strategist view; proxy.ts reports the
+  // failure on the pages themselves.
+  const access = effectiveRole === actualRole ? await readAccess(supabase, user.id) : null;
+  const grants = access?.ok ? access.access.grants : [];
+
   const activeWarnings = (await loadOpenWarnings(supabase)).filter((warning) => isActiveWarning(warning));
 
   return (
@@ -39,6 +47,7 @@ export default async function AppLayout({
         actualRole={actualRole}
         userName={profile?.full_name ?? ""}
         appMode={getAppMode()}
+        grants={grants}
       />
       <main className="flex flex-1 flex-col overflow-y-auto">
         <DataWarningBanner warnings={activeWarnings} showLink={getAppMode() === "full"} />
