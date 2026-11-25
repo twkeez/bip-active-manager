@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
 import { loadReportForClient } from "@/lib/reporting/load-report";
 import MonthStatusBar, { type MonthStatus } from "@/components/reporting/month-status-bar";
+import { loadMonthSummary } from "@/lib/reporting/month-summary";
 import {
   isMissingMonthlyTable,
   monthStartDate,
@@ -75,6 +76,9 @@ export default async function ReportClientPage({
     updatedAt: monthRow?.updated_at ?? null,
   };
 
+  // The month's summary and next steps; only approved ones reach the report.
+  const monthSummary = await loadMonthSummary(supabase, id, month);
+
   const backLink =
     back === "cockpit"
       ? { href: `/dashboard/cockpit?client=${id}`, label: "Back to cockpit" }
@@ -91,6 +95,8 @@ export default async function ReportClientPage({
         clientId={id}
         initialConfig={layoutConfig}
         initialDraft={draft}
+        month={month}
+        initialSummary={monthSummary}
         initialKeywords={managedKeywords}
         syncTimestamps={syncTimestamps}
         syncNotes={{ gsc: searchConsoleNote(workspace.gscSnapshot) }}

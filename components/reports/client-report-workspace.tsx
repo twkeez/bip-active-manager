@@ -3,9 +3,12 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Plus, RefreshCw, Trash2, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, RefreshCw, Trash2, Save } from "lucide-react";
 import ReportPreview from "@/components/reports/report-preview";
 import ReportConfigEditor from "@/components/reports/report-config-editor";
+import SummaryPanel from "@/components/reports/summary-panel";
+import { clientSummary, type LoadedMonthSummary, type MonthSummary } from "@/lib/reporting/month-summary";
+import type { MonthKey } from "@/lib/reporting/monthly";
 import type { ClientReportModel } from "@/lib/reporting/types";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
 import type { ReportConfig } from "@/lib/reporting/report-config-types";
@@ -34,6 +37,9 @@ type Props = {
   clientId: number;
   initialConfig: ReportConfig;
   initialDraft: ReportDraft | null;
+  /** The report month being worked on, and its saved summary. */
+  month: MonthKey;
+  initialSummary: LoadedMonthSummary;
   initialKeywords: ManagedKeyword[];
   syncTimestamps: SyncTimestamps;
   /** Why a channel can't be synced (e.g. Search Console not connected), shown under it. */
@@ -68,6 +74,8 @@ export default function ClientReportWorkspace({
   clientId,
   initialConfig,
   initialDraft,
+  month,
+  initialSummary,
   initialKeywords,
   syncTimestamps,
   syncNotes = {},
@@ -100,18 +108,22 @@ export default function ClientReportWorkspace({
   // "Last 6 months" here used to relabel 30-day numbers, in the report and in
   // the strategist intro.
   const windowLabel = "Last 30 days";
-  const [narrative, setNarrative] = useState(initialDraft?.narrative ?? "");
+  // The month's summary: only an approved one is shown on the report.
+  const [savedSummary, setSavedSummary] = useState<MonthSummary | null>(
+    initialSummary.available ? initialSummary.summary : null,
+  );
+  const approved = clientSummary(savedSummary);
   const [sectionComments, setSectionComments] = useState<Record<string, string>>(
     initialDraft?.section_comments ?? {},
   );
   const [savingDraft, setSavingDraft] = useState(false);
-  const [generatingIntro, setGeneratingIntro] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
 
   const builtDraft: ReportDraft | null = {
     id: initialDraft?.id ?? "",
     client_id: clientId,
     window_label: windowLabel,
-    narrative: narrative || null,
+    narrative: approved?.summary || null,
     section_visibility: {},
     kpi_overrides: initialDraft?.kpi_overrides ?? {},
     section_comments: sectionComments,
@@ -121,74 +133,28 @@ export default function ClientReportWorkspace({
 
   async function saveDraft() {
     setSavingDraft(true);
+    setNotesError(null);
     try {
-      await fetch(`/api/reports/${clientId}/draft`, {
+      const res = await fetch(`/api/reports/${clientId}/draft`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           window_label: windowLabel,
-          narrative: narrative || null,
+          // The old per-client intro is kept as it was; the month's summary replaces it.
+          narrative: initialDraft?.narrative ?? null,
           section_visibility: {},
           kpi_overrides: initialDraft?.kpi_overrides ?? {},
           section_comments: sectionComments,
         }),
       });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setNotesError(body.error ?? `Could not save the notes (${res.status}).`);
+      }
+    } catch (caught) {
+      setNotesError(`Could not save the notes: ${(caught as Error).message}`);
     } finally {
       setSavingDraft(false);
-    }
-  }
-
-  async function generateIntro() {
-    setGeneratingIntro(true);
-    try {
-      const snapshot = {
-        clientName: report.client.account_name,
-        strategist: report.client.marketing_strategist ?? null,
-        windowLabel,
-        kpis: report.kpis.map((k) => ({ label: k.label, value: k.value })),
-        gains: report.executiveSummary.topGains
-          .filter((g) => (g.deltaPercent ?? 0) > 0)
-          .map((g) => ({ label: g.label, deltaPercent: g.deltaPercent ?? 0 })),
-        channels: [
-          {
-            title: "Organic Search",
-            metrics: report.channels.searchConsole.metrics.map((m) => ({
-              label: m.label,
-              current: m.current,
-              valueSuffix: m.valueSuffix ?? null,
-            })),
-          },
-          {
-            title: "Google Ads",
-            metrics: report.channels.ads.metrics.map((m) => ({
-              label: m.label,
-              current: m.current,
-              valueSuffix: m.valueSuffix ?? null,
-            })),
-          },
-          {
-            title: "Website Traffic",
-            metrics: report.channels.ga4.metrics.map((m) => ({
-              label: m.label,
-              current: m.current,
-              valueSuffix: m.valueSuffix ?? null,
-            })),
-          },
-        ],
-        recommendations: report.actions.map((a) => ({
-          priority: a.priority,
-          text: a.title,
-        })),
-      };
-      const res = await fetch(`/api/reports/${clientId}/generate-intro`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(snapshot),
-      });
-      const json = (await res.json()) as { intro?: string };
-      if (json.intro) setNarrative(json.intro);
-    } finally {
-      setGeneratingIntro(false);
     }
   }
 
@@ -307,7 +273,7 @@ export default function ClientReportWorkspace({
     { id: "sync", label: "Sync" },
     { id: "layout", label: "Layout" },
     { id: "keywords", label: "Keywords" },
-    { id: "narrative", label: "Narrative" },
+    { id: "narrative", label: "Summary" },
   ];
 
   const visibleSectionKeys = layoutConfig.sections
@@ -385,17 +351,23 @@ export default function ClientReportWorkspace({
           {activeTab === "narrative" && (
             <NarrativePanel
               windowLabel={windowLabel}
-              narrative={narrative}
+              summary={
+                <SummaryPanel
+                  clientId={clientId}
+                  month={month}
+                  loaded={initialSummary}
+                  legacyNarrative={initialDraft?.narrative ?? null}
+                  onSaved={setSavedSummary}
+                />
+              }
               sectionComments={sectionComments}
               visibleSectionKeys={visibleSectionKeys}
               savingDraft={savingDraft}
-              generatingIntro={generatingIntro}
-              onNarrativeChange={setNarrative}
+              notesError={notesError}
               onSectionCommentChange={(key, val) =>
                 setSectionComments((prev) => ({ ...prev, [key]: val }))
               }
               onSave={() => void saveDraft()}
-              onGenerateIntro={() => void generateIntro()}
             />
           )}
         </div>
@@ -403,7 +375,7 @@ export default function ClientReportWorkspace({
 
       {/* ── Right panel — live preview ── */}
       <div className="flex-1 overflow-y-auto bg-gray-50">
-        <ReportPreview report={report} config={layoutConfig} draft={builtDraft} />
+        <ReportPreview report={report} config={layoutConfig} draft={builtDraft} month={month} nextSteps={approved?.recommendations ?? []} />
       </div>
     </div>
   );
@@ -589,26 +561,22 @@ function KeywordsPanel({
 
 function NarrativePanel({
   windowLabel,
-  narrative,
+  summary,
   sectionComments,
   visibleSectionKeys,
   savingDraft,
-  generatingIntro,
-  onNarrativeChange,
+  notesError,
   onSectionCommentChange,
   onSave,
-  onGenerateIntro,
 }: {
   windowLabel: string;
-  narrative: string;
+  summary: React.ReactNode;
   sectionComments: Record<string, string>;
   visibleSectionKeys: string[];
   savingDraft: boolean;
-  generatingIntro: boolean;
-  onNarrativeChange: (v: string) => void;
+  notesError: string | null;
   onSectionCommentChange: (key: string, val: string) => void;
   onSave: () => void;
-  onGenerateIntro: () => void;
 }) {
   return (
     <div className="p-4 space-y-5">
@@ -624,38 +592,11 @@ function NarrativePanel({
         </p>
       </div>
 
-      {/* Strategist intro */}
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-[10px] font-medium uppercase tracking-wider text-gray-400">
-            Strategist Intro
-          </label>
-          <button
-            type="button"
-            onClick={onGenerateIntro}
-            disabled={generatingIntro}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-[10px] font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 disabled:opacity-50 transition-colors"
-          >
-            {generatingIntro ? (
-              <Loader2 size={10} className="animate-spin" />
-            ) : (
-              <Sparkles size={10} />
-            )}
-            Generate
-          </button>
-        </div>
-        <textarea
-          value={narrative}
-          onChange={(e) => onNarrativeChange(e.target.value)}
-          rows={5}
-          placeholder="Write a brief note to your client about this reporting period…"
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-800 placeholder-gray-400 focus:border-blue-400 focus:outline-none resize-none"
-        />
-      </div>
+      {summary}
 
       {/* Per-section comments */}
       {visibleSectionKeys.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-3 border-t border-gray-100 pt-4">
           <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
             Section Notes
           </p>
@@ -673,23 +614,18 @@ function NarrativePanel({
               />
             </div>
           ))}
+          {notesError && <p className="rounded-md bg-red-50 px-2.5 py-1.5 text-[11px] text-red-700">{notesError}</p>}
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={savingDraft}
+            className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors"
+          >
+            {savingDraft ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+            Save section notes
+          </button>
         </div>
       )}
-
-      {/* Save button */}
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={savingDraft}
-        className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white disabled:opacity-50 hover:bg-blue-700 transition-colors"
-      >
-        {savingDraft ? (
-          <Loader2 size={12} className="animate-spin" />
-        ) : (
-          <Save size={12} />
-        )}
-        Save Narrative
-      </button>
     </div>
   );
 }

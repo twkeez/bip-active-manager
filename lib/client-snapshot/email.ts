@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendGmailAs } from "@/lib/email/gmail-send";
 import { monthName, snapshotReportMonth } from "@/lib/reporting/monthly";
+import { loadMonthSummary, summaryBlocksProgress } from "@/lib/reporting/month-summary";
 import { recordReportSent, type RecordSentResult } from "@/lib/reporting/record-sent";
 import type { ClientSnapshot, SnapshotMetric } from "./load";
 import { hashToken, latestPublication, portalBaseUrl } from "./portal";
@@ -169,10 +170,16 @@ export async function sendSnapshotEmail(
   if (!recipients.length) throw new Error("Add at least one recipient first.");
   const publication = await latestPublication(admin, clientId);
   if (!publication) throw new Error("Publish the snapshot first: the email links to the published version.");
-  const { linkId, url } = await emailLinkUrl(admin, clientId, sender.email);
   // The email names the month the snapshot mostly covers, the same month its
   // report is marked sent for: published Dec 3, it is November's snapshot.
   const reportMonth = snapshotReportMonth(publication.published_at);
+  // Sending marks that month's report Sent, which waits until its summary and
+  // next steps are approved or cleared. Checked before anything goes out.
+  const summary = await loadMonthSummary(admin, clientId, reportMonth);
+  if (!summary.available && !summary.missing) throw new Error(`Not sent: ${summary.error}`);
+  const blocked = summaryBlocksProgress(summary.summary, reportMonth);
+  if (blocked) throw new Error(`Not sent: ${blocked}`);
+  const { linkId, url } = await emailLinkUrl(admin, clientId, sender.email);
   const email = buildSnapshotEmail(publication.snapshot, url, monthName(reportMonth));
   const log = (status: "sent" | "failed", error: string | null) =>
     admin.from("client_snapshot_sends").insert({

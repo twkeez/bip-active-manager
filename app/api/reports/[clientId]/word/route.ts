@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { loadReportForClient } from "@/lib/reporting/load-report";
 import { renderReportWord, reportWordFilename } from "@/lib/reporting/report-word";
 import { stampReportRun } from "@/lib/reporting/stamp-report-run";
+import { clientSummary, loadMonthSummary } from "@/lib/reporting/month-summary";
+import { parseReportMonth } from "@/lib/reporting/monthly";
 
 export async function GET(request: Request, context: { params: Promise<{ clientId: string }> }) {
   const { clientId: clientIdRaw } = await context.params;
@@ -29,7 +31,14 @@ export async function GET(request: Request, context: { params: Promise<{ clientI
     return NextResponse.json({ error: exportBlockedMessage("report", truncated) }, { status: 409 });
   }
 
-  const html = renderReportWord(loaded.report, loaded.config);
+  // Only the month's approved summary and next steps go in. If they can't be
+  // read, say so rather than export a report that silently leaves them out.
+  const month = parseReportMonth(new URL(request.url).searchParams.get("month"));
+  const summary = await loadMonthSummary(supabase, clientId, month);
+  if (!summary.available && !summary.missing) {
+    return NextResponse.json({ error: summary.error }, { status: 500 });
+  }
+  const html = renderReportWord(loaded.report, loaded.config, clientSummary(summary.summary));
   const filename = reportWordFilename(loaded.report);
 
   // A Word export is a report going out — record it for the client overview.

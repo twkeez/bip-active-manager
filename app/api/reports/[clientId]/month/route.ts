@@ -10,6 +10,7 @@ import {
   parseReportMonth,
   parseSentVia,
 } from "@/lib/reporting/monthly";
+import { loadMonthSummary, summaryBlocksProgress } from "@/lib/reporting/month-summary";
 
 type Params = Promise<{ clientId: string }>;
 
@@ -53,6 +54,17 @@ export async function POST(req: Request, context: { params: Params }) {
   const sentVia = body.status === "sent" ? parseSentVia(body.sentVia) : [];
   if (body.status === "sent" && sentVia.length === 0) {
     return NextResponse.json({ error: "Say how the report was sent." }, { status: 400 });
+  }
+
+  // Nothing AI-drafted or unreviewed may ride along: the summary has to be
+  // approved (or cleared) before the report is Reviewed or Sent.
+  if (body.status !== "draft") {
+    const loaded = await loadMonthSummary(supabase, id, body.month);
+    if (!loaded.available && !loaded.missing) {
+      return NextResponse.json({ error: loaded.error }, { status: 500 });
+    }
+    const blocked = summaryBlocksProgress(loaded.summary, body.month);
+    if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
   }
 
   const now = new Date().toISOString();

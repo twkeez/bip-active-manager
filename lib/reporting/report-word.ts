@@ -1,4 +1,4 @@
-import type { ClientReportModel, ReportChannelBlock, ReportPeriodMetric } from "@/lib/reporting/types";
+import type { ClientReportModel, ReportChannelBlock, ReportPeriodMetric, ReportRecommendationItem } from "@/lib/reporting/types";
 import type { ReportConfig } from "@/lib/reporting/report-config-types";
 import { buildSocialByPlatform } from "@/lib/reporting/social-metrics";
 import { channelColor } from "@/lib/reporting/channel-colors";
@@ -209,7 +209,16 @@ function socialHtml(report: ClientReportModel): string {
     .join("");
 }
 
-export function renderReportWord(report: ClientReportModel, config: ReportConfig): string {
+/**
+ * The Word export. `approved` is the month's strategist-approved summary and
+ * next steps (lib/reporting/month-summary.ts clientSummary), or null: only
+ * approved text goes in, never a draft or anything machine-written unreviewed.
+ */
+export function renderReportWord(
+  report: ClientReportModel,
+  config: ReportConfig,
+  approved: { summary: string; recommendations: ReportRecommendationItem[] } | null = null,
+): string {
   const client = report.client;
   const generated = new Date(report.generatedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
@@ -217,7 +226,7 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
   const execBody =
     (exec.overallDeltaPercent != null
       ? paragraph(`Overall performance ${exec.overallDeltaPercent >= 0 ? "up" : "down"} ${Math.abs(exec.overallDeltaPercent).toFixed(1)}% vs. the prior period.`)
-      : "") + paragraph(report.summaryText);
+      : "") + paragraph(approved?.summary ?? "");
 
   const kpiBody = table(
     ["Metric", "Value"],
@@ -286,8 +295,10 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
       )
     : "";
 
-  const recBody = report.recommendations.length
-    ? table(["Priority", "Recommendation"], report.recommendations.map((r) => [r.priority.toUpperCase(), r.text]))
+  const recBody = approved?.recommendations.length
+    ? `<ul style="font-size:12px;color:${INK};line-height:1.5;margin:0 0 8px;padding-left:18px;">${approved.recommendations
+        .map((r) => `<li>${esc(r.text)}</li>`)
+        .join("")}</ul>`
     : "";
 
   const body = `
@@ -313,7 +324,7 @@ export function renderReportWord(report: ClientReportModel, config: ReportConfig
       ${block("Facebook/Instagram Ads", metaAdsBody)}
       ${sectionOn(config, "gbp") ? block("Google Business Profile", gbpBody) : ""}
       ${sectionOn(config, "social") ? block("Social media", socialHtml(report)) : ""}
-      ${block("Recommendations", recBody)}
+      ${block("Next steps", recBody)}
     </div>`;
 
   return `<!DOCTYPE html>
