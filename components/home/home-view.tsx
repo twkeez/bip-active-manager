@@ -209,8 +209,7 @@ export default function HomeView({
             )}
             {predatesReportTracking(month) && (
               <p className="rounded-xl border border-bip-border bg-bip-card p-4 text-sm text-bip-text">
-                Report tracking began {trackingBeganLabel}. A {label} report finished before then shows Not started until
-                it&apos;s marked on Monthly reports, so Not started here can mean no record rather than not done.
+                {`Report tracking began ${trackingBeganLabel}. ${label} reports finished before then show Not started until they're marked on Monthly reports, so Not started here can mean no record rather than not done.`}
               </p>
             )}
             <StatTiles>
