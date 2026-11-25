@@ -1,8 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { getSupabasePublicConfig } from "@/lib/env";
 
-export async function updateSession(request: NextRequest) {
+export type RefreshedSession = {
+  /** Carries any refreshed auth cookies; return it, or copy its cookies. */
+  response: NextResponse;
+  supabase: SupabaseClient;
+  user: User | null;
+};
+
+/** Refreshes the auth cookies and reports who is signed in. */
+export async function refreshSession(request: NextRequest): Promise<RefreshedSession> {
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -28,7 +37,13 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  return supabaseResponse;
+  return { response: supabaseResponse, supabase, user };
+}
+
+export async function updateSession(request: NextRequest) {
+  return (await refreshSession(request)).response;
 }

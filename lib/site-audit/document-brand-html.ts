@@ -11,7 +11,7 @@ import {
   tableCellStyle,
   tableHeaderStyle,
   tableStyle,
-} from "@/lib/strategy-mapper/report-brand-tokens";
+} from "@/lib/report-brand/tokens";
 import { includedBlocks, type SiteAuditDocumentDraft } from "@/lib/site-audit/document-draft";
 
 function escapeHtml(value: string): string {

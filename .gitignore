@@ -77,3 +77,8 @@ node_modules/
 .zencoder/
 .kilocode/
 .neovate/
+
+# Client rosters and Supabase CLI state stay off GitHub (Nov 2026: the roster
+# CSV and the linked project's .temp files had been committed).
+/supabase upload - Sheet1.csv
+/supabase/.temp/
