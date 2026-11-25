@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { runGoogleAdsSync } from "@/lib/ads/google-ads";
+import { describePartErrors, runGoogleAdsSync } from "@/lib/ads/google-ads";
 import { buildAdsSignals } from "@/lib/ads/signals";
 import { isoDaysAgo } from "@/lib/time";
 import type { AdsCampaignMetric, AdsSignal, AdsSnapshot } from "@/lib/types/client";
@@ -40,12 +40,17 @@ export async function syncClientAds(
 
   try {
     const sync = await runGoogleAdsSync(adsCustomerId, startDate, endDate);
-    const campaigns = sync.campaigns.slice(0, 20);
+    // Every campaign is stored: the report lists them, and signals look at each.
+    const campaigns = sync.campaigns;
+    // A completed run that missed an optional part says so here (error_message
+    // is otherwise only set on failed runs), and the report shows it.
+    const partialMessage = describePartErrors(sync.partErrors);
+    if (partialMessage) console.warn(`[ads-sync] client ${clientId}: ${partialMessage}`);
     const { error: updateError } = await admin
       .from("client_ads_snapshots")
       .update({
         run_status: "completed",
-        error_message: null,
+        error_message: partialMessage,
         totals: sync.totals,
         campaigns,
         auction_insights: sync.auctionInsights,

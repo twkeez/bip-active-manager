@@ -64,6 +64,93 @@ export type AdsTotals = {
   search_absolute_top_impression_share: number | null;
 };
 
+export type AdsSyncPart = "auction_insights" | "keyword_quality" | "calls";
+export type AdsPartError = { part: AdsSyncPart; message: string };
+
+export const ADS_PART_LABELS: Record<AdsSyncPart, string> = {
+  auction_insights: "Auction insights",
+  keyword_quality: "Keyword quality",
+  calls: "Call details",
+};
+
+/** One line for the snapshot's error_message when a completed sync missed a part. */
+export function describePartErrors(errors: readonly AdsPartError[]): string | null {
+  if (!errors.length) return null;
+  return `Partial sync. ${errors.map((e) => `${ADS_PART_LABELS[e.part]} could not be read (${e.message}).`).join(" ")}`;
+}
+
+/**
+ * Account totals from every campaign the sync returned (the query has no row
+ * limit, so this is every campaign with activity in the window).
+ *
+ * Impression-share figures are averaged over the campaigns that report one,
+ * weighted by impressions: a campaign with no figure (Display, Video, or no
+ * search traffic) is left out of both sides, instead of counting as 0%.
+ */
+export function computeAdsTotals(campaigns: readonly AdsCampaignRow[]): AdsTotals {
+  const raw = {
+    impressions: 0,
+    clicks: 0,
+    interactions: 0,
+    cost_micros: 0,
+    conversions: 0,
+    all_conversions: 0,
+    view_through_conversions: 0,
+    conversions_value: 0,
+    phone_calls: 0,
+    phone_impressions: 0,
+  };
+  for (const row of campaigns) {
+    raw.impressions += row.impressions;
+    raw.clicks += row.clicks;
+    raw.interactions += row.interactions;
+    raw.cost_micros += row.cost_micros;
+    raw.conversions += row.conversions;
+    raw.all_conversions += row.all_conversions;
+    raw.view_through_conversions += row.view_through_conversions;
+    raw.conversions_value += row.conversions_value;
+    raw.phone_calls += row.phone_calls ?? 0;
+    raw.phone_impressions += row.phone_impressions ?? 0;
+  }
+
+  function weightedShare(field: AdsShareField): number | null {
+    let numerator = 0;
+    let denominator = 0;
+    for (const row of campaigns) {
+      const value = row[field];
+      if (value == null) continue;
+      const weight = Math.max(1, row.impressions);
+      numerator += value * weight;
+      denominator += weight;
+    }
+    return denominator > 0 ? numerator / denominator : null;
+  }
+
+  const spendUsd = raw.cost_micros / 1_000_000;
+  return {
+    ...raw,
+    ctr: raw.impressions > 0 ? raw.clicks / raw.impressions : 0,
+    average_cpc: raw.clicks > 0 ? raw.cost_micros / raw.clicks : 0,
+    conversion_rate: raw.clicks > 0 ? raw.conversions / raw.clicks : null,
+    cost_per_conversion: raw.conversions > 0 ? spendUsd / raw.conversions : null,
+    roas: spendUsd > 0 && raw.conversions_value > 0 ? raw.conversions_value / spendUsd : null,
+    search_impression_share: weightedShare("search_impression_share"),
+    search_rank_lost_impression_share: weightedShare("search_rank_lost_impression_share"),
+    search_budget_lost_impression_share: weightedShare("search_budget_lost_impression_share"),
+    search_top_impression_share: weightedShare("search_top_impression_share"),
+    search_absolute_top_impression_share: weightedShare("search_absolute_top_impression_share"),
+  };
+}
+
+type AdsShareField = keyof Pick<
+  AdsCampaignRow,
+  | "search_impression_share"
+  | "search_rank_lost_impression_share"
+  | "search_budget_lost_impression_share"
+  | "search_top_impression_share"
+  | "search_absolute_top_impression_share"
+>;
+
 export type AdsSyncResult = {
   customerId: string;
   startDate: string;
@@ -73,12 +160,14 @@ export type AdsSyncResult = {
   auctionInsights: AdsAuctionInsightRow[];
   keywordQuality: AdsKeywordQualityRow[];
   calls: AdsCallRow[];
+  /** Optional parts that failed; empty when everything was read. */
+  partErrors: AdsPartError[];
 };
 
 // Per-call detail from the call_view resource. Only accounts with call assets /
 // call-only ads using Google forwarding numbers return rows; Google retains the
-// detailed data for a limited window. Best-effort — the caller wraps it so a
-// failure (call reporting off, resource unavailable) yields no calls, not a
+// detailed data for a limited window. The caller wraps it so a failure (call
+// reporting off, resource unavailable) is recorded as a missing part, not a
 // failed sync.
 async function fetchCallDetails(
   ctx: SearchStreamContext,
@@ -101,7 +190,6 @@ async function fetchCallDetails(
     FROM call_view
     WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
     ORDER BY segments.date DESC
-    LIMIT 500
   `;
   return searchStream(ctx, query, (row) => {
     const cv = row.callView;
@@ -151,7 +239,6 @@ async function fetchKeywordQuality(
       AND segments.date BETWEEN '${startDate}' AND '${endDate}'
       AND metrics.impressions > 0
     ORDER BY metrics.cost_micros DESC
-    LIMIT 500
   `;
 
   const rows = await searchStream(ctx, query, (row) => {
@@ -213,7 +300,6 @@ export async function runGoogleAdsSync(
     FROM campaign
     WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
     ORDER BY metrics.impressions DESC
-    LIMIT 50
   `;
 
   let campaigns: AdsCampaignRow[];
@@ -260,66 +346,12 @@ export async function runGoogleAdsSync(
     throw error;
   }
 
-  const rawTotals = campaigns.reduce(
-    (acc, row) => {
-      acc.impressions += row.impressions;
-      acc.clicks += row.clicks;
-      acc.interactions += row.interactions;
-      acc.cost_micros += row.cost_micros;
-      acc.conversions += row.conversions;
-      acc.all_conversions += row.all_conversions;
-      acc.view_through_conversions += row.view_through_conversions;
-      acc.conversions_value += row.conversions_value;
-      acc.phone_calls += row.phone_calls ?? 0;
-      acc.phone_impressions += row.phone_impressions ?? 0;
-      return acc;
-    },
-    {
-      impressions: 0,
-      clicks: 0,
-      interactions: 0,
-      cost_micros: 0,
-      conversions: 0,
-      all_conversions: 0,
-      view_through_conversions: 0,
-      conversions_value: 0,
-      phone_calls: 0,
-      phone_impressions: 0,
-    },
-  );
+  const totals = computeAdsTotals(campaigns);
 
-  const weightedDenominator = campaigns.reduce(
-    (sum, row) => sum + Math.max(1, row.impressions), 0,
-  );
-
-  function weightedShare(field: keyof Pick<AdsCampaignRow,
-    "search_impression_share" | "search_rank_lost_impression_share" |
-    "search_budget_lost_impression_share" | "search_top_impression_share" |
-    "search_absolute_top_impression_share"
-  >): number | null {
-    const numerator = campaigns.reduce((sum, row) => {
-      const v = row[field];
-      return v == null ? sum : sum + v * Math.max(1, row.impressions);
-    }, 0);
-    return weightedDenominator > 0 ? numerator / weightedDenominator : null;
-  }
-
-  const spendUsd = rawTotals.cost_micros / 1_000_000;
-  const totals: AdsTotals = {
-    ...rawTotals,
-    ctr: rawTotals.impressions > 0 ? rawTotals.clicks / rawTotals.impressions : 0,
-    average_cpc: rawTotals.clicks > 0 ? rawTotals.cost_micros / rawTotals.clicks : 0,
-    conversion_rate: rawTotals.clicks > 0 ? rawTotals.conversions / rawTotals.clicks : null,
-    cost_per_conversion: rawTotals.conversions > 0 ? spendUsd / rawTotals.conversions : null,
-    roas: spendUsd > 0 && rawTotals.conversions_value > 0
-      ? rawTotals.conversions_value / spendUsd : null,
-    search_impression_share: weightedShare("search_impression_share"),
-    search_rank_lost_impression_share: weightedShare("search_rank_lost_impression_share"),
-    search_budget_lost_impression_share: weightedShare("search_budget_lost_impression_share"),
-    search_top_impression_share: weightedShare("search_top_impression_share"),
-    search_absolute_top_impression_share: weightedShare("search_absolute_top_impression_share"),
-  };
-
+  // Auction insights, keyword quality and call details are optional parts:
+  // one failing doesn't fail the sync, but it is recorded, so the report says
+  // the part couldn't be read instead of showing an empty list as "none".
+  const partErrors: AdsPartError[] = [];
   const auctionInsights: AdsAuctionInsightRow[] = [];
   try {
     const auctionQuery = `
@@ -334,7 +366,6 @@ export async function runGoogleAdsSync(
       FROM campaign
       WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
       ORDER BY metrics.auction_insight_search_impression_share DESC
-      LIMIT 100
     `;
     auctionInsights.push(
       ...(await searchStream(ctx, auctionQuery, (row) => {
@@ -367,22 +398,23 @@ export async function runGoogleAdsSync(
         };
       })),
     );
-  } catch {
-    // Optional
+  } catch (error) {
+    partErrors.push({ part: "auction_insights", message: errorMessage(error) });
   }
 
   let keywordQuality: AdsKeywordQualityRow[] = [];
   try {
     keywordQuality = await fetchKeywordQuality(ctx, startDate, endDate);
-  } catch {
-    // Optional
+  } catch (error) {
+    partErrors.push({ part: "keyword_quality", message: errorMessage(error) });
   }
 
   let calls: AdsCallRow[] = [];
   try {
     calls = await fetchCallDetails(ctx, startDate, endDate);
-  } catch {
-    // Optional — call reporting may be off for this account.
+  } catch (error) {
+    // Call reporting may be off for this account; still recorded, never hidden.
+    partErrors.push({ part: "calls", message: errorMessage(error) });
   }
 
   return {
@@ -394,7 +426,12 @@ export async function runGoogleAdsSync(
     auctionInsights,
     keywordQuality,
     calls,
+    partErrors,
   };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export { createSearchStreamContext };

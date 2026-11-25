@@ -1437,8 +1437,9 @@ export function buildClientReportModel(params: {
     ga4: windowLabel(params.ga4Snapshot?.start_date, params.ga4Snapshot?.end_date),
   };
 
-  // The shared Search KPI cards add up the stored top pages. In the report they
-  // use the whole-site totals instead, so they match the rest of the report.
+  // The shared Search KPI cards add up the stored pages. In the report they use
+  // the whole-site totals instead (clicks, impressions, CTR), so they match the
+  // rest of the report and Google's own Performance report.
   const kpis = siteCurrent
     ? params.kpis.map((card) => {
         if (card.id === "gsc-clicks") {
@@ -1446,6 +1447,15 @@ export function buildClientReportModel(params: {
             ...card,
             value: siteCurrent.clicks.toLocaleString(),
             definition: "Total Search Console clicks for the whole site over the report's search period.",
+          };
+        }
+        if (card.id === "gsc-impressions") {
+          // Was left as the listed pages added up, so it disagreed with the
+          // whole-site clicks and CTR beside it.
+          return {
+            ...card,
+            value: siteCurrent.impressions.toLocaleString(),
+            definition: "Total Search Console impressions for the whole site over the report's search period.",
           };
         }
         if (card.id === "gsc-ctr-30d" && siteCurrent.ctrPercent != null) {

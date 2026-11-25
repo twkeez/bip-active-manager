@@ -19,6 +19,9 @@ import type { GscSnapshot } from "@/lib/types/client";
 /** Search Console reports lag about a day; 28 days is what the screens read. */
 const WINDOW_DAYS = 28;
 
+/** Rows per insert request. */
+const INSERT_BATCH = 1000;
+
 function isoDateDaysAgo(days: number) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
@@ -77,10 +80,13 @@ export async function syncClientSearchConsole(
       userAccessToken,
     );
 
+    // Every page and query is stored now (not the top 25 and 100), so a big
+    // site's rows go in batches to keep each request a sensible size.
     const insert = async (table: string, rows: Array<Record<string, unknown>>, what: string) => {
-      if (rows.length === 0) return;
-      const { error } = await admin.from(table).insert(rows);
-      if (error) throw new Error(`Failed to store ${what}: ${error.message}`);
+      for (let start = 0; start < rows.length; start += INSERT_BATCH) {
+        const { error } = await admin.from(table).insert(rows.slice(start, start + INSERT_BATCH));
+        if (error) throw new Error(`Failed to store ${what}: ${error.message}`);
+      }
     };
 
     await insert(

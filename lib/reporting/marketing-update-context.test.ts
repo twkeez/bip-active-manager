@@ -84,6 +84,7 @@ describe("marketing update prompt", () => {
     nextMeetingUrl: "https://zoom.us/example",
     additionalNotes: null,
     channelsIncluded: ["Google Ads", "Google Business Profile"],
+    unavailable: [],
   };
 
   it("includes required section headings and exact metrics in the prompt", () => {

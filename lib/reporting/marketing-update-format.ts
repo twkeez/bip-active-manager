@@ -7,6 +7,8 @@ export type MarketingUpdateContextSummary = {
   hasFacebook: boolean;
   hasKeywords: boolean;
   dateRangeLabel: string;
+  /** Parts that could not be read, so the draft leaves them out; shown to the strategist. */
+  unavailable: string[];
 };
 
 function norm(value: string | null | undefined) {

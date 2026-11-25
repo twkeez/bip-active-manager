@@ -16,6 +16,13 @@ export function rowsReturned(contentRange: string | null): number | null {
 }
 
 export type TruncatedRead = {
+  /**
+   * row_cap: the read came back at the database's limit (recorded on Data
+   * health and emailed). read_failed: a read behind the document failed or was
+   * only partly done, noted by its loader (see noteReadProblems in server.ts).
+   * Either way the document must not be exported.
+   */
+  kind?: "row_cap" | "read_failed";
   table: string;
   /** Stable per kind of query (table, columns, order): one warning each, not one per request. */
   problemKey: string;
