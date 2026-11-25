@@ -6,6 +6,10 @@ import type { MapsRankTrackerRow } from "@/lib/maps-rank/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
+ * Not scheduled since 2026-11-25 (Tom: "Kill the maps rank tracker for now"):
+ * its vercel.json line was removed, so nothing calls this. Kept so it can be
+ * turned back on by restoring that line ("40 12 * * *") and its job-watch entry.
+ *
  * Maps rank tracker, checked daily: runs every active tracker whose last run
  * is at least its interval (two weeks by default) old. A scan is about two
  * minutes, so one call runs at most MAX_PER_CALL trackers and says how many it

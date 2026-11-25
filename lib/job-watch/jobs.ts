@@ -12,6 +12,8 @@ export type WatchedJob = {
   /** When it is meant to run, in plain words. */
   schedule: string;
   overdueAfterHours: number;
+  /** When the job was first scheduled, if after run recording began: it can't be overdue before its first run is due. */
+  watchedFrom?: string;
 };
 
 export const WATCHED_JOBS: WatchedJob[] = [
@@ -23,7 +25,19 @@ export const WATCHED_JOBS: WatchedJob[] = [
   { key: "seo-sync", name: "Search Console sync", schedule: "nightly", overdueAfterHours: 26 },
   { key: "ga4-sync", name: "Google Analytics sync", schedule: "nightly", overdueAfterHours: 26 },
   { key: "gbp-sync", name: "Business Profile sync", schedule: "nightly", overdueAfterHours: 26 },
-  { key: "maps-rank", name: "Maps rank tracker", schedule: "daily check; each client every two weeks", overdueAfterHours: 26 },
+  // Maps rank tracker: its schedule was stopped on 2026-11-25 (Tom: "Kill the
+  // maps rank tracker for now"). Its Run now button still works. To turn it
+  // back on, restore its line in vercel.json ("40 12 * * *") and this entry:
+  // { key: "maps-rank", name: "Maps rank tracker", schedule: "daily check; each client every two weeks", overdueAfterHours: 26 },
+  // Hourly 07:05-12:05 UTC on the 1st. Longest normal gap: the 1st at 12:05 to
+  // the next 1st at 07:05, 30 days 19h in a 31-day month; plus a day of slack.
+  {
+    key: "organic-rank",
+    name: "Monthly organic rankings",
+    schedule: "on the 1st of each month",
+    overdueAfterHours: 32 * 24,
+    watchedFrom: "2026-12-01T07:00:00Z",
+  },
   { key: "master-sheet", name: "Master Sheet roster refresh", schedule: "every morning", overdueAfterHours: 26 },
   { key: "job-watch", name: "Job watchdog", schedule: "hourly", overdueAfterHours: 3 },
   // Mondays 11:20 UTC (7:20 AM Eastern in summer, 6:20 AM in winter): a week plus slack.

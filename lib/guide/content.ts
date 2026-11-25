@@ -281,7 +281,7 @@ export const GUIDE: Guide = {
           href: "/maps-rank",
           label: "Maps Rank Tracker",
           adminOnly: true,
-          purpose: "Tracks where a client ranks in Google Maps for the exact searches they care about, every two weeks from the same spots, and makes a branded report showing movement against the baseline and the goal.",
+          purpose: "Tracks where a client ranks in Google Maps for the exact searches they care about, from the same spots each run, and makes a branded report showing movement against the baseline and the goal.",
           youCan: [
             "See each tracked client's latest rank per search against its goal, baseline and last report",
             "Open any run's report to save as a PDF, or make it as a Google Doc in the client's Drive folder",
@@ -290,7 +290,7 @@ export const GUIDE: Guide = {
           notes: [
             "Each search is read from one fixed town point (the headline rank, and what the baseline was measured from) and from a 5 by 5 grid reaching 3 miles around the practice. The report's map shows the rank at each grid point; the ringed middle circle is the practice's own address.",
             "A rank depends on where the search is made from, so the report always shows both the town-point rank and the rank from the practice's address. Tell the client which one their goal is judged on.",
-            "It runs by itself: a daily check runs every client whose last run is two weeks old (at most 4 clients a day; the rest carry to the next day). A run for three searches is 78 live Google Maps searches, about 16 cents.",
+            "Automatic runs are paused (since November 25, 2026): it only runs when someone presses Run now. A run for three searches is 78 live Google Maps searches, about 16 cents.",
             "Limits: the first 20 results are read at each spot, so anything lower shows as \"20+\". Paid listings are left out. A spot that couldn't be read shows as a blank circle and the report says so; it is never shown as unranked.",
             "The Google Doc version needs a Drive folder on the tracker, in a shared drive where the app's Google account is a Content manager. Each run's Doc is made once and its link is kept.",
             "Separate from Local Grid Rank, which reads only Google's three-business local pack from the regular search page.",
