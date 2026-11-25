@@ -2,11 +2,12 @@ import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { CAMPAIGN_TYPE_KEYS } from "./campaign-types";
 import type { StandingCampaign } from "./types";
 import { anthropicClient } from "@/lib/ai/usage";
+import { MODELS } from "@/lib/ai/models";
 
 // Fresh, practice-specific post concepts for the calendar builder's idea board.
 // Complements the shared idea repository — these are invented per practice.
 
-const IDEA_MODEL = "claude-opus-4-8";
+const IDEA_MODEL = MODELS.social;
 
 export type FreshIdea = {
   title: string;

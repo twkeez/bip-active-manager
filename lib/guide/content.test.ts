@@ -1,50 +1,35 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GUIDE } from "./content";
+import { NAV_SECTIONS, sectionLinks } from "@/lib/nav/sections";
 
-// Keeps the team guide in step with the sidebar: add, rename or remove a
-// sidebar link and this fails until lib/guide/content.ts says what it does.
-const sidebar = readFileSync(join(__dirname, "../../components/layout/sidebar.tsx"), "utf8");
-const sidebarLinks = new Map<string, { label: string; adminOnly: boolean }>();
-for (const match of sidebar.matchAll(/\{\s*label:\s*"([^"]+)",\s*href:\s*"([^"]+)"[^}]*\}/g)) {
-  const href = match[2];
-  // The guide's own link, and the trimmed strategist list (same pages, other labels).
-  if (href === "/guide" || sidebarLinks.has(href)) continue;
-  sidebarLinks.set(href, { label: match[1], adminOnly: /adminOnly:\s*true/.test(match[0]) });
-}
-const guideItems = GUIDE.sections.flatMap((section) => section.items);
+// Keeps the team guide in step with the sidebar (lib/nav/sections.ts): add,
+// rename, move or remove a sidebar link and this fails until
+// lib/guide/content.ts says what it does, in the same section and order.
 
 describe("team guide", () => {
-  it("found the sidebar links", () => {
-    expect(sidebarLinks.size).toBeGreaterThan(40);
+  it("has one section per sidebar section, in sidebar order", () => {
+    expect(GUIDE.sections.map((section) => section.title)).toEqual(NAV_SECTIONS.map((section) => section.label));
   });
 
-  it("explains every sidebar link, with its sidebar name and access", () => {
-    for (const [href, link] of sidebarLinks) {
-      const item = guideItems.find((entry) => entry.href === href);
-      expect(item, `The sidebar links to ${href} ("${link.label}") but lib/guide/content.ts has no entry for it`).toBeDefined();
-      expect(item!.label, `Rename ${href} in the guide to match the sidebar`).toBe(link.label);
-      expect(Boolean(item!.adminOnly), `Fix "admins only" on ${href} in the guide`).toBe(link.adminOnly);
-    }
-  });
-
-  it("has no entries for links the sidebar no longer has", () => {
-    for (const item of guideItems) {
-      expect(sidebarLinks.has(item.href), `${item.href} is in the guide but not the sidebar: remove or update it`).toBe(true);
-    }
+  it("explains every sidebar link in its section and order, with its sidebar name and access", () => {
+    NAV_SECTIONS.forEach((section, index) => {
+      const guideSection = GUIDE.sections[index];
+      const links = sectionLinks(section);
+      expect(
+        guideSection.items.map((item) => item.href),
+        `The guide's ${section.label} section should list the sidebar's ${section.label} links in sidebar order`,
+      ).toEqual(links.map((link) => link.href));
+      links.forEach((link, position) => {
+        const item = guideSection.items[position];
+        expect(item.label, `Rename ${link.href} in the guide to match the sidebar`).toBe(link.label);
+        expect(Boolean(item.adminOnly), `Fix "admins only" on ${link.href} in the guide`).toBe(Boolean(link.adminOnly));
+      });
+    });
   });
 
   it("has something to say about each one", () => {
-    for (const item of guideItems) {
+    for (const item of GUIDE.sections.flatMap((section) => section.items)) {
       expect(item.purpose.length, item.href).toBeGreaterThan(20);
     }
-  });
-});
-
-describe("hidden sidebar links", () => {
-  it("only hides links the sidebar actually has", async () => {
-    const { HIDDEN_NAV_HREFS } = await import("@/lib/nav/hidden");
-    for (const href of HIDDEN_NAV_HREFS) expect(sidebarLinks.has(href), href).toBe(true);
   });
 });

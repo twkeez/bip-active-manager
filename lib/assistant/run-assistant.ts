@@ -9,6 +9,7 @@ import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import { loadOpenTasks, renderDayContext, type DayContext } from "./day-context";
 import { parseTaskChange, TaskChangeError, type TaskChange } from "./task-changes";
 import { anthropicClient } from "@/lib/ai/usage";
+import { MODELS } from "@/lib/ai/models";
 
 /**
  * The assistant's conversation loop.
@@ -22,9 +23,9 @@ import { anthropicClient } from "@/lib/ai/usage";
  * proposal that reaches the database only when you press Confirm.
  */
 
-export const ASSISTANT_MODEL = "claude-opus-5";
+export const ASSISTANT_MODEL = MODELS.assistant;
 /** Declines are rare here, but a refused turn should be rescued, not dropped. */
-const FALLBACK_MODEL = "claude-opus-4-8";
+const FALLBACK_MODEL = MODELS.assistantFallback;
 const MAX_TOKENS = 64_000;
 /** Enough for a genuinely multi-step question; a loop past this is stuck. */
 const MAX_TOOL_ROUNDS = 12;

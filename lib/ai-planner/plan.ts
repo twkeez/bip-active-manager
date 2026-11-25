@@ -1,9 +1,10 @@
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
+import { MODELS } from "@/lib/ai/models";
 
 // AI Planner — free-form, client-facing project plans drafted with Claude.
 // Same Anthropic patterns as the ads planner (structured output + web search).
 
-export const AI_PLANNER_MODEL = "claude-sonnet-4-6";
+export const AI_PLANNER_MODEL = MODELS.planner;
 
 export type PlanSection = { heading: string; content: string };
 

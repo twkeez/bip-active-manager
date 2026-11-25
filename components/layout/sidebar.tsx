@@ -2,264 +2,108 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Activity,
-  Bird,
-  BookOpen,
-  CircleHelp,
-  Coins,
-  Building2,
-  CalendarClock,
-  CalendarDays,
-  CheckSquare,
-  ChevronDown,
-  ClipboardList,
-  BarChart3,
-  Crown,
-  Eye,
-  EyeOff,
-  FileDown,
-  FileText,
-  Gauge,
-  Globe,
-  GraduationCap,
-  Handshake,
-  Layers,
-  Link2,
-  Map,
-  Mail,
-  MessageSquare,
-  MessageSquareQuote,
-  MapPin,
-  MapPinned,
-  Phone,
-  Radar,
-  ScanSearch,
-  Shield,
-  ShieldCheck,
-  Sparkles,
-  Sunrise,
-  Target,
-  TrendingUp,
-  Trophy,
-  User,
-  Wand2,
-  LifeBuoy,
-} from "lucide-react";
 import { useState } from "react";
+import { ChevronDown, CircleHelp, Eye, EyeOff, User } from "lucide-react";
 import type { UserRole } from "@/lib/auth/profile";
 import { isNavItemVisibleForRole, type AppMode } from "@/lib/auth/app-mode";
 import { useViewAs } from "@/components/layout/use-view-as";
-import { HIDDEN_NAV_HREFS } from "@/lib/nav/hidden";
+import {
+  activeHref,
+  GUIDE_HREF,
+  NAV_SECTIONS,
+  visibleItems,
+  type NavItem,
+  type NavSection,
+} from "@/lib/nav/sections";
 
-type NavItem = {
-  label: string;
-  href: string;
-  icon: React.ElementType;
-  adminOnly?: boolean;
-};
+// The sidebar renders lib/nav/sections.ts: six sections, each with its tools.
+// What a person sees is filtered by role and deployment; what they can reach
+// is decided separately in proxy.ts.
 
-const PRIMARY: NavItem[] = [
-  { label: "Assistant", href: "/assistant", icon: Sparkles, adminOnly: true },
-  { label: "Daily Brief", href: "/daily-brief", icon: Sunrise, adminOnly: true },
-  { label: "Clients", href: "/dashboard/clients", icon: Building2 },
-  { label: "Response Report", href: "/response-report", icon: MessageSquare },
-  { label: "Poobah Client Watch", href: "/client-watch", icon: Crown, adminOnly: true },
-  { label: "Client Snapshot", href: "/client-snapshot", icon: BarChart3, adminOnly: true },
-  { label: "Client Briefings", href: "/client-briefings", icon: Mail, adminOnly: true },
-  { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
-  { label: "My Tasks", href: "/my-tasks", icon: CheckSquare, adminOnly: true },
-  { label: "Team", href: "/team", icon: ShieldCheck, adminOnly: true },
-];
-
-// Brand magenta — makes the Services section stand out from the indigo nav.
-const SERVICES_ACCENT = "#ce2084";
-
-// Amber/gold — sets the Illuminare portfolio apart as its own section.
-const ILLUMINARE_ACCENT = "#e0a82e";
-
-// Azure blue — groups the Google Ads tools into their own section.
-const ADS_ACCENT = "#2f9bef";
-
-const ILLUMINARE: NavItem[] = [
-  { label: "Clients", href: "/illuminare", icon: Building2 },
-];
-
-const SERVICES: NavItem[] = [
-  { label: "Services & Tiers", href: "/services", icon: Layers },
-  { label: "Service Playbook", href: "/playbook", icon: BookOpen },
-  { label: "Client Expectations", href: "/client-expectations", icon: CalendarClock },
-  // The master kickoff message. It lives with the other wording we keep rather
-  // than with the onboarding tools that use it.
-  { label: "Onboarding Basecamp Message", href: "/onboarding-settings", icon: MessageSquare, adminOnly: true },
-  { label: "Best Practices", href: "/best-practices", icon: Sparkles },
-  { label: "Partnership & Boundaries", href: "/services/partnership", icon: Handshake },
-];
-
-const ADS: NavItem[] = [
-  { label: "Ads Health", href: "/ads-health", icon: Gauge },
-  { label: "Ads Diagnostic", href: "/ads-diagnostic", icon: Activity, adminOnly: true },
-  { label: "Conversion Integrity", href: "/conversion-integrity", icon: Radar },
-  { label: "Ads Planner", href: "/ads-planner", icon: Target, adminOnly: true },
-  { label: "Global Ads Optimization", href: "/global-ads-optimization", icon: Globe },
-  { label: "PPC Defense", href: "/ppc-defense", icon: Shield },
-  { label: "Ad Cost Trends", href: "/ad-spend-trends", icon: TrendingUp, adminOnly: true },
-  { label: "Ad Calls", href: "/ads-calls", icon: Phone, adminOnly: true },
-  { label: "Ads Accounts", href: "/ads-accounts", icon: Link2, adminOnly: true },
-];
-
-// Canaries that watch for drift nobody goes looking for. Sits directly under
-// Primary because it is a "check this first" surface, not a tool you go to.
-const COAL_MINES: NavItem[] = [
-  { label: "Coal Mines", href: "/coal-mines", icon: Bird, adminOnly: true },
-  { label: "AI Spend", href: "/ai-spend", icon: Coins, adminOnly: true },
-  { label: "Project Wiring", href: "/basecamp-projects", icon: Link2, adminOnly: true },
-];
-
-const TOOLS: NavItem[] = [
-  { label: "Help Desk Report", href: "/help-desk-report", icon: LifeBuoy, adminOnly: true },
-  { label: "AI Planner", href: "/ai-planner", icon: Wand2, adminOnly: true },
-  { label: "Social Planner", href: "/social-planner", icon: CalendarDays },
-  { label: "Wins", href: "/wins", icon: Trophy, adminOnly: true },
-  { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
-];
-
-const SEO_TOOLS: NavItem[] = [
-  { label: "SEO Audits", href: "/seo-audits", icon: ClipboardList },
-  { label: "Sitemaps", href: "/sitemaps", icon: Map },
-  { label: "Site Audit", href: "/site-audit", icon: Globe },
-  { label: "Website & AI Audit", href: "/website-audits", icon: ScanSearch, adminOnly: true },
-  { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
-  { label: "Maps Rank Tracker", href: "/maps-rank", icon: MapPin, adminOnly: true },
-  { label: "Reputation", href: "/reputation", icon: MessageSquareQuote },
-  { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
-];
-
-const UTILITIES: NavItem[] = [
-  { label: "Bulk Auto-Discover", href: "/bulk-discover", icon: ScanSearch, adminOnly: true },
-];
-
-// The team guide (lib/guide/content.ts) explains every link above; its test
-// fails when a link here has no entry there.
-const GUIDE_LINK: NavItem = { label: "Team guide", href: "/guide", icon: CircleHelp };
-
-const SALES: NavItem[] = [
-  { label: "Sales Lab", href: "/sales-lab", icon: Sparkles, adminOnly: true },
-];
-
-// The candidate navigation non-admin users (strategists) see. What actually
-// renders is this list filtered through TEAM_NAV by isNavItemVisibleForRole, so
-// today only Clients survives — widen TEAM_NAV to hand strategists more, rather
-// than editing here and wondering why nothing changed.
-const USER_NAV: NavItem[] = [
-  { label: "Clients", href: "/dashboard/clients", icon: Building2 },
-  { label: "Response Report", href: "/response-report", icon: MessageSquare },
-  { label: "Onboarding", href: "/onboarding", icon: GraduationCap },
-  { label: "Social Planner", href: "/social-planner", icon: CalendarDays },
-  { label: "Reporting", href: "/reports/doc-to-pdf", icon: FileDown },
-];
-
-function NavLink({
-  item,
-  role,
-  appMode,
-  accentColor,
-}: {
-  item: NavItem;
-  role: UserRole;
-  appMode: AppMode;
-  accentColor?: string;
-}) {
-  const pathname = usePathname();
-  if (item.adminOnly && role !== "admin") return null;
-  if (HIDDEN_NAV_HREFS.has(item.href)) return null;
-  if (!isNavItemVisibleForRole(item.href, appMode, role === "admin")) return null;
-  const active =
-    item.href === "/dashboard"
-      ? pathname === "/dashboard"
-      : pathname.startsWith(item.href);
+function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
   return (
     <Link
       href={item.href}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+      aria-current={active ? "page" : undefined}
+      className={`flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
         active
-          ? "bg-[var(--bip-hover)] text-[var(--text)]"
+          ? "bg-[var(--bip-hover)] font-medium text-[var(--text)]"
           : "text-[var(--text-muted)] hover:bg-[var(--bip-hover)] hover:text-[var(--text)]"
       }`}
     >
-      <Icon
-        size={15}
-        className={active && !accentColor ? "text-[var(--bip-accent)]" : ""}
-        style={accentColor ? { color: accentColor } : undefined}
-      />
-      {item.label}
+      <Icon size={15} className={active ? "text-[var(--bip-accent)]" : ""} aria-hidden="true" />
+      <span className="truncate">{item.label}</span>
     </Link>
   );
 }
 
-function SectionGroup({
-  label,
+function Section({
+  section,
   items,
-  role,
-  appMode,
-  defaultOpen = true,
-  accentColor,
+  more,
+  current,
 }: {
-  label: string;
+  section: NavSection;
   items: NavItem[];
-  role: UserRole;
-  appMode: AppMode;
-  defaultOpen?: boolean;
-  accentColor?: string;
+  more: NavItem[];
+  current: string | null;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const visible = items.filter(
-    (i) =>
-      (!i.adminOnly || role === "admin") &&
-      !HIDDEN_NAV_HREFS.has(i.href) &&
-      isNavItemVisibleForRole(i.href, appMode, role === "admin"),
-  );
-  if (visible.length === 0) return null;
+  const moreActive = more.some((item) => item.href === current);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const SectionIcon = section.icon;
+  const open = moreOpen || moreActive;
+
   return (
     <div>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-[var(--text-subtle)] hover:text-[var(--text-muted)] transition-colors"
-        style={accentColor ? { color: accentColor } : undefined}
-      >
-        {label}
-        <ChevronDown
-          size={12}
-          className={`transition-transform ${open ? "" : "-rotate-90"}`}
-        />
-      </button>
-      {open && (
-        <div className="mt-0.5 flex flex-col gap-0.5">
-          {items.map((item) => (
-            <NavLink key={item.href} item={item} role={role} appMode={appMode} accentColor={accentColor} />
-          ))}
+      <p className="flex items-center gap-2 px-3 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-[var(--text-subtle)]">
+        <SectionIcon size={12} aria-hidden="true" />
+        {section.label}
+      </p>
+      <div className="flex flex-col gap-0.5">
+        {items.map((item) => (
+          <NavLink key={item.href} item={item} active={item.href === current} />
+        ))}
+      </div>
+      {more.length > 0 && section.more && (
+        <div className="mt-0.5">
+          <button
+            type="button"
+            onClick={() => setMoreOpen((value) => !value)}
+            aria-expanded={open}
+            disabled={moreActive}
+            className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs text-[var(--text-subtle)] transition-colors hover:bg-[var(--bip-hover)] hover:text-[var(--text-muted)] disabled:cursor-default disabled:hover:bg-transparent"
+          >
+            {section.more.label}
+            <ChevronDown size={12} className={`transition-transform ${open ? "" : "-rotate-90"}`} aria-hidden="true" />
+          </button>
+          {open && (
+            <div className="ml-3 flex flex-col gap-0.5 border-l border-[var(--bip-border)] pl-1">
+              {more.map((item) => (
+                <NavLink key={item.href} item={item} active={item.href === current} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-
 function ViewAsToggle({ previewing }: { previewing: boolean }) {
   const toggle = useViewAs(previewing);
-
   return (
     <button
+      type="button"
       onClick={toggle}
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
         previewing
           ? "bg-[var(--bip-accent)] text-white hover:opacity-90"
           : "text-[var(--text-muted)] hover:bg-[var(--bip-hover)] hover:text-[var(--text)]"
       }`}
     >
-      {previewing ? <EyeOff size={15} /> : <Eye size={15} />}
-      {previewing ? "Exit user view" : "View as user"}
+      {previewing ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
+      {previewing ? "Exit strategist view" : "View as strategist"}
     </button>
   );
 }
@@ -275,12 +119,24 @@ export default function Sidebar({
   userName: string;
   appMode: AppMode;
 }) {
-  const isUserView = role !== "admin";
+  const pathname = usePathname();
+  const isAdmin = role === "admin";
   const previewing = actualRole === "admin" && role !== "admin";
+  const canSee = (href: string) => isNavItemVisibleForRole(href, appMode, isAdmin);
+
+  const sections = NAV_SECTIONS.map((section) => ({
+    section,
+    items: visibleItems(section.items, isAdmin, canSee),
+    more: visibleItems(section.more?.items ?? [], isAdmin, canSee),
+  })).filter(({ items, more }) => items.length + more.length > 0);
+
+  const current = activeHref(pathname, [
+    ...sections.flatMap(({ items, more }) => [...items, ...more]).map((item) => item.href),
+    GUIDE_HREF,
+  ]);
 
   return (
     <aside className="flex h-screen w-56 flex-shrink-0 flex-col border-r border-[var(--bip-border)] bg-[var(--bip-card)]">
-      {/* Logo */}
       <div className="flex h-14 items-center gap-2.5 border-b border-[var(--bip-border)] px-4">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--bip-accent)]">
           <span className="text-xs font-bold text-bip-text">B</span>
@@ -288,63 +144,18 @@ export default function Sidebar({
         <span className="text-sm font-semibold text-[var(--text)]">BIP Control</span>
       </div>
 
-      {/* Nav */}
-      <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3 pt-4">
-        {isUserView ? (
-          <div className="flex flex-col gap-0.5">
-            {USER_NAV.map((item) => (
-              <NavLink key={item.href} item={item} role={role} appMode={appMode} />
-            ))}
-          </div>
-        ) : (
-          <>
-            {/* Primary */}
-            <div className="flex flex-col gap-0.5">
-              {PRIMARY.map((item) => (
-                <NavLink key={item.href} item={item} role={role} appMode={appMode} />
-              ))}
-            </div>
-
-            <div className="border-t border-[var(--bip-border)]" />
-
-            <SectionGroup label="Coal Mines" items={COAL_MINES} role={role} appMode={appMode} />
-
-            <div className="border-t border-[var(--bip-border)]" />
-
-            <SectionGroup label="Illuminare" items={ILLUMINARE} role={role} appMode={appMode} accentColor={ILLUMINARE_ACCENT} />
-
-            <div className="border-t border-[var(--bip-border)]" />
-
-            <SectionGroup label="Services" items={SERVICES} role={role} appMode={appMode} accentColor={SERVICES_ACCENT} />
-
-            <div className="border-t border-[var(--bip-border)]" />
-
-            <SectionGroup label="Ads" items={ADS} role={role} appMode={appMode} accentColor={ADS_ACCENT} />
-
-            <div className="border-t border-[var(--bip-border)]" />
-
-            <SectionGroup label="Tools" items={TOOLS} role={role} appMode={appMode} />
-
-            <div className="border-t border-[var(--bip-border)]" />
-
-            <SectionGroup label="SEO" items={SEO_TOOLS} role={role} appMode={appMode} defaultOpen={false} />
-
-            <SectionGroup label="Utilities" items={UTILITIES} role={role} appMode={appMode} defaultOpen={false} />
-
-            <div className="border-t border-[var(--bip-border)]" />
-
-            <SectionGroup label="Sales" items={SALES} role={role} appMode={appMode} defaultOpen={false} />
-          </>
-        )}
+      <nav aria-label="Main" className="flex flex-1 flex-col gap-4 overflow-y-auto p-3 pt-4">
+        {sections.map(({ section, items, more }) => (
+          <Section key={section.key} section={section} items={items} more={more} current={current} />
+        ))}
       </nav>
 
-      {/* User + theme */}
-      <div className="border-t border-[var(--bip-border)] p-3 flex flex-col gap-1">
-        <NavLink item={GUIDE_LINK} role={role} appMode={appMode} />
+      <div className="flex flex-col gap-1 border-t border-[var(--bip-border)] p-3">
+        <NavLink item={{ label: "Team guide", href: GUIDE_HREF, icon: CircleHelp }} active={current === GUIDE_HREF} />
         {userName && (
           <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-subtle)]">
-            <User size={13} />
-            <span>{userName}</span>
+            <User size={13} aria-hidden="true" />
+            <span className="truncate">{userName}</span>
             {actualRole === "admin" && !previewing && (
               <span className="ml-auto text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--primary)]">
                 Admin
@@ -352,7 +163,7 @@ export default function Sidebar({
             )}
             {previewing && (
               <span className="ml-auto text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--bip-accent)]">
-                User view
+                Strategist view
               </span>
             )}
           </div>
@@ -360,9 +171,8 @@ export default function Sidebar({
         {actualRole === "admin" && <ViewAsToggle previewing={previewing} />}
       </div>
 
-      {/* Build stamp */}
       {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA && (
-        <div className="px-4 pb-3 text-[0.6rem] text-[var(--text-subtle)] font-mono">
+        <div className="px-4 pb-3 font-mono text-[0.6rem] text-[var(--text-subtle)]">
           {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0, 7)}
         </div>
       )}
