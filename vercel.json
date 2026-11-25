@@ -11,6 +11,7 @@
     { "path": "/api/cron/ga4-sync", "schedule": "40 8 * * *" },
     { "path": "/api/cron/gbp-sync", "schedule": "10 9 * * *" },
     { "path": "/api/cron/organic-rank", "schedule": "5 7-12 1 * *" },
+    { "path": "/api/cron/client-watch", "schedule": "20 13,15 * * 1-5" },
     { "path": "/api/cron/master-sheet", "schedule": "50 10 * * *" }
   ]
 }

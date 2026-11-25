@@ -38,6 +38,15 @@ export const WATCHED_JOBS: WatchedJob[] = [
     overdueAfterHours: 32 * 24,
     watchedFrom: "2026-12-01T07:00:00Z",
   },
+  // Client Watch: weekdays 13:20 and 15:20 UTC (8:20 and 10:20 AM Eastern in
+  // winter). Longest normal gap: Friday 15:20 to Monday 13:20, 70h; plus slack.
+  {
+    key: "client-watch",
+    name: "Client Watch refresh",
+    schedule: "weekday mornings",
+    overdueAfterHours: 72,
+    watchedFrom: "2026-11-26T13:20:00Z",
+  },
   { key: "master-sheet", name: "Master Sheet roster refresh", schedule: "every morning", overdueAfterHours: 26 },
   { key: "job-watch", name: "Job watchdog", schedule: "hourly", overdueAfterHours: 3 },
   // Mondays 11:20 UTC (7:20 AM Eastern in summer, 6:20 AM in winter): a week plus slack.

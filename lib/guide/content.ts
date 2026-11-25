@@ -33,15 +33,17 @@ export const GUIDE: Guide = {
   sections: [
     {
       title: "Home",
-      intro: "Your day: who's waiting on us, last month's reports, and the clients you're keeping a close eye on.",
+      intro: "Your day: who's waiting on us, where each client stands, and last month's reports.",
       items: [
         {
           href: "/home",
           label: "Home",
-          purpose: "Where the day starts: who's waiting on a reply from us in Basecamp, and which of last month's reports aren't sent yet, for your clients or for everyone.",
+          purpose: "Where the day starts: who's waiting on a reply from us in Basecamp, where each client stands (Client Watch), and which of last month's reports aren't sent yet, for your clients or for everyone.",
           youCan: [
             "Switch between My clients (clients whose Strategist on the Master Sheet names you, alone or shared like Daniel/Tom) and Everyone",
             "Open a client waiting on us, or their last Basecamp message",
+            "In Client Watch, open a client to see what we owe, open asks, our commitments not yet done, the latest report seen, flags and a suggested next action",
+            "Have Claude read one client's Basecamp threads again with Read now",
             "Open a report that isn't sent yet",
             "In Everyone, see each strategist's numbers side by side",
           ],
@@ -50,7 +52,11 @@ export const GUIDE: Guide = {
             "The reports shown are for last month, the month reports are written for. It moves on at the start of each month.",
             "Report tracking began November 25, 2026. An October report finished before then shows Not started until it's marked on Monthly reports.",
             "Strategists in the Everyone table are named as in column I of the Master Sheet.",
-            "Home only shows things; nothing is changed or sent from it.",
+            "Client Watch is Claude reading each client's Basecamp threads from the last 90 days (180 when a client has been quiet). It's read again on weekday mornings for clients with new posts. Each read is dated; check the thread before acting on it.",
+            "Client Watch is for the team only. The next action is a suggestion for the strategist, never something sent to the client.",
+            "Client Watch only sees Basecamp. A reply by email or phone won't show, so a client can look like they're waiting when they aren't.",
+            "Each read is a paid Claude call. Read now costs one read; the weekday refresh only reads clients with new posts.",
+            "Nothing is sent from Home. Read now only reads Basecamp and saves Claude's notes.",
           ],
         },
         {

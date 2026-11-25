@@ -33,6 +33,7 @@ describe("role gate", () => {
       "/api/team/invite",
       "/api/coal-mines/canaries",
       "/api/poobah-client-watch",
+      "/api/client-watch/12/read",
       "/api/website-audits",
     ]) {
       expect(decideRoleGate(path, "strategist"), path).toBe("block");
