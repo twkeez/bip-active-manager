@@ -17,8 +17,8 @@ import {
 } from "lucide-react";
 
 // THE SIDEBAR. Six sections, in this order, each holding the tools that belong
-// to it today. Later redesign phases replace the tools inside a section (for
-// example Home becomes one page in phase 5); the sections themselves stay.
+// to it today. Later redesign phases replace the tools inside a section; the
+// sections themselves stay.
 //
 // The team guide (lib/guide/content.ts) has one section per entry here and one
 // entry per link, in the same order; lib/guide/content.test.ts fails when they
@@ -52,6 +52,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Home",
     icon: House,
     items: [
+      { label: "Home", href: "/home", icon: House },
       { label: "Response Report", href: "/response-report", icon: MessageSquare },
       { label: "Poobah Client Watch", href: "/client-watch", icon: Crown, adminOnly: true },
     ],

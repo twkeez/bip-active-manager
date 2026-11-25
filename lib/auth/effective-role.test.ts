@@ -3,7 +3,7 @@ import { landingPathForRole, resolveEffectiveRole } from "./effective-role";
 
 describe("landingPathForRole", () => {
   it("lands admins on the Response Report in the full app", () => {
-    expect(landingPathForRole("admin", "full")).toBe("/response-report");
+    expect(landingPathForRole("admin", "full")).toBe("/home");
   });
 
   it("lands strategists on the client homescreen", () => {
