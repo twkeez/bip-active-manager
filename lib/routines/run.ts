@@ -33,7 +33,7 @@ export const RUNNERS: Record<string, { label: string; run: Runner }> = {
 async function runParkedDailyBrief(): Promise<RoutineResult> {
   return {
     status: "attention",
-    headline: "Daily Brief is parked, so nothing was built. Turn this routine off on the Routines page.",
+    headline: "Daily Brief is parked, so nothing was built. Turn this routine off in Coal Mines.",
     findings: [],
   };
 }
