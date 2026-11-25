@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { isMonthKey, monthLabel } from "@/lib/reporting/monthly";
 
 type Send = {
   id: number;
@@ -103,11 +104,23 @@ export default function PortalControls({
         url?: string | null;
         path?: string;
         sent_to?: string[];
+        report_month?: string;
+        report_recorded?: boolean;
+        report_error?: string | null;
       };
       if (!res.ok || !body.ok)
         throw new Error(body.error ?? `Failed (HTTP ${res.status}).`);
-      if (action === "send_email")
-        setNotice(`Sent to ${(body.sent_to ?? []).join(", ")}.`);
+      if (action === "send_email") {
+        const sentTo = `Sent to ${(body.sent_to ?? []).join(", ")}.`;
+        const month = isMonthKey(body.report_month) ? monthLabel(body.report_month) : null;
+        setNotice(
+          body.report_recorded && month
+            ? `${sentTo} ${month}'s report is marked sent on Monthly reports.`
+            : sentTo,
+        );
+        // The email went out; a failed mark is shown as a problem to fix.
+        if (!body.report_recorded && body.report_error) setError(body.report_error);
+      }
       if (action === "set_recipients") setRecipientsDraft(null);
       if (action === "create_link" && body.path) {
         setNewLink({ url: body.url ?? null, path: body.path });

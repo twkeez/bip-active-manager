@@ -1,6 +1,8 @@
 import { createHmac } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendGmailAs } from "@/lib/email/gmail-send";
+import { snapshotReportMonth } from "@/lib/reporting/monthly";
+import { recordReportSent, type RecordSentResult } from "@/lib/reporting/record-sent";
 import type { ClientSnapshot, SnapshotMetric } from "./load";
 import { hashToken, latestPublication, portalBaseUrl } from "./portal";
 
@@ -155,13 +157,14 @@ export function buildSnapshotEmail(snapshot: ClientSnapshot, url: string, monthL
 /**
  * Send the latest published snapshot to the client's recipients from the
  * sender's Gmail. Refuses when there is nothing to send or no one to send it
- * to; logs the outcome either way.
+ * to; logs the outcome either way. Once sent, marks the snapshot's report month
+ * as sent on Monthly reports, and says so if that couldn't be saved.
  */
 export async function sendSnapshotEmail(
   admin: SupabaseClient,
   clientId: number,
   sender: { userId: string; email: string },
-): Promise<{ recipients: string[]; url: string }> {
+): Promise<{ recipients: string[]; url: string; report: RecordSentResult }> {
   const recipients = await getRecipients(admin, clientId);
   if (!recipients.length) throw new Error("Add at least one recipient first.");
   const publication = await latestPublication(admin, clientId);
@@ -187,6 +190,11 @@ export async function sendSnapshotEmail(
     throw new Error(`Not sent: ${message}`);
   }
   const { error: logError } = await log("sent", null);
-  if (logError) throw new Error(`The email was sent, but logging it failed: ${logError.message}`);
-  return { recipients, url };
+  // The email is out, so record the month before anything else can fail.
+  const report = await recordReportSent(admin, clientId, snapshotReportMonth(publication.published_at), "snapshot", sender.userId);
+  if (logError) {
+    const recorded = report.recorded ? "" : ` ${report.error}`;
+    throw new Error(`The email was sent, but logging it failed: ${logError.message}.${recorded}`);
+  }
+  return { recipients, url, report };
 }

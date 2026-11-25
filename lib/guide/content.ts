@@ -329,6 +329,7 @@ export const GUIDE: Guide = {
           notes: [
             "Strategists see only their own clients, and need Reporting opened for them on the Team page.",
             "Report numbers come from each source's latest finished sync, so they may not line up exactly with the calendar month.",
+            "Sending a Client Snapshot email marks that client's report sent by Snapshot, for the month most of the snapshot covers. Downloading a PDF or Word file doesn't, because a download doesn't mean the client has it.",
           ],
         },
         {

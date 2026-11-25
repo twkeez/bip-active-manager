@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  snapshotReportMonth,
   countStates,
   defaultReportMonth,
   isMissingMonthlyTable,
@@ -74,5 +75,18 @@ describe("isMissingMonthlyTable", () => {
   it("doesn't mistake other failures for it", () => {
     expect(isMissingMonthlyTable({ message: "monthly_reports: canceling statement due to statement timeout" })).toBe(false);
     expect(isMissingMonthlyTable(null)).toBe(false);
+  });
+});
+
+describe("snapshotReportMonth", () => {
+  it("counts a snapshot toward the month most of its days fall in", () => {
+    expect(snapshotReportMonth("2026-12-03T15:00:00Z")).toBe("2026-11");
+    expect(snapshotReportMonth("2026-11-28T15:00:00Z")).toBe("2026-11");
+    expect(snapshotReportMonth("2026-11-16T00:00:00Z")).toBe("2026-11");
+    expect(snapshotReportMonth("2026-11-15T23:00:00Z")).toBe("2026-10");
+  });
+
+  it("crosses the year", () => {
+    expect(snapshotReportMonth(new Date("2027-01-05T12:00:00Z"))).toBe("2026-12");
   });
 });

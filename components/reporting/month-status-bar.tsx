@@ -154,7 +154,7 @@ export default function MonthStatusBar({
       )}
       <p className="text-xs text-bip-muted">
         Numbers come from each source&apos;s latest finished sync, so they may not line up exactly with {label}. The Sync
-        tab shows when each was read.
+        tab shows when each was read. Sending the Client Snapshot email marks the report sent on its own.
       </p>
     </div>
   );

@@ -64,7 +64,12 @@ export async function POST(request: Request, context: Context) {
     }
     if (body.action === "send_email") {
       const sent = await sendSnapshotEmail(admin, clientId, { userId, email });
-      return { sent_to: sent.recipients };
+      return {
+        sent_to: sent.recipients,
+        report_month: sent.report.month,
+        report_recorded: sent.report.recorded,
+        report_error: sent.report.recorded ? null : sent.report.error,
+      };
     }
     if (body.action === "revoke_link") {
       await revokeLink(admin, clientId, Number(body.linkId));
