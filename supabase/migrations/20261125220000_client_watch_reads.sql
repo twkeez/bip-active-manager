@@ -11,10 +11,10 @@
 -- shows up instead of hiding behind an older one.
 --
 -- Internal only, never shown to clients. Admins can read it; nobody writes it
--- from the browser: the scheduled refresh and the Re-read button write with
+-- from the browser: the scheduled refresh and the Read now button write with
 -- the server's own key, after checking the person is an admin.
 --
--- Safe to run more than once. Until it is run, the Client Watch page says the
+-- Safe to run more than once. Until it is run, Client Watch on Home says the
 -- table is missing and the refresh does nothing.
 
 CREATE TABLE IF NOT EXISTS public.client_watch_reads (
