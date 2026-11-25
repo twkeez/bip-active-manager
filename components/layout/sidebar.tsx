@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ChevronDown, CircleHelp, Eye, EyeOff, User } from "lucide-react";
 import type { UserRole } from "@/lib/auth/profile";
-import { isNavItemVisibleForRole, type AppMode } from "@/lib/auth/app-mode";
+import { isNavItemVisibleForAccess, type AppMode } from "@/lib/auth/app-mode";
+import type { SectionGrant } from "@/lib/auth/sections";
 import { useViewAs } from "@/components/layout/use-view-as";
 import {
   activeHref,
@@ -17,8 +18,9 @@ import {
 } from "@/lib/nav/sections";
 
 // The sidebar renders lib/nav/sections.ts: six sections, each with its tools.
-// What a person sees is filtered by role and deployment; what they can reach
-// is decided separately in proxy.ts.
+// What a person sees is filtered by role, the sections granted to them and the
+// deployment; what they can reach is decided separately in proxy.ts, from the
+// same lists (lib/auth/sections.test.ts checks the two agree).
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
@@ -113,16 +115,18 @@ export default function Sidebar({
   actualRole,
   userName,
   appMode,
+  grants,
 }: {
   role: UserRole;
   actualRole: UserRole;
   userName: string;
   appMode: AppMode;
+  grants: SectionGrant[];
 }) {
   const pathname = usePathname();
   const isAdmin = role === "admin";
   const previewing = actualRole === "admin" && role !== "admin";
-  const canSee = (href: string) => isNavItemVisibleForRole(href, appMode, isAdmin);
+  const canSee = (href: string) => isNavItemVisibleForAccess(href, appMode, isAdmin, grants);
 
   const sections = NAV_SECTIONS.map((section) => ({
     section,

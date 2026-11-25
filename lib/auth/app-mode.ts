@@ -19,6 +19,8 @@
  * namespace the tool fetches to TEAM_API_NAMESPACES.
  */
 
+import { grantsReach, type SectionGrant } from "@/lib/auth/sections";
+
 export type AppMode = "full" | "team";
 
 export function getAppMode(): AppMode {
@@ -192,4 +194,20 @@ export function isNavItemVisibleForRole(
   isAdmin: boolean,
 ): boolean {
   return isNavItemVisible(href, isAdmin ? mode : "team");
+}
+
+/**
+ * The same, for a strategist with sections granted on the Team page
+ * (lib/auth/sections.ts). A grant adds that section's pages to their sidebar on
+ * the full deployment; the team deployment serves only the Clients section, so
+ * there it adds nothing.
+ */
+export function isNavItemVisibleForAccess(
+  href: string,
+  mode: AppMode,
+  isAdmin: boolean,
+  grants: readonly SectionGrant[],
+): boolean {
+  if (isNavItemVisibleForRole(href, mode, isAdmin)) return true;
+  return !isAdmin && mode === "full" && grantsReach(href, grants);
 }

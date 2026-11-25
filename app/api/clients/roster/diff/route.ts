@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminRole } from "@/lib/auth/guard";
 import { diffRoster, buildRosterDiffExportCsv } from "@/lib/clients/roster-diff";
 import {
   parseRosterCsv,
@@ -13,13 +13,11 @@ type DiffBody = {
 };
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Adding and removing roster clients is admin work: the Master Sheet is the
+  // source of clients, and these routes write the whole clients table.
+  const auth = await requireAdminRole();
+  if ("response" in auth) return auth.response;
+  const { supabase } = auth;
 
   let body: DiffBody;
   try {
