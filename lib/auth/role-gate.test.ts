@@ -3,7 +3,7 @@ import { decideRoleGate, nonAdminMayReach } from "@/lib/auth/role-gate";
 
 describe("role gate", () => {
   it("lets admins reach everything", () => {
-    for (const path of ["/response-report", "/coal-mines", "/api/coal-mines/canaries", "/team", "/api/team/role"]) {
+    for (const path of ["/home", "/response-report", "/coal-mines", "/api/coal-mines/canaries", "/team", "/api/team/role"]) {
       expect(decideRoleGate(path, "admin"), path).toBe("allow");
     }
   });
@@ -24,6 +24,7 @@ describe("role gate", () => {
 
   it("blocks strategists from admin pages and admin APIs", () => {
     for (const path of [
+      "/home",
       "/response-report",
       "/coal-mines",
       "/team",

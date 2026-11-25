@@ -25,5 +25,5 @@ export function resolveEffectiveRole(
  * report does not exist), lands on the client homescreen.
  */
 export function landingPathForRole(role: UserRole, mode: AppMode = getAppMode()): string {
-  return role === "admin" && mode === "full" ? "/response-report" : "/dashboard/clients";
+  return role === "admin" && mode === "full" ? "/home" : "/dashboard/clients";
 }
