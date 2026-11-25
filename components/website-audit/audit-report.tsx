@@ -12,7 +12,7 @@ import {
   type MetricComparison,
 } from "@/lib/website-audit/compare";
 import { SIDE_SERVICES, standing } from "@/lib/website-audit/competitors";
-import { backedByLine, checkedStrengths, clientPositioningLine, countWord, examplePrompt, farEnoughApart, highlightsNotReady } from "@/lib/website-audit/highlights";
+import { backedByLine, checkedStrengths, clientPositioningLine, countWord, examplePrompt, highlightsNotReady } from "@/lib/website-audit/highlights";
 import { doctorKeys } from "@/lib/website-audit/doctors";
 import { crawlLimits, jobOf, notChecked, shortTitle, technicalFindings, type FindingDetail } from "@/lib/website-audit/findings";
 import { PLATFORM_LABEL } from "@/lib/website-audit/platforms";
@@ -787,7 +787,7 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
   // The client's good-news copy: what's working, in plain words. No website findings, no fix lists.
   if (mode === "highlights") {
     const hitsOf = (runs: NonNullable<typeof v>["runs"]) => runs.filter((run) => run.cited || run.mentioned).length;
-    // Both kinds are shown whenever either included the practice, so the two boxes add up to the cover's "N of M".
+    // Both kinds are shown whenever either included the practice.
     // The example under each is a question that really ran.
     const exampleOf = (kind: "local" | "service") => {
       const text = v ? examplePrompt(v.prompts, v.runs, kind) : null;
@@ -808,7 +808,6 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
       (url) => (crawled.get(url) ?? crawled.get(url.replace(/\/$/, "")) ?? crawled.get(`${url}/`))?.text ?? null,
       a?.google.reviews ?? [],
     );
-    const showChange = farEnoughApart(audit.created_at, previous?.created_at);
 
     // Only the comparisons that are in the practice's favour.
     const st = comp && vets && !vets.error && vets.listings.length ? standing(comp.you, vets.listings) : null;
@@ -853,18 +852,14 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
     // Score parts about how the site is built: not this copy's subject.
     const BEHIND_THE_SCENES = new Set(["technical", "structuredData", "domainRank"]);
 
+    // No score and no "AI recommends you" percentage on this copy (Tom, 2026-11-25):
+    // across 15 clients the percentage ran from 0% to 98% and tracked the size
+    // of the town more than the work, so there is no fair "good" line to give.
     const tiles = [
-      {
-        label: "AI recommends you",
-        value: ai && ai.hits > 0 ? formatMetric(byKey.get("aiShare")?.value ?? null, "percent") : null,
-        sub: ai ? `of the time (${ai.hits} of ${ai.answered} AI answers about vets and services near you)` : "",
-        m: byKey.get("aiShare"),
-      },
       {
         label: "Google rating",
         value: a?.google.rating != null ? formatMetric(a.google.rating, "rating") : null,
         sub: a?.google.reviewCount != null ? `from ${a.google.reviewCount.toLocaleString("en-US")} reviews` : "",
-        m: byKey.get("rating"),
       },
     ].filter((tile) => tile.value != null);
 
@@ -899,11 +894,6 @@ export default function AuditReport({ audit, previous, audience }: { audit: Webs
                     {tile.value}
                   </p>
                   <p className="text-xs text-white/80">{tile.sub}</p>
-                  {showChange && tile.m?.change === "better" && tile.m.last != null && (
-                    <p className="mt-1 text-[12px] text-white/80">
-                      Up from {formatMetric(tile.m.last, tile.m.format)} on {lastDate}
-                    </p>
-                  )}
                 </div>
               ))}
             </div>
