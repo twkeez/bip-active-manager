@@ -100,6 +100,13 @@ export function monthStartDate(month: MonthKey): string {
   return `${month}-01`;
 }
 
+/** "2026-10" → "October": the month alone, as client emails name it. */
+export function monthName(month: MonthKey): string {
+  const match = MONTH_PATTERN.exec(month);
+  if (!match) return month;
+  return MONTH_NAMES[Number(match[2]) - 1];
+}
+
 /** "2026-10" → "October 2026". */
 export function monthLabel(month: MonthKey): string {
   const match = MONTH_PATTERN.exec(month);

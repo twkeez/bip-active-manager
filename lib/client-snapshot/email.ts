@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendGmailAs } from "@/lib/email/gmail-send";
-import { snapshotReportMonth } from "@/lib/reporting/monthly";
+import { monthName, snapshotReportMonth } from "@/lib/reporting/monthly";
 import { recordReportSent, type RecordSentResult } from "@/lib/reporting/record-sent";
 import type { ClientSnapshot, SnapshotMetric } from "./load";
 import { hashToken, latestPublication, portalBaseUrl } from "./portal";
@@ -170,8 +170,10 @@ export async function sendSnapshotEmail(
   const publication = await latestPublication(admin, clientId);
   if (!publication) throw new Error("Publish the snapshot first: the email links to the published version.");
   const { linkId, url } = await emailLinkUrl(admin, clientId, sender.email);
-  const monthLabel = new Date(publication.published_at).toLocaleDateString("en-US", { month: "long", timeZone: "America/Chicago" });
-  const email = buildSnapshotEmail(publication.snapshot, url, monthLabel);
+  // The email names the month the snapshot mostly covers, the same month its
+  // report is marked sent for: published Dec 3, it is November's snapshot.
+  const reportMonth = snapshotReportMonth(publication.published_at);
+  const email = buildSnapshotEmail(publication.snapshot, url, monthName(reportMonth));
   const log = (status: "sent" | "failed", error: string | null) =>
     admin.from("client_snapshot_sends").insert({
       client_id: clientId,
@@ -191,7 +193,7 @@ export async function sendSnapshotEmail(
   }
   const { error: logError } = await log("sent", null);
   // The email is out, so record the month before anything else can fail.
-  const report = await recordReportSent(admin, clientId, snapshotReportMonth(publication.published_at), "snapshot", sender.userId);
+  const report = await recordReportSent(admin, clientId, reportMonth, "snapshot", sender.userId);
   if (logError) {
     const recorded = report.recorded ? "" : ` ${report.error}`;
     throw new Error(`The email was sent, but logging it failed: ${logError.message}.${recorded}`);

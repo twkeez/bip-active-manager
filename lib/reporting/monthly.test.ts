@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  monthName,
   snapshotReportMonth,
   countStates,
   defaultReportMonth,
@@ -88,5 +89,12 @@ describe("snapshotReportMonth", () => {
 
   it("crosses the year", () => {
     expect(snapshotReportMonth(new Date("2027-01-05T12:00:00Z"))).toBe("2026-12");
+  });
+});
+
+describe("monthName", () => {
+  it("names the month alone", () => {
+    expect(monthName("2026-11")).toBe("November");
+    expect(monthName("2027-01")).toBe("January");
   });
 });
