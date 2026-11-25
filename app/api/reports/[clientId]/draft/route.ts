@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { rejectUnlessClientVisible } from "@/lib/reporting/client-access";
 
 type Params = Promise<{ clientId: string }>;
 
@@ -12,6 +13,9 @@ export async function GET(_req: Request, context: { params: Params }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const denied = await rejectUnlessClientVisible(supabase, id);
+  if (denied) return denied;
 
   const { data, error } = await supabase
     .from("report_drafts")
@@ -32,6 +36,9 @@ export async function PUT(req: Request, context: { params: Params }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const denied = await rejectUnlessClientVisible(supabase, id);
+  if (denied) return denied;
 
   let body: Record<string, unknown>;
   try {

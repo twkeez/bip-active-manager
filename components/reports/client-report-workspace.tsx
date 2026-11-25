@@ -39,6 +39,8 @@ type Props = {
   /** Why a channel can't be synced (e.g. Search Console not connected), shown under it. */
   syncNotes?: Partial<Record<keyof SyncTimestamps, string | null>>;
   backHref?: string | null;
+  /** What the back link says, e.g. "Back to cockpit". */
+  backLabel?: string;
 };
 
 function timeAgo(iso: string | null): string {
@@ -70,6 +72,7 @@ export default function ClientReportWorkspace({
   syncTimestamps,
   syncNotes = {},
   backHref,
+  backLabel = "Back to cockpit",
 }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("sync");
@@ -322,7 +325,7 @@ export default function ClientReportWorkspace({
               href={backHref}
               className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 transition-colors"
             >
-              <ArrowLeft size={12} /> Back to cockpit
+              <ArrowLeft size={12} /> {backLabel}
             </Link>
           </div>
         )}

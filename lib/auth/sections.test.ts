@@ -32,9 +32,8 @@ describe("section grants", () => {
     }
   });
 
-  it("can only be given for Playbook until Reporting and Onboarding are rebuilt", () => {
-    expect(GRANTABLE_SECTIONS).toEqual(["playbook"]);
-    expect(grantsReach("/client-snapshot", ["reporting"])).toBe(false);
+  it("can be given for Reporting and Playbook, and for Onboarding once it's rebuilt", () => {
+    expect(GRANTABLE_SECTIONS).toEqual(["reporting", "playbook"]);
     expect(grantsReach("/onboarding", ["onboarding"])).toBe(false);
   });
 
@@ -86,6 +85,26 @@ describe("a strategist with Playbook", () => {
       "/services/partnership",
     ]);
     expect(sidebarFor(["playbook"], "team")).toEqual(["/dashboard/clients"]);
+  });
+});
+
+describe("a strategist with Reporting", () => {
+  it("reaches the monthly list and Doc to PDF, but not Client Snapshot or the BigQuery tools", () => {
+    for (const path of ["/reporting", "/reporting?month=2026-10", "/reports/doc-to-pdf"]) {
+      expect(decideRoleGate(path.split("?")[0]!, "strategist", ["reporting"]), path).toBe("allow");
+    }
+    for (const path of ["/client-snapshot", "/client-snapshot/12", "/api/client-snapshot/12"]) {
+      expect(decideRoleGate(path, "strategist", ["reporting"]), path).toBe("block");
+    }
+  });
+
+  it("is blocked from the monthly list without the grant", () => {
+    expect(decideRoleGate("/reporting", "strategist", [])).toBe("block");
+  });
+
+  it("sees Monthly reports and Doc to PDF in the sidebar on the full build", () => {
+    expect(sidebarFor(["reporting"], "full")).toEqual(["/dashboard/clients", "/reporting", "/reports/doc-to-pdf"]);
+    expect(sidebarFor(["reporting"], "team")).toEqual(["/dashboard/clients"]);
   });
 });
 

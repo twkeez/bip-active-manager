@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminRole } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncReportingToBigQuery } from "@/lib/reporting/bigquery-sync";
 
@@ -8,13 +8,9 @@ type SyncRequestBody = {
 };
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Runs BigQuery jobs with the service key, so admins only.
+  const auth = await requireAdminRole();
+  if ("response" in auth) return auth.response;
 
   let body: SyncRequestBody = {};
   try {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { rejectUnlessClientVisible } from "@/lib/reporting/client-access";
 import type { ClientRow } from "@/lib/types/client";
 import { seoKeywordAllowance, defaultSeoKeywords } from "@/lib/playbook/client-tiers";
 
@@ -55,6 +56,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Valid clientId is required" }, { status: 400 });
   }
 
+  const denied = await rejectUnlessClientVisible(supabase, clientId);
+  if (denied) return denied;
+
   const { data, error } = await supabase
     .from("client_keyword_targets")
     .select("*")
@@ -86,6 +90,9 @@ export async function PUT(request: Request) {
   if (!clientId) {
     return NextResponse.json({ error: "Valid clientId is required" }, { status: 400 });
   }
+
+  const denied = await rejectUnlessClientVisible(supabase, clientId);
+  if (denied) return denied;
 
   if (Array.isArray(body.deleteIds) && body.deleteIds.length > 0) {
     const deleteIds = body.deleteIds.filter((id) => Number.isInteger(id) && id > 0);
@@ -192,6 +199,9 @@ export async function POST(request: Request) {
   if (!clientId) {
     return NextResponse.json({ error: "Valid clientId is required" }, { status: 400 });
   }
+
+  const denied = await rejectUnlessClientVisible(supabase, clientId);
+  if (denied) return denied;
 
   const { data: client, error: clientError } = await supabase
     .from("clients")

@@ -318,6 +318,20 @@ export const GUIDE: Guide = {
       intro: "What clients see about their results.",
       items: [
         {
+          href: "/reporting",
+          label: "Monthly reports",
+          purpose:
+            "Every client with a Package on the Master Sheet, and where its report stands for the month: Not started, Draft, Reviewed or Sent.",
+          youCan: [
+            "Pick a month and filter by state or strategist",
+            "Open a client's report, then start its draft, mark it reviewed, or mark it sent and say how it went out",
+          ],
+          notes: [
+            "Strategists see only their own clients, and need Reporting opened for them on the Team page.",
+            "Report numbers come from each source's latest finished sync, so they may not line up exactly with the calendar month.",
+          ],
+        },
+        {
           href: "/client-snapshot",
           label: "Client Snapshot",
           adminOnly: true,
