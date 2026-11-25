@@ -18,11 +18,9 @@ const API_DIR = join(process.cwd(), "app", "api");
 /** Routes that are reachable without a session, and what protects them instead. */
 const PUBLIC_ROUTES: Record<string, string> = {
   "basecamp/oauth/callback/route.ts": "OAuth callback: checked against the state cookie set when sign-in began.",
-  "illuminare/basecamp/oauth/callback/route.ts": "OAuth callback: checked against the state cookie set when sign-in began.",
   "mcp/route.ts": "Claude connector: every call needs an access token from this app's OAuth (admins only).",
   "oauth/register/route.ts": "OAuth client registration: public by the MCP spec; grants nothing until an admin signs in.",
   "oauth/token/route.ts": "OAuth token exchange: needs a one-time code issued to a signed-in admin, with PKCE.",
-  "tasks/from-email/route.ts": "Forwarded-email task inbox: needs the shared ingest secret, then the person's inbox token.",
 };
 
 /** Shared checks a route can call. Each rejects a caller who fails it. */

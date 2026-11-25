@@ -15,19 +15,6 @@ describe("team mode route gate", () => {
   it("serves the tools the team was given", () => {
     for (const path of [
       "/reports",
-      "/reports/doc-to-pdf",
-      "/reputation",
-      "/social-planner",
-      "/site-audit",
-      "/sitemaps",
-      "/local-rank",
-      "/ads-health",
-      "/ads-audit",
-      "/ads-diagnostic",
-      "/ads-planner",
-      "/conversion-integrity",
-      "/ppc-defense",
-      "/global-ads-optimization",
       "/reports-print/248",
       "/onboarding-report-print/248",
       "/services",
@@ -98,10 +85,8 @@ describe("team mode route gate", () => {
     for (const path of [
       "/api/clients/syncable",
       "/api/reporting/keywords",
-      "/api/reports/doc-import",
-      "/api/social/posts",
+      "/api/social/ideas",
       "/api/ads/sync",
-      "/api/reputation/248",
       "/api/seo/ops/queue",
       "/api/tasks",
       "/api/basecamp/sync",
@@ -158,7 +143,7 @@ describe("nav visibility", () => {
   it("hides a link without blocking the route behind it", () => {
     // The client overview's Modules row links straight out to these, so the
     // team must still be able to follow them even with no sidebar entry.
-    for (const href of ["/reports", "/social-planner", "/reputation", "/ads-diagnostic"]) {
+    for (const href of ["/reports"]) {
       expect(isNavItemVisible(href, "team")).toBe(false);
       expect(isAllowedInTeamMode(href)).toBe(true);
     }

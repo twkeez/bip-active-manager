@@ -1,10 +1,8 @@
 "use client";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Link2, Loader2, LogOut, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { HEADER_MODULE_LINKS } from "@/lib/navigation/modules";
 type AppHeaderActionsProps = {
   showConnectBasecamp?: boolean;
   showSyncBasecamp?: boolean;
@@ -82,22 +80,5 @@ export default function AppHeaderActions({
         </button>
       ) : null}
     </>
-  );
-}
-export function ModuleHeaderLinks() {
-  return (
-    <div className="hidden items-center gap-2 xl:flex">
-      
-      {HEADER_MODULE_LINKS.map((module) => (
-        <Link
-          key={module.id}
-          href={module.href}
-          className="rounded-lg border border-bip-border px-2.5 py-1.5 text-xs font-medium text-bip-text transition hover:bg-bip-page"
-        >
-          
-          {module.label}
-        </Link>
-      ))}
-    </div>
   );
 }

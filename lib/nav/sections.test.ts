@@ -44,10 +44,9 @@ describe("sidebar sections", () => {
 
 describe("activeHref", () => {
   it("lights the most specific link", () => {
-    expect(activeHref("/services/partnership")).toBe("/services/partnership");
+    expect(activeHref("/services/partnership")).toBe("/services");
     expect(activeHref("/services")).toBe("/services");
     expect(activeHref("/dashboard/clients/abc?tab=ads")).toBe("/dashboard/clients");
-    expect(activeHref("/reports/doc-to-pdf")).toBe("/reports/doc-to-pdf");
   });
 
   it("lights nothing for a page with no link", () => {

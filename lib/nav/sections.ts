@@ -1,40 +1,18 @@
 import {
-  Activity,
   BarChart3,
   Bird,
   BookOpen,
   Building2,
   CalendarClock,
-  CheckSquare,
   ClipboardCheck,
-  ClipboardList,
-  Coins,
   Crown,
-  FileDown,
-  FileText,
-  Gauge,
-  Globe,
   GraduationCap,
-  Handshake,
   House,
   Layers,
-  LifeBuoy,
   Link2,
-  Map,
-  MapPin,
-  MapPinned,
   MessageSquare,
-  MessageSquareQuote,
-  Phone,
-  Radar,
-  ScanSearch,
   Settings,
-  Shield,
   ShieldCheck,
-  Sparkles,
-  Sunrise,
-  TrendingUp,
-  Wand2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,8 +25,9 @@ import {
 // disagree. Access is not decided here: proxy.ts decides what a person can
 // reach, and `adminOnly` and lib/auth/app-mode.ts only decide what they see.
 //
-// Cut tools (Client Briefings, Illuminare, Ads Planner, Social Planner, Wins,
-// Sales Lab) have no link. Their pages still answer until they are deleted.
+// Parked and cut tools were removed from the app. The tool inventory and
+// restore guide (Claude Doc "BIP Control: tool inventory and restore guide")
+// lists each one and how to bring it back from commit d1c45bc.
 
 export type NavItem = {
   label: string;
@@ -74,11 +53,7 @@ export const NAV_SECTIONS: NavSection[] = [
     icon: House,
     items: [
       { label: "Response Report", href: "/response-report", icon: MessageSquare },
-      { label: "Daily Brief", href: "/daily-brief", icon: Sunrise, adminOnly: true },
       { label: "Poobah Client Watch", href: "/client-watch", icon: Crown, adminOnly: true },
-      { label: "My Tasks", href: "/my-tasks", icon: CheckSquare, adminOnly: true },
-      { label: "Assistant", href: "/assistant", icon: Sparkles, adminOnly: true },
-      { label: "AI Planner", href: "/ai-planner", icon: Wand2, adminOnly: true },
     ],
   },
   {
@@ -86,26 +61,6 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Clients",
     icon: Building2,
     items: [{ label: "Clients", href: "/dashboard/clients", icon: Building2 }],
-    more: {
-      label: "Across all clients",
-      items: [
-        { label: "Ads Health", href: "/ads-health", icon: Gauge },
-        { label: "Ads Diagnostic", href: "/ads-diagnostic", icon: Activity, adminOnly: true },
-        { label: "Conversion Integrity", href: "/conversion-integrity", icon: Radar },
-        { label: "Global Ads Optimization", href: "/global-ads-optimization", icon: Globe },
-        { label: "PPC Defense", href: "/ppc-defense", icon: Shield },
-        { label: "Ad Cost Trends", href: "/ad-spend-trends", icon: TrendingUp, adminOnly: true },
-        { label: "Ad Calls", href: "/ads-calls", icon: Phone, adminOnly: true },
-        { label: "SEO Audits", href: "/seo-audits", icon: ClipboardList },
-        { label: "Site Audit", href: "/site-audit", icon: Globe },
-        { label: "Website & AI Audit", href: "/website-audits", icon: ScanSearch, adminOnly: true },
-        { label: "Sitemaps", href: "/sitemaps", icon: Map },
-        { label: "Local Grid Rank", href: "/local-rank", icon: MapPinned },
-        { label: "Maps Rank Tracker", href: "/maps-rank", icon: MapPin, adminOnly: true },
-        { label: "Reputation", href: "/reputation", icon: MessageSquareQuote },
-        { label: "llms.txt", href: "/llms-txt", icon: FileText, adminOnly: true },
-      ],
-    },
   },
   {
     key: "reporting",
@@ -114,7 +69,6 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Monthly reports", href: "/reporting", icon: ClipboardCheck },
       { label: "Client Snapshot", href: "/client-snapshot", icon: BarChart3, adminOnly: true },
-      { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
     ],
   },
   {
@@ -132,8 +86,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Service Playbook", href: "/playbook", icon: BookOpen },
       { label: "Client Expectations", href: "/client-expectations", icon: CalendarClock, adminOnly: true },
       { label: "Onboarding Basecamp Message", href: "/onboarding-settings", icon: MessageSquare, adminOnly: true },
-      { label: "Best Practices", href: "/best-practices", icon: Sparkles, adminOnly: true },
-      { label: "Partnership & Boundaries", href: "/services/partnership", icon: Handshake },
     ],
   },
   {
@@ -143,11 +95,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Team", href: "/team", icon: ShieldCheck, adminOnly: true },
       { label: "Coal Mines", href: "/coal-mines", icon: Bird, adminOnly: true },
-      { label: "AI Spend", href: "/ai-spend", icon: Coins, adminOnly: true },
       { label: "Project Wiring", href: "/basecamp-projects", icon: Link2, adminOnly: true },
-      { label: "Ads Accounts", href: "/ads-accounts", icon: Link2, adminOnly: true },
-      { label: "Bulk Auto-Discover", href: "/bulk-discover", icon: ScanSearch, adminOnly: true },
-      { label: "Help Desk Report", href: "/help-desk-report", icon: LifeBuoy, adminOnly: true },
     ],
   },
 ];

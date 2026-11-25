@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import SourcePicker from "@/components/clients/source-picker";
+import GoogleAccountConnect from "@/components/clients/google-account-connect";
+import RankingsSetup from "@/components/clients/rankings-setup";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, ExternalLink, Loader, Pencil, RefreshCw, ScanSearch, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -79,6 +81,11 @@ type ConnectionFields = {
   basecamp_project_id: string;
   harvest_project_id: string;
   harvest_client_id: string;
+  gtm_container_id: string;
+  shared_drive_url: string;
+  city: string;
+  contact_name: string;
+  contact_email: string;
 };
 
 function EditableField({
@@ -288,6 +295,11 @@ export function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitial
     basecamp_project_id: client.basecamp_project_id ?? "",
     harvest_project_id: client.harvest_project_id ?? "",
     harvest_client_id: client.harvest_client_id ?? "",
+    gtm_container_id: client.gtm_container_id ?? "",
+    shared_drive_url: client.shared_drive_url ?? "",
+    city: client.city ?? "",
+    contact_name: client.contact_name ?? "",
+    contact_email: client.contact_email ?? "",
   });
 
   const [draft, setDraft] = useState<ConnectionFields>(blankDraft);
@@ -423,6 +435,8 @@ export function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitial
         </div>
       )}
 
+      {!editing && <GoogleAccountConnect />}
+
       {!editing && <SourcePicker clientId={client.id} onSaved={onSaved} />}
 
       <div className="bip-card p-5">
@@ -439,6 +453,7 @@ export function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitial
           {ef("GA4 Property ID", "ga4_property_id", true)}
           {ef("GA4 ID", "ga4_id", true)}
           {ef("Google Place ID (GBP)", "google_place_id", true)}
+          {ef("GTM container ID", "gtm_container_id", true)}
         </dl>
         {editing && (
           <MapsUrlLookup
@@ -449,6 +464,12 @@ export function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitial
       </div>
 
       {!editing && <DataSyncPanel clientId={client.id} client={client as unknown as Record<string, unknown>} />}
+
+      {!editing && (
+        <div className="bip-card p-5">
+          <RankingsSetup key={client.id} client={client} />
+        </div>
+      )}
 
       <div className="bip-card p-5">
         <p className="bip-section-label mb-3">Ads</p>
@@ -475,6 +496,16 @@ export function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitial
           )}
           {ef("Harvest Project ID", "harvest_project_id", true)}
           {ef("Harvest Client ID", "harvest_client_id", true)}
+          {ef("Shared Drive URL", "shared_drive_url")}
+        </dl>
+      </div>
+
+      <div className="bip-card p-5">
+        <p className="bip-section-label mb-3">Practice</p>
+        <dl>
+          {ef("City", "city")}
+          {ef("Contact name", "contact_name")}
+          {ef("Contact email", "contact_email")}
         </dl>
       </div>
 

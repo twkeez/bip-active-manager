@@ -42,23 +42,6 @@ export const TEAM_PAGES = [
   "/dashboard/clients",
 
   "/reports",
-  "/reputation",
-  "/social-planner",
-  "/site-audit",
-  "/sitemaps",
-  "/local-rank",
-
-  // Ads tools — the whole Ads section, plus the audit linked from a client
-  // workspace. Several are still admin-only by role, which applies on top.
-  "/ads-audit",
-  "/ads-calls",
-  "/ads-diagnostic",
-  "/ads-health",
-  "/ads-planner",
-  "/ad-spend-trends",
-  "/conversion-integrity",
-  "/ppc-defense",
-  "/global-ads-optimization",
 
   // What we promised a client at kickoff. Read-only rendering; the editor that
   // authors these blocks stays on the admin build.
@@ -88,13 +71,11 @@ export const TEAM_EXACT_PAGES = ["/services"];
 
 /**
  * First path segment under /api that the team app serves. Anything not listed
- * 404s, which is what keeps the experimental features (Gmail triage, Illuminare,
- * Sales Lab, the strategy mapper) genuinely absent rather than just unlinked.
+ * 404s, which keeps admin-only features genuinely absent rather than just
+ * unlinked.
  */
 export const TEAM_API_NAMESPACES = [
   "ads",
-  "ads-diagnostic",
-  "ads-planner",
   "ai",
   "basecamp",
   // The Word export of a client's expectations document. Read-only rendering,
@@ -111,21 +92,17 @@ export const TEAM_API_NAMESPACES = [
   "google",
   // The team guide's Word download.
   "guide",
-  "harvest",
   "local-rank",
   "onboarding",
   "onboarding-kickoff",
   "organic-rank",
   "places",
   "playbook",
-  "projects",
   "reporting",
   "reports",
-  "reputation",
   "seo",
   "service-expectations",
   "services",
-  "site-audit",
   "sitemaps",
   "social",
   "tasks",
@@ -135,9 +112,8 @@ export const TEAM_API_NAMESPACES = [
  * Nav items the team app shows in its sidebar.
  *
  * Deliberately narrower than TEAM_PAGES, and separate from it on purpose: the
- * team still has to *reach* the tools a client workspace links out to — the
- * Modules row on the client overview goes to /reports, /social-planner,
- * /reputation and /ads-diagnostic — they just shouldn't clutter the sidebar
+ * team still has to *reach* the pages a client workspace links out to — the
+ * client overview goes to /reports — they just shouldn't clutter the sidebar
  * while the client view is where the work happens. Route access stays governed
  * by TEAM_PAGES; this only decides what gets a link.
  *

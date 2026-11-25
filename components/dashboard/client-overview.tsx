@@ -15,14 +15,10 @@ import {
   ArrowUpRight,
   BarChart3,
   Loader2,
-  MessageSquareQuote,
   RefreshCw,
   ScanSearch,
-  Share2,
-  Target,
   X,
 } from "lucide-react";
-import { isSyncableAdsCustomerId } from "@/lib/ads/customer-id";
 import { getClientLifecycleStatus } from "@/lib/clients/client-status";
 import {
   CLIENT_LIST_PATH,
@@ -34,7 +30,6 @@ import { clientPlanSummary } from "@/lib/services/client-plan";
 import ClientPlanEditor from "@/components/dashboard/client-plan-editor";
 import ClientExpectationsNote from "@/components/dashboard/client-expectations-note";
 import type { ClientWorkspaceInitialData } from "@/lib/dashboard/client-workspace-types";
-import type { ClientOverviewExtras } from "@/lib/dashboard/load-client-overview-extras";
 import type { ClientBackground } from "@/lib/dashboard/load-client-background";
 
 // Literal tokens from the Client Overview handoff — same system as the Clients
@@ -672,12 +667,10 @@ function ConnectionsDrawer({
 
 export default function ClientOverview({
   data,
-  extras,
   background,
   isAdminUser = false,
 }: {
   data: ClientWorkspaceInitialData;
-  extras: ClientOverviewExtras;
   background: ClientBackground | null;
   isAdminUser?: boolean;
 }) {
@@ -787,29 +780,9 @@ export default function ClientOverview({
   ];
 
   // Module stats
-  const socialSub =
-    extras.postsThisMonth > 0
-      ? `${extras.postsThisMonth} post${extras.postsThisMonth === 1 ? "" : "s"} planned this month`
-      : "Build calendar";
   const reportingSub = lastReportAt
     ? `Last report ${shortDate(lastReportAt)} · ${agoLabel(lastReportAt)}`
     : "No report run yet";
-  const adsCampaigns = data.adsSnapshot?.campaigns?.length ?? 0;
-  const adsSpend = (data.adsSnapshot?.totals?.cost_micros ?? 0) / 1_000_000;
-  const adsSub = data.adsSnapshot
-    ? `${adsCampaigns} campaign${adsCampaigns === 1 ? "" : "s"} · $${Math.round(adsSpend).toLocaleString()} last window`
-    : "Run an audit";
-  const adsRunnable = isAdminUser && isSyncableAdsCustomerId(client.ads_customer_id);
-
-  // Reputation reads Google reviews by Place ID, so the tile only makes sense
-  // for clients that have one — 215 of 248 today.
-  const reputationRunnable = Boolean(norm(client.google_place_id));
-  const reputationSub = extras.reputationReportAt
-    ? `Analysed ${shortDate(extras.reputationReportAt)} · ${agoLabel(extras.reputationReportAt)}`
-    : extras.reviewRating != null
-      ? `${extras.reviewRating} ★ · ${extras.reviewVotes ?? 0} reviews · no analysis yet`
-      : "Read the reviews";
-
   // Research runs for any client, so the tile is unconditional. Dated from the
   // discovery run because that is the piece people recognise as "the research".
   const researchSub = background?.discoveryAt
@@ -1197,14 +1170,6 @@ export default function ClientOverview({
             sub={researchSub}
           />
           <ModuleTile
-            href={`/social-planner?client=${client.id}`}
-            icon={Share2}
-            tint={T.blueTint}
-            stroke={T.blue}
-            title="Social Media"
-            sub={socialSub}
-          />
-          <ModuleTile
             href={`/reports/${client.id}`}
             icon={BarChart3}
             tint={T.greenTint}
@@ -1212,26 +1177,6 @@ export default function ClientOverview({
             title="Reporting"
             sub={reportingSub}
           />
-          {adsRunnable && (
-            <ModuleTile
-              href={`/ads-audit/${client.id}?tab=diagnosis`}
-              icon={Target}
-              tint={T.amberTint}
-              stroke={T.amber}
-              title="Google Ads audit"
-              sub={adsSub}
-            />
-          )}
-          {reputationRunnable && (
-            <ModuleTile
-              href={`/reputation?clientId=${client.id}`}
-              icon={MessageSquareQuote}
-              tint={T.greenTint}
-              stroke={T.green}
-              title="Reputation"
-              sub={reputationSub}
-            />
-          )}
         </div>
       </div>
 
