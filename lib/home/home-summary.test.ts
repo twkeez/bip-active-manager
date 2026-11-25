@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ResponseReportRow } from "@/lib/basecamp/load-response-report";
 import type { MonthlyListRow } from "@/lib/reporting/monthly-list";
+import type { WatchRead } from "@/lib/client-watch/shape";
 import {
   buildHomeSummary,
+  buildHomeWatch,
   chooseHomeView,
   NO_STRATEGIST,
   predatesReportTracking,
@@ -135,5 +137,68 @@ describe("predatesReportTracking", () => {
     expect(predatesReportTracking("2026-10")).toBe(true);
     expect(predatesReportTracking("2026-11")).toBe(false);
     expect(predatesReportTracking("2026-12")).toBe(false);
+  });
+});
+
+describe("buildHomeWatch", () => {
+  const read = (clientId: number, overrides: Partial<WatchRead> = {}): WatchRead => ({
+    id: clientId,
+    client_id: clientId,
+    read_at: "2026-11-25T13:20:00Z",
+    prompt_version: "v",
+    model: "m",
+    window_days: 90,
+    threads_read: 1,
+    posts_read: 1,
+    posts_without_words: 0,
+    newest_post_at: "2026-11-24T00:00:00Z",
+    cost_usd: null,
+    owe_response: "no",
+    what_we_owe: null,
+    where_things_stand: null,
+    open_asks: null,
+    our_commitments: null,
+    other_threads: null,
+    latest_report_month: null,
+    next_action: null,
+    flags: [],
+    unhappy: false,
+    most_recent_thread: null,
+    read_notes: null,
+    error: null,
+    ...overrides,
+  });
+  const reportRows = [
+    report("Alpha", 1, waitingOnUs(2)),
+    report("Alpha second project", 1),
+    report("Bravo", 2),
+    report("Charlie", 3, { marketing_strategist: "Stored Name" }),
+    report("No client", null, waitingOnUs(12)),
+  ];
+  const latest = new Map([
+    [1, read(1, { owe_response: "yes" })],
+    [2, read(2, { unhappy: true })],
+  ]);
+  const sheetStrategist = new Map<number, string | null>([
+    [1, "Alex"],
+    [2, "Daniel/Tom"],
+  ]);
+  const now = new Date("2026-11-25T15:00:00Z");
+
+  it("shows every roster client once, named by the sheet's strategist", () => {
+    const watch = buildHomeWatch({ reportRows, latest, attempts: latest, view: "all", mine: new Set(), sheetStrategist, now });
+    expect(watch.groups.map((g) => [g.strategist, g.rows.map((r) => r.clientId)])).toEqual([
+      ["Alex", [1]],
+      ["Daniel/Tom", [2]],
+      ["Stored Name", [3]],
+    ]);
+    expect(watch.totals).toEqual({ clients: 3, oweResponse: 1, unhappy: 1, reportBehind: 0, notRead: 1 });
+    expect(watch.byStrategist.get("Daniel/Tom")?.unhappy).toBe(1);
+  });
+
+  it("keeps to the viewer's clients in My clients", () => {
+    const watch = buildHomeWatch({ reportRows, latest, attempts: latest, view: "mine", mine: new Set([2]), sheetStrategist, now });
+    expect(watch.groups.flatMap((g) => g.rows.map((r) => r.clientId))).toEqual([2]);
+    expect(watch.totals.clients).toBe(1);
   });
 });

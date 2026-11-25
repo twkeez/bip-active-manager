@@ -34,6 +34,11 @@ export const MODELS = {
   threadClassifier: "claude-haiku-5-5",
   /** Coal Mines: drafting a new canary (lib/coal-mines/draft-canary.ts). */
   canaryDraft: "claude-opus-5",
+  /**
+   * Client Watch: reading each client's Basecamp threads for what we owe,
+   * where things stand and what to do next (lib/client-watch/read.ts).
+   */
+  clientWatch: "claude-sonnet-5-5",
   /** Help Desk Report categories (lib/help-desk/categorize.ts). */
   helpDeskCategories: "claude-haiku-5-5",
 

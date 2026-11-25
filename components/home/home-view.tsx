@@ -3,8 +3,15 @@ import { House } from "lucide-react";
 import { ToolPage } from "@/components/ui/tool-page";
 import { StatTile, StatTiles } from "@/components/ui/stat-tile";
 import { ReportStateBadge } from "@/components/reporting/report-state-badge";
+import ClientWatchSection from "@/components/home/client-watch-section";
 import { waitTone, WAIT_THRESHOLDS } from "@/lib/basecamp/response-report";
-import { predatesReportTracking, REPORT_TRACKING_BEGAN, type HomeSummary, type HomeView as View } from "@/lib/home/home-summary";
+import {
+  predatesReportTracking,
+  REPORT_TRACKING_BEGAN,
+  type HomeSummary,
+  type HomeView as View,
+  type HomeWatch,
+} from "@/lib/home/home-summary";
 import { monthLabel, STATE_LABELS, type MonthKey } from "@/lib/reporting/monthly";
 
 const TZ = "America/New_York";
@@ -27,6 +34,15 @@ const trackingBeganLabel = new Date(`${REPORT_TRACKING_BEGAN}T12:00:00Z`).toLoca
 
 const TONE_BADGE = { overdue: "bip-badge-danger", aging: "bip-badge-warning", fresh: "bip-badge-info" } as const;
 
+function WatchCount({ value, known }: { value: number | undefined; known: boolean }) {
+  const count = value ?? 0;
+  return (
+    <td className={`px-4 py-2 text-right ${known && count > 0 ? "font-semibold text-red-400" : "text-bip-text"}`}>
+      {known ? count : "?"}
+    </td>
+  );
+}
+
 function Problem({ children }: { children: React.ReactNode }) {
   return (
     <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-bip-text">
@@ -48,6 +64,9 @@ export default function HomeView({
   month,
   reportLoad,
   monthlyLoad,
+  watch,
+  watchLoad,
+  now,
 }: {
   summary: HomeSummary;
   view: View;
@@ -58,6 +77,9 @@ export default function HomeView({
   month: MonthKey;
   reportLoad: { rosterApplied: boolean; lastSyncedAt: string | null; loadError: string | null };
   monthlyLoad: { error: string | null; warnings: string[]; statesTracked: boolean };
+  watch: HomeWatch;
+  watchLoad: { lastReadAt: string | null; setupError: string | null; loadError: string | null };
+  now: Date;
 }) {
   const label = monthLabel(month);
   const mine = view === "mine";
@@ -69,8 +91,8 @@ export default function HomeView({
       maxWidth="6xl"
       description={
         mine
-          ? `Your ${plural(mineCount, "client")} on the Master Sheet: who's waiting on us in Basecamp, and where ${label} reports stand.`
-          : `Every client with a Package on the Master Sheet: who's waiting on us in Basecamp, and where ${label} reports stand.`
+          ? `Your ${plural(mineCount, "client")} on the Master Sheet: who's waiting on us in Basecamp, where each account stands, and ${label} reports.`
+          : `Every client with a Package on the Master Sheet: who's waiting on us in Basecamp, where each account stands, and ${label} reports.`
       }
       actions={
         <nav aria-label="Whose clients" className="flex gap-1">
@@ -193,6 +215,18 @@ export default function HomeView({
         )}
       </section>
 
+      {/* Client Watch */}
+      {reportLoad.loadError ? null : (
+        <ClientWatchSection
+          groups={watch.groups}
+          totals={watch.totals}
+          lastReadAt={watchLoad.lastReadAt}
+          setupError={watchLoad.setupError}
+          loadError={watchLoad.loadError}
+          now={now}
+        />
+      )}
+
       {/* Reports */}
       <section className="space-y-3">
         <h2 className="bip-section-label">{label} reports</h2>
@@ -283,6 +317,8 @@ export default function HomeView({
                   <th className="px-4 py-2 text-right font-medium">{WAIT_THRESHOLDS.overdueDays}+ days</th>
                   <th className="px-4 py-2 text-right font-medium">Haven&apos;t heard</th>
                   <th className="px-4 py-2 text-right font-medium">{label} not sent</th>
+                  <th className="px-4 py-2 text-right font-medium">We owe a reply</th>
+                  <th className="px-4 py-2 text-right font-medium">Unhappy</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-bip-border tabular-nums">
@@ -296,13 +332,15 @@ export default function HomeView({
                     </td>
                     <td className="px-4 py-2 text-right text-bip-text">{line.notHeard}</td>
                     <td className="px-4 py-2 text-right text-bip-text">{monthlyLoad.statesTracked ? line.reportsNotSent : "?"}</td>
+                    <WatchCount value={watch.byStrategist.get(line.strategist)?.oweResponse} known={!watchLoad.setupError && !watchLoad.loadError} />
+                    <WatchCount value={watch.byStrategist.get(line.strategist)?.unhappy} known={!watchLoad.setupError && !watchLoad.loadError} />
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <p className="text-xs text-bip-muted">
-            Strategists as named in column I of the Master Sheet. A shared client (&ldquo;Daniel/Tom&rdquo;) is counted once, under that name; in My clients it counts for each person named.
+            Strategists as named in column I of the Master Sheet. A shared client (&ldquo;Daniel/Tom&rdquo;) is counted once, under that name; in My clients it counts for each person named. The last two columns come from Client Watch reads, so clients not read yet aren&apos;t counted.
           </p>
         </section>
       )}

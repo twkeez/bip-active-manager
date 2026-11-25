@@ -2,6 +2,16 @@ import type { ResponseReportRow } from "@/lib/basecamp/load-response-report";
 import { isDismissed, shapeAndSort, waitTone, type ShapedReportRow } from "@/lib/basecamp/response-report";
 import type { MonthlyListRow } from "@/lib/reporting/monthly-list";
 import { countStates, type StateCounts } from "@/lib/reporting/monthly";
+import {
+  NO_STRATEGIST_ON_SHEET,
+  countByStrategist,
+  groupByStrategist,
+  toWatchRow,
+  type StrategistCounts,
+  type WatchGroup,
+  type WatchRead,
+  type WatchRow,
+} from "@/lib/client-watch/shape";
 
 /**
  * What the Home page shows, worked out from data other pages already load:
@@ -48,7 +58,7 @@ export type HomeSummary = {
   byStrategist: StrategistLine[];
 };
 
-export const NO_STRATEGIST = "No strategist on the sheet";
+export const NO_STRATEGIST = NO_STRATEGIST_ON_SHEET;
 
 export function buildHomeSummary({
   reportRows,
@@ -160,4 +170,60 @@ export function strategistNames(value: string | null | undefined, names: readonl
 export function chooseHomeView(requested: unknown, assignedCount: number): HomeView {
   if (requested === "mine" || requested === "all") return requested;
   return assignedCount > 0 ? "mine" : "all";
+}
+
+// --- Client Watch on Home ----------------------------------------------------
+
+export type HomeWatch = {
+  groups: WatchGroup[];
+  totals: { clients: number; oweResponse: number; unhappy: number; reportBehind: number; notRead: number };
+  /** Everyone view: Client Watch counts per strategist, keyed like the By strategist lines. */
+  byStrategist: Map<string, StrategistCounts>;
+};
+
+/**
+ * Client Watch rows for this view: one per roster client (two practices on
+ * one Basecamp project are still two clients), named by the sheet's
+ * Strategist, beside the client's newest read.
+ */
+export function buildHomeWatch({
+  reportRows,
+  latest,
+  attempts,
+  view,
+  mine,
+  sheetStrategist,
+  now,
+}: {
+  reportRows: ResponseReportRow[];
+  latest: ReadonlyMap<number, WatchRead>;
+  attempts: ReadonlyMap<number, WatchRead>;
+  view: HomeView;
+  mine: ReadonlySet<number>;
+  sheetStrategist: ReadonlyMap<number, string | null>;
+  now: Date;
+}): HomeWatch {
+  const seen = new Set<number>();
+  const rows: WatchRow[] = [];
+  for (const row of reportRows) {
+    const id = row.client_id;
+    if (id == null || seen.has(id)) continue;
+    if (view === "mine" && !mine.has(id)) continue;
+    seen.add(id);
+    const strategist = sheetStrategist.has(id) ? (sheetStrategist.get(id) ?? null) : row.marketing_strategist;
+    rows.push(toWatchRow(row, strategist, latest.get(id) ?? null, attempts.get(id) ?? null));
+  }
+  const counts = countByStrategist(rows, now);
+  const total = counts[counts.length - 1];
+  return {
+    groups: groupByStrategist(rows),
+    totals: {
+      clients: total?.clients ?? 0,
+      oweResponse: total?.oweResponse ?? 0,
+      unhappy: total?.unhappy ?? 0,
+      reportBehind: total?.reportBehind ?? 0,
+      notRead: total?.notRead ?? 0,
+    },
+    byStrategist: new Map(counts.slice(0, -1).map((line) => [line.strategist, line])),
+  };
 }
