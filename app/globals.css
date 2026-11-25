@@ -54,6 +54,7 @@
   --warning: #c77d10;  --warning-bg: #fbf0db;  --warning-fg: #855208;
   --danger:  #c8323b;  --danger-bg:  #fbe7e8;  --danger-fg:  #8f2129;
   --info:    #3350a2;  --info-bg:    #eef1f9;  --info-fg:    #23376e;
+  --violet-fg: #c4b5fd;
 
   /* --- Brand gradient (hero/marketing only) --- */
   --brand-gradient: linear-gradient(90deg, #3350a2 0%, #603894 38%, #962583 70%, #ce2084 100%);
@@ -148,6 +149,7 @@
   --warning-bg: #fbf0db;  --warning-fg: #855208;
   --danger-bg:  #fbe7e8;  --danger-fg:  #8f2129;
   --info-bg:    #eef1f9;  --info-fg:    #23376e;
+  --violet-fg:  #5b21b6;
 
   --shadow-sm: 0 1px 2px rgba(20, 31, 62, 0.06);
   --shadow-md: 0 4px 14px rgba(20, 31, 62, 0.08);
@@ -404,4 +406,123 @@
 
   .report-print-target section { break-before: auto; }
   .report-print-target h2     { break-after: avoid; }
+}
+
+/* ============================================================
+   STATUS TEXT ON THE LIGHT THEME
+   Many pages were written for the old dark theme and colour their status text
+   with Tailwind's pale shades (text-red-200, text-amber-300, text-emerald-400).
+   On the light theme those read as pink on pink. Here every pale red, amber,
+   green, blue and violet text class takes the matching status colour instead,
+   so warnings and counts stay readable without touching each page.
+   Unlayered, so it wins over Tailwind's utilities. lib/ui/status-text.test.ts
+   fails when a page uses a pale text class this list doesn't cover.
+   ============================================================ */
+[data-theme="light"] .text-red-50,
+[data-theme="light"] .text-red-100,
+[data-theme="light"] .text-red-200,
+[data-theme="light"] .text-red-300,
+[data-theme="light"] .text-red-400,
+[data-theme="light"] .text-rose-50,
+[data-theme="light"] .text-rose-100,
+[data-theme="light"] .text-rose-200,
+[data-theme="light"] .text-rose-300,
+[data-theme="light"] .text-rose-400,
+[data-theme="light"] .text-pink-50,
+[data-theme="light"] .text-pink-100,
+[data-theme="light"] .text-pink-200,
+[data-theme="light"] .text-pink-300,
+[data-theme="light"] .text-pink-400,
+[data-theme="light"] .text-fuchsia-50,
+[data-theme="light"] .text-fuchsia-100,
+[data-theme="light"] .text-fuchsia-200,
+[data-theme="light"] .text-fuchsia-300,
+[data-theme="light"] .text-fuchsia-400,
+[data-theme="light"] .hover\:text-red-300:hover,
+[data-theme="light"] .hover\:text-rose-400:hover,
+[data-theme="light"] .hover\:text-red-400:hover,
+[data-theme="light"] .text-red-200\/80 {
+  color: var(--danger-fg);
+}
+[data-theme="light"] .text-amber-50,
+[data-theme="light"] .text-amber-100,
+[data-theme="light"] .text-amber-200,
+[data-theme="light"] .text-amber-300,
+[data-theme="light"] .text-amber-400,
+[data-theme="light"] .text-yellow-50,
+[data-theme="light"] .text-yellow-100,
+[data-theme="light"] .text-yellow-200,
+[data-theme="light"] .text-yellow-300,
+[data-theme="light"] .text-yellow-400,
+[data-theme="light"] .text-orange-50,
+[data-theme="light"] .text-orange-100,
+[data-theme="light"] .text-orange-200,
+[data-theme="light"] .text-orange-300,
+[data-theme="light"] .text-orange-400,
+[data-theme="light"] .hover\:text-orange-400:hover,
+[data-theme="light"] .text-orange-400\/70,
+[data-theme="light"] .text-amber-300\/90 {
+  color: var(--warning-fg);
+}
+[data-theme="light"] .text-emerald-50,
+[data-theme="light"] .text-emerald-100,
+[data-theme="light"] .text-emerald-200,
+[data-theme="light"] .text-emerald-300,
+[data-theme="light"] .text-emerald-400,
+[data-theme="light"] .text-green-50,
+[data-theme="light"] .text-green-100,
+[data-theme="light"] .text-green-200,
+[data-theme="light"] .text-green-300,
+[data-theme="light"] .text-green-400,
+[data-theme="light"] .text-teal-50,
+[data-theme="light"] .text-teal-100,
+[data-theme="light"] .text-teal-200,
+[data-theme="light"] .text-teal-300,
+[data-theme="light"] .text-teal-400,
+[data-theme="light"] .text-lime-50,
+[data-theme="light"] .text-lime-100,
+[data-theme="light"] .text-lime-200,
+[data-theme="light"] .text-lime-300,
+[data-theme="light"] .text-lime-400,
+[data-theme="light"] .hover\:text-emerald-300:hover,
+[data-theme="light"] .text-emerald-400\/70 {
+  color: var(--success-fg);
+}
+[data-theme="light"] .text-sky-50,
+[data-theme="light"] .text-sky-100,
+[data-theme="light"] .text-sky-200,
+[data-theme="light"] .text-sky-300,
+[data-theme="light"] .text-sky-400,
+[data-theme="light"] .text-blue-50,
+[data-theme="light"] .text-blue-100,
+[data-theme="light"] .text-blue-200,
+[data-theme="light"] .text-blue-300,
+[data-theme="light"] .text-blue-400,
+[data-theme="light"] .text-indigo-50,
+[data-theme="light"] .text-indigo-100,
+[data-theme="light"] .text-indigo-200,
+[data-theme="light"] .text-indigo-300,
+[data-theme="light"] .text-indigo-400,
+[data-theme="light"] .text-cyan-50,
+[data-theme="light"] .text-cyan-100,
+[data-theme="light"] .text-cyan-200,
+[data-theme="light"] .text-cyan-300,
+[data-theme="light"] .text-cyan-400,
+[data-theme="light"] .hover\:text-sky-200:hover,
+[data-theme="light"] .hover\:text-indigo-200:hover,
+[data-theme="light"] .text-blue-400\/70 {
+  color: var(--info-fg);
+}
+[data-theme="light"] .text-violet-50,
+[data-theme="light"] .text-violet-100,
+[data-theme="light"] .text-violet-200,
+[data-theme="light"] .text-violet-300,
+[data-theme="light"] .text-violet-400,
+[data-theme="light"] .text-purple-50,
+[data-theme="light"] .text-purple-100,
+[data-theme="light"] .text-purple-200,
+[data-theme="light"] .text-purple-300,
+[data-theme="light"] .text-purple-400,
+[data-theme="light"] .text-violet-300\/90 {
+  color: var(--violet-fg);
 }
