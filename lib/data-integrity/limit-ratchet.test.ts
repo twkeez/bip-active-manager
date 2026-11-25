@@ -25,7 +25,6 @@ const BASELINE: Record<string, number> = {
   "app/(app)/website-audits/page.tsx": 1,
   "app/api/client-seo-audits/route.ts": 1,
   "app/api/local-rank/runs/route.ts": 1,
-  "app/api/organic-rank/route.ts": 1,
   "app/api/projects/route.ts": 1,
   "app/api/reputation/[clientId]/route.ts": 1,
   "app/api/seo/ops/[clientId]/route.ts": 1,

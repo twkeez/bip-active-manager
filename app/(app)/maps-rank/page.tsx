@@ -18,7 +18,7 @@ const SEARCH_USD = 0.002;
 const CHANGE_CLASS = { better: "text-emerald-300", worse: "text-red-300", same: "text-bip-muted" } as const;
 const dateTime = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 
-/** Maps Rank Tracker: each tracked client's Google Maps rank against its goals, run every two weeks. */
+/** Maps Rank Tracker: each tracked client's Google Maps rank against its goals, run when someone presses Run now (the two-weekly schedule was stopped Nov 25, 2026). */
 export default async function MapsRankPage() {
   const supabase = await createClient();
   const {
@@ -42,7 +42,7 @@ export default async function MapsRankPage() {
       title="Maps Rank Tracker"
       icon={MapPin}
       maxWidth="6xl"
-      description={`Where a client ranks in Google Maps for the searches they care about, checked every two weeks from the same spots, with a branded report (PDF or Google Doc) showing movement against the baseline and the goal. Each search is read from one fixed town point and from a ${GRID_SIZE}×${GRID_SIZE} grid around the practice; the first ${DEPTH} results are read at each spot.`}
+      description={`Where a client ranks in Google Maps for the searches they care about, checked from the same spots each run (automatic runs are paused; Run now still works), with a branded report (PDF or Google Doc) showing movement against the baseline and the goal. Each search is read from one fixed town point and from a ${GRID_SIZE}×${GRID_SIZE} grid around the practice; the first ${DEPTH} results are read at each spot.`}
       actions={<NewTrackerForm clients={clients.filter((c) => c.google_place_id && !trackers.some((t) => t.client_id === c.id)).map((c) => ({ id: c.id, name: c.account_name }))} />}
     >
       {loadError && <p className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">The tracker&apos;s data couldn&apos;t be loaded: {loadError}</p>}

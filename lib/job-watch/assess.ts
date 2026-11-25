@@ -140,7 +140,10 @@ export function assessJobs(
           message: `${job.name} has not run since ${ago(now, latest.started_at)}. It should run ${job.schedule}.`,
         });
       }
-    } else if (watchingSince && now.getTime() - watchingSince.getTime() > limit) {
+    } else if (
+      watchingSince &&
+      now.getTime() - Math.max(watchingSince.getTime(), job.watchedFrom ? new Date(job.watchedFrom).getTime() : 0) > limit
+    ) {
       problems.push({
         key: `overdue:${job.key}:never`,
         jobKey: job.key,

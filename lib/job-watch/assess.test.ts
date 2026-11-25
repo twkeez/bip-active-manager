@@ -65,6 +65,19 @@ describe("assessJobs", () => {
     expect(problems.map((p) => p.key)).toEqual(["overdue:ads-sync:never"]);
   });
 
+  it("doesn't count a newly scheduled job as overdue before its first run is due", () => {
+    const monthly: WatchedJob = {
+      key: "organic-rank",
+      name: "Monthly organic rankings",
+      schedule: "on the 1st of each month",
+      overdueAfterHours: 50,
+      watchedFrom: hoursAgo(10),
+    };
+    expect(assessJobs([monthly], [], NOW, WATCHING)).toEqual([]);
+    const late = { ...monthly, watchedFrom: hoursAgo(60) };
+    expect(assessJobs([late], [], NOW, WATCHING).map((p) => p.key)).toEqual(["overdue:organic-rank:never"]);
+  });
+
   it("reports a repeating problem once per streak, and again after a clean run", () => {
     const first = run({ status: "partial", started_at: hoursAgo(40), summary: "216 items failed." });
     const second = run({ status: "partial", started_at: hoursAgo(16), summary: "214 items failed." });
