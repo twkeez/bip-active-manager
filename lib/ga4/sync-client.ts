@@ -16,6 +16,11 @@ export type SyncClientGa4Result = {
   failedReports: string[];
 };
 
+/** Google's answer when this identity can't read the property. */
+function isRefused(error: unknown): boolean {
+  return error instanceof Error && /\(403\)/.test(error.message);
+}
+
 /**
  * Run the GA4 reports as the service account, and if the property refuses it
  * (403), as the stored Google connection that holds analytics.readonly.
@@ -23,6 +28,12 @@ export type SyncClientGa4Result = {
  * Found 2026-09-28: 53 of 88 properties had never granted the service account
  * access, so they were refused every night and counted as "blocked", while
  * Tom's own connection can read every one of them.
+ *
+ * The Sync button passes the signed-in person's own token. Until Nov 2026 that
+ * token was the only one tried, so a strategist who had connected their own
+ * Google could not sync a property only the agency's access can read, though
+ * the nightly sync read it fine. Now a refusal there falls through to the
+ * agency's access, which is what the Connections tab's picker lists.
  */
 async function runGa4WithFallback(
   admin: SupabaseClient,
@@ -31,15 +42,22 @@ async function runGa4WithFallback(
   userAccessToken?: string,
 ) {
   const { startDate, endDate, prevStartDate, prevEndDate } = window;
-  if (userAccessToken) return runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate, userAccessToken);
+  const asAgency = async () => {
+    try {
+      return await runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate);
+    } catch (error) {
+      if (!isRefused(error)) throw error;
+      const stored = await getGoogleAccessTokenForScope(admin, "analytics.readonly").catch(() => null);
+      if (!stored) throw error;
+      return runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate, stored);
+    }
+  };
+  if (!userAccessToken) return asAgency();
   try {
-    return await runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate);
+    return await runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate, userAccessToken);
   } catch (error) {
-    const refused = error instanceof Error && /\(403\)/.test(error.message);
-    if (!refused) throw error;
-    const stored = await getGoogleAccessTokenForScope(admin, "analytics.readonly").catch(() => null);
-    if (!stored) throw error;
-    return runGa4Sync(propertyId, startDate, endDate, prevStartDate, prevEndDate, stored);
+    if (!isRefused(error)) throw error;
+    return asAgency();
   }
 }
 

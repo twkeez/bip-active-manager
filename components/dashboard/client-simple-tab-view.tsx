@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import SourcePicker from "@/components/clients/source-picker";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, ExternalLink, Loader, Pencil, RefreshCw, ScanSearch, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -421,6 +422,8 @@ export function ConnectionsTab({ data, onSaved }: { data: ClientWorkspaceInitial
           )}
         </div>
       )}
+
+      {!editing && <SourcePicker clientId={client.id} onSaved={onSaved} />}
 
       <div className="bip-card p-5">
         <p className="bip-section-label mb-3">Website</p>

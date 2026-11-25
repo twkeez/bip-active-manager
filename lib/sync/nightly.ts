@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { syncClientSearchConsole } from "@/lib/seo/sync-client";
 import { syncClientGa4 } from "@/lib/ga4/sync-client";
+import { clientGa4Property } from "@/lib/ga4/property-id";
 import { syncClientGbp } from "@/lib/gbp/sync-client";
 import { isReputationClient } from "@/lib/gbp/reputation-only";
 import {
@@ -47,13 +48,11 @@ const present = (value: string | null | undefined) => Boolean((value ?? "").trim
 
 /**
  * GA4 reports need the numeric property ID. Most clients have the measurement
- * ID ("G-1TVHPD8VRN") stored instead, which the API rejects outright — so it is
+ * ID ("G-1TVHPD8VRN") stored instead, which the API rejects outright, so it is
  * recognised here and reported as something to fix rather than retried nightly.
+ * "properties/123" is accepted as 123 (see lib/ga4/property-id.ts).
  */
-const numericGa4Property = (client: ClientRow) => {
-  const value = ((client.ga4_property_id ?? client.ga4_id) ?? "").trim();
-  return /^\d+$/.test(value) ? value : null;
-};
+const numericGa4Property = (client: ClientRow) => clientGa4Property(client);
 
 /**
  * Errors that mean "this account is not ours to read", not "the sync broke".

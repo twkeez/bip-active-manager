@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { syncClientGa4 } from "@/lib/ga4/sync-client";
+import { clientGa4Property, ga4PropertyProblem } from "@/lib/ga4/property-id";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getGoogleAccessTokenForUser } from "@/lib/google/token-manager";
@@ -32,9 +33,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: clientError?.message ?? "Client not found" }, { status: 404 });
   }
 
-  const propertyId = (clientRow.ga4_property_id ?? clientRow.ga4_id ?? "").trim();
+  const propertyId = clientGa4Property(clientRow);
   if (!propertyId) {
-    return NextResponse.json({ error: "Client has no GA4 property ID configured." }, { status: 400 });
+    return NextResponse.json({ error: ga4PropertyProblem(clientRow) }, { status: 400 });
   }
 
   try {
