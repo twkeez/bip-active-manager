@@ -4,7 +4,7 @@ import { blogPostTitle } from "@/lib/reporting/search-totals";
 import { geographyNote, reportGeography } from "@/lib/reporting/geography";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
 import { METRIC_LABELS, type ReportConfig } from "@/lib/reporting/report-config-types";
-import type { ReportPeriodMetric } from "@/lib/reporting/types";
+import type { ReportPeriodMetric, ReportRecommendationItem } from "@/lib/reporting/types";
 import { buildSocialByPlatform, type PlatformSocial } from "@/lib/reporting/social-metrics";
 import { channelColor } from "@/lib/reporting/channel-colors";
 
@@ -249,11 +249,16 @@ function platformTiles(p: PlatformSocial): Array<{ label: string; display: strin
 type Props = {
   report: ClientReportModel;
   config: ReportConfig;
+  /** draft.narrative must already be the month's approved summary, or null. */
   draft: ReportDraft | null;
+  /** The report month, carried to the PDF and Word downloads. */
+  month?: string;
+  /** The month's approved next steps. */
+  nextSteps?: ReportRecommendationItem[];
   printMode?: boolean;
 };
 
-export default function ReportPreview({ report, config, draft, printMode = false }: Props) {
+export default function ReportPreview({ report, config, draft, month, nextSteps = [], printMode = false }: Props) {
   function sectionVisible(key: string): boolean {
     const s = config.sections.find((sec) => sec.key === key);
     if (!s) return true; // new sections not yet in saved config default to visible
@@ -415,7 +420,7 @@ export default function ReportPreview({ report, config, draft, printMode = false
           {!printMode && (
             <div className="no-print mt-6 flex flex-col items-end gap-1.5">
               <a
-                href={`/reports-print/${report.client.id}?range=${report.reportingWindowLabel.includes("7") ? "last7" : "last30"}`}
+                href={`/reports-print/${report.client.id}?range=${report.reportingWindowLabel.includes("7") ? "last7" : "last30"}${month ? `&month=${month}` : ""}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-lg px-4 py-2 text-sm font-medium transition"
@@ -424,7 +429,7 @@ export default function ReportPreview({ report, config, draft, printMode = false
                 Download report (PDF)
               </a>
               <a
-                href={`/api/reports/${report.client.id}/word?range=${report.reportingWindowLabel.includes("7") ? "last7" : "last30"}`}
+                href={`/api/reports/${report.client.id}/word?range=${report.reportingWindowLabel.includes("7") ? "last7" : "last30"}${month ? `&month=${month}` : ""}`}
                 className="text-xs underline"
                 style={{ color: "rgba(255,255,255,0.7)" }}
               >
@@ -436,7 +441,7 @@ export default function ReportPreview({ report, config, draft, printMode = false
       </header>
 
       {/* ── From your strategist ── */}
-      {draft?.narrative && (
+      {(draft?.narrative || nextSteps.length > 0) && (
         <section style={{ breakInside: "avoid" }}>
           <div
             className="rounded-2xl overflow-hidden"
@@ -453,7 +458,22 @@ export default function ReportPreview({ report, config, draft, printMode = false
               >
                 From your strategist
               </h2>
-              <p className="text-sm leading-6 text-gray-700 whitespace-pre-line">{draft.narrative}</p>
+              {draft?.narrative && (
+                <p className="text-sm leading-6 text-gray-700 whitespace-pre-line">{draft.narrative}</p>
+              )}
+              {nextSteps.length > 0 && (
+                <div className={draft?.narrative ? "mt-4" : ""}>
+                  <h3 className="text-xs font-semibold text-gray-900 mb-2">Next steps</h3>
+                  <ul className="space-y-1.5">
+                    {nextSteps.map((step, index) => (
+                      <li key={index} className="flex gap-2 text-sm leading-6 text-gray-700">
+                        <span aria-hidden style={{ color: BI_BLUE }}>•</span>
+                        <span>{step.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         </section>

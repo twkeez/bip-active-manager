@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import ReportPreview from "@/components/reports/report-preview";
-import type { ClientReportModel } from "@/lib/reporting/types";
+import type { ClientReportModel, ReportRecommendationItem } from "@/lib/reporting/types";
 import type { ReportConfig } from "@/lib/reporting/report-config-types";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
 
@@ -9,10 +9,12 @@ export default function ReportPrintClient({
   report,
   config,
   draft,
+  nextSteps,
 }: {
   report: ClientReportModel;
   config: ReportConfig;
   draft: ReportDraft | null;
+  nextSteps: ReportRecommendationItem[];
 }) {
   useEffect(() => {
     // Give fonts/layout a beat to settle, then open the print dialog.
@@ -53,7 +55,7 @@ export default function ReportPrintClient({
           Print / Save as PDF
         </button>
       </div>
-      <ReportPreview report={report} config={config} draft={draft} printMode />
+      <ReportPreview report={report} config={config} draft={draft} nextSteps={nextSteps} printMode />
     </>
   );
 }

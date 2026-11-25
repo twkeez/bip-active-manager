@@ -325,10 +325,12 @@ export const GUIDE: Guide = {
           youCan: [
             "Pick a month and filter by state or strategist",
             "Open a client's report, then start its draft, mark it reviewed, or mark it sent and say how it went out",
+            "On the report's Summary tab, write the month's summary and next steps, or have AI draft them from the report's numbers, then edit and approve them",
           ],
           notes: [
             "Strategists see only their own clients, and need Reporting opened for them on the Team page.",
             "Report numbers come from each source's latest finished sync, so they may not line up exactly with the calendar month.",
+            "Nothing AI-written goes to a client by itself. A summary shows on the PDF and Word report only once a strategist approves it, changing it takes it off until it's approved again, and a report can't be marked Reviewed or Sent (or its Snapshot emailed) while a summary waits for approval.",
             "Sending a Client Snapshot email marks that client's report sent by Snapshot, for the month most of the snapshot covers. Downloading a PDF or Word file doesn't, because a download doesn't mean the client has it.",
           ],
         },

@@ -6,6 +6,8 @@ import { loadReportForClient } from "@/lib/reporting/load-report";
 import ReportPrintClient from "@/components/reports/report-print-client";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
 import { stampReportRun } from "@/lib/reporting/stamp-report-run";
+import { clientSummary, loadMonthSummary } from "@/lib/reporting/month-summary";
+import { parseReportMonth } from "@/lib/reporting/monthly";
 
 // Bare, chrome-free print view of the report (no sidebar/controls) so the browser
 // prints exactly the on-screen report. Lives outside the (app) route group.
@@ -14,10 +16,10 @@ export default async function ReportPrintPage({
   searchParams,
 }: {
   params: Promise<{ clientId: string }>;
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; month?: string }>;
 }) {
   const { clientId } = await params;
-  const { range } = await searchParams;
+  const { range, month: requestedMonth } = await searchParams;
   const id = Number(clientId);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
@@ -39,11 +41,24 @@ export default async function ReportPrintPage({
     .select("*")
     .eq("client_id", id)
     .maybeSingle();
-  const draft: ReportDraft | null = draftRow ?? null;
+  // Only the month's approved summary goes on the PDF. The old per-client
+  // intro (draft.narrative) is replaced by it, approved or not.
+  const month = parseReportMonth(requestedMonth);
+  const summary = await loadMonthSummary(supabase, id, month);
+  if (!summary.available && !summary.missing) throw new Error(summary.error);
+  const approved = clientSummary(summary.summary);
+  const draft: ReportDraft | null = draftRow ? { ...draftRow, narrative: approved?.summary ?? null } : null;
 
   // This view exists only to be printed/saved as the client's PDF, so reaching
   // it counts as producing a report.
   await stampReportRun(id);
 
-  return <ReportPrintClient report={loaded.report} config={loaded.config} draft={draft} />;
+  return (
+    <ReportPrintClient
+      report={loaded.report}
+      config={loaded.config}
+      draft={draft}
+      nextSteps={approved?.recommendations ?? []}
+    />
+  );
 }
