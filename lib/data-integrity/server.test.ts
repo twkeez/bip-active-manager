@@ -28,3 +28,18 @@ describe("guardedFetch + withIntegrityScope", () => {
     expect(outside.truncated).toEqual([]);
   });
 });
+
+describe("noteReadProblems", () => {
+  it("adds a loader's own problems to the export's scope, marked as failed reads", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { noteReadProblems, withIntegrityScope } = await import("./server");
+    const { truncated } = await withIntegrityScope(async () => {
+      noteReadProblems("Client report", ["Social reach could not be read: timeout"]);
+    });
+    expect(truncated).toEqual([
+      expect.objectContaining({ kind: "read_failed", table: "Client report", detail: "Social reach could not be read: timeout" }),
+    ]);
+    // Outside a scope it only logs.
+    expect(() => noteReadProblems("Client report", ["x"])).not.toThrow();
+  });
+});

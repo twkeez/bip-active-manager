@@ -65,6 +65,8 @@ function snapshotToSyncResult(snapshot: AdsSnapshot): AdsSyncResult {
     auctionInsights: snapshot.auction_insights ?? [],
     keywordQuality: snapshot.keyword_quality ?? [],
     calls: snapshot.calls ?? [],
+    // A stored snapshot keeps any missed part in its error_message, not here.
+    partErrors: [],
   };
 }
 

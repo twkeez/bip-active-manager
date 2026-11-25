@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import { withIntegrityScope } from "@/lib/data-integrity/server";
 import { loadBasecampActivity } from "@/lib/poobah/basecamp";
 import { PoobahError } from "@/lib/poobah/validate";
@@ -120,14 +121,24 @@ async function website(admin: SupabaseClient, clientId: number, omitted: string[
 }
 
 async function ads(admin: SupabaseClient, clientId: number, omitted: string[]): Promise<SnapshotSection | null> {
-  const { data, error } = await admin
-    .from("client_ads_snapshots")
-    .select("id,start_date,end_date,run_status,created_at,totals")
-    .eq("client_id", clientId)
-    .order("created_at", { ascending: false })
-    .limit(90);
-  if (error) throw new Error(`Google Ads: ${error.message}`);
-  const rows = (data ?? []) as { id: number; start_date: string; end_date: string; run_status: string; created_at: string; totals: AdsTotals | null }[];
+  // Every completed sync of the last 75 days: enough to hold this period and
+  // the one before it. This read the newest 90 syncs of any status, which manual
+  // re-syncs could fill before reaching the previous period.
+  const since = new Date(Date.now() - 75 * 86_400_000).toISOString();
+  type AdsRow = { id: number; start_date: string; end_date: string; run_status: string; created_at: string; totals: AdsTotals | null };
+  const rows = await fetchAllRows<AdsRow>(
+    (from, to) =>
+      admin
+        .from("client_ads_snapshots")
+        .select("id,start_date,end_date,run_status,created_at,totals")
+        .eq("client_id", clientId)
+        .eq("run_status", "completed")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to),
+    "Google Ads",
+  );
   const { current, previous } = pickKeywordPeriods(rows);
   if (!current?.totals) {
     if (rows.length) omitted.push("Google Ads: no completed sync for the latest period.");
@@ -199,22 +210,34 @@ async function social(admin: SupabaseClient, clientId: number, omitted: string[]
 }
 
 async function listing(admin: SupabaseClient, clientId: number, omitted: string[]): Promise<SnapshotSection | null> {
-  const { data, error } = await admin
-    .from("client_gbp_snapshots")
-    .select("created_at,rating,user_ratings_total")
-    .eq("client_id", clientId)
-    .eq("run_status", "completed")
+  type ListingRow = { created_at: string; rating: number | null; user_ratings_total: number | null };
+  const base = () =>
+    admin
+      .from("client_gbp_snapshots")
+      .select("created_at,rating,user_ratings_total")
+      .eq("client_id", clientId)
+      .eq("run_status", "completed");
+  // The newest rating, then the newest review count at least 28 days older:
+  // two exact reads. This took the newest 60 syncs and looked inside them, so
+  // frequent syncs pushed the earlier count out and the change went missing.
+  const { data: nowRows, error } = await base()
+    .not("rating", "is", null)
     .order("created_at", { ascending: false })
-    .limit(60);
+    .limit(1);
   if (error) throw new Error(`Google listing: ${error.message}`);
-  const rows = (data ?? []) as { created_at: string; rating: number | null; user_ratings_total: number | null }[];
-  const now = rows.find((r) => r.rating != null);
+  const now = (nowRows ?? [])[0] as ListingRow | undefined;
   if (!now?.rating) {
     omitted.push("Google listing: no rating synced.");
     return null;
   }
   const cutoff = new Date(Date.parse(now.created_at) - 28 * 86_400_000).toISOString();
-  const then = rows.find((r) => r.created_at <= cutoff && r.user_ratings_total != null);
+  const { data: thenRows, error: thenError } = await base()
+    .not("user_ratings_total", "is", null)
+    .lte("created_at", cutoff)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (thenError) throw new Error(`Google listing: ${thenError.message}`);
+  const then = (thenRows ?? [])[0] as ListingRow | undefined;
   const ageDays = (Date.now() - Date.parse(now.created_at)) / 86_400_000;
   return {
     key: "listing",

@@ -32,6 +32,24 @@ function recorderClient() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
+/**
+ * Add problems a loader found itself (a read that failed, or a list read only
+ * in part) to the current integrity scope, so the export refuses over them
+ * just as it does over a capped read. Outside a scope this only logs.
+ */
+export function noteReadProblems(source: string, problems: readonly string[]): void {
+  for (const detail of problems) {
+    console.error(`[data-integrity] ${source}: ${detail}`);
+    scopeStore.getStore()?.truncated.push({
+      kind: "read_failed",
+      table: source,
+      problemKey: `read_failed|${source}|${detail}`,
+      detail,
+      rows: 0,
+    });
+  }
+}
+
 /** Record (or re-open and count) a warning. Never throws: a warning must not break the page. */
 export async function recordTruncatedRead(read: TruncatedRead): Promise<void> {
   try {

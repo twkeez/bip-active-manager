@@ -2,8 +2,21 @@ import type { TruncatedRead } from "@/lib/data-integrity/row-cap";
 
 /** Why a client-facing export was refused, in plain words. */
 export function exportBlockedMessage(what: string, truncated: TruncatedRead[]): string {
-  const tables = [...new Set(truncated.map((read) => read.table))].join(", ");
-  return `Can't export this ${what}: some of the data behind it was cut short by the database (${tables}), so its numbers may be incomplete. This has been recorded on Data health and emailed to Tom.`;
+  const capped = truncated.filter((read) => (read.kind ?? "row_cap") === "row_cap");
+  const failed = truncated.filter((read) => read.kind === "read_failed");
+  const parts: string[] = [];
+  if (capped.length) {
+    const tables = [...new Set(capped.map((read) => read.table))].join(", ");
+    parts.push(
+      `some of the data behind it was cut short by the database (${tables}). This has been recorded on Data health and emailed to Tom`,
+    );
+  }
+  if (failed.length) {
+    parts.push(
+      `${failed.length === 1 ? "one part" : `${failed.length} parts`} of its data could not be read in full (listed below). Reload to try again; if it persists, the sync for that source needs a look`,
+    );
+  }
+  return `Can't export this ${what}: ${parts.join("; and ")}. Its numbers may be incomplete.`;
 }
 
 /**

@@ -87,4 +87,6 @@ export type ClientWorkspaceInitialData = {
   gbpSnapshot: GbpSnapshot | null;
   gbpReviews: GbpReviewRow[];
   hasDuplicateBasecampProjectId: boolean;
+  /** What could not be read, or was read only in part (see load-client-workspace-data.ts). */
+  readProblems: string[];
 };

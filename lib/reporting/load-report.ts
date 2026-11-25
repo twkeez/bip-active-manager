@@ -1,5 +1,6 @@
 import { pickKeywordPeriods, pickPreviousWindow, type GscSnapshotWindow, type KeywordPeriodRow } from "@/lib/reporting/keyword-periods";
 import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
+import { noteReadProblems } from "@/lib/data-integrity/server";
 import { sumSearchRows, type SearchTotals } from "@/lib/reporting/search-totals";
 import type { createClient } from "@/lib/supabase/server";
 import { loadClientWorkspaceData } from "@/lib/dashboard/load-client-workspace-data";
@@ -32,10 +33,24 @@ export type LoadedReport = {
   config: ReportConfig;
   managedKeywords: ManagedKeyword[];
   workspace: Workspace;
+  /** What could not be read in full; the exports refuse while any is listed. */
+  readProblems: string[];
 };
+
+/**
+ * Search Console syncs before Nov 2026 stored only the top 100 queries. A
+ * snapshot with exactly that many may be one of them, so a managed keyword
+ * missing from it is unknown, not 0.
+ */
+export const LEGACY_GSC_QUERY_CAP = 100;
 
 // Assembles the full report model + layout config for a client. Shared by the
 // report page and the Word export route so both render identical data.
+//
+// Every read here either succeeds or is named: a failed read, or a list read
+// only in part, is passed to noteReadProblems, so the page shows it and the
+// print and Word exports refuse (lib/data-integrity/server.ts). Until Nov 2026
+// most errors here were ignored and the section showed 0 or nothing.
 export async function loadReportForClient(
   supabase: ServerClient,
   userId: string,
@@ -45,26 +60,35 @@ export async function loadReportForClient(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _range: string | undefined,
 ): Promise<LoadedReport | null> {
-  const workspace = await loadClientWorkspaceData(supabase, clientId);
+  // Numbers come from the last sync that finished, never a running or failed one.
+  const workspace = await loadClientWorkspaceData(supabase, clientId, { completedOnly: true });
   if (!workspace) return null;
   const { client } = workspace;
+  const problems: string[] = [...workspace.readProblems];
+  const note = (label: string, error: { message: string } | null | undefined) => {
+    if (error) problems.push(`${label} could not be read: ${error.message}`);
+  };
 
-  const [{ data: clientConfigRaw }, { data: masterConfigRaw }] = await Promise.all([
-    supabase.from("client_report_configs").select("config").eq("client_id", clientId).maybeSingle(),
-    supabase.from("report_template_config").select("config").eq("key", "master").maybeSingle(),
-  ]);
+  const [{ data: clientConfigRaw, error: clientConfigError }, { data: masterConfigRaw, error: masterConfigError }] =
+    await Promise.all([
+      supabase.from("client_report_configs").select("config").eq("client_id", clientId).maybeSingle(),
+      supabase.from("report_template_config").select("config").eq("key", "master").maybeSingle(),
+    ]);
+  note("This client's report layout", clientConfigError);
+  note("The master report layout", masterConfigError);
   const config: ReportConfig = mergeReportConfig(
     (clientConfigRaw?.config as ReportConfig | null) ??
       (masterConfigRaw?.config as ReportConfig | null) ??
       DEFAULT_REPORT_CONFIG,
   );
 
-  const { data: keywordsRaw } = await supabase
+  const { data: keywordsRaw, error: keywordsError } = await supabase
     .from("client_keyword_targets")
     .select("*")
     .eq("client_id", clientId)
     .order("priority", { ascending: false })
     .order("created_at", { ascending: false });
+  note("Tracked keywords", keywordsError);
   const managedKeywordsRaw = (keywordsRaw ?? []) as ClientKeywordTarget[];
   const managedKeywords: ManagedKeyword[] = managedKeywordsRaw.map((row) => ({
     id: row.id,
@@ -80,7 +104,6 @@ export async function loadReportForClient(
     adsSnapshot,
     adsSignals,
     metaAdsSnapshot,
-    gscPageMetrics,
     gscSignals,
     socialDailySnapshots: socialDailyRows,
     socialSignals,
@@ -93,10 +116,11 @@ export async function loadReportForClient(
     threadEvents,
   } = workspace;
 
-  const { data: periodReachRaw } = await supabase
+  const { data: periodReachRaw, error: periodReachError } = await supabase
     .from("client_social_period_metrics")
     .select("platform, reach")
     .eq("client_id", clientId);
+  note("Social reach", periodReachError);
   const socialPeriodReach = (periodReachRaw ?? [])
     .filter((r) => typeof r.reach === "number")
     .map((r) => ({ platform: r.platform as string, reach: r.reach as number }));
@@ -104,14 +128,27 @@ export async function loadReportForClient(
   // Organic (blue-link) rank per keyword at the practice baseline (the report
   // shows one location; multi-location detail lives in the cockpit). Latest two
   // snapshots → current + movement.
-  const { data: organicSnaps } = await supabase
-    .from("client_organic_rank_snapshots")
-    .select("keyword, position, url, top_domain, location_label, created_at")
-    .eq("client_id", clientId)
-    .order("created_at", { ascending: false })
-    .limit(1000);
+  // Read in full: this stopped at 1000 rows across every location and scan,
+  // which dropped the previous scan (and its movement) for bigger clients.
+  type OrganicRow = { keyword: string; position: number | null; url: string | null; top_domain: string | null; location_label: string | null };
+  let organicSnaps: OrganicRow[] = [];
+  try {
+    organicSnaps = await fetchAllRows<OrganicRow>(
+      (from, to) =>
+        supabase
+          .from("client_organic_rank_snapshots")
+          .select("id, keyword, position, url, top_domain, location_label, created_at")
+          .eq("client_id", clientId)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      "Organic rankings",
+    );
+  } catch (error) {
+    problems.push(error instanceof Error ? error.message : "Organic rankings could not be read");
+  }
   const organicByKw = new Map<string, Array<{ position: number | null; url: string | null; top_domain: string | null }>>();
-  for (const row of (organicSnaps ?? []) as Array<{ keyword: string; position: number | null; url: string | null; top_domain: string | null; location_label: string | null }>) {
+  for (const row of organicSnaps) {
     // Only the practice baseline (null on rows predating locations, or "Practice").
     if (row.location_label != null && row.location_label !== "Practice") continue;
     const arr = organicByKw.get(row.keyword) ?? [];
@@ -138,35 +175,13 @@ export async function loadReportForClient(
     hasGa4Property: Boolean((client.ga4_property_id ?? "").trim()),
   });
   const alerts = buildReportingAlerts({ technicalFindings, gscSignals, adsSignals, socialSignals });
-  const { count: socialPostCount30d } = await supabase
+  const { count: socialPostCount30d, error: socialPostCountError } = await supabase
     .from("client_social_post_snapshots")
     .select("id", { count: "exact", head: true })
     .eq("client_id", clientId)
     .gte("published_at", new Date(Date.now() - 30 * 86_400_000).toISOString());
+  note("The count of social posts", socialPostCountError);
 
-  const kpis = buildReportingKpis({
-    adsSnapshot,
-    metaAdsSnapshot,
-    ga4Snapshot: workspace.ga4Snapshot,
-    gscPageMetrics,
-    gscSignals,
-    gscSnapshotUpdatedAt: workspace.gscSnapshot?.updated_at ?? gscSignals[0]?.created_at ?? null,
-    socialDailyRows,
-    socialPeriodReach,
-    // Posts published in the last 30 days, counted by the database. This was
-    // the number of posts loaded (all time, capped at 500) under a "(30d)"
-    // label (found 2026-09-28).
-    socialPostCount: socialPostCount30d ?? 0,
-    socialConnected: workspace.socialConnections.length > 0,
-    crawlIssueCount: crawlIssues.length,
-    technicalFindingCount: technicalFindings.length,
-    technicalCriticalCount: technicalFindings.filter((f) => f.severity === "critical").length,
-    sitemapSnapshot,
-    gbpSnapshot,
-    gbpReviews,
-    lighthouseFetchedAt: lighthouse?.fetched_at ?? null,
-    crawlUpdatedAt: crawlSnapshot?.updated_at ?? null,
-  });
   const actions = buildReportingActions({ client, freshness, alerts });
   const staleSourceCount = freshness.filter((item) => item.source !== "ga4" && item.status !== "fresh").length;
   const urgencyScore = computeClientUrgencyScore({
@@ -182,36 +197,61 @@ export async function loadReportForClient(
 
   // Keyword numbers: the newest completed 28-day snapshot against the one
   // covering the 28 days before it. Never a sum of snapshots (see
-  // lib/reporting/keyword-periods.ts). Only those two snapshots' rows are read,
-  // so the 1000-row cap cannot cut them short.
-  const { data: gscSnapshotRows } = await supabase
-    .from("client_gsc_snapshots")
-    .select("id, start_date, end_date, run_status, created_at")
-    .eq("client_id", clientId)
-    .order("end_date", { ascending: false })
-    .limit(120);
-  const periods = pickKeywordPeriods((gscSnapshotRows ?? []) as GscSnapshotWindow[]);
+  // lib/reporting/keyword-periods.ts). Both lists are read in full.
+  const snapshotWindows = await fetchAllRows<GscSnapshotWindow>(
+    (from, to) =>
+      supabase
+        .from("client_gsc_snapshots")
+        .select("id, start_date, end_date, run_status, created_at")
+        .eq("client_id", clientId)
+        .order("end_date", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to),
+    "Search Console sync history",
+  ).catch((error: Error) => {
+    problems.push(error.message);
+    return [] as GscSnapshotWindow[];
+  });
+  const periods = pickKeywordPeriods(snapshotWindows);
   const periodIds = [periods.current?.id, periods.previous?.id].filter((id): id is number => id != null);
-  const { data: periodMetricsRaw } = periodIds.length
-    ? await supabase
-        .from("client_gsc_query_metrics")
-        .select("snapshot_id, query, clicks, impressions, position")
-        .in("snapshot_id", periodIds)
-    : { data: [] };
-  const queryRows: KeywordPeriodRow[] = (periodMetricsRaw ?? []).map((row) => ({
-    query: row.query as string,
-    clicks: row.clicks as number,
-    impressions: row.impressions as number,
-    position: row.position as number,
-    period: row.snapshot_id === periods.current?.id ? "current" : "previous",
+  type QueryMetricRow = { snapshot_id: number; query: string; clicks: number; impressions: number; position: number };
+  const periodMetricsRaw = periodIds.length
+    ? await fetchAllRows<QueryMetricRow>(
+        (from, to) =>
+          supabase
+            .from("client_gsc_query_metrics")
+            .select("id, snapshot_id, query, clicks, impressions, position")
+            .in("snapshot_id", periodIds)
+            .order("id", { ascending: true })
+            .range(from, to),
+        "Search Console keywords",
+      ).catch((error: Error) => {
+        problems.push(error.message);
+        return [] as QueryMetricRow[];
+      })
+    : [];
+  const queryRows: KeywordPeriodRow[] = periodMetricsRaw.map((row) => ({
+    query: row.query,
+    clicks: Number(row.clicks) || 0,
+    impressions: Number(row.impressions) || 0,
+    position: Number(row.position) || 0,
+    period: Number(row.snapshot_id) === periods.current?.id ? "current" : "previous",
   }));
+  // A snapshot from before full query lists were stored (exactly 100 rows):
+  // a keyword missing from it may simply have been below the top 100.
+  const legacyCapped = (period: "current" | "previous") =>
+    queryRows.filter((row) => row.period === period).length === LEGACY_GSC_QUERY_CAP;
+  const currentCapped = legacyCapped("current");
+  const previousCapped = legacyCapped("previous");
   const previousAvailable = periods.previous != null;
+  const cutOffKeywords: string[] = [];
   const keywordRows: KeywordHealthRow[] = managedKeywords
     .map((target) => {
       const key = target.keyword.trim().toLowerCase();
       const current = queryRows.find((row) => row.period === "current" && row.query.trim().toLowerCase() === key);
       const previous = queryRows.find((row) => row.period === "previous" && row.query.trim().toLowerCase() === key);
       const positionDelta = current && previous ? current.position - previous.position : 0;
+      if (!current && currentCapped) cutOffKeywords.push(target.keyword);
       return {
         keyword: target.keyword,
         page_url: null,
@@ -223,10 +263,17 @@ export async function loadReportForClient(
         current_impressions: current?.impressions ?? 0,
         previous_impressions: previous?.impressions ?? 0,
         dropped_by_3_plus: positionDelta >= 3,
-        previous_available: previousAvailable,
+        // Unknown, not 0, when the earlier sync may have cut this keyword off;
+        // the report then shows no comparison rather than a false drop.
+        previous_available: previousAvailable && (previous != null || !previousCapped),
       } satisfies KeywordHealthRow;
     })
     .sort((a, b) => b.current_impressions - a.current_impressions);
+  if (cutOffKeywords.length) {
+    problems.push(
+      `${cutOffKeywords.length} tracked keyword${cutOffKeywords.length === 1 ? " is" : "s are"} not among the top ${LEGACY_GSC_QUERY_CAP} searches in the latest Search Console sync, which was stored before full keyword lists were kept (${cutOffKeywords.slice(0, 5).map((k) => `"${k}"`).join(", ")}${cutOffKeywords.length > 5 ? ", …" : ""}). Sync Search Console again to get their real numbers.`,
+    );
+  }
 
   // Search numbers for the report all come from the same period as the
   // keywords: the newest completed snapshot, and the one before it. Whole-site
@@ -243,9 +290,15 @@ export async function loadReportForClient(
           .range(from, to),
       "Search Console page metrics",
     );
+  const failedRead = <T,>(fallback: T) => (error: Error) => {
+    problems.push(error.message);
+    return fallback;
+  };
+  // With no completed snapshot there are no Search numbers to show; the
+  // workspace's page list (capped at 250 for its own screens) is not used.
   const [currentPages, previousPages, dailyRaw] = await Promise.all([
-    periods.current ? pageRowsFor(periods.current.id) : Promise.resolve(gscPageMetrics as GscPageMetric[]),
-    periods.previous ? pageRowsFor(periods.previous.id) : Promise.resolve([] as GscPageMetric[]),
+    periods.current ? pageRowsFor(periods.current.id).catch(failedRead([] as GscPageMetric[])) : Promise.resolve([] as GscPageMetric[]),
+    periods.previous ? pageRowsFor(periods.previous.id).catch(failedRead([] as GscPageMetric[])) : Promise.resolve([] as GscPageMetric[]),
     periodIds.length
       ? fetchAllRows<{ snapshot_id: number; metric_date: string; clicks: number; impressions: number; position: number }>(
           (from, to) =>
@@ -256,7 +309,7 @@ export async function loadReportForClient(
               .order("id", { ascending: true })
               .range(from, to),
           "Search Console daily metrics",
-        )
+        ).catch(failedRead([] as Array<{ snapshot_id: number; metric_date: string; clicks: number; impressions: number; position: number }>))
       : Promise.resolve([]),
   ]);
   const dailyTotalsFor = (snapshotId: number | undefined): SearchTotals | null => {
@@ -302,31 +355,60 @@ export async function loadReportForClient(
   if (adsSnapshot?.start_date) {
     // Dates first (each full snapshot carries large campaign and call lists),
     // then the one full row that matches.
-    const { data: adsWindows, error: adsWindowsError } = await supabase
-      .from("client_ads_snapshots")
-      .select("id, start_date, end_date, run_status, created_at")
-      .eq("client_id", clientId)
-      .eq("run_status", "completed")
-      .lt("end_date", adsSnapshot.start_date)
-      .order("end_date", { ascending: false })
-      .limit(20);
-    if (adsWindowsError) {
-      console.error(`[report] previous Google Ads period for client ${clientId}: ${adsWindowsError.message}`);
-    }
-    const match = pickPreviousWindow(adsSnapshot, adsWindows ?? []);
+    // Only snapshots ending within a week of this one's start can match.
+    const earliestEnd = new Date(Date.parse(`${adsSnapshot.start_date.slice(0, 10)}T00:00:00Z`) - 7 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const adsWindows = await fetchAllRows<GscSnapshotWindow>(
+      (from, to) =>
+        supabase
+          .from("client_ads_snapshots")
+          .select("id, start_date, end_date, run_status, created_at")
+          .eq("client_id", clientId)
+          .eq("run_status", "completed")
+          .lt("end_date", adsSnapshot.start_date)
+          .gte("end_date", earliestEnd)
+          .order("end_date", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      "Earlier Google Ads syncs",
+    ).catch(failedRead([] as GscSnapshotWindow[]));
+    const match = pickPreviousWindow(adsSnapshot, adsWindows);
     if (match) {
       const { data: full, error: fullError } = await supabase
         .from("client_ads_snapshots")
         .select("*")
         .eq("id", match.id)
         .maybeSingle<AdsSnapshot>();
-      if (fullError) {
-        console.error(`[report] previous Google Ads snapshot ${match.id}: ${fullError.message}`);
-      }
+      note("The previous Google Ads period", fullError);
       previousAdsSnapshot = full ?? null;
     }
   }
 
+  const kpis = buildReportingKpis({
+    adsSnapshot,
+    metaAdsSnapshot,
+    ga4Snapshot: workspace.ga4Snapshot,
+    // Every page of the report's Search period, not the workspace's top 250.
+    gscPageMetrics: currentPages,
+    gscSignals,
+    gscSnapshotUpdatedAt: workspace.gscSnapshot?.updated_at ?? gscSignals[0]?.created_at ?? null,
+    socialDailyRows,
+    socialPeriodReach,
+    // Posts published in the last 30 days, counted by the database. This was
+    // the number of posts loaded (all time, capped at 500) under a "(30d)"
+    // label (found 2026-09-28).
+    socialPostCount: socialPostCount30d ?? 0,
+    socialConnected: workspace.socialConnections.length > 0,
+    crawlIssueCount: crawlIssues.length,
+    technicalFindingCount: technicalFindings.length,
+    technicalCriticalCount: technicalFindings.filter((f) => f.severity === "critical").length,
+    sitemapSnapshot,
+    gbpSnapshot,
+    gbpReviews,
+    lighthouseFetchedAt: lighthouse?.fetched_at ?? null,
+    crawlUpdatedAt: crawlSnapshot?.updated_at ?? null,
+  });
   const report = buildClientReportModel({
     client,
     generatedAt: new Date().toISOString(),
@@ -368,5 +450,6 @@ export async function loadReportForClient(
     })),
   });
 
-  return { report, config, managedKeywords, workspace };
+  noteReadProblems("Client report", problems);
+  return { report, config, managedKeywords, workspace, readProblems: problems };
 }

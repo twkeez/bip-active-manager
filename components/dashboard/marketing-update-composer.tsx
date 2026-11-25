@@ -424,6 +424,13 @@ export default function MarketingUpdateComposer({
           Channels included: {channelsLabel}
         </p>
       )}
+      {contextSummary && contextSummary.unavailable.length > 0 && (
+        <ul role="alert" className="mt-2 list-disc pl-5 text-xs text-[var(--warning-fg)]">
+          {contextSummary.unavailable.map((line) => (
+            <li key={line}>Left out: {line}</li>
+          ))}
+        </ul>
+      )}
       {(markdown || loading) && (
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
           

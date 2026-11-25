@@ -174,35 +174,61 @@ async function getAccessToken() {
   return token;
 }
 
+/** The Search Console API's largest page; fewer rows back means the last page. */
+export const GSC_PAGE_SIZE = 25_000;
+
+/**
+ * Every row of a one-dimension Search Analytics report, read page by page.
+ *
+ * Until Nov 2026 this asked for 25 pages and 100 queries and stopped there, so
+ * report totals built from pages undercounted, and a managed keyword outside
+ * the top 100 read as 0 clicks. `fetchPage` is the API call, passed in so the
+ * paging can be tested without the network.
+ */
+export async function readAllSearchAnalyticsRows<T>(
+  fetchPage: (startRow: number, rowLimit: number) => Promise<T[]>,
+  pageSize: number = GSC_PAGE_SIZE,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let startRow = 0; ; startRow += pageSize) {
+    const page = await fetchPage(startRow, pageSize);
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
 async function fetchSearchAnalytics(
   accessToken: string,
   propertyUrl: string,
   startDate: string,
   endDate: string,
   dimension: "page" | "query",
-  rowLimit = 25,
 ): Promise<GscMetricRow[]> {
   const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(propertyUrl)}/searchAnalytics/query`;
-  const response = await gscFetch(endpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      startDate,
-      endDate,
-      dimensions: [dimension],
-      rowLimit,
-    }),
-    cache: "no-store",
+  const rows = await readAllSearchAnalyticsRows(async (startRow, rowLimit) => {
+    const response = await gscFetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        startDate,
+        endDate,
+        dimensions: [dimension],
+        rowLimit,
+        startRow,
+      }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      const bodyText = await response.text();
+      throw new Error(`Search Console API failed (${response.status}): ${bodyText}`);
+    }
+    const payload = (await response.json()) as SearchAnalyticsResponse;
+    return payload.rows ?? [];
   });
-  if (!response.ok) {
-    const bodyText = await response.text();
-    throw new Error(`Search Console API failed (${response.status}): ${bodyText}`);
-  }
-  const payload = (await response.json()) as SearchAnalyticsResponse;
-  return (payload.rows ?? [])
+  return rows
     .map((row) => {
       const key = (row.keys?.[0] ?? "").trim();
       if (!key) return null;
@@ -462,7 +488,7 @@ export async function runSearchConsoleSync(
     });
   const [pageRows, queryRows, dailyRows, sitemaps] = await Promise.all([
     fetchSearchAnalytics(accessToken, propertyUrl, startDate, endDate, "page"),
-    fetchSearchAnalytics(accessToken, propertyUrl, startDate, endDate, "query", 100),
+    fetchSearchAnalytics(accessToken, propertyUrl, startDate, endDate, "query"),
     optional(fetchDailyTrend(accessToken, propertyUrl, startDate, endDate)),
     optional(fetchSitemaps(accessToken, propertyUrl)),
   ]);

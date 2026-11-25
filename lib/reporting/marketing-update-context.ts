@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/data-integrity/fetch-all";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runKeywordHealthComparison } from "@/lib/seo/search-console";
 import {
@@ -14,7 +15,6 @@ import type {
   AdsSnapshot,
   ClientRow,
   GbpSnapshot,
-  GscPageMetric,
   GscSnapshot,
   KeywordHealthRow,
   SocialDailySnapshot,
@@ -103,6 +103,8 @@ export type MarketingUpdateContext = {
   nextMeetingUrl: string | null;
   additionalNotes: string | null;
   channelsIncluded: string[];
+  /** Parts that could not be read, so the draft leaves them out; shown to the strategist. */
+  unavailable: string[];
 };
 
 function norm(value: string | null | undefined) {
@@ -197,6 +199,7 @@ function pickKeywordHighlights(rows: KeywordHealthRow[], limit = 3): string[] {
 
 async function loadKeywordHighlights(
   client: Pick<ClientRow, "sc_url" | "website">,
+  unavailable: string[],
 ): Promise<string[]> {
   if (!norm(client.sc_url)) return [];
   try {
@@ -234,7 +237,9 @@ async function loadKeywordHighlights(
       }
     }
     return pickKeywordHighlights([...currentByKeyword.values()]);
-  } catch {
+  } catch (error) {
+    // Was `return []`, which read as "no keyword movement worth mentioning".
+    unavailable.push(`Keyword movement could not be read from Search Console: ${error instanceof Error ? error.message : String(error)}`);
     return [];
   }
 }
@@ -251,6 +256,7 @@ export function summarizeMarketingUpdateContext(
     hasFacebook: context.optionalChannels.some((row) => row.id === "facebook"),
     hasKeywords: context.optionalChannels.some((row) => row.id === "keywords"),
     dateRangeLabel: context.window.dateRangeLabel,
+    unavailable: context.unavailable,
   };
 }
 
@@ -268,56 +274,89 @@ export async function buildMarketingUpdateContext(
     throw new Error(clientError?.message ?? "Client not found");
   }
 
-  const { data: adsSnapshot } = await admin
+  // A failed read stops the update with its reason (the route shows it), rather
+  // than quietly leaving a channel out of copy that goes to the client.
+  const must = <T,>(result: { data: T; error: { message: string } | null }, what: string): T => {
+    if (result.error) throw new Error(`${what} could not be read: ${result.error.message}`);
+    return result.data;
+  };
+  const unavailable: string[] = [];
+
+  const adsSnapshot = must(await admin
     .from("client_ads_snapshots")
     .select("*")
     .eq("client_id", clientId)
     .eq("run_status", "completed")
     .order("created_at", { ascending: false })
     .limit(1)
-    .maybeSingle<AdsSnapshot>();
+    .maybeSingle<AdsSnapshot>(), "Google Ads");
 
-  const { data: gbpSnapshot } = await admin
+  const gbpSnapshot = must(await admin
     .from("client_gbp_snapshots")
     .select("*")
     .eq("client_id", clientId)
     .eq("run_status", "completed")
     .order("created_at", { ascending: false })
     .limit(1)
-    .maybeSingle<GbpSnapshot>();
+    .maybeSingle<GbpSnapshot>(), "Google Business Profile");
 
-  const { data: gbpReviews } = gbpSnapshot
-    ? await admin
-        .from("client_gbp_reviews")
-        .select("review_time_unix")
-        .eq("client_id", clientId)
-        .eq("snapshot_id", gbpSnapshot.id)
-    : { data: [] as Array<{ review_time_unix: number | null }> };
+  // Reviews are stored as one set per client (lib/gbp/sync-client.ts), so they
+  // are read by client: read by the newest snapshot they vanished whenever a
+  // sync kept the previous set.
+  const gbpReviews = gbpSnapshot
+    ? await fetchAllRows<{ review_time_unix: number | null }>(
+        (from, to) =>
+          admin
+            .from("client_gbp_reviews")
+            .select("id, review_time_unix")
+            .eq("client_id", clientId)
+            .order("id", { ascending: true })
+            .range(from, to),
+        "Google reviews",
+      )
+    : [];
 
-  const { data: latestGscSnapshot } = await admin
+  // Search numbers from the last finished sync, as whole-site day-by-day
+  // totals (what Google's Performance report shows), not the pages added up.
+  const latestGscSnapshot = must(await admin
     .from("client_gsc_snapshots")
     .select("*")
     .eq("client_id", clientId)
+    .eq("run_status", "completed")
     .order("created_at", { ascending: false })
     .limit(1)
-    .maybeSingle<GscSnapshot>();
+    .maybeSingle<GscSnapshot>(), "Search Console");
 
-  const { data: gscPageRows } = latestGscSnapshot
-    ? await admin
-        .from("client_gsc_page_metrics")
-        .select("*")
-        .eq("snapshot_id", latestGscSnapshot.id)
-        .returns<GscPageMetric[]>()
-    : { data: [] as GscPageMetric[] };
+  const gscDailyRows = latestGscSnapshot
+    ? await fetchAllRows<{ clicks: number; impressions: number }>(
+        (from, to) =>
+          admin
+            .from("client_gsc_daily_metrics")
+            .select("id, clicks, impressions")
+            .eq("snapshot_id", latestGscSnapshot.id)
+            .order("id", { ascending: true })
+            .range(from, to),
+        "Search Console daily totals",
+      )
+    : [];
 
   const socialCutoff = isoDateDaysAgo(30);
-  const { data: socialRows } = await admin
+  const socialRows = must(await admin
     .from("client_social_daily_snapshots")
     .select("*")
     .eq("client_id", clientId)
     .eq("platform", "facebook")
     .gte("snapshot_date", socialCutoff)
-    .returns<SocialDailySnapshot[]>();
+    .returns<SocialDailySnapshot[]>(), "Facebook daily numbers");
+
+  // Reach counts people, so it can't be added up day by day; the 30-day figure
+  // is captured on its own (client_social_period_metrics).
+  const facebookPeriod = must(await admin
+    .from("client_social_period_metrics")
+    .select("reach, window_days")
+    .eq("client_id", clientId)
+    .eq("platform", "facebook")
+    .maybeSingle<{ reach: number | null; window_days: number }>(), "Facebook reach");
 
   const defaultStart = adsSnapshot?.start_date ?? isoDateDaysAgo(30);
   const defaultEnd = adsSnapshot?.end_date ?? isoDateDaysAgo(0);
@@ -358,8 +397,11 @@ export async function buildMarketingUpdateContext(
     channelsIncluded.push("Google Business Profile");
   }
 
-  const gscClicks = (gscPageRows ?? []).reduce((sum, row) => sum + row.clicks, 0);
-  const gscImpressions = (gscPageRows ?? []).reduce((sum, row) => sum + row.impressions, 0);
+  if (latestGscSnapshot && gscDailyRows.length === 0) {
+    unavailable.push("Search Console: the last sync has no day-by-day totals, so search numbers are left out.");
+  }
+  const gscClicks = gscDailyRows.reduce((sum, row) => sum + (Number(row.clicks) || 0), 0);
+  const gscImpressions = gscDailyRows.reduce((sum, row) => sum + (Number(row.impressions) || 0), 0);
   if (gscClicks > 0 || gscImpressions > 0) {
     const ctr =
       gscImpressions > 0 ? ((gscClicks / gscImpressions) * 100).toFixed(2) : "0.00";
@@ -372,17 +414,19 @@ export async function buildMarketingUpdateContext(
   }
 
   const fbEngagement = (socialRows ?? []).reduce((sum, row) => sum + (row.engagement ?? 0), 0);
-  const fbReach = (socialRows ?? []).reduce((sum, row) => sum + (row.reach ?? 0), 0);
-  if (fbEngagement > 0 || fbReach > 0) {
+  const fbReach = typeof facebookPeriod?.reach === "number" ? facebookPeriod.reach : null;
+  if (fbEngagement > 0 || (fbReach ?? 0) > 0) {
+    const reachPart =
+      fbReach != null ? ` and ${formatCompactNumber(fbReach)} people reached over the last ${facebookPeriod!.window_days} days` : "";
     optionalChannels.push({
       id: "facebook",
       label: "Facebook",
-      summary: `${fbEngagement.toLocaleString()} engagements and ${formatCompactNumber(fbReach)} reach over the last 30 days.`,
+      summary: `${fbEngagement.toLocaleString()} engagements over the last 30 days${reachPart}.`,
     });
     channelsIncluded.push("Facebook");
   }
 
-  const keywordHighlights = await loadKeywordHighlights(clientRow);
+  const keywordHighlights = await loadKeywordHighlights(clientRow, unavailable);
   if (keywordHighlights.length > 0) {
     optionalChannels.push({
       id: "keywords",
@@ -415,5 +459,6 @@ export async function buildMarketingUpdateContext(
     nextMeetingUrl: norm(userInput.nextMeetingUrl) || null,
     additionalNotes: norm(userInput.additionalNotes) || null,
     channelsIncluded,
+    unavailable,
   };
 }
