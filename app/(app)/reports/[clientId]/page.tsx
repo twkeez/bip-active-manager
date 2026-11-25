@@ -6,9 +6,17 @@ import ClientReportWorkspace from "@/components/reports/client-report-workspace"
 import { createClient } from "@/lib/supabase/server";
 import type { ReportDraft } from "@/lib/reporting/draft-types";
 import { loadReportForClient } from "@/lib/reporting/load-report";
+import MonthStatusBar, { type MonthStatus } from "@/components/reporting/month-status-bar";
+import {
+  isMissingMonthlyTable,
+  monthStartDate,
+  parseReportMonth,
+  parseSentVia,
+  stateOf,
+} from "@/lib/reporting/monthly";
 
 type Params = Promise<{ clientId: string }>;
-type SearchParams = Promise<{ range?: string; back?: string }>;
+type SearchParams = Promise<{ range?: string; back?: string; month?: string }>;
 
 export default async function ReportClientPage({
   params,
@@ -18,7 +26,7 @@ export default async function ReportClientPage({
   searchParams: SearchParams;
 }) {
   const { clientId } = await params;
-  const { range, back } = await searchParams;
+  const { range, back, month: requestedMonth } = await searchParams;
   const id = Number(clientId);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
@@ -50,11 +58,34 @@ export default async function ReportClientPage({
     gbp: workspace.gbpSnapshot?.updated_at ?? null,
   };
 
-  const backHref = back === "cockpit" ? `/dashboard/cockpit?client=${id}` : null;
+  // Where this client's report stands for the month (lib/reporting/monthly.ts).
+  const month = parseReportMonth(requestedMonth);
+  const { data: monthRow, error: monthError } = await supabase
+    .from("monthly_reports")
+    .select("status,sent_via,updated_at")
+    .eq("client_id", id)
+    .eq("month", monthStartDate(month))
+    .maybeSingle();
+  const monthTracked = !isMissingMonthlyTable(monthError);
+  const monthProblem =
+    monthError && monthTracked ? `This report's state could not be read: ${monthError.message}` : null;
+  const monthStatus: MonthStatus = {
+    state: stateOf(monthRow),
+    sentVia: parseSentVia(monthRow?.sent_via),
+    updatedAt: monthRow?.updated_at ?? null,
+  };
+
+  const backLink =
+    back === "cockpit"
+      ? { href: `/dashboard/cockpit?client=${id}`, label: "Back to cockpit" }
+      : back === "reporting"
+        ? { href: `/reporting?month=${month}`, label: "Back to Reporting" }
+        : null;
 
   return (
     <>
       {truncated.length > 0 && <ExportBlocked what="report" truncated={truncated} variant="notice" />}
+      <MonthStatusBar clientId={id} month={month} status={monthStatus} tracked={monthTracked} problem={monthProblem} />
       <ClientReportWorkspace
         report={report}
         clientId={id}
@@ -63,7 +94,8 @@ export default async function ReportClientPage({
         initialKeywords={managedKeywords}
         syncTimestamps={syncTimestamps}
         syncNotes={{ gsc: searchConsoleNote(workspace.gscSnapshot) }}
-        backHref={backHref}
+        backHref={backLink?.href ?? null}
+        backLabel={backLink?.label}
       />
     </>
   );

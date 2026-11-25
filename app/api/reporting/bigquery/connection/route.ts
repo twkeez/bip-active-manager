@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminRole } from "@/lib/auth/guard";
 import {
   ensureBigQueryDataset,
   getBigQueryDatasetRef,
@@ -11,13 +11,9 @@ type ProbeRow = {
 };
 
 export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Runs BigQuery jobs with the service key, so admins only.
+  const auth = await requireAdminRole();
+  if ("response" in auth) return auth.response;
   try {
     const dataset = await ensureBigQueryDataset();
     const probe = await runBigQueryQuery<ProbeRow>("select 1 as one");

@@ -6,6 +6,7 @@ import {
   Building2,
   CalendarClock,
   CheckSquare,
+  ClipboardCheck,
   ClipboardList,
   Coins,
   Crown,
@@ -111,6 +112,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Reporting",
     icon: BarChart3,
     items: [
+      { label: "Monthly reports", href: "/reporting", icon: ClipboardCheck },
       { label: "Client Snapshot", href: "/client-snapshot", icon: BarChart3, adminOnly: true },
       { label: "Doc → PDF", href: "/reports/doc-to-pdf", icon: FileDown },
     ],

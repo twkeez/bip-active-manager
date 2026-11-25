@@ -11,10 +11,12 @@ import type { UserRole } from "@/lib/auth/profile";
  *                 (lib/auth/app-mode.ts), plus each section granted here.
  *
  * Only sections whose pages work for someone who isn't an admin can be granted.
- * Reporting and Onboarding still read every client's data with the service
- * key and save through admin-only routes, so opening them now would show a
- * strategist other people's clients. Each becomes grantable in the pull request
- * that rebuilds it, by listing its pages and APIs below and setting ready.
+ * Onboarding still reads every client's data with the service key and saves
+ * through admin-only routes, so opening it now would show a strategist other
+ * people's clients. It becomes grantable in the pull request that rebuilds it,
+ * by listing its pages and APIs below and setting ready. Reporting was rebuilt
+ * that way in Nov 2026: its list reads with the strategist's own session, and
+ * every report route checks the client is theirs (lib/reporting/client-access.ts).
  *
  * A grant opens pages and APIs; it never opens editing that is admin-only by
  * design (the Playbook editors keep their own admin checks).
@@ -42,9 +44,12 @@ type SectionAccess = {
 export const SECTION_ACCESS: Record<SectionGrant, SectionAccess> = {
   reporting: {
     label: "Reporting",
-    ready: false,
-    note: "Can be granted once Reporting is rebuilt to show each person only their own clients.",
-    pages: [],
+    ready: true,
+    note: "See and move along the monthly reports of their own clients. Client Snapshot stays with admins.",
+    // A client's report (/reports/…) and its APIs are part of the Clients
+    // section already, so every strategist reaches them; the grant adds the
+    // monthly list and Doc → PDF. Client Snapshot is admin-only and stays so.
+    pages: ["/reporting", "/reports/doc-to-pdf"],
     api: [],
   },
   onboarding: {
