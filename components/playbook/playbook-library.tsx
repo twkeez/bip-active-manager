@@ -44,6 +44,11 @@ function groupByCategory(items: PlaybookItem[]): Record<string, PlaybookItem[]> 
   return groups;
 }
 
+async function failureMessage(res: Response): Promise<string> {
+  const data = (await res.json().catch(() => null)) as { error?: string } | null;
+  return data?.error ?? `The server answered ${res.status}.`;
+}
+
 function ItemRow({
   item,
   isAdmin,
@@ -59,24 +64,37 @@ function ItemRow({
   const [title, setTitle] = useState(item.title);
   const [body, setBody] = useState(item.body ?? "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const meta = TYPE_META[item.type];
   const Icon = meta.icon;
 
+  // Until Nov 2026 these ignored the server's answer, so a refused save
+  // looked saved until the page reloaded. Now a failure stays on screen.
   async function save() {
     setSaving(true);
-    await fetch(`/api/playbook/items/${item.id}`, {
+    setError(null);
+    const res = await fetch(`/api/playbook/items/${item.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, body: body || null }),
-    });
+    }).catch(() => null);
+    setSaving(false);
+    if (!res?.ok) {
+      setError(res ? `Not saved: ${await failureMessage(res)}` : "Not saved: the server couldn't be reached.");
+      return;
+    }
     onUpdate(item.id, { title, body: body || null });
     setEditing(false);
-    setSaving(false);
   }
 
   async function remove() {
     if (!confirm("Remove this item?")) return;
-    await fetch(`/api/playbook/items/${item.id}`, { method: "DELETE" });
+    setError(null);
+    const res = await fetch(`/api/playbook/items/${item.id}`, { method: "DELETE" }).catch(() => null);
+    if (!res?.ok) {
+      setError(res ? `Not removed: ${await failureMessage(res)}` : "Not removed: the server couldn't be reached.");
+      return;
+    }
     onDelete(item.id);
   }
 
@@ -129,6 +147,7 @@ function ItemRow({
             )}
           </>
         )}
+        {error && <p className="mt-1 text-xs text-bip-danger" role="alert">{error}</p>}
       </div>
       {isAdmin && !editing && (
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -159,11 +178,13 @@ function AddItemForm({
   const [type, setType] = useState<PlaybookItemType>("checklist");
   const [autoVerifyKey, setAutoVerifyKey] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
     setSaving(true);
+    setError(null);
     const res = await fetch("/api/playbook/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -175,10 +196,13 @@ function AddItemForm({
         type,
         auto_verify_key: autoVerifyKey.trim() || null,
       }),
-    });
-    const item = await res.json();
-    onAdd(item);
+    }).catch(() => null);
     setSaving(false);
+    if (!res?.ok) {
+      setError(res ? `Not added: ${await failureMessage(res)}` : "Not added: the server couldn't be reached.");
+      return;
+    }
+    onAdd((await res.json()) as PlaybookItem);
     onClose();
   }
 
@@ -233,6 +257,7 @@ function AddItemForm({
         value={body}
         onChange={(e) => setBody(e.target.value)}
       />
+      {error && <p className="text-xs text-bip-danger" role="alert">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={saving} className="bip-btn-primary py-1.5 px-4 text-xs">
           {saving ? "Adding…" : "Add Item"}

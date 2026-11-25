@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireSignedIn } from "@/lib/auth/guard";
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const auth = await requireSignedIn();
+  if ("response" in auth) return auth.response;
+  const { data, error } = await auth.supabase
     .from("strategy_mapper_service_tiers")
     .select("*")
     .eq("enabled", true)

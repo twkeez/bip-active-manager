@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminRole } from "@/lib/auth/guard";
+import { pickEditableItemFields } from "@/lib/playbook/item-fields";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const supabase = await createClient();
+  const auth = await requireAdminRole();
+  if ("response" in auth) return auth.response;
+  const { supabase } = auth;
   const { id } = await params;
-  const body = await req.json();
+  const changes = pickEditableItemFields(await req.json().catch(() => null));
+  if (Object.keys(changes).length === 0) {
+    return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
+  }
 
   const { data, error } = await supabase
     .from("playbook_items")
-    .update(body)
+    .update({ ...changes, updated_at: new Date().toISOString() })
     .eq("id", Number(id))
     .select()
     .single();
@@ -24,7 +30,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const supabase = await createClient();
+  const auth = await requireAdminRole();
+  if ("response" in auth) return auth.response;
+  const { supabase } = auth;
   const { id } = await params;
 
   const { error } = await supabase

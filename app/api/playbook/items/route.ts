@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminRole, requireSignedIn } from "@/lib/auth/guard";
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient();
+  const auth = await requireSignedIn();
+  if ("response" in auth) return auth.response;
+  const { supabase } = auth;
   const tierKey = req.nextUrl.searchParams.get("tier_key");
 
   let query = supabase
@@ -18,8 +20,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const body = await req.json();
+  const auth = await requireAdminRole();
+  if ("response" in auth) return auth.response;
+  const { supabase } = auth;
+  const body = await req.json().catch(() => null);
+  if (!body?.tier_key || !body?.title) {
+    return NextResponse.json({ error: "A tier and a title are required." }, { status: 400 });
+  }
 
   const { data, error } = await supabase
     .from("playbook_items")

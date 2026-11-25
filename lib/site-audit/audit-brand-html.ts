@@ -11,7 +11,7 @@ import {
   tableCellStyle,
   tableHeaderStyle,
   tableStyle,
-} from "@/lib/strategy-mapper/report-brand-tokens";
+} from "@/lib/report-brand/tokens";
 import {
   INSPECTOR_TAB_LABELS,
   type SiteAuditExportModel,
