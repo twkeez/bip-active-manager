@@ -5,7 +5,7 @@ describe("searchConsoleNote", () => {
   it("says the site isn't connected when Google refused access", () => {
     const run = { run_status: "failed", error_message: "Search Console API failed (403): User does not have sufficient permission", property_url: "https://x.com/" };
     expect(searchConsoleNotConnected(run)).toBe(true);
-    expect(searchConsoleNote(run)).toMatch(/isn't connected for this client \(https:\/\/x.com\/\).*tom@beyondindigo.com/);
+    expect(searchConsoleNote(run)).toMatch(/isn't connected for this client \(https:\/\/x.com\/\).*Connections tab/);
   });
 
   it("passes other failures through, and stays quiet when the sync worked", () => {

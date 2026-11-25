@@ -124,7 +124,7 @@ function normalizePropertyUrl(rawPropertyUrl: string, fallbackWebsite: string) {
  */
 export type GscIdentity = "oauth" | "service_account";
 
-async function getAccessTokenFor(identity: GscIdentity): Promise<string | null> {
+export async function getAccessTokenFor(identity: GscIdentity): Promise<string | null> {
   if (identity === "oauth") {
     const oauthConfig = getGoogleOAuthRefreshConfig();
     if (!oauthConfig) return null;
@@ -360,7 +360,7 @@ async function fetchSitemaps(
     .filter((s) => s.sitemapUrl);
 }
 
-async function listAccessibleSites(accessToken: string) {
+export async function listAccessibleSites(accessToken: string) {
   const response = await gscFetch("https://www.googleapis.com/webmasters/v3/sites", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -377,11 +377,11 @@ async function listAccessibleSites(accessToken: string) {
   }));
 }
 
-function isStrongPermission(permissionLevel: string) {
+export function isStrongPermission(permissionLevel: string) {
   return permissionLevel === "siteOwner" || permissionLevel === "siteFullUser";
 }
 
-function parseUrlHost(value: string) {
+export function parseUrlHost(value: string) {
   if (!value || value.startsWith("sc-domain:")) return null;
   try {
     const normalized = value.includes("://") ? value : `https://${value}`;
@@ -444,38 +444,45 @@ export async function runSearchConsoleSync(
     throw new Error("Search Console property URL is required.");
   }
   /**
-   * Whoever can actually see this property. A signed-in person's own token wins
-   * when one is supplied — that is the sync button, where their access is the
-   * point — and otherwise each stored identity is tried in turn.
+   * Whoever can actually see this property. A signed-in person's own token is
+   * tried first when one is supplied (the Sync button), then each of the
+   * agency's identities. Until Nov 2026 a supplied token was the only one
+   * tried, so a strategist who had connected their own Google couldn't sync a
+   * site only the agency's access can read, though the nightly sync read it.
    */
-  let accessToken = userAccessToken ?? null;
-  let propertyUrl = requestedPropertyUrl;
-  if (accessToken) {
-    propertyUrl = resolvePreferredProperty(requestedPropertyUrl, await listAccessibleSites(accessToken));
-  } else {
-    const attempts: Array<{ identity: GscIdentity; token: string }> = [];
-    for (const identity of ["oauth", "service_account"] as GscIdentity[]) {
-      const token = await getAccessTokenFor(identity);
-      if (token) attempts.push({ identity, token });
-    }
-    if (attempts.length === 0) throw new Error("Failed to acquire Google access token.");
-
-    let chosen: { token: string; property: string } | null = null;
-    for (const attempt of attempts) {
-      const sites = await listAccessibleSites(attempt.token);
-      const resolved = resolvePreferredProperty(requestedPropertyUrl, sites);
-      // Only settle on an identity that is a verified user of the property;
-      // an unverified listing answers 403 to every data request.
-      const entry = sites.find((site) => site.siteUrl === resolved);
-      if (entry && isStrongPermission(entry.permissionLevel)) {
-        chosen = { token: attempt.token, property: resolved };
-        break;
-      }
-      if (!chosen) chosen = { token: attempt.token, property: resolved };
-    }
-    accessToken = chosen!.token;
-    propertyUrl = chosen!.property;
+  const tokens: string[] = [];
+  if (userAccessToken) tokens.push(userAccessToken);
+  for (const identity of ["oauth", "service_account"] as GscIdentity[]) {
+    const token = await getAccessTokenFor(identity);
+    if (token) tokens.push(token);
   }
+  if (tokens.length === 0) throw new Error("Failed to acquire Google access token.");
+
+  let chosen: { token: string; property: string } | null = null;
+  let fallback: { token: string; property: string } | null = null;
+  let listingError: unknown = null;
+  for (const token of tokens) {
+    let sites: Awaited<ReturnType<typeof listAccessibleSites>>;
+    try {
+      sites = await listAccessibleSites(token);
+    } catch (error) {
+      listingError ??= error;
+      continue;
+    }
+    const resolved = resolvePreferredProperty(requestedPropertyUrl, sites);
+    // Only settle on an identity that is a verified user of the property;
+    // an unverified listing answers 403 to every data request.
+    const entry = sites.find((site) => site.siteUrl === resolved);
+    if (entry && isStrongPermission(entry.permissionLevel)) {
+      chosen = { token, property: resolved };
+      break;
+    }
+    fallback ??= { token, property: resolved };
+  }
+  chosen ??= fallback;
+  if (!chosen) throw listingError instanceof Error ? listingError : new Error("Search Console access could not be checked.");
+  const accessToken = chosen.token;
+  const propertyUrl = chosen.property;
 
   // Pages and queries are the core: if they fail, the sync fails. The trend
   // and sitemaps are extras: a failure is recorded (null = not retrieved),

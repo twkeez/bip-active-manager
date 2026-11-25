@@ -4,12 +4,12 @@ import { useState, useMemo, useTransition } from "react";
 import { RefreshCw, ExternalLink, Search, X } from "lucide-react";
 import type { SitemapRow } from "@/app/(app)/sitemaps/page";
 import type { SitemapSnapshot } from "@/lib/types/client";
-import { SEARCH_CONSOLE_ACCOUNT } from "@/lib/seo/search-console-access";
+import { SEARCH_CONSOLE_FIX } from "@/lib/seo/search-console-access";
 
 /** Search Console columns for a site we have no access to. */
 function NotConnected() {
   return (
-    <span className="text-[var(--warning-fg)]" title={`Search Console isn't connected for this site. Add ${SEARCH_CONSOLE_ACCOUNT} as a user on it in Search Console.`}>
+    <span className="text-[var(--warning-fg)]" title={`Search Console isn't connected for this site. ${SEARCH_CONSOLE_FIX}`}>
       Not connected
     </span>
   );

@@ -131,8 +131,8 @@ const SETTINGS_SECTIONS: { label: string; fields: SettingsField[] }[] = [
       {
         key: "ga4_property_id",
         label: "GA4 property ID",
-        placeholder: "properties/123456789",
-        helpText: "Google Analytics → Admin → Property settings → Property ID. Paste as: properties/XXXXXXXXX",
+        placeholder: "123456789",
+        helpText: "Google Analytics → Admin → Property settings → Property ID: the number only, not the G- measurement ID. Easier: choose it on the client's Connections tab.",
         helpUrl: "https://analytics.google.com",
         syncEndpoint: "/api/ga4/sync",
       },
