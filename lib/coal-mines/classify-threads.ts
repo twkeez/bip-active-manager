@@ -1,6 +1,7 @@
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import { anthropicClient } from "@/lib/ai/usage";
+import { MODELS } from "@/lib/ai/models";
 
 /**
  * Decides whether the last message in a Basecamp thread actually leaves
@@ -17,7 +18,7 @@ import { anthropicClient } from "@/lib/ai/usage";
 
 // Haiku since 2026-10-27 (was Opus 5): picking one of a few labels per thread
 // doesn't need the biggest model, and this runs every 30 minutes.
-export const CLASSIFIER_MODEL = "claude-haiku-5-5";
+export const CLASSIFIER_MODEL = MODELS.threadClassifier;
 
 export type ReplyNeed = "needs_reply" | "fyi" | "closed" | "unclear";
 

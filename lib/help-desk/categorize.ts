@@ -4,6 +4,7 @@ import { loadMatchContext } from "@/lib/help-desk/context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import { anthropicClient } from "@/lib/ai/usage";
+import { MODELS } from "@/lib/ai/models";
 
 /**
  * Sorts help desk tickets into request types ("photo change", "staff
@@ -32,7 +33,7 @@ export function categorizeCutoff(now: Date = new Date()): string {
 
 // Haiku since 2026-10-27 (was Opus 5.5, with an Opus 4.8 fallback): sorting
 // into a fixed list of 16 labels is a small-model job, at ~1/40th the price.
-export const CATEGORIZE_MODEL = "claude-haiku-5-5";
+export const CATEGORIZE_MODEL = MODELS.helpDeskCategories;
 
 export const TICKET_CATEGORIES = [
   "Photo / image change",

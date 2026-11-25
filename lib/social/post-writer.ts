@@ -2,13 +2,14 @@ import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { CONTENT_PILLARS } from "./taxonomy";
 import type { StandingCampaign } from "./types";
 import { anthropicClient } from "@/lib/ai/usage";
+import { MODELS } from "@/lib/ai/models";
 
 // Drafts the four export-sheet fields for posts that are ALREADY on the
 // calendar. Placement stays manual — nothing here decides dates, topics, or how
 // many posts a month should have.
 //
 // Same model as the rest of the social pipeline (idea-brainstorm.ts).
-const POST_MODEL = "claude-opus-4-8";
+const POST_MODEL = MODELS.social;
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = [

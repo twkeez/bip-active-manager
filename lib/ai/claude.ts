@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import { anthropicClient } from "@/lib/ai/usage";
+import { MODELS } from "@/lib/ai/models";
 
 type TextPart = { text: string };
 type InlineDataPart = { inlineData: { mimeType: string; data: string } };
@@ -9,7 +10,7 @@ type ContentPart = TextPart | InlineDataPart;
 type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
 const client = anthropicClient("AI helpers (reports, summaries, audits)");
-const MODEL = "claude-haiku-4-5";
+const MODEL = MODELS.helper;
 
 function toClaudeContent(
   parts: ContentPart[],
@@ -60,7 +61,7 @@ export async function generateClaudeText(prompt: string): Promise<string> {
 // and far more room than the Haiku/2048 default above, which cannot hold a
 // multi-section analysis over a hundred reviews. Streaming is required at this
 // token ceiling or the request hits the SDK's HTTP timeout.
-const REPORT_MODEL = "claude-opus-5";
+const REPORT_MODEL = MODELS.report;
 
 export async function generateClaudeReport(
   prompt: string,

@@ -6,6 +6,7 @@ import { normalizeClientName } from "@/lib/clients/normalize-name";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import { BACKGROUND_RULES, htmlToText, isAccessThread, redactCredentials } from "./background-safety";
 import { anthropicClient } from "@/lib/ai/usage";
+import { MODELS } from "@/lib/ai/models";
 
 /**
  * Background for onboarding research, compiled from everything already known
@@ -18,8 +19,8 @@ import { anthropicClient } from "@/lib/ai/usage";
  * first — instead of only what the sales form captured.
  */
 
-export const BACKGROUND_MODEL = "claude-opus-5";
-const FALLBACK_MODEL = "claude-opus-4-8";
+export const BACKGROUND_MODEL = MODELS.onboardingResearch;
+const FALLBACK_MODEL = MODELS.onboardingResearchFallback;
 
 /** Enough threads to cover a website build; beyond this is old history. */
 const MAX_THREADS = 40;

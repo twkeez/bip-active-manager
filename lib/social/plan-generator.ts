@@ -11,8 +11,9 @@
 import { getAwarenessDaysForMonth } from "./awareness-days";
 import type { SocialIdea, StandingCampaign, GeneratedPost } from "./types";
 import { anthropicClient } from "@/lib/ai/usage";
+import { MODELS } from "@/lib/ai/models";
 
-const SOCIAL_PLAN_MODEL = "claude-opus-4-8";
+const SOCIAL_PLAN_MODEL = MODELS.social;
 
 const MONTH_NAMES = [
   "", "January", "February", "March", "April", "May", "June",

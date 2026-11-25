@@ -1,6 +1,7 @@
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import { stripLoneSurrogates } from "@/lib/text/strip-lone-surrogates";
 import { anthropicClient } from "@/lib/ai/usage";
+import { MODELS } from "@/lib/ai/models";
 
 /**
  * Turning "tell me when X" into a canary.
@@ -17,7 +18,7 @@ import { anthropicClient } from "@/lib/ai/usage";
  * defence against that is saying plainly what it decided to look for.
  */
 
-export const DRAFT_MODEL = "claude-opus-5";
+export const DRAFT_MODEL = MODELS.canaryDraft;
 
 /**
  * Generous, because adaptive thinking spends from the same budget as the

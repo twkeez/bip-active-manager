@@ -14,6 +14,7 @@ import type {
   SiteContent,
   ContentResults,
 } from "@/lib/website-audit/types";
+import { MODELS } from "@/lib/ai/models";
 
 // Section 4: content and trust signals. Haiku reads each real page (not tag,
 // category or date archives) with a prompt for its type; Opus then reads
@@ -21,8 +22,8 @@ import type {
 // writes the differentiators, positioning, homepage H1 and ranked fix list.
 // Every claim it makes must cite a page URL or a review.
 
-const PAGE_MODEL = "claude-haiku-5-5";
-const SITE_MODEL = "claude-opus-5-5";
+const PAGE_MODEL = MODELS.websiteAuditPage;
+const SITE_MODEL = MODELS.websiteAuditSite;
 const CONCURRENCY = 6;
 
 type Usage = { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null };
