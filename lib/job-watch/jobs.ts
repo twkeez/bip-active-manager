@@ -29,15 +29,13 @@ export const WATCHED_JOBS: WatchedJob[] = [
   // maps rank tracker for now"). Its Run now button still works. To turn it
   // back on, restore its line in vercel.json ("40 12 * * *") and this entry:
   // { key: "maps-rank", name: "Maps rank tracker", schedule: "daily check; each client every two weeks", overdueAfterHours: 26 },
-  // Hourly 07:05-12:05 UTC on the 1st. Longest normal gap: the 1st at 12:05 to
-  // the next 1st at 07:05, 30 days 19h in a 31-day month; plus a day of slack.
-  {
-    key: "organic-rank",
-    name: "Monthly organic rankings",
-    schedule: "on the 1st of each month",
-    overdueAfterHours: 32 * 24,
-    watchedFrom: "2026-12-01T07:00:00Z",
-  },
+  // Monthly organic rankings: its schedule was paused on Tom's yes while the
+  // DataForSEO balance is empty (DataForSEO emailed on 2026-11-25 that API
+  // access is paused). Scanning by hand from a client's page still works once
+  // DataForSEO is funded. To turn it back on, restore its line in vercel.json
+  // ({ "path": "/api/cron/organic-rank", "schedule": "5 7-12 1 * *" }) and this
+  // entry, with watchedFrom set to the first run you expect:
+  // { key: "organic-rank", name: "Monthly organic rankings", schedule: "on the 1st of each month", overdueAfterHours: 32 * 24, watchedFrom: "<first run>" },
   { key: "master-sheet", name: "Master Sheet roster refresh", schedule: "every morning", overdueAfterHours: 26 },
   { key: "job-watch", name: "Job watchdog", schedule: "hourly", overdueAfterHours: 3 },
   // Mondays 11:20 UTC (7:20 AM Eastern in summer, 6:20 AM in winter): a week plus slack.
